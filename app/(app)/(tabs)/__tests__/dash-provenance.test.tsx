@@ -145,12 +145,6 @@ function collectAllText(test: renderer.ReactTestRenderer): string {
   return parts.join(" ");
 }
 
-function countDashIconPlaceholders(root: renderer.ReactTestInstance): number {
-  return root.findAll(
-    (n) => (n.props as { "data-testid"?: string } | undefined)?.["data-testid"] === "icon",
-  ).length;
-}
-
 describe("Dash provenance", () => {
   beforeEach(() => {
     setDashDailyMonitorFoundationEnabledForTests(false);
@@ -188,27 +182,31 @@ describe("Dash provenance", () => {
     setDashDailyMonitorFoundationEnabledForTests(null);
   });
 
-  it("shows Oli Fitness tab title and Body Composition + Daily Energy sections", () => {
+  it("shows Home tab title and Body Composition + Daily Energy sections", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("Oli Fitness");
+    expect(text).toContain("Home");
     expect(text).toContain("Body Composition");
     expect(text).toContain("Daily Energy");
     expect(text).not.toContain("Track, understand, and improve every part of your health.");
   });
 
-  it("renders header navigation controls on Dash (hamburger icon)", () => {
+  it("renders header settings control on Dash without a hamburger fifth destination", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
-    expect(countDashIconPlaceholders(test.root)).toBe(1);
     expect(
       test.root.findAll(
         (n) => (n.props as { testID?: string }).testID === "dash-manage-menu-trigger",
+      ).length,
+    ).toBe(0);
+    expect(
+      test.root.findAll(
+        (n) => (n.props as { testID?: string }).testID === "user-initial-settings-button",
       ).length,
     ).toBe(1);
   });

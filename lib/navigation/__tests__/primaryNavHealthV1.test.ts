@@ -2,7 +2,6 @@ import {
   PRIMARY_NAV_FORBIDDEN_LABELS,
   PRIMARY_NAVIGATION_ITEMS,
   PRIMARY_PILL_ITEMS,
-  HEALTH_NAV_ITEM,
 } from "@/lib/navigation/primaryNavigationConfig";
 import {
   HEALTH_HUB_FORBIDDEN_LABELS,
@@ -14,8 +13,9 @@ import {
 } from "@/lib/navigation/primaryNavHealthV1";
 import { resolvePrimaryNavActiveDestination } from "@/lib/navigation/resolvePrimaryNavActiveDestination";
 import { SECONDARY_EXPLORE_DESTINATIONS } from "@/lib/navigation/secondaryExploreDestinations";
+import { YOU_HUB_ALL_ITEMS } from "@/lib/navigation/youHubItems";
 
-describe("primaryNavHealthV1 flag", () => {
+describe("primaryNavHealthV1 flag (deprecated)", () => {
   afterEach(() => {
     setPrimaryNavHealthV1EnabledForTests(null);
     delete process.env.EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1;
@@ -27,60 +27,39 @@ describe("primaryNavHealthV1 flag", () => {
     expect(isPrimaryNavHealthV1Enabled()).toBe(true);
   });
 
-  it("enables on \"1\"", () => {
-    process.env.EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1 = "1";
-    setPrimaryNavHealthV1EnabledForTests(null);
-    expect(isPrimaryNavHealthV1Enabled()).toBe(true);
-  });
-
-  it("disables on \"0\"", () => {
+  it("still parses historical env values without controlling the dock", () => {
     process.env.EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1 = "0";
     setPrimaryNavHealthV1EnabledForTests(null);
     expect(isPrimaryNavHealthV1Enabled()).toBe(false);
-  });
-
-  it("treats unexpected values as enabled", () => {
-    process.env.EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1 = "maybe";
-    setPrimaryNavHealthV1EnabledForTests(null);
-    expect(isPrimaryNavHealthV1Enabled()).toBe(true);
-  });
-
-  it("honors test override over env", () => {
-    process.env.EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1 = "0";
-    setPrimaryNavHealthV1EnabledForTests(true);
-    expect(isPrimaryNavHealthV1Enabled()).toBe(true);
+    expect(PRIMARY_NAVIGATION_ITEMS.map((i) => i.label)).toEqual([
+      "Home",
+      "Plan",
+      "Progress",
+      "You",
+    ]);
   });
 });
 
 describe("PRIMARY_NAVIGATION_ITEMS contract", () => {
-  it("has exactly Dash, Strength, Cardio, Nutrition, Health in system order", () => {
+  it("has exactly Home, Plan, Progress, You", () => {
     expect(PRIMARY_NAVIGATION_ITEMS.map((i) => i.label)).toEqual([
-      "Dash",
-      "Strength",
-      "Cardio",
-      "Nutrition",
-      "Health",
+      "Home",
+      "Plan",
+      "Progress",
+      "You",
     ]);
     expect(PRIMARY_NAVIGATION_ITEMS.map((i) => i.id)).toEqual([
-      "dash",
-      "strength",
-      "cardio",
-      "nutrition",
-      "health",
+      "home",
+      "plan",
+      "progress",
+      "you",
     ]);
+    expect(PRIMARY_NAVIGATION_ITEMS).toHaveLength(4);
   });
 
-  it("keeps Health out of the primary pill (detached control)", () => {
-    expect(PRIMARY_PILL_ITEMS.map((i) => i.id)).toEqual([
-      "dash",
-      "strength",
-      "cardio",
-      "nutrition",
-    ]);
-    expect(PRIMARY_PILL_ITEMS.some((i) => i.id === "health")).toBe(false);
-    expect(HEALTH_NAV_ITEM.id).toBe("health");
-    expect(HEALTH_NAV_ITEM.action.kind).toBe("menu");
-    expect(HEALTH_NAV_ITEM.testID).toBe("oli-health-fab");
+  it("keeps all four destinations in the pill with no detached fifth control", () => {
+    expect(PRIMARY_PILL_ITEMS).toEqual(PRIMARY_NAVIGATION_ITEMS);
+    expect(PRIMARY_NAVIGATION_ITEMS.every((i) => i.action.kind === "tab")).toBe(true);
   });
 
   it("does not use forbidden primary labels", () => {
@@ -88,10 +67,6 @@ describe("PRIMARY_NAVIGATION_ITEMS contract", () => {
     for (const forbidden of PRIMARY_NAV_FORBIDDEN_LABELS) {
       expect(labels.has(forbidden)).toBe(false);
     }
-  });
-
-  it("models Health as a menu action", () => {
-    expect(HEALTH_NAV_ITEM.action.kind).toBe("menu");
   });
 
   it("gives each destination icon, label, a11y, and testID", () => {
@@ -106,86 +81,92 @@ describe("PRIMARY_NAVIGATION_ITEMS contract", () => {
 });
 
 describe("HEALTH_HUB_ITEMS contract", () => {
-  it("has the exact seven destinations in product order", () => {
+  it("exposes real capabilities only", () => {
     expect(HEALTH_HUB_ITEMS.map((i) => i.label)).toEqual([
       "Profile",
-      "Medical History",
+      "Body",
+      "Movement",
+      "Recovery",
+      "Sleep",
       "Labs",
-      "Scans",
-      "Medication",
       "Supplements",
-      "DNA",
     ]);
   });
 
-  it("excludes fitness Manage destinations", () => {
+  it("excludes launch-facing placeholders", () => {
     const labels = new Set(HEALTH_HUB_ITEMS.map((i) => i.label));
     for (const forbidden of HEALTH_HUB_FORBIDDEN_LABELS) {
       expect(labels.has(forbidden)).toBe(false);
     }
   });
 
-  it("reuses existing Profile, Labs, and DNA routes", () => {
-    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "profile")?.href).toBe("/(app)/(tabs)/profile");
-    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "labs")?.href).toBe("/(app)/labs");
-    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "dna")?.href).toBe("/(app)/dna");
-  });
-
-  it("points Medical History / Scans / Medication / Supplements at dedicated routes", () => {
-    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "medical_history")?.href).toBe(
-      "/(app)/medical-history",
-    );
-    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "scans")?.href).toBe("/(app)/scans");
-    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "medication")?.href).toBe("/(app)/medication");
+  it("points Movement to the Activity route and Supplements to Nutrition", () => {
+    expect(HEALTH_HUB_ITEMS.find((i) => i.id === "movement")?.href).toBe("/(app)/activity");
     expect(HEALTH_HUB_ITEMS.find((i) => i.id === "supplements")?.href).toBe(
-      "/(app)/supplements",
+      "/(app)/nutrition/supplements",
     );
   });
 });
 
 describe("resolvePrimaryNavActiveDestination", () => {
-  it("selects Dash on /dash", () => {
-    expect(resolvePrimaryNavActiveDestination({ pathname: "/dash" })).toBe("dash");
+  it("selects Home on /dash", () => {
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/dash" })).toBe("home");
   });
 
-  it("selects Strength on workouts landing (not Dash)", () => {
-    expect(resolvePrimaryNavActiveDestination({ pathname: "/workouts" })).toBe("strength");
-    expect(resolvePrimaryNavActiveDestination({ pathname: "/workouts/overview" })).toBe(
-      "strength",
-    );
+  it("selects Plan on program", () => {
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/program" })).toBe("plan");
   });
 
-  it("selects Cardio and Nutrition on their landings", () => {
-    expect(resolvePrimaryNavActiveDestination({ pathname: "/cardio" })).toBe("cardio");
-    expect(resolvePrimaryNavActiveDestination({ pathname: "/nutrition" })).toBe("nutrition");
+  it("selects Progress on progress and timeline", () => {
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/progress" })).toBe("progress");
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/timeline" })).toBe("progress");
   });
 
-  it("selects Health while the menu is open", () => {
+  it("selects You on profile, settings, and Library", () => {
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/you" })).toBe("you");
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/profile" })).toBe("you");
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/labs" })).toBe("you");
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/library" })).toBe("you");
+    expect(resolvePrimaryNavActiveDestination({ focusedTabName: "library" })).toBe("you");
+    expect(resolvePrimaryNavActiveDestination({ focusedTabName: "profile" })).toBe("you");
+  });
+
+  it("selects Progress when the hidden Timeline tab is focused", () => {
+    expect(resolvePrimaryNavActiveDestination({ focusedTabName: "timeline" })).toBe("progress");
+  });
+
+  it("selects Home on domain current-state routes, not Strength/Cardio/Nutrition", () => {
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/workouts" })).toBe("home");
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/cardio" })).toBe("home");
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/nutrition" })).toBe("home");
+  });
+
+  it("ignores healthMenuOpen so Health cannot become a fifth destination", () => {
     expect(
       resolvePrimaryNavActiveDestination({ pathname: "/dash", healthMenuOpen: true }),
-    ).toBe("health");
-  });
-
-  it("selects Health on health family pages", () => {
-    expect(resolvePrimaryNavActiveDestination({ pathname: "/labs" })).toBe("health");
-    expect(resolvePrimaryNavActiveDestination({ pathname: "/scans" })).toBe("health");
-    expect(resolvePrimaryNavActiveDestination({ pathname: "/profile" })).toBe("health");
-    expect(resolvePrimaryNavActiveDestination({ pathname: "/medical-history" })).toBe(
-      "health",
-    );
-  });
-
-  it("does not falsely select Dash on Timeline", () => {
-    expect(resolvePrimaryNavActiveDestination({ pathname: "/timeline" })).toBeNull();
+    ).toBe("home");
   });
 });
 
 describe("SECONDARY_EXPLORE_DESTINATIONS", () => {
-  it("keeps Timeline, Program, and Library reachable via Settings", () => {
-    expect(SECONDARY_EXPLORE_DESTINATIONS.map((d) => d.id)).toEqual([
-      "timeline",
-      "program",
-      "library",
-    ]);
+  it("keeps Timeline and Library reachable without a Program dock item", () => {
+    expect(SECONDARY_EXPLORE_DESTINATIONS.map((d) => d.id)).toEqual(["timeline", "library"]);
+  });
+});
+
+describe("You hub discoverability", () => {
+  it("keeps Profile, devices, assessments, labs, privacy, settings, and failures", () => {
+    const ids = YOU_HUB_ALL_ITEMS.map((i) => i.id);
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        "profile",
+        "devices",
+        "assessments",
+        "labs",
+        "privacy",
+        "settings",
+        "failures",
+      ]),
+    );
   });
 });

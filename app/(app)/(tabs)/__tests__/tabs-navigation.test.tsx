@@ -115,9 +115,12 @@ jest.mock("expo-router", () => {
             index: 0,
             routes: [
               { key: "d", name: "dash" },
-              { key: "t", name: "timeline" },
               { key: "pr", name: "program" },
+              { key: "pg", name: "progress" },
+              { key: "y", name: "you" },
+              { key: "t", name: "timeline" },
               { key: "l", name: "library" },
+              { key: "pf", name: "profile" },
             ],
           },
           descriptors: {},
@@ -146,12 +149,6 @@ jest.mock("expo-router", () => {
 });
 
 import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
-import {
-  DAILY_MONITOR_TAB_A11Y_LABEL,
-  DAILY_MONITOR_TAB_TITLE,
-  setDashDailyMonitorFoundationEnabledForTests,
-} from "@/lib/data/dash/dashDailyMonitorFoundation";
-import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
 import { setPrimaryNavHealthV1EnabledForTests } from "@/lib/navigation/primaryNavHealthV1";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -180,17 +177,10 @@ function findTabs(test: renderer.ReactTestRenderer): { name: string; title: stri
 
 describe("TabsLayout", () => {
   afterEach(() => {
-    setDashDailyMonitorFoundationEnabledForTests(null);
-    setDashWeeklyProgressRelocationEnabledForTests(null);
     setPrimaryNavHealthV1EnabledForTests(null);
   });
 
-  beforeEach(() => {
-    // Legacy assertions below; health v1 covered separately.
-    setPrimaryNavHealthV1EnabledForTests(false);
-  });
-
-  it("has initialRouteName dash", () => {
+  it("has initialRouteName dash (canonical Home filesystem)", () => {
     let test!: renderer.ReactTestRenderer;
 
     act(() => {
@@ -201,10 +191,7 @@ describe("TabsLayout", () => {
     expect(tabsNode.props["data-initial-route"]).toBe("dash");
   });
 
-  it("registers four primary tabs in order (route identity preserved)", () => {
-    setDashDailyMonitorFoundationEnabledForTests(true);
-    setDashWeeklyProgressRelocationEnabledForTests(true);
-
+  it("registers Home Plan Progress You as visible titles and hides Timeline Library Profile", () => {
     let test!: renderer.ReactTestRenderer;
 
     act(() => {
@@ -212,66 +199,67 @@ describe("TabsLayout", () => {
     });
 
     const tabs = findTabs(test);
-    const names = tabs.map((t) => t.name);
-    expect(names).toEqual(["dash", "timeline", "program", "library"]);
-
-    const primaryTitles = tabs.map((t) => t.title);
-    expect(primaryTitles).toEqual([
-      DAILY_MONITOR_TAB_TITLE,
-      "Timeline",
-      "Program",
-      "Library",
+    expect(tabs.map((t) => t.name)).toEqual([
+      "dash",
+      "program",
+      "progress",
+      "you",
+      "timeline",
+      "library",
+      "profile",
     ]);
-  });
-
-  it("uses legacy Dash tab title when Daily Monitor experience is inactive", () => {
-    setDashDailyMonitorFoundationEnabledForTests(false);
-    setDashWeeklyProgressRelocationEnabledForTests(true);
-
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<TabsLayout />);
-    });
-
-    expect(findTabs(test).map((t) => t.title)).toEqual([
-      "Dash",
+    expect(tabs.map((t) => t.title)).toEqual([
+      "Home",
+      "Plan",
+      "Progress",
+      "You",
       "Timeline",
-      "Program",
       "Library",
+      "Profile",
     ]);
+    expect(
+      tabs
+        .filter((t) => ["dash", "program", "progress", "you"].includes(t.name))
+        .every((t) => t.href === "visible"),
+    ).toBe(true);
+    expect(
+      tabs
+        .filter((t) => ["timeline", "library", "profile"].includes(t.name))
+        .every((t) => t.href === "hidden"),
+    ).toBe(true);
   });
 
-  it("exposes Daily Monitor accessibility label while keeping route name dash", () => {
-    setDashDailyMonitorFoundationEnabledForTests(true);
-    setDashWeeklyProgressRelocationEnabledForTests(true);
-    // Re-require is unnecessary; layout reads flags at render time.
+  it("keeps Home label even when the deprecated health-nav flag is off", () => {
+    setPrimaryNavHealthV1EnabledForTests(false);
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<TabsLayout />);
     });
-    const dash = findTabs(test).find((t) => t.name === "dash");
-    expect(dash?.name).toBe("dash");
-    expect(dash?.title).toBe(DAILY_MONITOR_TAB_TITLE);
-    expect(DAILY_MONITOR_TAB_A11Y_LABEL).toBe("Daily Monitor");
+    expect(findTabs(test).find((t) => t.name === "dash")?.title).toBe("Home");
   });
 
-  it("does not register Profile as a bottom nav tab", () => {
+  it("does not hide Profile from the router, only from the dock", () => {
     let test!: renderer.ReactTestRenderer;
 
     act(() => {
       test = renderer.create(<TabsLayout />);
     });
 
-    const names = findTabs(test).map((t) => t.name);
-    expect(names).not.toContain("profile");
+    const profile = findTabs(test).find((t) => t.name === "profile");
+    expect(profile?.href).toBe("hidden");
   });
 
-  it("renders Manage FAB in tab bar chrome", () => {
+  it("renders four-item pill with no Manage or Health FAB", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<TabsLayout />);
     });
-    test.root.findByProps({ testID: "oli-manage-fab" });
+    test.root.findByProps({ testID: "oli-primary-nav-pill" });
+    expect(() => test.root.findByProps({ testID: "oli-manage-fab" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "oli-health-fab" })).toThrow();
+    for (const id of ["home", "plan", "progress", "you"]) {
+      test.root.findByProps({ testID: `oli-tab-${id}` });
+    }
   });
 
   it("sets tab scene background to app screen token so default RN theme gray does not show behind content", () => {
@@ -312,43 +300,5 @@ describe("TabsLayout", () => {
     expect((merged as { right?: number }).right).toBe(0);
     expect((merged as { bottom?: number }).bottom).toBe(0);
     expect(chrome.props.pointerEvents).toBe("box-none");
-  });
-});
-
-describe("TabsLayout health primary nav (Phase 2G-A)", () => {
-  afterEach(() => {
-    setDashDailyMonitorFoundationEnabledForTests(null);
-    setDashWeeklyProgressRelocationEnabledForTests(null);
-    setPrimaryNavHealthV1EnabledForTests(null);
-  });
-
-  beforeEach(() => {
-    setPrimaryNavHealthV1EnabledForTests(true);
-    setDashDailyMonitorFoundationEnabledForTests(true);
-    setDashWeeklyProgressRelocationEnabledForTests(true);
-  });
-
-  it("keeps Dash label as Dash (not Monitor) and hides Timeline/Program/Library from the dock", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<TabsLayout />);
-    });
-    const tabs = findTabs(test);
-    expect(tabs.find((t) => t.name === "dash")?.title).toBe("Dash");
-    expect(tabs.filter((t) => t.name !== "dash").every((t) => t.href === "hidden")).toBe(true);
-  });
-
-  it("renders four-item pill plus detached Health FAB (no Manage)", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<TabsLayout />);
-    });
-    expect(() => test.root.findByProps({ testID: "oli-manage-fab" })).toThrow();
-    test.root.findByProps({ testID: "oli-primary-nav-pill" });
-    test.root.findByProps({ testID: "oli-health-fab" });
-    for (const id of ["dash", "strength", "cardio", "nutrition"]) {
-      test.root.findByProps({ testID: `oli-tab-${id}` });
-    }
-    expect(() => test.root.findByProps({ testID: "oli-tab-health" })).toThrow();
   });
 });

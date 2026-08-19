@@ -6,6 +6,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
 import { AuthProvider, useAuth } from "../lib/auth/AuthProvider";
+import { CONSUMER_HOME_HREF } from "../lib/navigation/consumerHome";
 import { OliThemeProvider } from "../lib/ui/theme/OliThemeContext";
 import { useNutritionOutboxSync } from "../lib/hooks/useNutritionOutboxSync";
 import { ActivityRollupProvider } from "../lib/data/activity/ActivityRollupProvider";
@@ -44,7 +45,7 @@ function RouteGuard() {
     }
 
     if (user && inAuthGroup) {
-      router.replace("/(app)/(tabs)/dash");
+      router.replace(CONSUMER_HOME_HREF);
     }
   }, [initializing, router, segments, user]);
 

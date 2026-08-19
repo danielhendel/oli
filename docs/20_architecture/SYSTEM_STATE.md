@@ -1,8 +1,9 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-08-14 (R0 analytics-first documentation reset)
-**Merged `main` SHA:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
+**Last updated:** 2026-08-19 (R1 four-destination IA **complete on branch**; **not merged**)
+**Merged `main` SHA:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
+**R1 branch:** `feat/analytics-first-r1-four-destination-ia` @ `fee0f05f42f27e04b918a700270c111d47e12772` (visual/a11y; IA `88d67ab`)
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
 **Approved product direction (not implementation proof):** [VISION.md](../10_product/vision/VISION.md)
@@ -45,22 +46,35 @@ The analytics-first product direction **strengthens** this pipeline; it does not
 
 ---
 
-## Merged state (`main` @ `6c8797b`)
+## Merged state (`main` @ `55e2ad6`)
 
 ### Navigation and homes
 
-| Surface | Merged reality |
-|---------|----------------|
-| Primary dock | **Dash · Strength · Cardio · Nutrition · Health** (Health v1 flag default ON) |
-| Auth / session landing | Authenticated routes resolve to `/(app)/(tabs)/dash` (**Dash**, not “Home”) |
-| Command Center | Still present as a parallel module grid at `/(app)/command-center` (competing-home pressure) |
-| Domain routes | Strength/workouts, cardio, nutrition, activity, body, recovery/sleep, labs, etc. exist as modules |
-| Program | Program tab exists; durable coordinated plan documents absent (`currentPrograms`-style emptiness remains a product gap) |
-| Daily Monitor | Dash / Daily Monitor foundation exists as partial monitor product — **not** the approved permanent Home |
-| Timeline / Library / Profile | Phase 1 routes exist; Timeline/Library/Program often hidden from primary dock when Health v1 is ON; Profile via Health hub / tabs |
-| Failures | Trust substrate routes exist |
+| Surface | Merged `main` reality | R1 branch (complete on branch, not merged) |
+|---------|----------------------|------------------------|
+| Primary dock | **Dash · Strength · Cardio · Nutrition · Health** (Health v1 flag default ON) | **Home · Plan · Progress · You** — no FAB fifth destination |
+| Auth / session landing | Authenticated routes resolve to `/(app)/(tabs)/dash` | Same filesystem; user-facing name **Home** (`CONSUMER_HOME_HREF`) |
+| Command Center | Parallel module grid at `/(app)/command-center` (competing-home pressure) | Compatibility **Redirect to Home** (grid not rendered) |
+| Daily Recap | Placeholder surface | Compatibility **Redirect to Home** |
+| Domain routes | Strength/workouts, cardio, nutrition, activity, body, recovery/sleep, labs, etc. exist as modules | Unchanged routes; consumer label **Movement** for Activity |
+| Program / Plan | Program tab; durable coordinated plan documents absent | Tab label **Plan**; honest empty state; placeholder cardio/nutrition/recovery builders not launch-facing; workout builder route preserved, not advertised |
+| Daily Monitor | Dash / Daily Monitor foundation — **not** the approved permanent Home identity | Retained as **Today** section under Home; header is Home |
+| Progress | Weekly Progress was relocated toward Program/Dash flags | Dedicated Progress tab; Weekly Progress once when relocation ON; Timeline + domain histories |
+| You | Profile via Health hub / hidden tabs | You hub: profile, devices, assessments, labs, privacy, Your Data, settings, failures, Health & Performance Data |
+| Timeline / Library / Failures | Phase 1 routes exist | Timeline under Progress; Library (data lineage) and Failures under You |
+| Flags | `EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1` historically switched docks | Health-v1 **deprecated no-op** for chrome; Daily Monitor + Weekly Progress flags still govern those real components |
 
-**Approved but not implemented on `main`:** `Home · Plan · Progress · You`.
+**Approved IA is implemented on the R1 branch, not on merged `main`.** Physical-iPhone R1 smoke **PASS** (2026-08-19). Current State / What Oli Sees / overall score remain **not implemented**. PR #212 remains Draft.
+
+Home (R1): no fabricated Current State; copy “Building your health picture” is not an analytical result. Today Movement shows positive finite steps when measured (device: 2,431 Steps; Apple Health `hkEmpty: false`) and omits stored zero so empty aggregates are not “0 Steps · Sedentary”. Unfinished-day sedentary classification is deferred to Stage 3.
+
+Plan (R1): `currentPrograms = []`; no persistence; no Oli-authored plan language; not called My Plan.
+
+Progress (R1): no adherence/outcome/causal claims. History rows scroll fully above the floating dock.
+
+You (R1): DNA / Medical History / Scans / Medication placeholders are hidden from launch navigation; one Supplements destination (`/(app)/nutrition/supplements`). Hub rows scroll fully above the floating dock. Account uses consumer title **Account**, dark-theme readable status, no Firebase UID.
+
+Auth (R1): dark Sign In / Create account; light iOS status bar; sign-out → Sign In → Home; force-quit restore on Home. Command Center is a Home redirect, not a rendered home.
 
 ### Integrations and pipeline
 
@@ -92,16 +106,16 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 
 ---
 
-## Draft state (PR #210 — not merged)
+## Closed unmerged state (PR #210 — not merged)
 
 | Fact | Detail |
 |------|--------|
-| PR | [#210](https://github.com/danielhendel/oli/pull/210) Draft |
-| Head (as of R0) | `f64c69736c15b2877789ab2dee0a06c2e9edfaa7` |
+| PR | [#210](https://github.com/danielhendel/oli/pull/210) **CLOSED**, unmerged |
+| Head | `f64c69736c15b2877789ab2dee0a06c2e9edfaa7` |
 | Five-item dock | Today · Strength · Cardio · Nutrition · Health — **not merged**; **not** product authority |
 | Today naming | Draft-only; superseded by approved Home |
-| Cleanup value | Honesty redirects, hub cleanup, Program empty state may be reused after disposition |
-| R0 action | Disposition documented; PR unmodified |
+| Cleanup value | Honesty redirects, hub cleanup, Program empty state **reimplemented** on R1 (no cherry-pick) |
+| R1 action | Disposition executed; PR #210 branch unmodified |
 
 See [delta audit](../audits/2026-08-14-analytics-first-product-direction-delta.md).
 
@@ -120,7 +134,7 @@ Home · Plan · Progress · You
 | Progress | Execution, adherence, outcomes, trends, analysis |
 | You | Account, sources, assessments, labs, history, privacy, export, deletion, settings |
 
-Do **not** state that this navigation or these experiences are already implemented.
+Do **not** state that this navigation is already merged to `main`. On the R1 branch the four destinations exist as shells with physical-iPhone PASS; Current State, What Oli Sees, Plan persistence, and Progress analytics remain unimplemented. Next after merge: Consumer Ownership and Account Recovery.
 
 ---
 
@@ -128,7 +142,7 @@ Do **not** state that this navigation or these experiences are already implement
 
 **Stack:** Expo, Expo Router, Firebase JS Auth (client)
 
-**Responsibilities:** Authenticate; hold session; call Cloud Run API; render domain modules and Dash / Daily Monitor surfaces.
+**Responsibilities:** Authenticate; hold session; call Cloud Run API; render domain modules and Home / Daily Monitor, Plan, Progress, and You shells (R1 branch).
 
 ---
 

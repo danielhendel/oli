@@ -1,29 +1,21 @@
 import type { ComponentProps } from "react";
 import type { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
+import { CONSUMER_HOME_A11Y_LABEL, CONSUMER_HOME_HREF, CONSUMER_HOME_LABEL } from "@/lib/navigation/consumerHome";
 import { OLI_TAB_ROUTES } from "@/lib/navigation/tabRoutes";
 
 /**
- * Phase 2G-A primary dock destinations (health-focused navigation).
+ * Analytics-first primary dock destinations.
  * Exhaustive union — handle every member when switching.
  */
-export type PrimaryNavigationDestination =
-  | "dash"
-  | "strength"
-  | "cardio"
-  | "nutrition"
-  | "health";
+export type PrimaryNavigationDestination = "home" | "plan" | "progress" | "you";
 
-export type PrimaryNavigationAction =
-  | { kind: "tab"; tabName: "dash" }
-  | { kind: "href"; href: Href }
-  | { kind: "menu" };
+export type PrimaryNavigationAction = { kind: "tab"; tabName: "dash" | "program" | "progress" | "you" };
 
 export type PrimaryNavigationItem = {
   id: PrimaryNavigationDestination;
   label: string;
   accessibilityLabel: string;
-  /** Extra VoiceOver hint when the destination opens a menu instead of navigating. */
   accessibilityHint?: string;
   testID: string;
   icon: ComponentProps<typeof Ionicons>["name"];
@@ -31,85 +23,70 @@ export type PrimaryNavigationItem = {
   action: PrimaryNavigationAction;
 };
 
-/** Canonical stack hrefs for Strength / Cardio / Nutrition landings (reuse existing routes). */
-export const PRIMARY_NAV_STACK_HREFS = {
-  strength: "/(app)/workouts",
-  cardio: "/(app)/cardio",
-  nutrition: "/(app)/nutrition",
-} as const satisfies Record<"strength" | "cardio" | "nutrition", Href>;
+/** Canonical Home filesystem href. User-facing name is Home, not Dash. */
+export const PRIMARY_NAV_DASH_HREF = CONSUMER_HOME_HREF;
 
-export const PRIMARY_NAV_DASH_HREF = OLI_TAB_ROUTES.dash;
+export const PRIMARY_NAV_TAB_HREFS = {
+  home: CONSUMER_HOME_HREF,
+  plan: OLI_TAB_ROUTES.program as Href,
+  progress: OLI_TAB_ROUTES.progress as Href,
+  you: OLI_TAB_ROUTES.you as Href,
+} as const satisfies Record<PrimaryNavigationDestination, Href>;
 
 /**
- * Four direct destinations inside the primary navigation pill.
- * Health is intentionally excluded — it renders as a detached circular control.
+ * Exactly four primary destinations. No detached FAB / menu fifth destination.
  */
-export const PRIMARY_PILL_ITEMS: readonly PrimaryNavigationItem[] = [
+export const PRIMARY_NAVIGATION_ITEMS: readonly PrimaryNavigationItem[] = [
   {
-    id: "dash",
-    label: "Dash",
-    accessibilityLabel: "Dash",
-    testID: "oli-tab-dash",
+    id: "home",
+    label: CONSUMER_HOME_LABEL,
+    accessibilityLabel: CONSUMER_HOME_A11Y_LABEL,
+    testID: "oli-tab-home",
     icon: "home",
     iconOutline: "home-outline",
     action: { kind: "tab", tabName: "dash" },
   },
   {
-    id: "strength",
-    label: "Strength",
-    accessibilityLabel: "Strength",
-    testID: "oli-tab-strength",
-    icon: "barbell",
-    iconOutline: "barbell-outline",
-    action: { kind: "href", href: PRIMARY_NAV_STACK_HREFS.strength },
+    id: "plan",
+    label: "Plan",
+    accessibilityLabel: "Plan",
+    testID: "oli-tab-plan",
+    icon: "clipboard",
+    iconOutline: "clipboard-outline",
+    action: { kind: "tab", tabName: "program" },
   },
   {
-    id: "cardio",
-    label: "Cardio",
-    accessibilityLabel: "Cardio",
-    testID: "oli-tab-cardio",
-    icon: "bicycle",
-    iconOutline: "bicycle-outline",
-    action: { kind: "href", href: PRIMARY_NAV_STACK_HREFS.cardio },
+    id: "progress",
+    label: "Progress",
+    accessibilityLabel: "Progress",
+    testID: "oli-tab-progress",
+    icon: "trending-up",
+    iconOutline: "trending-up-outline",
+    action: { kind: "tab", tabName: "progress" },
   },
   {
-    id: "nutrition",
-    label: "Nutrition",
-    accessibilityLabel: "Nutrition",
-    testID: "oli-tab-nutrition",
-    icon: "restaurant",
-    iconOutline: "restaurant-outline",
-    action: { kind: "href", href: PRIMARY_NAV_STACK_HREFS.nutrition },
+    id: "you",
+    label: "You",
+    accessibilityLabel: "You",
+    testID: "oli-tab-you",
+    icon: "person",
+    iconOutline: "person-outline",
+    action: { kind: "tab", tabName: "you" },
   },
 ] as const;
 
-/**
- * Detached Health control (menu action — not a fake route).
- * Renders beside the pill, reusing Manage/FAB visual grammar.
- */
-export const HEALTH_NAV_ITEM: PrimaryNavigationItem = {
-  id: "health",
-  label: "Health",
-  accessibilityLabel: "Health",
-  accessibilityHint: "Opens the Health menu",
-  testID: "oli-health-fab",
-  icon: "heart",
-  iconOutline: "heart-outline",
-  action: { kind: "menu" },
-};
+/** All four destinations render inside the pill. Alias kept for existing callers. */
+export const PRIMARY_PILL_ITEMS = PRIMARY_NAVIGATION_ITEMS;
 
-/**
- * Full primary navigation system order (pill destinations + detached Health).
- * Prefer {@link PRIMARY_PILL_ITEMS} + {@link HEALTH_NAV_ITEM} for layout.
- */
-export const PRIMARY_NAVIGATION_ITEMS: readonly PrimaryNavigationItem[] = [
-  ...PRIMARY_PILL_ITEMS,
-  HEALTH_NAV_ITEM,
-] as const;
-
-/** Labels that must never appear in the Phase 2G-A primary dock. */
+/** Labels that must never appear in the analytics-first primary dock. */
 export const PRIMARY_NAV_FORBIDDEN_LABELS = [
+  "Today",
+  "Dash",
   "Monitor",
+  "Strength",
+  "Cardio",
+  "Nutrition",
+  "Health",
   "Timeline",
   "Program",
   "Library",

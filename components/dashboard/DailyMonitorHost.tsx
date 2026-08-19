@@ -9,9 +9,14 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { DashScreenHeader } from "@/components/dashboard/DashScreenHeader";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
-  DAILY_MONITOR_APP_HEADER_TITLE,
-  DAILY_MONITOR_SCREEN_TITLE,
-} from "@/lib/data/dash/dashDailyMonitorFoundation";
+  CONSUMER_HOME_A11Y_LABEL,
+  CONSUMER_HOME_LABEL,
+  CONSUMER_HOME_QUESTION,
+  HOME_BASELINE_BODY,
+  HOME_BASELINE_HEADING,
+  HOME_HEALTH_PERFORMANCE_TITLE,
+  HOME_TODAY_SECTION_TITLE,
+} from "@/lib/navigation/consumerHome";
 import { buildDailyMonitorViewModel } from "@/lib/data/dash/buildDailyMonitorViewModel";
 import { useBodyCompositionDashCard } from "@/lib/data/dash/useBodyCompositionDashCard";
 import { useDailyNutritionCard } from "@/lib/data/dash/useDailyNutritionCard";
@@ -197,8 +202,9 @@ export function DailyMonitorHost(): React.ReactElement {
   return (
     <View style={styles.root} testID="daily-monitor-host">
       <DashScreenHeader
-        title={DAILY_MONITOR_APP_HEADER_TITLE}
-        accessibilityLabel={DAILY_MONITOR_APP_HEADER_TITLE}
+        title={CONSUMER_HOME_LABEL}
+        dateLabel={CONSUMER_HOME_QUESTION}
+        accessibilityLabel={CONSUMER_HOME_A11Y_LABEL}
       />
       <ScrollView
         style={styles.scrollView}
@@ -209,16 +215,30 @@ export function DailyMonitorHost(): React.ReactElement {
         testID="daily-monitor-scroll"
       >
         <View
+          style={styles.healthPicture}
+          testID="home-health-performance"
+          accessible
+          accessibilityLabel={`${HOME_HEALTH_PERFORMANCE_TITLE}. ${HOME_BASELINE_HEADING}. ${HOME_BASELINE_BODY}`}
+        >
+          <Text style={styles.healthPictureTitle} accessibilityRole="header">
+            {HOME_HEALTH_PERFORMANCE_TITLE}
+          </Text>
+          <Text style={styles.baselineHeading} testID="home-baseline-heading">
+            {HOME_BASELINE_HEADING}
+          </Text>
+          <Text style={styles.baselineBody}>{HOME_BASELINE_BODY}</Text>
+        </View>
+        <View
           style={styles.pageIntro}
           accessible
-          accessibilityLabel={`${DAILY_MONITOR_SCREEN_TITLE}. ${dateLabel}`}
+          accessibilityLabel={`${HOME_TODAY_SECTION_TITLE}. ${dateLabel}`}
         >
           <Text
             style={styles.pageTitle}
             accessibilityRole="header"
             testID="daily-monitor-page-title"
           >
-            {DAILY_MONITOR_SCREEN_TITLE}
+            {HOME_TODAY_SECTION_TITLE}
           </Text>
           <Text style={styles.pageDate} accessibilityRole="text" testID="daily-monitor-page-date">
             {dateLabel}
@@ -246,7 +266,7 @@ export function DailyMonitorHost(): React.ReactElement {
 
         {monitorVm.screenStatus === "loading" ? (
           <Text style={styles.status} accessibilityRole="text">
-            Loading Daily Monitor{"\u2026"}
+            Loading today{"\u2019"}s measurements{"\u2026"}
           </Text>
         ) : null}
 
@@ -367,6 +387,27 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     flexGrow: 1,
     backgroundColor: UI_APP_SCREEN_BG,
+  },
+  healthPicture: {
+    marginTop: 4,
+    marginBottom: 12,
+    gap: 6,
+  },
+  healthPictureTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: UI_TEXT_SECONDARY,
+    letterSpacing: 0.2,
+  },
+  baselineHeading: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: UI_TEXT_PRIMARY,
+  },
+  baselineBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: UI_TEXT_SECONDARY,
   },
   pageIntro: {
     marginTop: 4,

@@ -3,12 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 import renderer from "react-test-renderer";
 
-import {
-  setDashWeeklyProgressRelocationEnabledForTests,
-  WEEKLY_PROGRESS_CONSUMER_TITLE,
-  WEEKLY_PROGRESS_SUPPORTING_COPY,
-} from "@/lib/data/dash/dashWeeklyProgressRelocation";
-
 const mockPush = jest.fn();
 
 jest.mock("expo-router", () => ({
@@ -27,23 +21,8 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
 }));
 
-jest.mock("@/lib/preferences/PreferencesProvider", () => ({
-  usePreferences: () => ({
-    state: { preferences: {} },
-  }),
-}));
-
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({ user: { uid: "t1" }, initializing: false, getIdToken: jest.fn() }),
-}));
-
-jest.mock("@/lib/data/dash/useWeeklyFitnessCard", () => ({
-  useWeeklyFitnessCard: () => ({
-    loading: false,
-    error: null,
-    model: null,
-    goalsHref: "/(app)/fitness-goals",
-  }),
 }));
 
 jest.mock("react-native", () => ({
@@ -54,22 +33,11 @@ jest.mock("react-native", () => ({
   StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },
 }));
 
-jest.mock("react-native-svg", () => ({
-  __esModule: true,
-  default: "Svg",
-  Circle: "Circle",
-}));
-
 import ProgramScreen from "../program";
-import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
+import { ANALYTICS_FIRST_PROHIBITED_COPY } from "@/lib/navigation/consumerHome";
 
 beforeEach(() => {
   mockPush.mockClear();
-  setDashWeeklyProgressRelocationEnabledForTests(true);
-});
-
-afterEach(() => {
-  setDashWeeklyProgressRelocationEnabledForTests(null);
 });
 
 function renderProgram(): renderer.ReactTestRenderer {
@@ -91,28 +59,17 @@ function collectText(test: renderer.ReactTestRenderer): string {
   return parts.join(" ");
 }
 
-describe("Program tab", () => {
-  it("renders the Program header title", () => {
-    const test = renderProgram();
-    const str = JSON.stringify(test.toJSON());
-    expect(str).toContain("Program");
-  });
-
-  it("renders Weekly Progress when relocation is enabled", () => {
+describe("Plan tab", () => {
+  it("renders the Plan header title", () => {
     const test = renderProgram();
     const text = collectText(test);
-    expect(text).toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
-    expect(text).toContain(WEEKLY_PROGRESS_SUPPORTING_COPY);
-    expect(test.root.findByProps({ testID: "program-weekly-progress-section" })).toBeTruthy();
-    expect(text).not.toMatch(/adherence/i);
-    expect(text).not.toMatch(/health score/i);
+    expect(text).toContain("Plan");
+    expect(text).toContain("What am I doing?");
+    expect(text).not.toContain("My Plan");
   });
 
-  it("omits Weekly Progress when relocation is disabled", () => {
-    setDashWeeklyProgressRelocationEnabledForTests(false);
+  it("does not mount Weekly Progress on Plan", () => {
     const test = renderProgram();
-    const text = collectText(test);
-    expect(text).not.toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
     expect(
       test.root.findAll(
         (n) => (n.props as { testID?: string }).testID === "program-weekly-progress-section",
@@ -120,62 +77,40 @@ describe("Program tab", () => {
     ).toHaveLength(0);
   });
 
-  it("renders the + button instead of the settings gear", () => {
+  it("does not render a launch-facing builder + control", () => {
     const test = renderProgram();
-    expect(test.root.findByProps({ testID: "program-add-button" })).toBeTruthy();
-    const str = JSON.stringify(test.toJSON());
-    expect(str).not.toContain("Settings");
+    expect(
+      test.root.findAll((n) => (n.props as { testID?: string }).testID === "program-add-button"),
+    ).toHaveLength(0);
   });
 
-  it("renders the + icon using the white primary text token", () => {
-    const buttonPath = path.join(__dirname, "../../../../lib/ui/program/ProgramAddButton.tsx");
-    const src = fs.readFileSync(buttonPath, "utf8");
-    expect(src).toContain("UI_TEXT_PRIMARY");
-    expect(src).not.toContain("#1C1C1E");
-    expect(UI_TEXT_PRIMARY).toBe("#F7F8FA");
-  });
-
-  it("navigates to the Program Builder hub when + is pressed", () => {
-    const test = renderProgram();
-    const addBtn = test.root.findByProps({ testID: "program-add-button" });
-    act(() => {
-      (addBtn.props.onPress as () => void)();
-    });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/program/builder");
-  });
-
-  it("does not render the Builders section or builder cards", () => {
+  it("does not render placeholder builder cards", () => {
     const test = renderProgram();
     const str = JSON.stringify(test.toJSON());
     expect(str).not.toContain("Builders");
-    expect(str).not.toContain("ACTIVE PROGRAM");
     expect(str).not.toContain("Workout Builder");
-    expect(str).not.toContain("program-builder-card-workout");
+    expect(str).not.toContain("Cardio Builder");
+    expect(str).not.toContain("program-category-cards");
   });
 
-  it("renders category cards for plan design", () => {
-    const test = renderProgram();
-    expect(test.root.findByProps({ testID: "program-category-cards" })).toBeTruthy();
-    expect(test.root.findByProps({ testID: "program-category-activity" })).toBeTruthy();
-  });
-
-  it("renders the empty state when no current programs exist alongside Weekly Progress", () => {
+  it("renders an honest empty state when no current plan exists", () => {
     const test = renderProgram();
     expect(test.root.findByProps({ testID: "program-current-empty" })).toBeTruthy();
-    const str = JSON.stringify(test.toJSON());
-    expect(str).toContain("No active programs yet");
-    expect(str).toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
-    expect(str).not.toContain("Saved Programs");
-    expect(str).not.toContain("Shared Programs");
+    const text = collectText(test);
+    expect(text).toContain("No active plan");
+    expect(text).toContain("Plans created by you or provided by a professional will appear here.");
+    expect(text).not.toContain("Saved Programs");
+    for (const phrase of ANALYTICS_FIRST_PROHIBITED_COPY) {
+      expect(text).not.toContain(phrase);
+    }
   });
 
-  it("does not add Firebase or raw HTTP/API calls to the Program route", () => {
+  it("does not add Firebase or raw HTTP/API calls to the Plan route", () => {
     const routePath = path.join(__dirname, "..", "program.tsx");
     const src = fs.readFileSync(routePath, "utf8");
     expect(src).not.toMatch(/\bfetch\s*\(/);
     expect(src).not.toMatch(/from\s+["'][^"']*firebase[^"']*["']/i);
     expect(src).not.toMatch(/from\s+["'][^"']*lib\/api\/http["']/);
     expect(src).not.toMatch(/apiGet[A-Za-z]*\s*\(/);
-    expect(src).not.toContain("useWeeklyFitnessCard");
   });
 });

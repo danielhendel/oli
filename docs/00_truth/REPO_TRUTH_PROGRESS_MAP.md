@@ -1,16 +1,19 @@
 # Repo-Truth Progress Map
 
 **Status:** Current operational truth (subordinate to code + CI)
-**Last verified:** 2026-08-14
-**Merged `main` SHA:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
-**Stage 1A:** Merged (PR #209) at the SHA above
+**Last verified:** 2026-08-19
+**Merged `main` SHA:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
+**R0:** Merged (PR #211) at the SHA above
+**Stage 1A:** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `R0 — Analytics-First Product Direction Reset`
-**Current next implementation stage after R0 merges:** `R1 — PR #210 Disposition and Four-Destination Information Architecture`
+**Current execution-stage label:** `R1 — PR #210 Disposition and Four-Destination Information Architecture`
+**Current next implementation stage after R1 merges:** `Stage 1 — Consumer Ownership and Account Recovery`
 
 > **Rule:** If this map conflicts with merged code or CI, **code and CI win**. Update this map; do not invent product truth from docs alone.
 
-> **R0 status:** Documentation implementation branch in progress (`docs/analytics-first-product-direction-reset`). Do **not** mark R0 complete before its PR merges.
+> **R0 status:** Complete and merged (PR #211). Do **not** treat R0 as in-progress.
+
+> **R1 status:** **Complete on branch, pending merge.** Physical-iPhone smoke PASS (2026-08-19). PR [#212](https://github.com/danielhendel/oli/pull/212) remains **Draft** — do not merge from this record. Do **not** treat R1 as merged to `main`.
 
 ---
 
@@ -28,19 +31,19 @@ Schema/code authority for shared contracts: **`lib/contracts` source** (emitted 
 
 ---
 
-## PR #210 (Draft — unmodified by R0)
+## PR #210 (CLOSED — superseded, unmerged)
 
 | Field | Value |
 |-------|-------|
 | PR | [#210](https://github.com/danielhendel/oli/pull/210) |
-| Branch | `feat/consumer-launch-stage1b-today-ia` |
-| Head (as of R0) | `f64c69736c15b2877789ab2dee0a06c2e9edfaa7` |
-| State | **OPEN Draft**, unmerged |
-| Product basis | Partly superseded **Today / domain-tab** direction |
-| Salvage | Potentially reusable cleanup; requires disposition (see delta audit) |
-| R0 action | Document disposition only — **do not merge, close, or edit** in R0 |
+| Branch | `feat/consumer-launch-stage1b-today-ia` (**preserved**; do not delete) |
+| Head | `f64c69736c15b2877789ab2dee0a06c2e9edfaa7` |
+| State | **CLOSED**, unmerged |
+| Product basis | Superseded **Today / domain-tab** direction |
+| Salvage | Reusable cleanup only; must be reimplemented intentionally on R1 — **do not merge, reopen, rebase, or cherry-pick** |
+| R1 action | Approved salvage **reimplemented** on this branch (no cherry-pick, no merge of PR #210) |
 
-Stage **1C** under the old Today/My Plan roadmap is **no longer** the immediate next step after R0.
+Stage **1C** under the old Today/My Plan roadmap is **no longer** the immediate next step after R1.
 
 ---
 
@@ -48,7 +51,7 @@ Stage **1C** under the old Today/My Plan roadmap is **no longer** the immediate 
 
 Technical foundations from the August 10 audit remain valid unless merged code disproves them:
 
-- Firebase email/password auth substrate (device smoke may still be unverified)
+- Firebase email/password auth substrate (R1 physical-iPhone sign-in, sign-out, and session restore PASS; password reset still missing)
 - Cloud Run API as authenticated ingest / public API boundary
 - Client trust boundary (no Firestore in `app/` / `components/`)
 - Constitutional invariant CI checks
@@ -58,16 +61,39 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 
 ## Partial product capabilities (merged `main`)
 
-- Dash / Daily Monitor as monitor foundation (label still **Dash**, not Home)
+- Dash / Daily Monitor as monitor foundation (user-facing Home exists only on the R1 branch)
 - Assessment / Baseline / Target UI with **in-memory** assessment store
 - Program tab without durable human-authored Plan representation
 - Seven domains exist as modules/structure; not one Current State OS surface
 - Ownership backend complete; mobile export/delete CTAs and legal URLs missing
-- Primary dock remains Dash · Strength · Cardio · Nutrition · Health
+- Primary dock on **merged `main`** remains Dash · Strength · Cardio · Nutrition · Health
+
+## R1 branch (complete on branch, not merged)
+
+- Branch: `feat/analytics-first-r1-four-destination-ia`
+- Navigation/IA: `88d67ab4ab3f53a36f86440d86a574eafddbee0a`
+- Visual/accessibility follow-up: `fee0f05f42f27e04b918a700270c111d47e12772`
+- This map records physical-iPhone PASS and branch completion (docs commit on the same branch)
+- Primary dock: **Home · Plan · Progress · You** exactly; no fifth primary/FAB destination (filesystem Home remains `/(app)/(tabs)/dash`)
+- Auth / RouteGuard / sign-in / sign-up land on Home (`CONSUMER_HOME_HREF`)
+- Command Center and Daily Recap are compatibility redirects to Home; `/supplements` → Nutrition supplements; `/program/builder` → Plan
+- Home transitional shell: “Where am I?” + “Building your health picture” + Today Daily Monitor (no overall score / no What Oli Sees)
+- Plan: honest empty state (`currentPrograms = []`); placeholder builders not launch-facing
+- Progress: Weekly Progress once (when relocation flag ON) + history links; last rows clear the floating dock
+- You: profile, devices, assessments, labs, privacy, settings, Account, failures, domain discovery; Movement presentation label for Activity; last rows clear the floating dock
+- Account: consumer title **Account**; readable dark-theme status panel; Firebase UID absent from consumer UI
+- Auth screens: dark canvas with root `StatusBar style="light"`
+- Home Movement: Daily Monitor omits stored `activity.steps === 0` (empty HealthKit aggregate must not read as measured sedentary). Physical device showed a real positive count (**2,431 Steps**) with Metro `hasHkSteps: true`, `hkEmpty: false`, `stepsMatch: true`. Partial-day “Sedentary while the day is unfinished” is **not** an R1 classification — record for Stage 3 Analytics Truth Contracts.
+- **Static verification (2026-08-19):** `npm ci`, typecheck, lint, invariants, client trust boundary, `npm test -- --ci` (**988 suites / 6158 tests / 0 skipped**), `npm run check`, `git diff --check` all exit 0
+- **Test inventory vs R0/`main` (982 / 6154):** net **+6 suites / +4 tests**. IA suites were renamed/replaced around the four-destination dock (no auth, privacy, domain, trust-boundary, or pipeline suites removed). Mid-R1 static count was 985 / 6151 because several Program/Health-nav `it()`s were consolidated into Plan/Progress/You/routing tests. Visual follow-up added Account, Sign In, and dock-padding suites (+3 suites / +7 tests → 988 / 6158).
+- **Expo Doctor:** same 5 pre-existing findings; no new R1 finding
+- **Runtime (physical iPhone, 2026-08-19):** **PASS** — four-destination selected states; Plan empty honesty; Progress/You dock clearance; Account a11y; dark Sign In; sign out → Sign In → Home with Home selected; force-quit/reopen restored session on Home; compatibility routes; no Command Center / Sign In flash / redirect loop. Staging development build.
+- **PR #212:** OPEN, **Draft**, must not be merged from this record
+- **PR #178:** OPEN / CONFLICTING; R1 supersedes a floating Profile fifth destination. Close only after R1 merges, via a separate gate.
 
 ## Missing under analytics-first launch direction
 
-- Four-destination IA: **Home · Plan · Progress · You** (approved, not implemented)
+- Four-destination IA **on merged `main`** (implemented on R1 branch; **complete on branch**; pending merge of Draft PR #212)
 - Current State productization, What Oli Sees, confidence / analytical explanation contracts
 - Human-created Plan representation with provenance (no Oli authorship)
 - Progress analytics (execution, adherence, outcomes) as a first-class surface
@@ -76,12 +102,12 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Device-verified E2E golden paths for launch acceptance
 - Defensible overall score (gated — not a P0 assumption)
 
-**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-created Plan analytics surface, Progress analytics — unless/until merged code proves otherwise.
+**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-created Plan persistence, Progress outcome analytics, ownership UI, onboarding.
 
 ## In progress (not complete)
 
-- **R0** documentation branch (this map’s stage) — incomplete until PR merges
-- Draft PR #210 — Draft, superseded direction, salvage pending R1
+- **R1 is complete on branch** and pending merge (Draft PR #212). Next implementation after merge: **Stage 1 — Consumer Ownership and Account Recovery** (not started)
+- PR #210 remains CLOSED unmerged; preserved branch unmodified
 - Other open PRs and local worktrees are **in-progress only** until merged to `main`
 
 ## Code Check Gate

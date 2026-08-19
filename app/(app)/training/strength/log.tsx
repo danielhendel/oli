@@ -224,7 +224,7 @@ export default function StrengthLogScreen() {
 
       const day = forcedDay ?? ymdInTimeZoneFromIso(payload.startedAt, payload.timeZone);
       router.replace({
-        pathname: "/(app)/command-center",
+        pathname: "/(app)/(tabs)/dash",
         params: { day, refresh: refreshKey },
       });
     } catch (e: unknown) {

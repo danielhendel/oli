@@ -3,25 +3,11 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { CommonActions } from "@react-navigation/native";
 import { normalizePathname } from "@/lib/navigation/normalizePathname";
 import {
-  PRIMARY_NAV_DASH_HREF,
-  PRIMARY_NAV_STACK_HREFS,
+  PRIMARY_NAV_TAB_HREFS,
   type PrimaryNavigationDestination,
   type PrimaryNavigationItem,
   assertNeverPrimaryDestination,
 } from "@/lib/navigation/primaryNavigationConfig";
-
-const STACK_PRIMARY_PATHS = new Set([
-  normalizePathname("/workouts"),
-  normalizePathname("/workouts/overview"),
-  normalizePathname("/cardio"),
-  normalizePathname("/nutrition"),
-  normalizePathname("/nutrition/overview"),
-]);
-
-function isOnStackPrimaryLanding(pathname: string | null | undefined): boolean {
-  const p = normalizePathname(pathname);
-  return STACK_PRIMARY_PATHS.has(p);
-}
 
 function destinationMatchesPathname(
   id: PrimaryNavigationDestination,
@@ -29,16 +15,14 @@ function destinationMatchesPathname(
 ): boolean {
   const p = normalizePathname(pathname);
   switch (id) {
-    case "dash":
+    case "home":
       return p === "/dash";
-    case "strength":
-      return p === "/workouts" || p === "/workouts/overview";
-    case "cardio":
-      return p === "/cardio";
-    case "nutrition":
-      return p === "/nutrition" || p === "/nutrition/overview";
-    case "health":
-      return false;
+    case "plan":
+      return p === "/program";
+    case "progress":
+      return p === "/progress";
+    case "you":
+      return p === "/you";
     default:
       return assertNeverPrimaryDestination(id);
   }
@@ -51,21 +35,16 @@ export type NavigatePrimaryDestinationArgs = {
   router: Pick<Router, "push" | "replace">;
   /** Real tab navigator props when mounted inside `(tabs)`. */
   tabBarProps?: BottomTabBarProps | null;
+  /** @deprecated Health menu is not a primary destination. Ignored. */
   onHealthMenuPress?: () => void;
 };
 
 /**
  * Navigate to a primary destination without duplicating the current screen.
- * Health opens the menu via callback (no route change).
  */
 export function navigatePrimaryDestination(args: NavigatePrimaryDestinationArgs): void {
-  const { item, activeDestination, pathname, router, tabBarProps, onHealthMenuPress } = args;
+  const { item, activeDestination, pathname, router, tabBarProps } = args;
   const action = item.action;
-
-  if (action.kind === "menu") {
-    onHealthMenuPress?.();
-    return;
-  }
 
   if (activeDestination === item.id && destinationMatchesPathname(item.id, pathname)) {
     return;
@@ -76,7 +55,7 @@ export function navigatePrimaryDestination(args: NavigatePrimaryDestinationArgs)
       const { state, navigation } = tabBarProps;
       const route = state.routes.find((r) => r.name === action.tabName);
       if (!route) {
-        router.push(PRIMARY_NAV_DASH_HREF as Href);
+        router.push(PRIMARY_NAV_TAB_HREFS[item.id] as Href);
         return;
       }
       const alreadyFocused = state.routes[state.index]?.name === route.name;
@@ -99,27 +78,7 @@ export function navigatePrimaryDestination(args: NavigatePrimaryDestinationArgs)
       );
       return;
     }
-    router.push(PRIMARY_NAV_DASH_HREF as Href);
+    router.push(PRIMARY_NAV_TAB_HREFS[item.id] as Href);
     return;
   }
-
-  if (action.kind === "href") {
-    const href = action.href;
-    if (isOnStackPrimaryLanding(pathname)) {
-      router.replace(href);
-    } else {
-      router.push(href);
-    }
-    return;
-  }
-
-  const _exhaustive: never = action;
-  void _exhaustive;
-}
-
-/** Href lookup for stack primary destinations (tests / overlay). */
-export function primaryStackHrefFor(
-  id: "strength" | "cardio" | "nutrition",
-): Href {
-  return PRIMARY_NAV_STACK_HREFS[id];
 }

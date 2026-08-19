@@ -39,6 +39,7 @@ describe("buildDailyMonitorActivityCardModel — compact contract", () => {
     });
     expect(model).not.toBeNull();
     expect(model!.primaryLabel).toBe("2,883 Steps");
+    expect(model!.steps).toBe(2883);
     expect(model!.ratingLabel).toBe("Sedentary");
     expect(model!.ratingTone).toBe("critical");
     expect(model!.rows.map((r) => r.label)).toEqual([
@@ -228,7 +229,6 @@ describe("buildDailyMonitorActivityCardModel — compact contract", () => {
 
   it("updates the written rating when steps cross existing category boundaries", () => {
     const cases: { steps: number; label: (typeof ACTIVITY_STEP_DESCRIPTOR_PILL_LABELS)[number] }[] = [
-      { steps: 0, label: "Sedentary" },
       { steps: 5000, label: "Lightly Active" },
       { steps: 7500, label: "Moderately Active" },
       { steps: 10000, label: "Active" },
@@ -244,27 +244,26 @@ describe("buildDailyMonitorActivityCardModel — compact contract", () => {
     }
   });
 
-  it("presents valid zero steps and omits missing allocation rows", () => {
-    const model = buildDailyMonitorActivityCardModel({
-      requestedDay: "2026-07-20",
-      sessionApplicability: noSessions,
-      facts: facts({
-        date: "2026-07-20",
-        activity: { steps: 0 },
+  it("does not present stored zero steps as measured sedentary", () => {
+    expect(
+      buildDailyMonitorActivityCardModel({
+        requestedDay: "2026-07-20",
+        sessionApplicability: noSessions,
+        facts: facts({
+          date: "2026-07-20",
+          activity: { steps: 0 },
+        }),
       }),
-    });
-    expect(model!.primaryLabel).toBe("0 Steps");
-    expect(model!.ratingLabel).toBe("Sedentary");
-    expect(model!.rows).toEqual([]);
+    ).toBeNull();
     expect(
       resolveActivityMonitorPresence({
         loading: false,
         error: null,
-        model,
+        model: null,
         factsDay: "2026-07-20",
         requestedDay: "2026-07-20",
       }),
-    ).toBe("present_complete");
+    ).toBe("absent_no_day_evidence");
   });
 
   it("is absent when steps evidence is missing or wrong day", () => {

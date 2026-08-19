@@ -13,6 +13,7 @@ import {
   computeWeeklyProgressV1,
   type WeeklyProgressContribution,
 } from "@/lib/data/dash/weeklyProgressV1";
+import { ACTIVITY_CONSUMER_LABEL } from "@/lib/navigation/domainPresentation";
 import {
   WEEKLY_FITNESS_BAR_FILL_COLOR,
   type WeeklyFitnessActivityMetrics,
@@ -313,9 +314,9 @@ export function buildWeeklyFitnessCardModel(
     }),
     activity: rowFromDomain({
       key: "activity",
-      label: "Activity",
+      label: ACTIVITY_CONSUMER_LABEL,
       valueLabel: activityValue,
-      accessibilityLabel: `Activity, ${input.activity.accessibilityValueLabel}, button. Opens Activity analytics.`,
+      accessibilityLabel: `${ACTIVITY_CONSUMER_LABEL}, ${input.activity.accessibilityValueLabel}, button. Opens ${ACTIVITY_CONSUMER_LABEL} analytics.`,
       progress01: activityProgress,
       href: WEEKLY_FITNESS_ROUTES.activity,
     }),

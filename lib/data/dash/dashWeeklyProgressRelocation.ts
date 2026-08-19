@@ -1,10 +1,10 @@
 /**
- * Dash Phase 1 — relocate the Weekly Fitness experience from Dash to Program
+ * Dash Phase 1 — relocate the Weekly Fitness experience from Dash to Progress
  * as consumer-titled “Weekly Progress”.
  *
  * Convention mirrors `shouldEnableWorkoutPhysiologyV1`: typed helper with an
  * env kill-switch / force-enable override. Default is ENABLED so Phase 1 lands
- * on Program; set the override to `"0"` to restore Dash placement (rollback).
+ * on Progress; set the override to `"0"` to restore Dash placement (rollback).
  *
  * Overrides:
  * - `process.env.EXPO_PUBLIC_DASH_WEEKLY_PROGRESS_RELOCATION === "0"` → disabled
@@ -25,13 +25,13 @@ export const DASH_WEEKLY_PROGRESS_RELOCATION_ENV_KEY =
 export const DASH_WEEKLY_PROGRESS_RELOCATION_FLAG_ID =
   "dashWeeklyProgressRelocation" as const;
 
-/** Consumer-visible title when the card is mounted under Program. */
+/** Consumer-visible title when the card is mounted under Progress. */
 export const WEEKLY_PROGRESS_CONSUMER_TITLE = "Weekly Progress" as const;
 
 /** Consumer-visible title when the card remains on Dash (rollback path). */
 export const WEEKLY_FITNESS_CONSUMER_TITLE = "Weekly Fitness" as const;
 
-/** Supporting copy under Program — weekly targets, not active-program adherence. */
+/** Supporting copy under Progress — weekly targets, not plan adherence. */
 export const WEEKLY_PROGRESS_SUPPORTING_COPY =
   "Progress against this week’s fitness targets." as const;
 

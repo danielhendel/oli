@@ -5,18 +5,7 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { FloatingNavigationChrome } from "@/components/navigation/FloatingNavigationChrome";
-import {
-  ManageNavigationProvider,
-  useManageNavigation,
-} from "@/components/navigation/ManageNavigationContext";
-import {
-  DAILY_MONITOR_TAB_A11Y_LABEL,
-  DAILY_MONITOR_TAB_TITLE,
-  isDashDailyMonitorFoundationEnabled,
-} from "@/lib/data/dash/dashDailyMonitorFoundation";
-import { isDashWeeklyProgressRelocationEnabled } from "@/lib/data/dash/dashWeeklyProgressRelocation";
-import { resolveDashExperienceMode } from "@/lib/data/dash/resolveDashExperienceMode";
-import { isPrimaryNavHealthV1Enabled } from "@/lib/navigation/primaryNavHealthV1";
+import { ManageNavigationProvider } from "@/components/navigation/ManageNavigationContext";
 import { UI_APP_SCREEN_BG, UI_NAV_TAB_ICON_ACTIVE, UI_NAV_TAB_ICON_INACTIVE } from "@/lib/ui/theme/uiTokens";
 import { ThemeProvider } from "@react-navigation/native";
 import { createOliTabNavigationTheme } from "@/lib/ui/theme/oliTheme";
@@ -36,7 +25,7 @@ export const OLI_TAB_SCREEN_OPTIONS = {
     backgroundColor: UI_APP_SCREEN_BG,
   },
   tabBarStyle: {
-    position: "absolute",
+    position: "absolute" as const,
     left: 0,
     right: 0,
     bottom: 0,
@@ -51,40 +40,12 @@ export const OLI_TAB_SCREEN_OPTIONS = {
 } as const;
 
 function OliTabBar(props: BottomTabBarProps) {
-  const { manageVisible, menuAnchor, openManage, closeManage } = useManageNavigation();
-  return (
-    <FloatingNavigationChrome
-      tabBarProps={props}
-      manageVisible={manageVisible}
-      menuAnchor={menuAnchor}
-      openManage={openManage}
-      closeManage={closeManage}
-    />
-  );
+  return <FloatingNavigationChrome tabBarProps={props} />;
 }
 
 function TabsLayoutInner() {
   const tabTheme = useMemo(() => createOliTabNavigationTheme(), []);
-  const healthV1 = isPrimaryNavHealthV1Enabled();
-  const dashExperience = resolveDashExperienceMode({
-    dailyMonitorEnabled: isDashDailyMonitorFoundationEnabled(),
-    weeklyProgressRelocationEnabled: isDashWeeklyProgressRelocationEnabled(),
-  });
-  // Phase 2G-A primary label is always "Dash"; legacy keeps Monitor when Daily Monitor is on.
-  const dashTabTitle = healthV1
-    ? "Dash"
-    : dashExperience === "daily_monitor"
-      ? DAILY_MONITOR_TAB_TITLE
-      : "Dash";
-  const dashTabA11y = healthV1
-    ? "Dash"
-    : dashExperience === "daily_monitor"
-      ? DAILY_MONITOR_TAB_A11Y_LABEL
-      : "Dash";
-
-  // Hide Timeline/Program/Library from the Expo Router tab bar when Health v1 is on.
-  // Routes remain registered for deep links and Settings → Explore.
-  const hiddenTabOptions = healthV1 ? ({ href: null } as const) : {};
+  const hiddenTabOptions = { href: null } as const;
 
   return (
     <View style={{ flex: 1, backgroundColor: UI_APP_SCREEN_BG }}>
@@ -93,10 +54,40 @@ function TabsLayoutInner() {
           <Tabs.Screen
             name="dash"
             options={{
-              title: dashTabTitle,
-              tabBarAccessibilityLabel: dashTabA11y,
+              title: "Home",
+              tabBarAccessibilityLabel: "Home",
               tabBarIcon: ({ color, size, focused }) => (
                 <Ionicons name={focused ? "home" : "home-outline"} size={size ?? 24} color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="program"
+            options={{
+              title: "Plan",
+              tabBarAccessibilityLabel: "Plan",
+              tabBarIcon: ({ color, size, focused }) => (
+                <Ionicons name={focused ? "clipboard" : "clipboard-outline"} size={size ?? 24} color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="progress"
+            options={{
+              title: "Progress",
+              tabBarAccessibilityLabel: "Progress",
+              tabBarIcon: ({ color, size, focused }) => (
+                <Ionicons name={focused ? "trending-up" : "trending-up-outline"} size={size ?? 24} color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="you"
+            options={{
+              title: "You",
+              tabBarAccessibilityLabel: "You",
+              tabBarIcon: ({ color, size, focused }) => (
+                <Ionicons name={focused ? "person" : "person-outline"} size={size ?? 24} color={color} />
               ),
             }}
           />
@@ -112,27 +103,23 @@ function TabsLayoutInner() {
             }}
           />
           <Tabs.Screen
-            name="program"
-            options={{
-              title: "Program",
-              tabBarAccessibilityLabel: "Program",
-              tabBarIcon: ({ color, size, focused }) => (
-                <Ionicons
-                  name={focused ? "rocket" : "rocket-outline"}
-                  size={size ?? 24}
-                  color={color}
-                />
-              ),
-              ...hiddenTabOptions,
-            }}
-          />
-          <Tabs.Screen
             name="library"
             options={{
               title: "Library",
               tabBarAccessibilityLabel: "Library",
               tabBarIcon: ({ color, size, focused }) => (
                 <Ionicons name={focused ? "book" : "book-outline"} size={size ?? 24} color={color} />
+              ),
+              ...hiddenTabOptions,
+            }}
+          />
+          <Tabs.Screen
+            name="profile"
+            options={{
+              title: "Profile",
+              tabBarAccessibilityLabel: "Profile",
+              tabBarIcon: ({ color, size, focused }) => (
+                <Ionicons name={focused ? "person-circle" : "person-circle-outline"} size={size ?? 24} color={color} />
               ),
               ...hiddenTabOptions,
             }}

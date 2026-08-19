@@ -1,79 +1,105 @@
 import type { PrimaryNavigationDestination } from "@/lib/navigation/primaryNavigationConfig";
 import { normalizePathname } from "@/lib/navigation/normalizePathname";
 
-/**
- * Pathname prefixes / exact matches that belong to the Health navigation family.
- * When the user is on these screens, Health may remain the selected dock family.
- */
-const HEALTH_FAMILY_EXACT = new Set([
+function isHomePath(pathname: string): boolean {
+  return pathname === "/dash" || pathname.startsWith("/dash/");
+}
+
+function isPlanPath(pathname: string): boolean {
+  return pathname === "/program" || pathname.startsWith("/program/");
+}
+
+function isProgressPath(pathname: string): boolean {
+  return (
+    pathname === "/progress" ||
+    pathname.startsWith("/progress/") ||
+    pathname === "/timeline" ||
+    pathname.startsWith("/timeline/") ||
+    pathname === "/fitness-goals" ||
+    pathname.startsWith("/fitness-goals/")
+  );
+}
+
+const YOU_FAMILY_EXACT = new Set([
+  "/you",
   "/profile",
-  "/medical-history",
+  "/settings",
   "/labs",
-  "/scans",
-  "/medication",
-  "/supplements",
-  "/dna",
+  "/failures",
+  "/documents",
+  "/library",
 ]);
 
-const HEALTH_FAMILY_PREFIXES = [
+const YOU_FAMILY_PREFIXES = [
+  "/you/",
   "/profile/",
-  "/medical-history/",
+  "/settings/",
   "/labs/",
-  "/scans/",
-  "/medication/",
-  "/supplements/",
-  "/dna/",
+  "/failures/",
+  "/documents/",
+  "/library/",
 ] as const;
 
-function isHealthFamilyPath(pathname: string): boolean {
-  if (HEALTH_FAMILY_EXACT.has(pathname)) return true;
-  return HEALTH_FAMILY_PREFIXES.some((p) => pathname.startsWith(p));
+function isYouFamilyPath(pathname: string): boolean {
+  if (YOU_FAMILY_EXACT.has(pathname)) return true;
+  return YOU_FAMILY_PREFIXES.some((p) => pathname.startsWith(p));
 }
 
-function isStrengthPath(pathname: string): boolean {
-  return pathname === "/workouts" || pathname === "/workouts/overview" || pathname.startsWith("/workouts/");
-}
-
-function isCardioPath(pathname: string): boolean {
-  return pathname === "/cardio" || pathname.startsWith("/cardio/");
-}
-
-function isNutritionPath(pathname: string): boolean {
-  return pathname === "/nutrition" || pathname === "/nutrition/overview" || pathname.startsWith("/nutrition/");
-}
-
-function isDashPath(pathname: string): boolean {
-  return pathname === "/dash" || pathname.startsWith("/dash/");
+/**
+ * Domain current-state routes opened from Home cards. Highlight Home, not a
+ * removed domain primary destination.
+ */
+function isHomeDomainPath(pathname: string): boolean {
+  return (
+    pathname === "/body" ||
+    pathname.startsWith("/body/") ||
+    pathname === "/activity" ||
+    pathname.startsWith("/activity/") ||
+    pathname === "/workouts" ||
+    pathname.startsWith("/workouts/") ||
+    pathname === "/cardio" ||
+    pathname.startsWith("/cardio/") ||
+    pathname === "/nutrition" ||
+    pathname.startsWith("/nutrition/") ||
+    pathname === "/recovery" ||
+    pathname.startsWith("/recovery/") ||
+    pathname === "/energy" ||
+    pathname.startsWith("/energy/")
+  );
 }
 
 export type ResolvePrimaryNavActiveDestinationArgs = {
   pathname: string | null | undefined;
-  /** When the Health menu overlay is open, Health is selected. */
+  /** @deprecated Health menu is not a primary destination. Ignored. */
   healthMenuOpen?: boolean;
   /**
    * Focused tab route name from the real tab navigator (when mounted).
-   * Used for Dash / Profile tab focus when pathname alone is ambiguous.
    */
   focusedTabName?: string | null;
 };
 
 /**
  * Resolve which primary dock destination should appear selected.
- * Returns `null` when no primary destination should highlight (e.g. Timeline).
+ * Returns `null` when no primary destination should highlight.
  */
 export function resolvePrimaryNavActiveDestination(
   args: ResolvePrimaryNavActiveDestinationArgs,
 ): PrimaryNavigationDestination | null {
-  if (args.healthMenuOpen) return "health";
-
   const pathname = normalizePathname(args.pathname);
   const focused = args.focusedTabName ?? null;
 
-  if (focused === "dash" || isDashPath(pathname)) return "dash";
-  if (isStrengthPath(pathname)) return "strength";
-  if (isCardioPath(pathname)) return "cardio";
-  if (isNutritionPath(pathname)) return "nutrition";
-  if (focused === "profile" || isHealthFamilyPath(pathname)) return "health";
+  // Prefer the mounted tab navigator’s focused route; pathname can lag during
+  // tab switches and is mocked independently in unit tests.
+  if (focused === "dash") return "home";
+  if (focused === "program") return "plan";
+  if (focused === "progress" || focused === "timeline") return "progress";
+  if (focused === "you" || focused === "profile" || focused === "library") return "you";
+
+  if (isHomePath(pathname)) return "home";
+  if (isPlanPath(pathname)) return "plan";
+  if (isProgressPath(pathname)) return "progress";
+  if (isYouFamilyPath(pathname)) return "you";
+  if (isHomeDomainPath(pathname)) return "home";
 
   return null;
 }

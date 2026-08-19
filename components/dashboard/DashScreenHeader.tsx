@@ -1,8 +1,8 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { ManageMenuTriggerButton } from "@/components/navigation/ManageMenuTriggerButton";
 import { UserInitialSettingsButton } from "@/lib/ui/UserInitialSettingsButton";
+import { CONSUMER_HOME_LABEL } from "@/lib/navigation/consumerHome";
 import {
   UI_APP_SCREEN_BG,
   UI_TAB_ROOT_INSET,
@@ -10,10 +10,10 @@ import {
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 
-const DEFAULT_TITLE = "Oli Fitness";
+const DEFAULT_TITLE = CONSUMER_HOME_LABEL;
 
 export type DashScreenHeaderProps = {
-  /** Consumer screen title. Defaults to legacy “Oli Fitness”. */
+  /** Consumer screen title. Defaults to Home. */
   title?: string;
   /** Optional subtitle under the title. Daily Monitor keeps date in page content instead. */
   dateLabel?: string | null;
@@ -33,9 +33,7 @@ export function DashScreenHeader({
   return (
     <View style={styles.wrap} testID="dash-screen-header" accessibilityLabel={a11y}>
       <View style={styles.row}>
-        <View style={styles.leftCluster}>
-          <ManageMenuTriggerButton />
-        </View>
+        <View style={styles.leftCluster} />
         <View style={styles.titleLayer} pointerEvents="none">
           <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
             {title}

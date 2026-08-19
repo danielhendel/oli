@@ -86,17 +86,15 @@ const TEST_ANCHOR = { x: 300, y: 680, width: 52, height: 52 };
 function buildTabBarProps(focusedRouteIndex: number): BottomTabBarProps {
   const routes = [
     { key: "dash-k", name: "dash" },
-    { key: "timeline-k", name: "timeline" },
     { key: "program-k", name: "program" },
-    { key: "library-k", name: "library" },
-    { key: "manage-k", name: "manage" },
+    { key: "progress-k", name: "progress" },
+    { key: "you-k", name: "you" },
   ];
   const titles: Record<string, string> = {
-    dash: "Dash",
-    timeline: "Timeline",
-    program: "Program",
-    library: "Library",
-    manage: "Manage",
+    dash: "Home",
+    program: "Plan",
+    progress: "Progress",
+    you: "You",
   };
   const descriptors = Object.fromEntries(
     routes.map((r) => [
@@ -143,15 +141,17 @@ describe("Oli bottom navigation", () => {
     setPrimaryNavHealthV1EnabledForTests(null);
   });
 
-  it("renders four main tabs (Dash, Timeline, Program, Library)", () => {
+  it("renders four primary tabs (Home, Plan, Progress, You)", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(0)} />);
     });
-    const ids = ["dash", "timeline", "program", "library"].map((n) => `oli-tab-${n}`);
+    const ids = ["home", "plan", "progress", "you"].map((n) => `oli-tab-${n}`);
     for (const id of ids) {
       test.root.findByProps({ testID: id });
     }
+    expect(() => test.root.findByProps({ testID: "oli-tab-dash" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "oli-tab-strength" })).toThrow();
   });
 
   it("does not render Profile as a bottom nav item", () => {
@@ -162,7 +162,7 @@ describe("Oli bottom navigation", () => {
     expect(() => test.root.findByProps({ testID: "oli-tab-profile" })).toThrow();
   });
 
-  it("dispatches navigation to the Program route when the Program tab is pressed", () => {
+  it("dispatches navigation to the Program route when the Plan tab is pressed", () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { CommonActions } = require("@react-navigation/native");
     CommonActions.navigate.mockClear();
@@ -171,9 +171,9 @@ describe("Oli bottom navigation", () => {
     act(() => {
       test = renderer.create(<OliBottomNav tabBarProps={props} />);
     });
-    const programTab = test.root.findByProps({ testID: "oli-tab-program" });
+    const planTab = test.root.findByProps({ testID: "oli-tab-plan" });
     act(() => {
-      programTab.props.onPress();
+      planTab.props.onPress();
     });
     expect(props.navigation.dispatch).toHaveBeenCalled();
     expect(CommonActions.navigate).toHaveBeenCalledWith(
@@ -236,22 +236,26 @@ describe("Oli bottom navigation", () => {
   it("marks the active tab as selected when that tab is focused", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(3)} />);
+      test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(2)} />);
     });
-    const libraryTab = test.root.findByProps({ testID: "oli-tab-library" });
-    expect(libraryTab.props.accessibilityState.selected).toBe(true);
-    const dashTab = test.root.findByProps({ testID: "oli-tab-dash" });
-    expect(dashTab.props.accessibilityState.selected).toBe(false);
+    const progressTab = test.root.findByProps({ testID: "oli-tab-progress" });
+    expect(progressTab.props.accessibilityState.selected).toBe(true);
+    const homeTab = test.root.findByProps({ testID: "oli-tab-home" });
+    expect(homeTab.props.accessibilityState.selected).toBe(false);
   });
 
-  it("does not mark any main tab selected when Manage route is focused", () => {
+  it("selects Home when the Dash filesystem tab is focused", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(4)} />);
+      test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(0)} />);
     });
-    for (const name of ["dash", "timeline", "program", "library"]) {
-      const tab = test.root.findByProps({ testID: `oli-tab-${name}` });
-      expect(tab.props.accessibilityState.selected).toBe(false);
+    expect(test.root.findByProps({ testID: "oli-tab-home" }).props.accessibilityState.selected).toBe(
+      true,
+    );
+    for (const id of ["plan", "progress", "you"]) {
+      expect(test.root.findByProps({ testID: `oli-tab-${id}` }).props.accessibilityState.selected).toBe(
+        false,
+      );
     }
   });
 
@@ -278,7 +282,7 @@ describe("Oli bottom navigation", () => {
     for (const item of MANAGE_HUB_ITEMS) {
       test.root.findByProps({ testID: `manage-hub-${item.id}` });
     }
-    expect(MANAGE_HUB_ITEMS.length).toBe(10);
+    expect(MANAGE_HUB_ITEMS.length).toBe(9);
   });
 
   it("lists Manage categories in the required order with Profile first", () => {
@@ -292,7 +296,6 @@ describe("Oli bottom navigation", () => {
       "sleep",
       "recovery",
       "labs",
-      "dna",
     ]);
   });
 
@@ -362,21 +365,15 @@ describe("Oli bottom navigation", () => {
     );
   });
 
-  it("navigates DNA to the placeholder route and closes", () => {
-    const onClose = jest.fn();
+  it("does not expose DNA as a launch-facing Manage destination", () => {
+    expect(MANAGE_HUB_ITEMS.some((item) => item.id === "dna")).toBe(false);
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
-        <ManageMenu visible anchor={TEST_ANCHOR} onClose={onClose} />,
+        <ManageMenu visible anchor={TEST_ANCHOR} onClose={jest.fn()} />,
       );
     });
-    const dnaRow = test.root.findByProps({ testID: "manage-hub-dna" });
-    expect(dnaRow.props.disabled).toBeFalsy();
-    act(() => {
-      dnaRow.props.onPress();
-    });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/dna");
-    expect(onClose).toHaveBeenCalled();
+    expect(() => test.root.findByProps({ testID: "manage-hub-dna" })).toThrow();
   });
 
   it("closes when the full-screen overlay is tapped", () => {
@@ -469,16 +466,16 @@ describe("Phase 2G-A health primary navigation", () => {
     }
   });
 
-  it("does not falsely select Dash in the pill while Health menu is open", () => {
+  it("keeps Home selected while an ignored healthMenuOpen flag is set", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
         <OliBottomNav tabBarProps={buildTabBarProps(0)} healthMenuOpen />,
       );
     });
-    const dash = test.root.findByProps({ testID: "oli-tab-dash" });
-    expect(dash.props.accessibilityState.selected).toBe(false);
-    for (const id of ["strength", "cardio", "nutrition"]) {
+    const home = test.root.findByProps({ testID: "oli-tab-home" });
+    expect(home.props.accessibilityState.selected).toBe(true);
+    for (const id of ["plan", "progress", "you"]) {
       expect(test.root.findByProps({ testID: `oli-tab-${id}` }).props.accessibilityState.selected).toBe(
         false,
       );
@@ -538,45 +535,34 @@ describe("Phase 2G-A health primary navigation", () => {
     expect(FLOATING_NAV_PILL_FAB_GAP).toBe(10);
   });
 
-  it("chrome renders pill and Health FAB as siblings (not five-in-pill)", () => {
-    const openManage = jest.fn();
+  it("chrome renders the four-item pill with no detached FAB", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
         <FloatingNavigationChrome
           tabBarProps={buildTabBarProps(0)}
-          manageVisible={false}
-          menuAnchor={null}
-          openManage={openManage}
-          closeManage={jest.fn()}
         />,
       );
     });
     test.root.findByProps({ testID: "oli-primary-nav-pill" });
-    test.root.findByProps({ testID: "oli-health-fab" });
+    expect(() => test.root.findByProps({ testID: "oli-health-fab" })).toThrow();
     expect(() => test.root.findByProps({ testID: "oli-manage-fab" })).toThrow();
     for (const item of PRIMARY_PILL_ITEMS) {
       test.root.findByProps({ testID: item.testID });
     }
   });
 
-  it("Health FAB press opens menu via measure anchor (no route push)", () => {
-    const openManage = jest.fn();
+  it("chrome press on a primary tab does not require a Health menu callback", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
         <FloatingNavigationChrome
           tabBarProps={buildTabBarProps(0)}
-          manageVisible={false}
-          menuAnchor={null}
-          openManage={openManage}
-          closeManage={jest.fn()}
         />,
       );
     });
-    // measureInWindow is unavailable in this RN mock — pressing still must not navigate.
     act(() => {
-      test.root.findByProps({ testID: "oli-health-fab" }).props.onPress();
+      test.root.findByProps({ testID: "oli-tab-you" }).props.onPress();
     });
     expect(mockPush).not.toHaveBeenCalled();
   });
@@ -599,12 +585,13 @@ describe("Phase 2G-A health primary navigation", () => {
     for (const item of HEALTH_HUB_ITEMS) {
       test.root.findByProps({ testID: item.testID });
     }
-    expect(() => test.root.findByProps({ testID: "health-hub-body" })).toThrow();
     expect(() => test.root.findByProps({ testID: "health-hub-strength" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "health-hub-dna" })).toThrow();
     const flat = JSON.stringify(test.toJSON());
     expect(flat).toContain("Close");
-    expect(flat).not.toContain("Body Composition");
-    expect(flat).not.toContain("Recovery");
+    expect(flat).toContain("Movement");
+    expect(flat).not.toContain("DNA");
+    expect(flat).not.toContain("Medical History");
   });
 
   it("closes Health menu before navigating", () => {
@@ -657,89 +644,29 @@ describe("Phase 2G-A health primary navigation", () => {
   });
 });
 
-describe("Phase 2G-A flag-off rollback gate", () => {
+describe("deprecated health-nav flag does not restore a fifth destination", () => {
   afterEach(() => {
     setPrimaryNavHealthV1EnabledForTests(null);
   });
 
-  it("EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1=0 restores legacy pill + Manage FAB (no Health capsule)", () => {
+  it("EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1=0 still renders Home Plan Progress You with no FAB", () => {
     setPrimaryNavHealthV1EnabledForTests(false);
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
         <FloatingNavigationChrome
           tabBarProps={buildTabBarProps(0)}
-          manageVisible={false}
-          menuAnchor={null}
-          openManage={jest.fn()}
-          closeManage={jest.fn()}
         />,
       );
     });
-    for (const id of ["dash", "timeline", "program", "library"]) {
+    for (const id of ["home", "plan", "progress", "you"]) {
       test.root.findByProps({ testID: `oli-tab-${id}` });
     }
-    test.root.findByProps({ testID: "oli-manage-fab" });
+    test.root.findByProps({ testID: "oli-primary-nav-pill" });
+    expect(() => test.root.findByProps({ testID: "oli-manage-fab" })).toThrow();
     expect(() => test.root.findByProps({ testID: "oli-health-fab" })).toThrow();
-    expect(() => test.root.findByProps({ testID: "oli-primary-nav-pill" })).toThrow();
-    for (const id of ["strength", "cardio", "nutrition"]) {
+    for (const id of ["strength", "cardio", "nutrition", "timeline", "library"]) {
       expect(() => test.root.findByProps({ testID: `oli-tab-${id}` })).toThrow();
     }
-  });
-
-  it("flag off restores legacy Manage menu items (not Health hub)", () => {
-    setPrimaryNavHealthV1EnabledForTests(false);
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(
-        <FloatingNavigationChrome
-          tabBarProps={buildTabBarProps(0)}
-          manageVisible
-          menuAnchor={TEST_ANCHOR}
-          openManage={jest.fn()}
-          closeManage={jest.fn()}
-        />,
-      );
-    });
-    test.root.findByProps({ testID: "oli-manage-menu" });
-    for (const item of MANAGE_HUB_ITEMS) {
-      test.root.findByProps({ testID: `manage-hub-${item.id}` });
-    }
-    expect(() => test.root.findByProps({ testID: "oli-health-menu" })).toThrow();
-    expect(() => test.root.findByProps({ testID: "health-hub-scans" })).toThrow();
-    expect(() => test.root.findByProps({ testID: "health-hub-medication" })).toThrow();
-  });
-
-  it("toggling flag off after health v1 does not leave Health chrome mounted", () => {
-    setPrimaryNavHealthV1EnabledForTests(true);
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(
-        <FloatingNavigationChrome
-          tabBarProps={buildTabBarProps(0)}
-          manageVisible={false}
-          menuAnchor={null}
-          openManage={jest.fn()}
-          closeManage={jest.fn()}
-        />,
-      );
-    });
-    test.root.findByProps({ testID: "oli-health-fab" });
-
-    setPrimaryNavHealthV1EnabledForTests(false);
-    act(() => {
-      test.update(
-        <FloatingNavigationChrome
-          tabBarProps={buildTabBarProps(0)}
-          manageVisible={false}
-          menuAnchor={null}
-          openManage={jest.fn()}
-          closeManage={jest.fn()}
-        />,
-      );
-    });
-    test.root.findByProps({ testID: "oli-manage-fab" });
-    expect(() => test.root.findByProps({ testID: "oli-health-fab" })).toThrow();
-    expect(() => test.root.findByProps({ testID: "oli-primary-nav-pill" })).toThrow();
   });
 });
