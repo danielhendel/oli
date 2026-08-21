@@ -82,7 +82,25 @@ export default function SignInScreen() {
           <Text style={styles.buttonText}>{submitting ? "Signing in…" : "Sign in"}</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push("/(auth)/sign-up")} disabled={submitting} style={styles.link}>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel="Forgot password?"
+          onPress={() => router.push("/(auth)/forgot-password")}
+          disabled={submitting}
+          style={styles.link}
+          testID="sign-in-forgot-password"
+        >
+          <Text style={styles.linkText}>Forgot password?</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel="Create an account"
+          onPress={() => router.push("/(auth)/sign-up")}
+          disabled={submitting}
+          style={styles.link}
+          testID="sign-in-create-account"
+        >
           <Text style={styles.linkText}>Create an account</Text>
         </Pressable>
       </View>
@@ -104,16 +122,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+    minHeight: 44,
   },
   button: {
     marginTop: 18,
     backgroundColor: UI_TEXT_PRIMARY,
     borderRadius: 12,
     paddingVertical: 12,
+    minHeight: 44,
     alignItems: "center",
+    justifyContent: "center",
   },
   buttonDisabled: { opacity: 0.4 },
   buttonText: { color: UI_APP_SCREEN_BG, fontSize: 16, fontWeight: "600" },
-  link: { marginTop: 14, alignItems: "center" },
+  link: { marginTop: 14, minHeight: 44, alignItems: "center", justifyContent: "center" },
   linkText: { fontSize: 14, textDecorationLine: "underline", color: UI_TEXT_PRIMARY },
 });

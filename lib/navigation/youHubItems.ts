@@ -37,7 +37,7 @@ const ACCOUNT_ITEMS: readonly YouHubItem[] = [
     id: "account",
     label: "Account",
     accessibilityLabel: "Account",
-    href: "/(app)/settings",
+    href: "/(app)/settings/account",
     testID: "you-hub-account",
   },
 ];
