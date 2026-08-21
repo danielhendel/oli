@@ -16,7 +16,7 @@
 
 > **R1 status:** Complete and merged (PR #212). Primary navigation on `main`: **Home · Plan · Progress · You**.
 
-> **Stage 1A status:** **In progress on branch** — not complete. Do **not** treat password reset, legal/support access, or Account routing fixes as merged until this Stage 1A PR merges.
+> **Stage 1A status:** **Implementation present on branch; acceptance BLOCKED** pending approved hosted legal/support URLs and physical-iPhone staging smoke. Do **not** merge from this record. Do **not** begin Stage 1B.
 
 ---
 
@@ -97,12 +97,22 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Ownership backend complete; mobile export/delete CTAs still missing on `main`
 - Account route exists at `/(app)/settings/account`; You → Account routing defect is corrected on the Stage 1A branch (not yet merged)
 
-## Stage 1A branch (in progress — not complete)
+## Stage 1A branch (implementation present — acceptance blocked)
 
 - Branch: `feat/consumer-stage1a-account-recovery-legal`
 - Baseline `main`: `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
-- Scope: Account routing fix; enumeration-safe password-reset request; Privacy Policy / Terms / Support access; centralized public-link contract
+- Scope delivered on branch:
+  - You → Account routes to `/(app)/settings/account` (Settings remains distinct)
+  - Enumeration-safe password-reset request (`requestPasswordReset` + `/(auth)/forgot-password`)
+  - Centralized public-link contract + external open service
+  - Sign Up Privacy Policy / Terms access; signed-in Privacy Policy / Terms / Support access
+- **Static verification (2026-08-21):** `npm ci`, typecheck, lint, invariants, client trust boundary, `npm test -- --ci` (**995 suites / 6190 tests / 0 skipped**), `npm run check`, `git diff --check` all exit 0
+- **Expo Doctor:** same 5 pre-existing findings; no new Stage 1A finding
+- **Legal-link runtime acceptance:** **BLOCKED** — approved hosted values for `EXPO_PUBLIC_PRIVACY_POLICY_URL`, `EXPO_PUBLIC_TERMS_OF_SERVICE_URL`, and `EXPO_PUBLIC_SUPPORT_URL` were not present in repository configuration
+- **Physical-iPhone staging smoke:** **NOT RUN** (blocked behind approved URLs + operator device session)
+- **PR:** Draft required; must not merge while legal-link acceptance is blocked
 - **Not implemented yet (Stage 1B / 1C):** durable consent; export UI; delete-account UI; local-data purge; retention/export/delete coverage closure
+- **Not begun:** Body salvage (PR #178 remains closed/unmerged)
 
 ## Missing under analytics-first launch direction
 

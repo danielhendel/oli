@@ -1,9 +1,9 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-08-21 (R1 merged; Stage 1A ownership foundation **in progress on branch**)
+**Last updated:** 2026-08-21 (R1 merged; Stage 1A ownership foundation **implemented on branch**; legal-link acceptance **BLOCKED**)
 **Merged `main` SHA:** `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
-**Stage 1A branch:** `feat/consumer-stage1a-account-recovery-legal` (active; not complete)
+**Stage 1A branch:** `feat/consumer-stage1a-account-recovery-legal` (implementation present; do not treat as merged)
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
 **Approved product direction (not implementation proof):** [VISION.md](../10_product/vision/VISION.md)
@@ -91,13 +91,13 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 
 ### Ownership and gaps
 
-| Capability | Merged `main` reality | Stage 1A branch (in progress) |
-|------------|----------------------|-------------------------------|
+| Capability | Merged `main` reality | Stage 1A branch |
+|------------|----------------------|-----------------|
 | Export/delete backend | Exists (API + Functions) | Unchanged |
-| Export/delete UI CTAs | Missing | Still missing (Stage 1B / 1C) |
-| Password reset | Missing | Request flow in progress |
-| You → Account routing | Defect: Account href equals Settings | Fix in progress |
-| Consent / hosted Privacy & Terms & Support URLs | Missing | Public-link contract + access in progress; approved hosted URLs required for acceptance |
+| Export/delete UI CTAs | Missing | Still missing (Stage 1B / 1C) — no fake/Coming soon CTAs added |
+| Password reset | Missing | Request flow implemented (enumeration-safe); physical staging not yet verified |
+| You → Account routing | Defect: Account href equals Settings | Fixed on branch |
+| Consent / hosted Privacy & Terms & Support URLs | Missing | Contract + UI access implemented; **approved hosted URLs not configured** → runtime acceptance blocked |
 | Durable consent persistence | Missing | Stage 1B |
 | Local-data purge | Missing | Stage 1C |
 | Crash reporting product | Missing | Release hardening |

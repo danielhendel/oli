@@ -71,13 +71,13 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **Stage 1A — Account Recovery, Account Routing, and Legal/Support Foundation** (active on `feat/consumer-stage1a-account-recovery-legal`; not complete).
+**Current stage:** **Stage 1A — Account Recovery, Account Routing, and Legal/Support Foundation** (implementation on `feat/consumer-stage1a-account-recovery-legal`; acceptance **BLOCKED** pending approved legal/support URLs + physical-iPhone smoke).
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`.
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`.
 **Planned next after Stage 1A merges:** **Stage 1B — Consent and Data Export** (not started).
 **Then:** **Stage 1C — Account Deletion and Local Data Lifecycle** (not started).
 
-Do **not** begin Stage 1B or Stage 1C in the Stage 1A Agent.
+Do **not** begin Stage 1B or Stage 1C while Stage 1A remains blocked or unmerged.
 
 Stage **1C** under the old Today/My Plan roadmap is **not** the immediate next step.
 
