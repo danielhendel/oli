@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 
 import { signUpWithEmail } from "@/lib/auth/actions";
 import { CONSUMER_HOME_HREF } from "@/lib/navigation/consumerHome";
+import { PublicDocumentLinks } from "@/lib/ui/legal/PublicDocumentLinks";
 import {
   UI_APP_SCREEN_BG,
   UI_BORDER_HAIRLINE,
@@ -83,7 +84,21 @@ export default function SignUpScreen() {
           <Text style={styles.buttonText}>{submitting ? "Creating…" : "Create account"}</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.back()} disabled={submitting} style={styles.link}>
+        <View style={styles.legalBlock} testID="sign-up-legal">
+          <PublicDocumentLinks
+            kinds={["privacyPolicy", "termsOfService"]}
+            intro="Review Oli’s Privacy Policy and Terms of Service."
+            testID="sign-up-legal-links"
+          />
+        </View>
+
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel="Back to sign in"
+          onPress={() => router.back()}
+          disabled={submitting}
+          style={styles.link}
+        >
           <Text style={styles.linkText}>Back to sign in</Text>
         </Pressable>
       </View>
@@ -105,16 +120,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+    minHeight: 44,
   },
   button: {
     marginTop: 18,
     backgroundColor: UI_TEXT_PRIMARY,
     borderRadius: 12,
     paddingVertical: 12,
+    minHeight: 44,
     alignItems: "center",
+    justifyContent: "center",
   },
   buttonDisabled: { opacity: 0.4 },
   buttonText: { color: UI_APP_SCREEN_BG, fontSize: 16, fontWeight: "600" },
-  link: { marginTop: 14, alignItems: "center" },
+  legalBlock: { marginTop: 18 },
+  link: { marginTop: 14, minHeight: 44, alignItems: "center", justifyContent: "center" },
   linkText: { fontSize: 14, textDecorationLine: "underline", color: UI_TEXT_PRIMARY },
 });

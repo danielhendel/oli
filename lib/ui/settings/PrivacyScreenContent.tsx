@@ -1,5 +1,6 @@
 /**
- * Privacy screen content — honest export/delete coverage (Phase 3B).
+ * Privacy screen content — honest export/delete coverage (Phase 3B)
+ * plus Privacy Policy / Terms / Support document access (Stage 1A).
  */
 
 import React from "react";
@@ -8,6 +9,7 @@ import { useRouter } from "expo-router";
 
 import type { UserDataInventoryViewModel } from "@/lib/data/user-data/buildUserDataInventoryViewModel";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
+import { PublicDocumentLinks } from "@/lib/ui/legal/PublicDocumentLinks";
 import {
   UI_BORDER_SUBTLE,
   UI_PANEL_SURFACE,
@@ -31,6 +33,14 @@ export function PrivacyScreenContent({ inventory }: PrivacyScreenContentProps) {
           Oli keeps health data scoped to your account. Export and deletion are available through
           the account API; coverage is not yet complete for every store.
         </Text>
+
+        <View style={styles.card} testID="privacy-documents-card">
+          <Text style={styles.cardTitle}>Documents & support</Text>
+          <PublicDocumentLinks
+            kinds={["privacyPolicy", "termsOfService", "support"]}
+            testID="privacy-public-links"
+          />
+        </View>
 
         <View style={styles.card} testID="privacy-export-card">
           <Text style={styles.cardTitle}>Export</Text>
