@@ -3,11 +3,12 @@
 **Status:** Current execution roadmap
 **Version:** 2.0
 **Effective date:** 2026-08-14
-**Last operational refresh:** 2026-08-19
+**Last operational refresh:** 2026-08-22
 **Authority level:** T2 execution roadmap (subordinate to Constitution and code/CI)
 **Supersedes:** 2026-08-10 Today / coordinated My Plan / adaptation roadmap
-**Merged baseline:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb` (R0 / PR #211)
-**Prior Stage 1A baseline:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (PR #209)
+**Merged baseline:** `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10` (R1 / PR #212)
+**R0 baseline:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb` (PR #211)
+**Prior Stage 1A truth freeze:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (PR #209)
 **Product decisions:** [CONSUMER_LAUNCH_PRODUCT_DECISIONS.md](../decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md)
 **Vision:** [VISION.md](../vision/VISION.md)
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
@@ -28,22 +29,23 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Portions of the mobile app already consume derived truth (Dash cards, sleep/readiness, weekly fitness, etc.)
 - Apple Health and Oura integration paths exist (runtime device proof still required for launch)
 - Labs document import / review OS merged
-- Account export/delete **backend** exists; mobile ownership CTAs and legal URLs do not
+- Account export/delete **backend** exists; mobile ownership CTAs do not
 - Withings live sync remains orphaned (honest refusal helpers)
-- Primary dock on `main` remains Dash / Strength / Cardio / Nutrition / Health (not Home / Plan / Progress / You)
-- R1 application exists on `feat/analytics-first-r1-four-destination-ia` (`fee0f05` visual follow-up; IA at `88d67ab`) — **complete on branch, not merged**; physical-iPhone smoke **PASS**; PR #212 remains **Draft**
+- Primary dock on `main`: **Home · Plan · Progress · You** (R1 / PR #212 merged)
 - PR #210 (Today IA) is **CLOSED**, **unmerged**, and based on a superseded navigation doctrine
-- PR #210 preserved branch remains `feat/consumer-launch-stage1b-today-ia` at `f64c69736c15b2877789ab2dee0a06c2e9edfaa7`
+- PR #178 (Profile floating shortcut / Body salvage candidate) is **CLOSED**, **unmerged**; Body salvage deferred
+- Password reset, public-link infrastructure, You → Account routing, and safe auth error mapping are **complete on Stage 1A branch** (Draft PR #213; not yet merged)
+- Hosted Privacy / Terms / Support pages are **not published** (**RG-LEGAL-01 OPEN**)
 
 ## What does not exist yet (launch-critical under analytics-first)
 
-- Four-destination IA: Home · Plan · Progress · You (**complete on R1 branch; not merged; physical-iPhone PASS 2026-08-19**)
 - Unified Current State / What Oli Sees / confidence contracts as one product system
 - Human-authored Plan representation with provenance (no Oli authorship)
 - Execution, adherence, and outcome Progress analytics as a first-class surface
-- Password reset; consent; Privacy/Terms hosted URL links in-app; export/delete UI
+- Durable consent; export/delete UI; local-data lifecycle (Stage 1B / 1C)
 - Crash reporting product; production Firebase project config
 - Defensible overall score methodology (gated; not a P0 assumption)
+- Body salvage (deferred)
 
 ---
 
@@ -52,8 +54,10 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | Stage | Name | Intent |
 |------:|------|--------|
 | **R0** | Analytics-First Product Direction Reset | Vision, decisions, roadmap, progress map, system state, index, delta audit, PR #210 disposition (**docs only**) — **merged** (PR #211) |
-| **R1** | PR #210 disposition & four-destination IA | Home · Plan · Progress · You; retire Command Center as home; reuse honest cleanup; no false capabilities; no Oli-authored plan |
-| **1** | Consumer ownership & account recovery | Password reset; consent; hosted Privacy/Terms/Support; export/delete UI; local data lifecycle |
+| **R1** | PR #210 disposition & four-destination IA | Home · Plan · Progress · You; retire Command Center as home; reuse honest cleanup; no false capabilities; no Oli-authored plan — **merged** (PR #212) |
+| **1A** | Account recovery, Account routing, legal/support foundation | Password-reset request; You → Account; public-link contract; honest absent-config behavior (**RG-LEGAL-01** for hosted pages) |
+| **1B** | Consent and consumer data export | Consent architecture + export UI; **durable legal assent inactive until RG-LEGAL-01** |
+| **1C** | Account deletion and local data lifecycle | Delete UI; reauthentication; local purge; coverage closure |
 | **2** | Minimal onboarding & data readiness | Opening → About You → Connect → Understand; honest partial data; no subjective goals questionnaire |
 | **3** | Analytics truth contracts | Baseline, standards registry, trend, confidence, completeness, evidence, association/causation language, versioning — **RFC/ADR before schema**. Includes unfinished-day activity presentation (do not label an in-progress day **Sedentary** from a stored zero / empty HealthKit aggregate; R1 only omitted measured-zero on Home Movement). |
 | **4** | Seven-domain Current State | Body, Recovery, Movement, Strength, Cardio, Nutrition, Health; honest missing; no fabricated overall score |
@@ -68,20 +72,59 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **R1 complete on branch, pending merge** (`feat/analytics-first-r1-four-destination-ia`, visual follow-up `fee0f05`). Physical-iPhone PASS 2026-08-19. PR #212 remains **Draft**. Do **not** merge from this record.
+**Current stage:** **Stage 1A — complete on branch, pending merge** (Draft PR [#213](https://github.com/danielhendel/oli/pull/213); physical-iPhone password-recovery smoke **PASS** 2026-08-22).
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`.
-**Next after R1 merges:** **Stage 1 — Consumer Ownership and Account Recovery** (not started).
+**R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`.
+**Release gate:** **RG-LEGAL-01 OPEN** (hosted Privacy / Terms / Support not published).
+**Planned next after Stage 1A merges:** **Stage 1B — Consent and Data Export** (not started; durable legal assent blocked by RG-LEGAL-01).
+**Then:** **Stage 1C — Account Deletion and Local Data Lifecycle** (not started).
 
-Do **not** mark R1 merged until Draft PR #212 is explicitly merged in a later gate.
+Do **not** begin Stage 1B until PR #213 merges. Do **not** activate durable Terms/Privacy assent until RG-LEGAL-01 passes.
 
+### Stage 1A acceptance split
+
+#### Engineering acceptance (Stage 1A / PR #213) — **PASS on branch**
+
+* Account routing (You → Account distinct from Settings) — physical PASS
+* Password-recovery request + enumeration-safe feedback — physical PASS
+* Reset email delivery + password confirmation + new-password sign-in — physical PASS
+* Raw Firebase auth errors eliminated from consumer Sign In — verified
+* Error / offline / retry handling — physical PASS
+* Typed public-link contract + external-link service
+* Honest absent-config behavior (omit unavailable document actions; no fake URLs) — physical PASS
+* Tests + physical-iPhone password-recovery smoke — PASS
+* Home landing after reset sign-in — PASS; dock **Home · Plan · Progress · You**
+
+#### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
+
+Required before:
+
+* Durable legal consent activation
+* External TestFlight
+* App Store submission
+* Public production release
+
+Required variables:
+
+```text
+EXPO_PUBLIC_PRIVACY_POLICY_URL
+EXPO_PUBLIC_TERMS_OF_SERVICE_URL
+EXPO_PUBLIC_SUPPORT_URL
+```
+
+Required release evidence: approved content; stable public HTTPS pages; EAS environment configuration; physical-iPhone hosted-page verification; App Store metadata; version/effective dates.
+
+Stage 1B may design consent storage and build Data Export, but must not claim acceptance of unpublished documents.
 Stage **1C** under the old Today/My Plan roadmap is **not** the immediate next step.
 
 ### Critical path
 
 ```text
 R0 Product authority reset (docs) — MERGED (PR #211)
- → R1 Four-destination IA + PR #210 disposition (COMPLETE ON BRANCH, PENDING MERGE)
- → 1 Ownership surfaces
+ → R1 Four-destination IA + PR #210 disposition — MERGED (PR #212)
+ → 1A Account recovery + legal/support foundation (COMPLETE ON BRANCH, PENDING MERGE; RG-LEGAL-01 OPEN)
+ → 1B Consent + data export
+ → 1C Account deletion + local data lifecycle
  → 2 Minimal onboarding / data readiness
  → 3 Analytics truth contracts (RFC/ADR)
  → 4 Seven-domain Current State
@@ -107,6 +150,7 @@ R0 Product authority reset (docs) — MERGED (PR #211)
 - Oli-authored My Plan and autonomous plan adaptation
 - Equal fabricated depth across all seven domains
 - Overall score without defensible methodology
+- Body salvage from PR #178
 
 ---
 
@@ -130,3 +174,5 @@ npm test -- --ci
 ## Historical note
 
 The 2026-08-10 roadmap and closed PR #210 assumed Today as home and a coordinated My Plan / adaptation loop. That product doctrine is superseded for current consumer authority. Prefer this document, the progress map, and Vision v2 over any archived or Draft Stage 1B copy.
+
+PR #209 (“Stage 1A truth freeze”) was a docs/CI freeze gate and is **not** the same as this ownership Stage 1A (account recovery + legal/support).

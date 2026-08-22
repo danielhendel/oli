@@ -22,11 +22,10 @@ export default function SignInScreen() {
   const [password, setPassword] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  const canSubmit = useMemo(() => email.trim().length > 0 && password.length > 0 && !submitting, [
-    email,
-    password,
-    submitting,
-  ]);
+  const canSubmit = useMemo(
+    () => email.trim().length > 0 && password.length > 0 && !submitting,
+    [email, password, submitting],
+  );
 
   const onSubmit = async (): Promise<void> => {
     if (!canSubmit) return;
@@ -35,6 +34,7 @@ export default function SignInScreen() {
     try {
       const result = await signInWithEmail(email, password);
       if (!result.ok) {
+        // Mapped domain copy only — never raw Firebase / SDK strings.
         Alert.alert(result.title, result.message);
         return;
       }
@@ -54,35 +54,65 @@ export default function SignInScreen() {
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
+          autoComplete="email"
           keyboardType="email-address"
+          textContentType="emailAddress"
           placeholder="you@example.com"
           placeholderTextColor={UI_TEXT_MUTED}
           value={email}
           onChangeText={setEmail}
           style={styles.input}
           editable={!submitting}
+          testID="sign-in-email"
         />
 
         <Text style={styles.label}>Password</Text>
         <TextInput
           secureTextEntry
+          autoComplete="password"
+          textContentType="password"
           placeholder="••••••••"
           placeholderTextColor={UI_TEXT_MUTED}
           value={password}
           onChangeText={setPassword}
           style={styles.input}
           editable={!submitting}
+          testID="sign-in-password"
         />
 
         <Pressable
-          onPress={onSubmit}
+          accessibilityRole="button"
+          accessibilityLabel="Sign in"
+          accessibilityState={{ disabled: !canSubmit, busy: submitting }}
+          onPress={() => {
+            void onSubmit();
+          }}
           disabled={!canSubmit}
           style={[styles.button, !canSubmit ? styles.buttonDisabled : null]}
+          testID="sign-in-submit"
         >
           <Text style={styles.buttonText}>{submitting ? "Signing in…" : "Sign in"}</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push("/(auth)/sign-up")} disabled={submitting} style={styles.link}>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel="Forgot password?"
+          onPress={() => router.push("/(auth)/forgot-password")}
+          disabled={submitting}
+          style={styles.link}
+          testID="sign-in-forgot-password"
+        >
+          <Text style={styles.linkText}>Forgot password?</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel="Create an account"
+          onPress={() => router.push("/(auth)/sign-up")}
+          disabled={submitting}
+          style={styles.link}
+          testID="sign-in-create-account"
+        >
           <Text style={styles.linkText}>Create an account</Text>
         </Pressable>
       </View>
@@ -104,16 +134,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+    minHeight: 44,
   },
   button: {
     marginTop: 18,
     backgroundColor: UI_TEXT_PRIMARY,
     borderRadius: 12,
     paddingVertical: 12,
+    minHeight: 44,
     alignItems: "center",
+    justifyContent: "center",
   },
   buttonDisabled: { opacity: 0.4 },
   buttonText: { color: UI_APP_SCREEN_BG, fontSize: 16, fontWeight: "600" },
-  link: { marginTop: 14, alignItems: "center" },
+  link: { marginTop: 14, minHeight: 44, alignItems: "center", justifyContent: "center" },
   linkText: { fontSize: 14, textDecorationLine: "underline", color: UI_TEXT_PRIMARY },
 });

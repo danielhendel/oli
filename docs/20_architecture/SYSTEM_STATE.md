@@ -1,9 +1,9 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-08-19 (R1 four-destination IA **complete on branch**; **not merged**)
-**Merged `main` SHA:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
-**R1 branch:** `feat/analytics-first-r1-four-destination-ia` @ `fee0f05f42f27e04b918a700270c111d47e12772` (visual/a11y; IA `88d67ab`)
+**Last updated:** 2026-08-22 (R1 merged; Stage 1A **complete on branch**; **RG-LEGAL-01 OPEN**)
+**Merged `main` SHA:** `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
+**Stage 1A branch:** `feat/consumer-stage1a-account-recovery-legal` (Draft PR #213; do not treat as merged)
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
 **Approved product direction (not implementation proof):** [VISION.md](../10_product/vision/VISION.md)
@@ -46,35 +46,35 @@ The analytics-first product direction **strengthens** this pipeline; it does not
 
 ---
 
-## Merged state (`main` @ `55e2ad6`)
+## Merged state (`main` @ `f502d8b`)
 
 ### Navigation and homes
 
-| Surface | Merged `main` reality | R1 branch (complete on branch, not merged) |
-|---------|----------------------|------------------------|
-| Primary dock | **Dash · Strength · Cardio · Nutrition · Health** (Health v1 flag default ON) | **Home · Plan · Progress · You** — no FAB fifth destination |
-| Auth / session landing | Authenticated routes resolve to `/(app)/(tabs)/dash` | Same filesystem; user-facing name **Home** (`CONSUMER_HOME_HREF`) |
-| Command Center | Parallel module grid at `/(app)/command-center` (competing-home pressure) | Compatibility **Redirect to Home** (grid not rendered) |
-| Daily Recap | Placeholder surface | Compatibility **Redirect to Home** |
-| Domain routes | Strength/workouts, cardio, nutrition, activity, body, recovery/sleep, labs, etc. exist as modules | Unchanged routes; consumer label **Movement** for Activity |
-| Program / Plan | Program tab; durable coordinated plan documents absent | Tab label **Plan**; honest empty state; placeholder cardio/nutrition/recovery builders not launch-facing; workout builder route preserved, not advertised |
-| Daily Monitor | Dash / Daily Monitor foundation — **not** the approved permanent Home identity | Retained as **Today** section under Home; header is Home |
-| Progress | Weekly Progress was relocated toward Program/Dash flags | Dedicated Progress tab; Weekly Progress once when relocation ON; Timeline + domain histories |
-| You | Profile via Health hub / hidden tabs | You hub: profile, devices, assessments, labs, privacy, Your Data, settings, failures, Health & Performance Data |
-| Timeline / Library / Failures | Phase 1 routes exist | Timeline under Progress; Library (data lineage) and Failures under You |
-| Flags | `EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1` historically switched docks | Health-v1 **deprecated no-op** for chrome; Daily Monitor + Weekly Progress flags still govern those real components |
+| Surface | Merged `main` reality |
+|---------|----------------------|
+| Primary dock | **Home · Plan · Progress · You** — no FAB fifth destination |
+| Auth / session landing | Authenticated routes resolve to Home (`CONSUMER_HOME_HREF`; filesystem `/(app)/(tabs)/dash`) |
+| Command Center | Compatibility **Redirect to Home** (grid not rendered) |
+| Daily Recap | Compatibility **Redirect to Home** |
+| Domain routes | Strength/workouts, cardio, nutrition, activity, body, recovery/sleep, labs, etc. exist as modules; consumer label **Movement** for Activity |
+| Program / Plan | Tab label **Plan**; honest empty state; placeholder builders not launch-facing |
+| Daily Monitor | Retained as **Today** section under Home |
+| Progress | Dedicated Progress tab; Weekly Progress once when relocation ON; Timeline + domain histories |
+| You | Hub: profile, devices, assessments, labs, privacy, Your Data, settings, Account, failures, Health & Performance Data |
+| Timeline / Library / Failures | Timeline under Progress; Library (data lineage) and Failures under You |
+| Flags | Health-v1 **deprecated no-op** for chrome; Daily Monitor + Weekly Progress flags still govern those real components |
 
-**Approved IA is implemented on the R1 branch, not on merged `main`.** Physical-iPhone R1 smoke **PASS** (2026-08-19). Current State / What Oli Sees / overall score remain **not implemented**. PR #212 remains Draft.
+**Approved four-destination IA is merged.** Current State / What Oli Sees / overall score remain **not implemented**.
 
-Home (R1): no fabricated Current State; copy “Building your health picture” is not an analytical result. Today Movement shows positive finite steps when measured (device: 2,431 Steps; Apple Health `hkEmpty: false`) and omits stored zero so empty aggregates are not “0 Steps · Sedentary”. Unfinished-day sedentary classification is deferred to Stage 3.
+Home: no fabricated Current State; copy “Building your health picture” is not an analytical result. Today Movement omits stored zero so empty aggregates are not “0 Steps · Sedentary”. Unfinished-day sedentary classification is deferred to Stage 3.
 
-Plan (R1): `currentPrograms = []`; no persistence; no Oli-authored plan language; not called My Plan.
+Plan: `currentPrograms = []`; no persistence; no Oli-authored plan language; not called My Plan.
 
-Progress (R1): no adherence/outcome/causal claims. History rows scroll fully above the floating dock.
+Progress: no adherence/outcome/causal claims.
 
-You (R1): DNA / Medical History / Scans / Medication placeholders are hidden from launch navigation; one Supplements destination (`/(app)/nutrition/supplements`). Hub rows scroll fully above the floating dock. Account uses consumer title **Account**, dark-theme readable status, no Firebase UID.
+You: DNA / Medical History / Scans / Medication placeholders are hidden from launch navigation. Account screen title is **Account**; Firebase UID absent from consumer UI. On merged `main`, You → Account still incorrectly routes to Settings until Stage 1A merges.
 
-Auth (R1): dark Sign In / Create account; light iOS status bar; sign-out → Sign In → Home; force-quit restore on Home. Command Center is a Home redirect, not a rendered home.
+Auth: dark Sign In / Create account; light iOS status bar. Password-reset request flow is Stage 1A work (branch), not yet on `main`.
 
 ### Integrations and pipeline
 
@@ -91,18 +91,21 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 
 ### Ownership and gaps
 
-| Capability | Merged reality |
-|------------|----------------|
-| Export/delete backend | Exists (API + Functions) |
-| Export/delete UI CTAs | Missing |
-| Password reset | Missing |
-| Consent / hosted Privacy & Terms URLs in-app | Missing |
-| Crash reporting product | Missing |
-| Production Firebase project config | Release-hardening gap |
-| Unified standards / baselines / confidence / analytical explanation / association language / Progress contracts | **Not** implemented as one product system |
-| Current State / What Oli Sees as Home product | **Not** implemented |
-| Human-authored Plan representation with provenance | **Not** implemented |
-| Progress analytics surface | **Not** implemented |
+| Capability | Merged `main` reality | Stage 1A branch (complete on branch) |
+|------------|----------------------|--------------------------------------|
+| Export/delete backend | Exists (API + Functions) | Unchanged |
+| Export/delete UI CTAs | Missing | Still missing (Stage 1B / 1C) — no fake/Coming soon CTAs added |
+| Password reset | Missing | Implemented + physical staging PASS (enumeration-safe request; completion; new-password sign-in) |
+| You → Account routing | Defect: Account href equals Settings | Fixed + physical PASS |
+| Sign-in error mapping | Raw Firebase messages possible | Centralized safe mapping; no `Firebase:` / `auth/…` in consumer UI |
+| Public-link contract / external open | Missing | Implemented; missing URLs omit actions (no fake destinations) |
+| Hosted Privacy / Terms / Support pages | Not published | **RG-LEGAL-01 OPEN** — not configured; app not externally release-ready for legal links |
+| Durable consent persistence | Missing | Stage 1B (assent activation blocked by RG-LEGAL-01) |
+| Local-data purge | Missing | Stage 1C |
+| Crash reporting product | Missing | Release hardening |
+| Production Firebase project config | Release-hardening gap | Unchanged |
+| Current State / What Oli Sees / Plan persistence / Progress analytics | **Not** implemented | Out of Stage 1A scope |
+| Body salvage (PR #178) | CLOSED unmerged; deferred | Not begun |
 
 ---
 
@@ -121,20 +124,31 @@ See [delta audit](../audits/2026-08-14-analytics-first-product-direction-delta.m
 
 ---
 
-## Approved but not implemented direction
+## Closed unmerged state (PR #178 — not merged)
+
+| Fact | Detail |
+|------|--------|
+| PR | [#178](https://github.com/danielhendel/oli/pull/178) **CLOSED**, unmerged |
+| Branch | `feat/profile-floating-shortcut` (**preserved**) |
+| Salvage | Body salvage **deferred** to later approved analytics stages |
+| Stage 1A action | Do not reopen, merge, or reimplement Body work |
+
+---
+
+## Approved primary destinations (merged)
 
 ```text
 Home · Plan · Progress · You
 ```
 
-| Destination | Intent |
-|-------------|--------|
-| Home | Analytics-first Current State, standards, direction, What Oli Sees |
-| Plan | Human-created or externally sourced plan representation |
-| Progress | Execution, adherence, outcomes, trends, analysis |
-| You | Account, sources, assessments, labs, history, privacy, export, deletion, settings |
+| Destination | Intent | Merged shell reality |
+|-------------|--------|----------------------|
+| Home | Analytics-first Current State, standards, direction, What Oli Sees | Transitional shell; Daily Monitor Today section; no Current State / What Oli Sees |
+| Plan | Human-created or externally sourced plan representation | Honest empty state; no persistence |
+| Progress | Execution, adherence, outcomes, trends, analysis | History + Weekly Progress; no outcome analytics product |
+| You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export/delete UI and durable consent still missing |
 
-Do **not** state that this navigation is already merged to `main`. On the R1 branch the four destinations exist as shells with physical-iPhone PASS; Current State, What Oli Sees, Plan persistence, and Progress analytics remain unimplemented. Next after merge: Consumer Ownership and Account Recovery.
+Next ownership work: Stage 1A (active) → Stage 1B → Stage 1C.
 
 ---
 
@@ -142,7 +156,7 @@ Do **not** state that this navigation is already merged to `main`. On the R1 bra
 
 **Stack:** Expo, Expo Router, Firebase JS Auth (client)
 
-**Responsibilities:** Authenticate; hold session; call Cloud Run API; render domain modules and Home / Daily Monitor, Plan, Progress, and You shells (R1 branch).
+**Responsibilities:** Authenticate; hold session; call Cloud Run API; render domain modules and Home / Daily Monitor, Plan, Progress, and You shells.
 
 ---
 
@@ -180,6 +194,7 @@ Do **not** state that this navigation is already merged to `main`. On the R1 bra
 - Local mobile: Expo against staging Firebase + staging Cloud Run (see `docs/40_engineering/local-dev/LOCAL_DEV.md`)
 - Cloud Run: GCP service account
 - Production Firebase project config remains a release-hardening gap
+- Public legal/support URLs (when configured): `EXPO_PUBLIC_PRIVACY_POLICY_URL`, `EXPO_PUBLIC_TERMS_OF_SERVICE_URL`, `EXPO_PUBLIC_SUPPORT_URL` — public configuration, not secrets
 
 ---
 
