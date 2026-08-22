@@ -1,7 +1,7 @@
 # Repo-Truth Progress Map
 
 **Status:** Current operational truth (subordinate to code + CI)
-**Last verified:** 2026-08-21
+**Last verified:** 2026-08-22
 **Merged `main` SHA:** `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
 **R1:** Merged (PR #212) at the SHA above
@@ -16,7 +16,7 @@
 
 > **R1 status:** Complete and merged (PR #212). Primary navigation on `main`: **Home · Plan · Progress · You**.
 
-> **Stage 1A status:** **Implementation on branch; engineering acceptance pending physical-iPhone smoke.** Public-link infrastructure is implemented. Hosted legal/support pages are **not published**. **RG-LEGAL-01 OPEN**. Draft PR [#213](https://github.com/danielhendel/oli/pull/213) must not be treated as merged from this record. Do **not** begin Stage 1B until PR #213 merges.
+> **Stage 1A status:** **Complete on branch; pending merge.** Draft PR [#213](https://github.com/danielhendel/oli/pull/213). Public-link infrastructure implemented. Hosted legal/support pages **not published**. **RG-LEGAL-01 OPEN**. Do **not** begin Stage 1B until PR #213 merges. Do **not** activate durable legal assent until RG-LEGAL-01 passes.
 
 ---
 
@@ -97,23 +97,27 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Ownership backend complete; mobile export/delete CTAs still missing on `main`
 - Account route exists at `/(app)/settings/account`; You → Account routing defect is corrected on the Stage 1A branch (not yet merged)
 
-## Stage 1A branch (engineering in progress — RG-LEGAL-01 OPEN)
+## Stage 1A branch (complete on branch — RG-LEGAL-01 OPEN)
 
 - Branch: `feat/consumer-stage1a-account-recovery-legal`
-- Head: `1303ae1eebb970196f48071e5e28118f7cbcc135` (plus subsequent completion commits)
+- Final branch head: recorded at completion docs commit (base implementation through `ea3653a98f7ff95b907c8691818b1416ec072bdf` plus this verification commit)
 - Baseline `main`: `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
 - Draft PR: [#213](https://github.com/danielhendel/oli/pull/213) — **Draft**, unmerged
 - Scope delivered on branch:
-  - You → Account routes to `/(app)/settings/account` (Settings remains distinct)
-  - Enumeration-safe password-reset request (`requestPasswordReset` + `/(auth)/forgot-password`)
-  - Centralized public-link contract + external open service
-  - Sign Up / Privacy surfaces mount document links **only when** approved HTTPS URLs are configured; missing config omits actions (no fake/placeholder destinations)
+  - You → Account → `/(app)/settings/account` (Settings remains distinct) — **physical PASS**
+  - Enumeration-safe password-reset request + completion + new-password sign-in — **physical PASS** (`oli-staging-fdbba`)
+  - Centralized public-link contract + external open service; missing config **omits** document actions
+  - Centralized sign-in/sign-up auth error mapping — raw `Firebase:` / `auth/…` strings eliminated from consumer UI
 - **Public-link infrastructure:** Implemented
 - **Public legal documents:** **Not published**
 - **Release gate:** **RG-LEGAL-01 OPEN** — Public Legal and Support Readiness
-- **Static verification (2026-08-21):** `npm ci`, typecheck, lint, invariants, client trust boundary, `npm test -- --ci` (**995 suites / 6190 tests / 0 skipped**), `npm run check`, `git diff --check` all exit 0
+- **Static verification (2026-08-22):** `npm ci`, typecheck, lint, invariants, client trust boundary, `npm test -- --ci` (**996 suites / 6213 tests / 0 skipped**), `npm run check`, `git diff --check` all exit 0
 - **Expo Doctor:** same 5 pre-existing findings; no new Stage 1A finding
-- **Physical-iPhone staging smoke:** pending (password recovery + missing-link honesty; hosted-page open not required for Stage 1A engineering)
+- **Physical-iPhone staging smoke (2026-08-22):** **PASS**
+  - Account routing PASS; malformed-email PASS; offline connection message PASS
+  - Reset-email delivery PASS; password-reset completion PASS; new-password sign-in PASS
+  - Home landing PASS; dock remains **Home · Plan · Progress · You**; no Command Center flash / redirect loop
+  - Missing legal configuration safe (no fake/broken links); raw Firebase auth errors not shown
 - **Not implemented yet (Stage 1B / 1C):** durable consent; export UI; delete-account UI; local-data purge; retention/export/delete coverage closure
 - **Stage 1B dependency:** export development may proceed after merge; durable Terms/Privacy assent must remain **inactive** until RG-LEGAL-01 passes
 - **Not begun:** Body salvage (PR #178 remains closed/unmerged)
@@ -142,7 +146,7 @@ EXPO_PUBLIC_TERMS_OF_SERVICE_URL
 EXPO_PUBLIC_SUPPORT_URL
 ```
 
-RG-LEGAL-01 remaining OPEN does **not** block Stage 1A engineering merge once physical password-recovery smoke passes.
+RG-LEGAL-01 remaining OPEN does **not** block Stage 1A engineering merge. It **does** block durable legal consent, external TestFlight, App Store submission, and public release.
 ## Missing under analytics-first launch direction
 
 - Current State productization, What Oli Sees, confidence / analytical explanation contracts
@@ -158,8 +162,9 @@ RG-LEGAL-01 remaining OPEN does **not** block Stage 1A engineering merge once ph
 
 ## In progress (not complete)
 
-- **Stage 1A is active on branch** and not yet complete
+- **Stage 1A is complete on branch**; Draft PR #213 pending independent review-and-merge
 - Stage 1B and Stage 1C are planned and **not started**
+- **RG-LEGAL-01 OPEN** (hosted legal/support pages not published)
 - PR #178 remains CLOSED unmerged; Body salvage deferred
 - PR #210 remains CLOSED unmerged; preserved branch unmodified
 - Other open PRs and local worktrees are **in-progress only** until merged to `main`

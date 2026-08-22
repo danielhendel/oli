@@ -1,7 +1,7 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-08-22 (R1 merged; Stage 1A public-link infrastructure on branch; **RG-LEGAL-01 OPEN**; physical password-recovery smoke pending)
+**Last updated:** 2026-08-22 (R1 merged; Stage 1A **complete on branch**; **RG-LEGAL-01 OPEN**)
 **Merged `main` SHA:** `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
 **Stage 1A branch:** `feat/consumer-stage1a-account-recovery-legal` (Draft PR #213; do not treat as merged)
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
@@ -91,12 +91,13 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 
 ### Ownership and gaps
 
-| Capability | Merged `main` reality | Stage 1A branch |
-|------------|----------------------|-----------------|
+| Capability | Merged `main` reality | Stage 1A branch (complete on branch) |
+|------------|----------------------|--------------------------------------|
 | Export/delete backend | Exists (API + Functions) | Unchanged |
 | Export/delete UI CTAs | Missing | Still missing (Stage 1B / 1C) — no fake/Coming soon CTAs added |
-| Password reset | Missing | Request flow implemented (enumeration-safe); physical staging pending |
-| You → Account routing | Defect: Account href equals Settings | Fixed on branch |
+| Password reset | Missing | Implemented + physical staging PASS (enumeration-safe request; completion; new-password sign-in) |
+| You → Account routing | Defect: Account href equals Settings | Fixed + physical PASS |
+| Sign-in error mapping | Raw Firebase messages possible | Centralized safe mapping; no `Firebase:` / `auth/…` in consumer UI |
 | Public-link contract / external open | Missing | Implemented; missing URLs omit actions (no fake destinations) |
 | Hosted Privacy / Terms / Support pages | Not published | **RG-LEGAL-01 OPEN** — not configured; app not externally release-ready for legal links |
 | Durable consent persistence | Missing | Stage 1B (assent activation blocked by RG-LEGAL-01) |

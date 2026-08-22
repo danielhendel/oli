@@ -3,7 +3,7 @@
 **Status:** Current execution roadmap
 **Version:** 2.0
 **Effective date:** 2026-08-14
-**Last operational refresh:** 2026-08-21
+**Last operational refresh:** 2026-08-22
 **Authority level:** T2 execution roadmap (subordinate to Constitution and code/CI)
 **Supersedes:** 2026-08-10 Today / coordinated My Plan / adaptation roadmap
 **Merged baseline:** `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10` (R1 / PR #212)
@@ -34,7 +34,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Primary dock on `main`: **Home · Plan · Progress · You** (R1 / PR #212 merged)
 - PR #210 (Today IA) is **CLOSED**, **unmerged**, and based on a superseded navigation doctrine
 - PR #178 (Profile floating shortcut / Body salvage candidate) is **CLOSED**, **unmerged**; Body salvage deferred
-- Password reset, public-link infrastructure, and You → Account routing correction are **on Stage 1A branch** (Draft PR #213; not yet merged)
+- Password reset, public-link infrastructure, You → Account routing, and safe auth error mapping are **complete on Stage 1A branch** (Draft PR #213; not yet merged)
 - Hosted Privacy / Terms / Support pages are **not published** (**RG-LEGAL-01 OPEN**)
 
 ## What does not exist yet (launch-critical under analytics-first)
@@ -72,7 +72,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **Stage 1A — Account Recovery, Account Routing, and Legal/Support Foundation** (Draft PR [#213](https://github.com/danielhendel/oli/pull/213); engineering acceptance pending physical-iPhone smoke).
+**Current stage:** **Stage 1A — complete on branch, pending merge** (Draft PR [#213](https://github.com/danielhendel/oli/pull/213); physical-iPhone password-recovery smoke **PASS** 2026-08-22).
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`.
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`.
 **Release gate:** **RG-LEGAL-01 OPEN** (hosted Privacy / Terms / Support not published).
@@ -83,14 +83,17 @@ Do **not** begin Stage 1B until PR #213 merges. Do **not** activate durable Term
 
 ### Stage 1A acceptance split
 
-#### Engineering acceptance (Stage 1A / PR #213)
+#### Engineering acceptance (Stage 1A / PR #213) — **PASS on branch**
 
-* Account routing (You → Account distinct from Settings)
-* Password-recovery request + enumeration-safe feedback
-* Error / offline / retry handling
+* Account routing (You → Account distinct from Settings) — physical PASS
+* Password-recovery request + enumeration-safe feedback — physical PASS
+* Reset email delivery + password confirmation + new-password sign-in — physical PASS
+* Raw Firebase auth errors eliminated from consumer Sign In — verified
+* Error / offline / retry handling — physical PASS
 * Typed public-link contract + external-link service
-* Honest absent-config behavior (omit unavailable document actions; no fake URLs)
-* Tests + physical-iPhone password-recovery smoke
+* Honest absent-config behavior (omit unavailable document actions; no fake URLs) — physical PASS
+* Tests + physical-iPhone password-recovery smoke — PASS
+* Home landing after reset sign-in — PASS; dock **Home · Plan · Progress · You**
 
 #### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
 
@@ -119,7 +122,7 @@ Stage **1C** under the old Today/My Plan roadmap is **not** the immediate next s
 ```text
 R0 Product authority reset (docs) — MERGED (PR #211)
  → R1 Four-destination IA + PR #210 disposition — MERGED (PR #212)
- → 1A Account recovery + legal/support foundation (ACTIVE ON BRANCH)
+ → 1A Account recovery + legal/support foundation (COMPLETE ON BRANCH, PENDING MERGE; RG-LEGAL-01 OPEN)
  → 1B Consent + data export
  → 1C Account deletion + local data lifecycle
  → 2 Minimal onboarding / data readiness
