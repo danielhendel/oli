@@ -22,11 +22,10 @@ export default function SignInScreen() {
   const [password, setPassword] = useState<string>("");
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  const canSubmit = useMemo(() => email.trim().length > 0 && password.length > 0 && !submitting, [
-    email,
-    password,
-    submitting,
-  ]);
+  const canSubmit = useMemo(
+    () => email.trim().length > 0 && password.length > 0 && !submitting,
+    [email, password, submitting],
+  );
 
   const onSubmit = async (): Promise<void> => {
     if (!canSubmit) return;
@@ -35,6 +34,7 @@ export default function SignInScreen() {
     try {
       const result = await signInWithEmail(email, password);
       if (!result.ok) {
+        // Mapped domain copy only — never raw Firebase / SDK strings.
         Alert.alert(result.title, result.message);
         return;
       }
@@ -54,30 +54,42 @@ export default function SignInScreen() {
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
+          autoComplete="email"
           keyboardType="email-address"
+          textContentType="emailAddress"
           placeholder="you@example.com"
           placeholderTextColor={UI_TEXT_MUTED}
           value={email}
           onChangeText={setEmail}
           style={styles.input}
           editable={!submitting}
+          testID="sign-in-email"
         />
 
         <Text style={styles.label}>Password</Text>
         <TextInput
           secureTextEntry
+          autoComplete="password"
+          textContentType="password"
           placeholder="••••••••"
           placeholderTextColor={UI_TEXT_MUTED}
           value={password}
           onChangeText={setPassword}
           style={styles.input}
           editable={!submitting}
+          testID="sign-in-password"
         />
 
         <Pressable
-          onPress={onSubmit}
+          accessibilityRole="button"
+          accessibilityLabel="Sign in"
+          accessibilityState={{ disabled: !canSubmit, busy: submitting }}
+          onPress={() => {
+            void onSubmit();
+          }}
           disabled={!canSubmit}
           style={[styles.button, !canSubmit ? styles.buttonDisabled : null]}
+          testID="sign-in-submit"
         >
           <Text style={styles.buttonText}>{submitting ? "Signing in…" : "Sign in"}</Text>
         </Pressable>

@@ -5,6 +5,8 @@ import path from "node:path";
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
+const mockSignInWithEmail = jest.fn();
+const mockAlert = jest.fn();
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
@@ -16,7 +18,7 @@ jest.mock("expo-router", () => ({
 }));
 
 jest.mock("@/lib/auth/actions", () => ({
-  signInWithEmail: jest.fn(),
+  signInWithEmail: (...args: unknown[]) => mockSignInWithEmail(...args),
 }));
 
 jest.mock("react-native", () => ({
@@ -24,17 +26,20 @@ jest.mock("react-native", () => ({
   Text: "Text",
   TextInput: "TextInput",
   Pressable: "Pressable",
-  Alert: { alert: jest.fn() },
+  Alert: { alert: (...args: unknown[]) => mockAlert(...args) },
   StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },
 }));
 
 import SignInScreen from "../sign-in";
 import { UI_APP_SCREEN_BG, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
+import { CONSUMER_HOME_HREF } from "@/lib/navigation/consumerHome";
 
 describe("Sign in screen", () => {
   beforeEach(() => {
     mockPush.mockReset();
     mockReplace.mockReset();
+    mockSignInWithEmail.mockReset();
+    mockAlert.mockReset();
   });
 
   it("uses the dark app background so the light iOS status bar stays readable", () => {
@@ -71,5 +76,88 @@ describe("Sign in screen", () => {
     expect(mockPush).toHaveBeenCalledWith("/(auth)/forgot-password");
 
     expect(test.root.findByProps({ testID: "sign-in-create-account" })).toBeTruthy();
+  });
+
+  it("alerts only mapped safe copy, never raw Firebase strings", async () => {
+    mockSignInWithEmail.mockResolvedValue({
+      ok: false,
+      title: "Sign in failed",
+      message: "The email or password is incorrect.",
+    });
+
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<SignInScreen />);
+    });
+    act(() => {
+      test.root.findByProps({ testID: "sign-in-email" }).props.onChangeText("person@oli.test");
+      test.root.findByProps({ testID: "sign-in-password" }).props.onChangeText("bad-pass");
+    });
+    await act(async () => {
+      test.root.findByProps({ testID: "sign-in-submit" }).props.onPress();
+    });
+
+    expect(mockAlert).toHaveBeenCalledWith(
+      "Sign in failed",
+      "The email or password is incorrect.",
+    );
+    const alertPayload = JSON.stringify(mockAlert.mock.calls);
+    expect(alertPayload).not.toMatch(/Firebase|auth\/invalid-credential|auth\/wrong-password/i);
+  });
+
+  it("routes successful sign-in to Home", async () => {
+    mockSignInWithEmail.mockResolvedValue({ ok: true });
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<SignInScreen />);
+    });
+    act(() => {
+      test.root.findByProps({ testID: "sign-in-email" }).props.onChangeText("person@oli.test");
+      test.root.findByProps({ testID: "sign-in-password" }).props.onChangeText("good-pass");
+    });
+    await act(async () => {
+      test.root.findByProps({ testID: "sign-in-submit" }).props.onPress();
+    });
+    expect(mockReplace).toHaveBeenCalledWith(CONSUMER_HOME_HREF);
+  });
+
+  it("prevents duplicate submission while sign-in is in flight", async () => {
+    let resolveSignIn!: (value: { ok: true }) => void;
+    mockSignInWithEmail.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSignIn = resolve;
+        }),
+    );
+
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<SignInScreen />);
+    });
+    act(() => {
+      test.root.findByProps({ testID: "sign-in-email" }).props.onChangeText("person@oli.test");
+      test.root.findByProps({ testID: "sign-in-password" }).props.onChangeText("good-pass");
+    });
+
+    await act(async () => {
+      test.root.findByProps({ testID: "sign-in-submit" }).props.onPress();
+    });
+    await act(async () => {
+      test.root.findByProps({ testID: "sign-in-submit" }).props.onPress();
+    });
+
+    expect(mockSignInWithEmail).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveSignIn({ ok: true });
+    });
+  });
+
+  it("source does not display error.message directly from Firebase", () => {
+    const src = fs.readFileSync(path.join(__dirname, "../sign-in.tsx"), "utf8");
+    expect(src).toContain("signInWithEmail");
+    expect(src).toContain("Alert.alert(result.title, result.message)");
+    expect(src).not.toMatch(/e\.message|error\.message/);
+    expect(src).not.toMatch(/sendPasswordResetEmail|getFirestore/);
   });
 });
