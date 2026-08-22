@@ -18,15 +18,11 @@ jest.mock("@/lib/linking/openPublicLink", () => ({
   openPublicLink: jest.fn(),
 }));
 
-import { PrivacyScreenContent } from "@/lib/ui/settings/PrivacyScreenContent";
-import { buildUserDataInventoryViewModel } from "@/lib/data/user-data/buildUserDataInventoryViewModel";
-import type { PublicLinksSnapshot } from "@/lib/config/publicLinks";
+const mockIsPublicLinkConfigured = jest.fn(() => false);
 
-const configuredLinks: PublicLinksSnapshot = {
-  privacyPolicy: { status: "configured", url: "https://docs.oli.health/privacy" },
-  termsOfService: { status: "configured", url: "https://docs.oli.health/terms" },
-  support: { status: "configured", url: "https://docs.oli.health/support" },
-};
+jest.mock("@/lib/config/publicLinks", () => ({
+  isPublicLinkConfigured: (...args: unknown[]) => mockIsPublicLinkConfigured(...args),
+}));
 
 jest.mock("@/lib/ui/legal/PublicDocumentLinks", () => {
   const ReactLocal = require("react");
@@ -42,7 +38,15 @@ jest.mock("@/lib/ui/legal/PublicDocumentLinks", () => {
   };
 });
 
+import { PrivacyScreenContent } from "@/lib/ui/settings/PrivacyScreenContent";
+import { buildUserDataInventoryViewModel } from "@/lib/data/user-data/buildUserDataInventoryViewModel";
+
 describe("Privacy screen honesty", () => {
+  beforeEach(() => {
+    mockIsPublicLinkConfigured.mockReset();
+    mockIsPublicLinkConfigured.mockReturnValue(false);
+  });
+
   it("uses consumer title Privacy without route strings or duplicate page heading", async () => {
     const inventory = buildUserDataInventoryViewModel({ authPresent: true });
     let test!: renderer.ReactTestRenderer;
@@ -61,7 +65,22 @@ describe("Privacy screen honesty", () => {
     expect(str).toContain("privacy-coverage-footnote");
   });
 
-  it("exposes Privacy Policy, Terms, and Support without Export/Delete CTAs", async () => {
+  it("omits Documents card when public links are not configured (RG-LEGAL-01 open)", async () => {
+    mockIsPublicLinkConfigured.mockReturnValue(false);
+    const inventory = buildUserDataInventoryViewModel({ authPresent: true });
+    let test!: renderer.ReactTestRenderer;
+    await act(async () => {
+      test = renderer.create(<PrivacyScreenContent inventory={inventory} />);
+    });
+    const str = JSON.stringify(test.toJSON());
+    expect(str).not.toContain("privacy-documents-card");
+    expect(str).not.toContain("privacy-public-links");
+    expect(str).not.toMatch(/Coming soon|example\.com/i);
+    expect(str).toContain("Open Your Data");
+  });
+
+  it("exposes Privacy Policy, Terms, and Support when configured without Export/Delete CTAs", async () => {
+    mockIsPublicLinkConfigured.mockReturnValue(true);
     const inventory = buildUserDataInventoryViewModel({ authPresent: true });
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
@@ -74,6 +93,5 @@ describe("Privacy screen honesty", () => {
     expect(str).toContain("support");
     expect(str).toContain("Documents");
     expect(str).not.toMatch(/Coming soon|Request export|Delete my account/i);
-    expect(configuredLinks.privacyPolicy.status).toBe("configured");
   });
 });

@@ -1,9 +1,10 @@
 /**
  * Shared Privacy Policy / Terms / Support link rows.
  * Renders only configured HTTPS destinations as tappable controls.
+ * Unavailable configuration omits actions (no fake, broken, or Coming-soon controls).
  */
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
@@ -13,11 +14,11 @@ import {
   type PublicLinksSnapshot,
 } from "@/lib/config/publicLinks";
 import { openPublicLink } from "@/lib/linking/openPublicLink";
-import { UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import { UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 export type PublicDocumentLinksProps = {
   kinds?: readonly PublicLinkKind[];
-  /** Optional intro shown above the link rows. */
+  /** Optional intro shown above the link rows when at least one link is configured. */
   intro?: string;
   testID?: string;
   /** Injected snapshot for tests; defaults to live env resolution. */
@@ -40,6 +41,11 @@ export function PublicDocumentLinks({
   const [openingKind, setOpeningKind] = useState<PublicLinkKind | null>(null);
   const openingRef = useRef(false);
 
+  const configuredKinds = useMemo(
+    () => kinds.filter((kind) => snapshot[kind].status === "configured"),
+    [kinds, snapshot],
+  );
+
   const onPress = useCallback(async (kind: PublicLinkKind) => {
     if (openingRef.current) return;
     openingRef.current = true;
@@ -55,6 +61,12 @@ export function PublicDocumentLinks({
     }
   }, []);
 
+  // Internal builds without hosted legal URLs omit document actions entirely.
+  // RG-LEGAL-01 remains OPEN until approved HTTPS pages are published.
+  if (configuredKinds.length === 0) {
+    return null;
+  }
+
   return (
     <View style={styles.root} testID={testID}>
       {intro ? (
@@ -62,24 +74,9 @@ export function PublicDocumentLinks({
           {intro}
         </Text>
       ) : null}
-      {kinds.map((kind) => {
-        const resolution = snapshot[kind];
+      {configuredKinds.map((kind) => {
         const label = PUBLIC_LINK_LABELS[kind];
         const rowTestId = `${testID}-${kind}`;
-
-        if (resolution.status !== "configured") {
-          return (
-            <Text
-              key={kind}
-              style={styles.unavailable}
-              accessibilityRole="text"
-              testID={`${rowTestId}-unavailable`}
-            >
-              {label} is not available right now.
-            </Text>
-          );
-        }
-
         const busy = openingKind === kind;
         return (
           <Pressable
@@ -121,12 +118,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: UI_TEXT_PRIMARY,
     textDecorationLine: "underline",
-  },
-  unavailable: {
-    minHeight: 44,
-    fontSize: 14,
-    lineHeight: 20,
-    color: UI_TEXT_MUTED,
-    textAlignVertical: "center",
   },
 });

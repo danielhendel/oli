@@ -8,6 +8,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import type { UserDataInventoryViewModel } from "@/lib/data/user-data/buildUserDataInventoryViewModel";
+import { isPublicLinkConfigured } from "@/lib/config/publicLinks";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { PublicDocumentLinks } from "@/lib/ui/legal/PublicDocumentLinks";
 import {
@@ -25,6 +26,10 @@ export type PrivacyScreenContentProps = {
 export function PrivacyScreenContent({ inventory }: PrivacyScreenContentProps) {
   const router = useRouter();
   const privacy = inventory?.privacy;
+  const hasPublicDocuments =
+    isPublicLinkConfigured("privacyPolicy") ||
+    isPublicLinkConfigured("termsOfService") ||
+    isPublicLinkConfigured("support");
 
   return (
     <ModuleScreenShell title="Privacy" hideTitleChrome>
@@ -34,13 +39,15 @@ export function PrivacyScreenContent({ inventory }: PrivacyScreenContentProps) {
           the account API; coverage is not yet complete for every store.
         </Text>
 
-        <View style={styles.card} testID="privacy-documents-card">
-          <Text style={styles.cardTitle}>Documents & support</Text>
-          <PublicDocumentLinks
-            kinds={["privacyPolicy", "termsOfService", "support"]}
-            testID="privacy-public-links"
-          />
-        </View>
+        {hasPublicDocuments ? (
+          <View style={styles.card} testID="privacy-documents-card">
+            <Text style={styles.cardTitle}>Documents & support</Text>
+            <PublicDocumentLinks
+              kinds={["privacyPolicy", "termsOfService", "support"]}
+              testID="privacy-public-links"
+            />
+          </View>
+        ) : null}
 
         <View style={styles.card} testID="privacy-export-card">
           <Text style={styles.cardTitle}>Export</Text>

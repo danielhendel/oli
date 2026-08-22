@@ -30,6 +30,12 @@ const missing: PublicLinksSnapshot = {
   support: { status: "unavailable", reason: "missing" },
 };
 
+const partial: PublicLinksSnapshot = {
+  privacyPolicy: { status: "configured", url: "https://docs.oli.health/privacy" },
+  termsOfService: { status: "unavailable", reason: "missing" },
+  support: { status: "unavailable", reason: "missing" },
+};
+
 describe("PublicDocumentLinks", () => {
   beforeEach(() => {
     mockOpenPublicLink.mockReset();
@@ -40,7 +46,11 @@ describe("PublicDocumentLinks", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
-        <PublicDocumentLinks links={configured} testID="docs" kinds={["privacyPolicy", "termsOfService", "support"]} />,
+        <PublicDocumentLinks
+          links={configured}
+          testID="docs"
+          kinds={["privacyPolicy", "termsOfService", "support"]}
+        />,
       );
     });
 
@@ -53,14 +63,37 @@ describe("PublicDocumentLinks", () => {
     expect(test.root.findByProps({ testID: "docs-support" }).props.accessibilityLabel).toBe("Support");
   });
 
-  it("does not render tappable controls when URLs are unavailable", () => {
+  it("omits document actions entirely when URLs are unavailable (RG-LEGAL-01 open)", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<PublicDocumentLinks links={missing} testID="docs" />);
     });
 
-    expect(test.root.findByProps({ testID: "docs-privacyPolicy-unavailable" })).toBeTruthy();
-    expect(() => test.root.findByProps({ testID: "docs-privacyPolicy" })).toThrow();
-    expect(JSON.stringify(test.toJSON())).toContain("not available right now");
+    expect(test.toJSON()).toBeNull();
+    expect(mockOpenPublicLink).not.toHaveBeenCalled();
+  });
+
+  it("renders only configured kinds and never invents placeholder destinations", async () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(
+        <PublicDocumentLinks
+          links={partial}
+          testID="docs"
+          kinds={["privacyPolicy", "termsOfService", "support"]}
+          intro="Review documents."
+        />,
+      );
+    });
+
+    expect(test.root.findByProps({ testID: "docs-privacyPolicy" })).toBeTruthy();
+    expect(() => test.root.findByProps({ testID: "docs-termsOfService" })).toThrow();
+    expect(() => test.root.findByProps({ testID: "docs-support" })).toThrow();
+    expect(JSON.stringify(test.toJSON())).not.toMatch(/example\.com|Coming soon|localhost/i);
+
+    await act(async () => {
+      test.root.findByProps({ testID: "docs-privacyPolicy" }).props.onPress();
+    });
+    expect(mockOpenPublicLink).toHaveBeenCalledWith("privacyPolicy");
   });
 });

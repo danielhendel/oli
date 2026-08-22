@@ -16,7 +16,7 @@
 
 > **R1 status:** Complete and merged (PR #212). Primary navigation on `main`: **Home · Plan · Progress · You**.
 
-> **Stage 1A status:** **Implementation present on branch; acceptance BLOCKED** pending approved hosted legal/support URLs and physical-iPhone staging smoke. Do **not** merge from this record. Do **not** begin Stage 1B.
+> **Stage 1A status:** **Implementation on branch; engineering acceptance pending physical-iPhone smoke.** Public-link infrastructure is implemented. Hosted legal/support pages are **not published**. **RG-LEGAL-01 OPEN**. Draft PR [#213](https://github.com/danielhendel/oli/pull/213) must not be treated as merged from this record. Do **not** begin Stage 1B until PR #213 merges.
 
 ---
 
@@ -97,23 +97,52 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Ownership backend complete; mobile export/delete CTAs still missing on `main`
 - Account route exists at `/(app)/settings/account`; You → Account routing defect is corrected on the Stage 1A branch (not yet merged)
 
-## Stage 1A branch (implementation present — acceptance blocked)
+## Stage 1A branch (engineering in progress — RG-LEGAL-01 OPEN)
 
 - Branch: `feat/consumer-stage1a-account-recovery-legal`
+- Head: `1303ae1eebb970196f48071e5e28118f7cbcc135` (plus subsequent completion commits)
 - Baseline `main`: `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
+- Draft PR: [#213](https://github.com/danielhendel/oli/pull/213) — **Draft**, unmerged
 - Scope delivered on branch:
   - You → Account routes to `/(app)/settings/account` (Settings remains distinct)
   - Enumeration-safe password-reset request (`requestPasswordReset` + `/(auth)/forgot-password`)
   - Centralized public-link contract + external open service
-  - Sign Up Privacy Policy / Terms access; signed-in Privacy Policy / Terms / Support access
+  - Sign Up / Privacy surfaces mount document links **only when** approved HTTPS URLs are configured; missing config omits actions (no fake/placeholder destinations)
+- **Public-link infrastructure:** Implemented
+- **Public legal documents:** **Not published**
+- **Release gate:** **RG-LEGAL-01 OPEN** — Public Legal and Support Readiness
 - **Static verification (2026-08-21):** `npm ci`, typecheck, lint, invariants, client trust boundary, `npm test -- --ci` (**995 suites / 6190 tests / 0 skipped**), `npm run check`, `git diff --check` all exit 0
 - **Expo Doctor:** same 5 pre-existing findings; no new Stage 1A finding
-- **Legal-link runtime acceptance:** **BLOCKED** — approved hosted values for `EXPO_PUBLIC_PRIVACY_POLICY_URL`, `EXPO_PUBLIC_TERMS_OF_SERVICE_URL`, and `EXPO_PUBLIC_SUPPORT_URL` were not present in repository configuration
-- **Physical-iPhone staging smoke:** **NOT RUN** (blocked behind approved URLs + operator device session)
-- **PR:** Draft required; must not merge while legal-link acceptance is blocked
+- **Physical-iPhone staging smoke:** pending (password recovery + missing-link honesty; hosted-page open not required for Stage 1A engineering)
 - **Not implemented yet (Stage 1B / 1C):** durable consent; export UI; delete-account UI; local-data purge; retention/export/delete coverage closure
+- **Stage 1B dependency:** export development may proceed after merge; durable Terms/Privacy assent must remain **inactive** until RG-LEGAL-01 passes
 - **Not begun:** Body salvage (PR #178 remains closed/unmerged)
 
+### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
+
+Required before durable legal consent activation, external TestFlight, App Store submission, or public production release.
+
+| Requirement | Status |
+|-------------|--------|
+| Approved Privacy Policy content | Not published |
+| Approved Terms content | Not published |
+| Approved Support page | Not published |
+| Stable public HTTPS URLs | Not configured |
+| EAS env values for the three public URLs | Not configured |
+| Physical-iPhone verification of hosted pages | Not run |
+| App Store Connect Privacy Policy URL | Not set |
+| App Store Connect Support URL | Not set |
+| Version / effective-date governance | Not established |
+
+Environment variable names (public config, not secrets):
+
+```text
+EXPO_PUBLIC_PRIVACY_POLICY_URL
+EXPO_PUBLIC_TERMS_OF_SERVICE_URL
+EXPO_PUBLIC_SUPPORT_URL
+```
+
+RG-LEGAL-01 remaining OPEN does **not** block Stage 1A engineering merge once physical password-recovery smoke passes.
 ## Missing under analytics-first launch direction
 
 - Current State productization, What Oli Sees, confidence / analytical explanation contracts

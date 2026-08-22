@@ -34,7 +34,8 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Primary dock on `main`: **Home · Plan · Progress · You** (R1 / PR #212 merged)
 - PR #210 (Today IA) is **CLOSED**, **unmerged**, and based on a superseded navigation doctrine
 - PR #178 (Profile floating shortcut / Body salvage candidate) is **CLOSED**, **unmerged**; Body salvage deferred
-- Password reset, hosted Privacy/Terms/Support in-app access, and You → Account routing correction are **in progress on Stage 1A branch** (not yet merged)
+- Password reset, public-link infrastructure, and You → Account routing correction are **on Stage 1A branch** (Draft PR #213; not yet merged)
+- Hosted Privacy / Terms / Support pages are **not published** (**RG-LEGAL-01 OPEN**)
 
 ## What does not exist yet (launch-critical under analytics-first)
 
@@ -54,8 +55,8 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 |------:|------|--------|
 | **R0** | Analytics-First Product Direction Reset | Vision, decisions, roadmap, progress map, system state, index, delta audit, PR #210 disposition (**docs only**) — **merged** (PR #211) |
 | **R1** | PR #210 disposition & four-destination IA | Home · Plan · Progress · You; retire Command Center as home; reuse honest cleanup; no false capabilities; no Oli-authored plan — **merged** (PR #212) |
-| **1A** | Account recovery, Account routing, legal/support foundation | Password-reset request; You → Account; Privacy Policy / Terms / Support access; public-link contract |
-| **1B** | Consent and consumer data export | Durable consent; export request / status / retrieval UI |
+| **1A** | Account recovery, Account routing, legal/support foundation | Password-reset request; You → Account; public-link contract; honest absent-config behavior (**RG-LEGAL-01** for hosted pages) |
+| **1B** | Consent and consumer data export | Consent architecture + export UI; **durable legal assent inactive until RG-LEGAL-01** |
 | **1C** | Account deletion and local data lifecycle | Delete UI; reauthentication; local purge; coverage closure |
 | **2** | Minimal onboarding & data readiness | Opening → About You → Connect → Understand; honest partial data; no subjective goals questionnaire |
 | **3** | Analytics truth contracts | Baseline, standards registry, trend, confidence, completeness, evidence, association/causation language, versioning — **RFC/ADR before schema**. Includes unfinished-day activity presentation (do not label an in-progress day **Sedentary** from a stored zero / empty HealthKit aggregate; R1 only omitted measured-zero on Home Movement). |
@@ -71,14 +72,46 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **Stage 1A — Account Recovery, Account Routing, and Legal/Support Foundation** (implementation on `feat/consumer-stage1a-account-recovery-legal`; acceptance **BLOCKED** pending approved legal/support URLs + physical-iPhone smoke).
+**Current stage:** **Stage 1A — Account Recovery, Account Routing, and Legal/Support Foundation** (Draft PR [#213](https://github.com/danielhendel/oli/pull/213); engineering acceptance pending physical-iPhone smoke).
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`.
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`.
-**Planned next after Stage 1A merges:** **Stage 1B — Consent and Data Export** (not started).
+**Release gate:** **RG-LEGAL-01 OPEN** (hosted Privacy / Terms / Support not published).
+**Planned next after Stage 1A merges:** **Stage 1B — Consent and Data Export** (not started; durable legal assent blocked by RG-LEGAL-01).
 **Then:** **Stage 1C — Account Deletion and Local Data Lifecycle** (not started).
 
-Do **not** begin Stage 1B or Stage 1C while Stage 1A remains blocked or unmerged.
+Do **not** begin Stage 1B until PR #213 merges. Do **not** activate durable Terms/Privacy assent until RG-LEGAL-01 passes.
 
+### Stage 1A acceptance split
+
+#### Engineering acceptance (Stage 1A / PR #213)
+
+* Account routing (You → Account distinct from Settings)
+* Password-recovery request + enumeration-safe feedback
+* Error / offline / retry handling
+* Typed public-link contract + external-link service
+* Honest absent-config behavior (omit unavailable document actions; no fake URLs)
+* Tests + physical-iPhone password-recovery smoke
+
+#### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
+
+Required before:
+
+* Durable legal consent activation
+* External TestFlight
+* App Store submission
+* Public production release
+
+Required variables:
+
+```text
+EXPO_PUBLIC_PRIVACY_POLICY_URL
+EXPO_PUBLIC_TERMS_OF_SERVICE_URL
+EXPO_PUBLIC_SUPPORT_URL
+```
+
+Required release evidence: approved content; stable public HTTPS pages; EAS environment configuration; physical-iPhone hosted-page verification; App Store metadata; version/effective dates.
+
+Stage 1B may design consent storage and build Data Export, but must not claim acceptance of unpublished documents.
 Stage **1C** under the old Today/My Plan roadmap is **not** the immediate next step.
 
 ### Critical path

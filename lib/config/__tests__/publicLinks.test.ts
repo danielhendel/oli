@@ -68,4 +68,11 @@ describe("publicLinks contract", () => {
     expect(missing.status).toBe("unavailable");
     expect(missing).not.toEqual(expect.objectContaining({ url: expect.any(String) }));
   });
+
+  it("treats missing development configuration as unavailable without throwing (RG-LEGAL-01)", () => {
+    // Missing values must not become a runtime crash or a silent fake destination.
+    expect(() => resolvePublicLink(undefined)).not.toThrow();
+    expect(resolvePublicLink(undefined)).toEqual({ status: "unavailable", reason: "missing" });
+    expect(resolvePublicLink("https://example.com/privacy").status).toBe("unavailable");
+  });
 });
