@@ -127,13 +127,18 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 ## Stage 1B branch (active — RG-LEGAL-01 OPEN)
 
 - Branch: `feat/consumer-stage1b-consent-export`
+- Final branch head: `425b2f0` (pending final verification commit)
 - Baseline `main`: `10f85ee3d377d25075353c152b27611b6b572c84`
-- Scope in progress:
-  - Consent architecture (RFC/ADR; durable persistence **blocked pending approval** while RG-LEGAL-01 open)
-  - Consumer Data Export request, status restoration, and retrieval
-  - RG-LEGAL-01-aware legal-assent readiness (inactive; no fake acceptance)
+- Scope delivered on branch:
+  - Consent architecture RFC/ADR; typed readiness presentation; **durable persistence blocked** (RG-LEGAL-01 + governance)
+  - Consumer Data Export: request, status restoration, ready/failed/expired/offline states, signed-URL download/share
+  - Export API: `GET /export/latest`, `GET /export/:requestId`, `GET /export/:requestId/download`, `POST /export`
+  - Honest export coverage disclosure in Your Data
+- **Legal assent:** inactive (no fake acceptance)
+- **Static verification (2026-08-23):** `npm ci`, typecheck, lint, invariants, client trust boundary, `npm test -- --ci` (**999 suites / 6223 tests / 0 skipped**), `npm run check`, `git diff --check` all exit 0
+- **Expo Doctor:** same 5 pre-existing findings; no new Stage 1B finding
+- **Physical-iPhone staging smoke:** pending human verification on `oli-staging-fdbba`
 - **Not implemented yet (Stage 1C):** delete-account UI; local-data purge; retention/export/delete coverage closure
-- **Durable legal assent:** **inactive** until RG-LEGAL-01 passes
 - **Not begun:** Body salvage (PR #178 remains closed/unmerged)
 
 ### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)

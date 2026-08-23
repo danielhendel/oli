@@ -94,14 +94,14 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 | Capability | Merged `main` reality | Stage 1B branch (in progress) |
 |------------|----------------------|--------------------------------|
 | Export/delete backend | Exists (API + Functions) | Export status + download API being added |
-| Export UI CTAs | Missing | In progress |
+| Export UI CTAs | Implemented on Stage 1B branch | Request, status, download/share |
 | Delete UI CTAs | Missing | Still missing (Stage 1C) |
 | Password reset | Merged (Stage 1A) | Unchanged |
 | You → Account routing | Fixed (Stage 1A) | Unchanged |
 | Sign-in error mapping | Centralized safe mapping | Unchanged |
 | Public-link contract / external open | Merged (Stage 1A) | Unchanged |
 | Hosted Privacy / Terms / Support pages | Not published | **RG-LEGAL-01 OPEN** |
-| Durable consent persistence | Missing | RFC/ADR proposed; activation blocked by RG-LEGAL-01 |
+| Durable consent persistence | Missing | RFC/ADR on branch; activation blocked by RG-LEGAL-01 |
 | Local-data purge | Missing | Stage 1C |
 | Crash reporting product | Missing | Release hardening |
 | Production Firebase project config | Release-hardening gap | Unchanged |
