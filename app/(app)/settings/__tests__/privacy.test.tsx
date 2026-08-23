@@ -63,6 +63,8 @@ describe("Privacy screen honesty", () => {
     expect(str).not.toContain("settings/privacy");
     expect(str).not.toMatch(/"fontWeight":"900"/);
     expect(str).toContain("privacy-coverage-footnote");
+    expect(str).toContain("privacy-consent-card");
+    expect(str).not.toMatch(/You agreed|acceptedAt|Coming soon/i);
   });
 
   it("omits Documents card when public links are not configured (RG-LEGAL-01 open)", async () => {

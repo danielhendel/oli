@@ -17,6 +17,26 @@ jest.mock("expo-router", () => ({
 import { YourDataScreen } from "@/lib/ui/settings/YourDataScreen";
 import { buildUserDataInventoryViewModel } from "@/lib/data/user-data/buildUserDataInventoryViewModel";
 
+const idleExportHook = {
+  exportState: {
+    status: "idle" as const,
+    requestId: null,
+    requestedAt: null,
+    completedAt: null,
+    expiresAt: null,
+    retryable: true,
+    packageAvailable: false,
+  },
+  loading: false,
+  requesting: false,
+  downloading: false,
+  error: null,
+  errorRetryable: false,
+  refresh: () => undefined,
+  requestExport: async () => undefined,
+  downloadExport: async () => undefined,
+};
+
 describe("Your Data screen", () => {
   it("renders source and record statuses without collection names or private values", async () => {
     const inventory = buildUserDataInventoryViewModel({
@@ -30,7 +50,7 @@ describe("Your Data screen", () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
       test = renderer.create(
-        <YourDataScreen state="ready" inventory={inventory} error={null} onRefresh={() => undefined} />,
+        <YourDataScreen state="ready" inventory={inventory} error={null} onRefresh={() => undefined} exportHook={idleExportHook} />,
       );
     });
 
@@ -45,6 +65,9 @@ describe("Your Data screen", () => {
     expect(str).not.toMatch(/labUploads|rawEvents|users\/\{uid\}/);
     expect(str).not.toMatch(/LDL|HDL|mg\/dL/);
     expect(str).not.toContain("settings/your-data");
+    expect(str).toContain("your-data-export-card");
+    expect(str).toContain("Request export");
+    expect(str).not.toContain("Delete my account");
     expect(str).not.toMatch(/"fontWeight":"900"/);
   });
 
@@ -52,7 +75,7 @@ describe("Your Data screen", () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
       test = renderer.create(
-        <YourDataScreen state="loading" inventory={null} error={null} onRefresh={() => undefined} />,
+        <YourDataScreen state="loading" inventory={null} error={null} onRefresh={() => undefined} exportHook={idleExportHook} />,
       );
     });
     expect(JSON.stringify(test.toJSON())).toContain("your-data-loading");
