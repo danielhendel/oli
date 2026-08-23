@@ -1,0 +1,132 @@
+/**
+ * Account export API helpers (Cloud Run).
+ */
+
+import { getStorage } from "firebase-admin/storage";
+import {
+  EXPORT_DOWNLOAD_URL_TTL_SECONDS,
+  type ExportDownloadResponseDto,
+  type ExportStatusResponseDto,
+} from "@oli/contracts";
+import {
+  coerceBackendStatus,
+  firestoreTimestampToIso,
+  globalExportDocId,
+  normalizeExportStatus,
+} from "../../../../../lib/data/user-data/export/normalizeExportStatus";
+import { db } from "../../db";
+
+const ACCOUNT_EXPORTS_GLOBAL = "accountExports";
+
+export type UserExportDoc = Record<string, unknown>;
+
+export async function loadLatestUserExportDoc(uid: string): Promise<{
+  requestId: string;
+  data: UserExportDoc;
+} | null> {
+  const snap = await db
+    .collection("users")
+    .doc(uid)
+    .collection("accountExports")
+    .orderBy("requestedAt", "desc")
+    .limit(1)
+    .get();
+
+  if (snap.empty) return null;
+  const doc = snap.docs[0]!;
+  return { requestId: doc.id, data: doc.data() as UserExportDoc };
+}
+
+export async function loadUserExportDoc(
+  uid: string,
+  requestId: string,
+): Promise<UserExportDoc | null> {
+  const snap = await db
+    .collection("users")
+    .doc(uid)
+    .collection("accountExports")
+    .doc(requestId)
+    .get();
+  if (!snap.exists) return null;
+  return snap.data() as UserExportDoc;
+}
+
+export function buildExportStatusDto(
+  requestId: string,
+  data: UserExportDoc,
+): Omit<ExportStatusResponseDto, "ok"> {
+  const backendStatus = coerceBackendStatus(data.status);
+  const packageAvailable = data.packageAvailable === true || backendStatus === "succeeded";
+  const requestedAt =
+    typeof data.requestedAt === "string" ? data.requestedAt : null;
+  const completedAt = firestoreTimestampToIso(data.completedAt);
+  const updatedAt = firestoreTimestampToIso(data.updatedAt);
+
+  const normalized = normalizeExportStatus({
+    backendStatus,
+    packageAvailable,
+    requestedAt,
+    completedAt,
+  });
+
+  return {
+    requestId,
+    status: normalized.status,
+    backendStatus,
+    requestedAt,
+    updatedAt,
+    completedAt,
+    expiresAt: normalized.expiresAt,
+    packageAvailable,
+    retryable: normalized.retryable,
+    failureCategory: normalized.failureCategory,
+  };
+}
+
+export async function createExportDownloadResponse(
+  uid: string,
+  requestId: string,
+  data: UserExportDoc,
+): Promise<ExportDownloadResponseDto | { code: string; message: string }> {
+  const statusDto = buildExportStatusDto(requestId, data);
+
+  if (statusDto.status === "expired") {
+    return { code: "EXPORT_EXPIRED", message: "This export has expired. Request a new export." };
+  }
+
+  if (statusDto.status !== "ready") {
+    return { code: "EXPORT_NOT_READY", message: "Export is not ready for download yet." };
+  }
+
+  const globalId = globalExportDocId(uid, requestId);
+  const globalSnap = await db.collection(ACCOUNT_EXPORTS_GLOBAL).doc(globalId).get();
+  if (!globalSnap.exists) {
+    return { code: "ARTIFACT_UNAVAILABLE", message: "Export file is not available." };
+  }
+
+  const artifact = globalSnap.data()?.artifact as
+    | { bucket?: string; object?: string; contentType?: string }
+    | undefined;
+
+  const bucketName = typeof artifact?.bucket === "string" ? artifact.bucket : "";
+  const objectName = typeof artifact?.object === "string" ? artifact.object : "";
+  if (!bucketName || !objectName) {
+    return { code: "ARTIFACT_UNAVAILABLE", message: "Export file is not available." };
+  }
+
+  const expiresAt = new Date(Date.now() + EXPORT_DOWNLOAD_URL_TTL_SECONDS * 1000);
+  const [signedUrl] = await getStorage()
+    .bucket(bucketName)
+    .file(objectName)
+    .getSignedUrl({
+      action: "read",
+      expires: expiresAt,
+    });
+
+  return {
+    ok: true,
+    contentType: artifact?.contentType ?? "application/zip",
+    expiresAt: expiresAt.toISOString(),
+    downloadUrl: signedUrl,
+  };
+}

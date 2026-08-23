@@ -33,6 +33,7 @@
     "../../lib/data/documents/documentDeleteRelationships.ts",
     "../../lib/data/documents/documentProcessingReconcile.ts",
     "../../lib/data/documents/parseLabImportSummaryStructural.ts",
+    "../../lib/data/user-data/export/normalizeExportStatus.ts",
     "../../lib/domain/workouts/reconcileWorkoutSessionsCore.ts"
   ],
   "exclude": [

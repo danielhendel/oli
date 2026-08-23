@@ -10,6 +10,7 @@ import { useRouter } from "expo-router";
 import type { UserDataInventoryViewModel } from "@/lib/data/user-data/buildUserDataInventoryViewModel";
 import { isPublicLinkConfigured } from "@/lib/config/publicLinks";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
+import { PrivacyConsentSection } from "@/lib/ui/settings/PrivacyConsentSection";
 import { PublicDocumentLinks } from "@/lib/ui/legal/PublicDocumentLinks";
 import {
   UI_BORDER_SUBTLE,
@@ -48,6 +49,8 @@ export function PrivacyScreenContent({ inventory }: PrivacyScreenContentProps) {
             />
           </View>
         ) : null}
+
+        <PrivacyConsentSection />
 
         <View style={styles.card} testID="privacy-export-card">
           <Text style={styles.cardTitle}>Export</Text>
