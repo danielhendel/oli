@@ -1,9 +1,9 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-08-22 (R1 merged; Stage 1A **complete on branch**; **RG-LEGAL-01 OPEN**)
-**Merged `main` SHA:** `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
-**Stage 1A branch:** `feat/consumer-stage1a-account-recovery-legal` (Draft PR #213; do not treat as merged)
+**Last updated:** 2026-08-23 (Stage 1A merged; Stage 1B **active**; **RG-LEGAL-01 OPEN**)
+**Merged `main` SHA:** `10f85ee3d377d25075353c152b27611b6b572c84`
+**Stage 1B branch:** `feat/consumer-stage1b-consent-export` (active implementation)
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
 **Approved product direction (not implementation proof):** [VISION.md](../10_product/vision/VISION.md)
@@ -46,7 +46,7 @@ The analytics-first product direction **strengthens** this pipeline; it does not
 
 ---
 
-## Merged state (`main` @ `f502d8b`)
+## Merged state (`main` @ `10f85ee`)
 
 ### Navigation and homes
 
@@ -72,9 +72,9 @@ Plan: `currentPrograms = []`; no persistence; no Oli-authored plan language; not
 
 Progress: no adherence/outcome/causal claims.
 
-You: DNA / Medical History / Scans / Medication placeholders are hidden from launch navigation. Account screen title is **Account**; Firebase UID absent from consumer UI. On merged `main`, You → Account still incorrectly routes to Settings until Stage 1A merges.
+You: DNA / Medical History / Scans / Medication placeholders are hidden from launch navigation. Account screen title is **Account**; Firebase UID absent from consumer UI. You → Account routes to `/(app)/settings/account` (Stage 1A merged).
 
-Auth: dark Sign In / Create account; light iOS status bar. Password-reset request flow is Stage 1A work (branch), not yet on `main`.
+Auth: dark Sign In / Create account; light iOS status bar. Password-reset request flow merged (Stage 1A).
 
 ### Integrations and pipeline
 
@@ -91,16 +91,17 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 
 ### Ownership and gaps
 
-| Capability | Merged `main` reality | Stage 1A branch (complete on branch) |
-|------------|----------------------|--------------------------------------|
-| Export/delete backend | Exists (API + Functions) | Unchanged |
-| Export/delete UI CTAs | Missing | Still missing (Stage 1B / 1C) — no fake/Coming soon CTAs added |
-| Password reset | Missing | Implemented + physical staging PASS (enumeration-safe request; completion; new-password sign-in) |
-| You → Account routing | Defect: Account href equals Settings | Fixed + physical PASS |
-| Sign-in error mapping | Raw Firebase messages possible | Centralized safe mapping; no `Firebase:` / `auth/…` in consumer UI |
-| Public-link contract / external open | Missing | Implemented; missing URLs omit actions (no fake destinations) |
-| Hosted Privacy / Terms / Support pages | Not published | **RG-LEGAL-01 OPEN** — not configured; app not externally release-ready for legal links |
-| Durable consent persistence | Missing | Stage 1B (assent activation blocked by RG-LEGAL-01) |
+| Capability | Merged `main` reality | Stage 1B branch (in progress) |
+|------------|----------------------|--------------------------------|
+| Export/delete backend | Exists (API + Functions) | Export status + download API being added |
+| Export UI CTAs | Missing | In progress |
+| Delete UI CTAs | Missing | Still missing (Stage 1C) |
+| Password reset | Merged (Stage 1A) | Unchanged |
+| You → Account routing | Fixed (Stage 1A) | Unchanged |
+| Sign-in error mapping | Centralized safe mapping | Unchanged |
+| Public-link contract / external open | Merged (Stage 1A) | Unchanged |
+| Hosted Privacy / Terms / Support pages | Not published | **RG-LEGAL-01 OPEN** |
+| Durable consent persistence | Missing | RFC/ADR proposed; activation blocked by RG-LEGAL-01 |
 | Local-data purge | Missing | Stage 1C |
 | Crash reporting product | Missing | Release hardening |
 | Production Firebase project config | Release-hardening gap | Unchanged |
