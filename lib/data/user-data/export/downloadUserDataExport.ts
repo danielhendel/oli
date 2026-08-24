@@ -33,7 +33,9 @@ export async function downloadAndShareUserDataExport(args: {
       message: "Your Oli data export",
     });
 
-    // Best-effort cleanup after share sheet closes.
+    // Best-effort cleanup after the share sheet returns.
+    // On iOS the sheet may still briefly reference the file; deletion is not
+    // guaranteed to be instantaneous and must never log the path or URL.
     void FileSystem.deleteAsync(result.uri, { idempotent: true });
 
     return { ok: true };

@@ -1,6 +1,6 @@
 # RFC — Consumer Consent Persistence v1
 
-**Status:** Draft — pending human governance approval  
+**Status:** Accepted (architecture) — human approval 2026-08-24; persistence not authorized in PR #214  
 **Stage:** 1B (architecture only; no persistence in PR #214)  
 **Date:** 2026-08-23  
 **Canonical location:** `docs/80_rfc/` (per `docs/INDEX.md`)  
@@ -175,8 +175,8 @@ Recommended: post–RG-LEGAL-01 ownership follow-on (may be after Stage 1C merge
 
 ## Approval checklist (before any persistence code)
 
-- [ ] Product / privacy review of consent categories
-- [ ] Firestore path and security rules review
-- [ ] API contract review
-- [ ] Human governance acceptance of this RFC + ADR
+- [x] Human governance acceptance of this RFC + ADR (2026-08-24)
+- [ ] Product / privacy review of consent categories (for implementation stage)
+- [ ] Firestore path and security rules review (implementation stage)
+- [ ] API contract review (implementation stage)
 - [ ] RG-LEGAL-01 pass for legal-assent activation

@@ -243,6 +243,77 @@ paths:
       responses:
         202:
           description: Accepted
+        200:
+          description: OK — idempotent replay of existing request id
+
+  /export/latest:
+    options:
+      operationId: exportLatestOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: exportLatestGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Latest export status for the authenticated user (or null)
+        401:
+          description: Unauthorized
+
+  /export/{requestId}:
+    parameters:
+      - name: requestId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: exportByRequestIdOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: exportByRequestIdGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Export status for a user-scoped request
+        401:
+          description: Unauthorized
+        404:
+          description: Not found
+
+  /export/{requestId}/download:
+    parameters:
+      - name: requestId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: exportDownloadOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: exportDownloadGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Short-lived signed download URL (authenticated; ownership verified)
+        401:
+          description: Unauthorized
+        404:
+          description: Artifact unavailable
+        409:
+          description: Export not ready
+        410:
+          description: Export expired
 
   /account/delete:
     options:

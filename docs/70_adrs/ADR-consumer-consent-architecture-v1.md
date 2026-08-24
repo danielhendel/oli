@@ -1,13 +1,14 @@
 # ADR — Consumer Consent Architecture v1
 
-**Status:** Proposed — awaiting human governance approval  
+**Status:** Accepted (architecture only) — human approval 2026-08-24  
 **Date:** 2026-08-23  
 **Canonical location:** `docs/70_adrs/` (per `docs/INDEX.md`)  
 **RFC:** [RFC-consumer-consent-persistence-v1.md](../80_rfc/RFC-consumer-consent-persistence-v1.md)
 
 **Persistence implemented:** No  
 **Legal assent active:** No  
-**RG-LEGAL-01:** OPEN
+**RG-LEGAL-01:** OPEN  
+**Human approval:** Accept Consumer Consent Architecture v1 for future implementation. No Firestore/API consent writes in PR #214.
 
 ---
 
@@ -83,4 +84,4 @@ Governance requires RFCs in `docs/80_rfc/` and ADRs in `docs/70_adrs/`.
 
 ## Status note
 
-This ADR records the **architectural decision**. It does **not** authorize persistence code in PR #214. Status remains **Proposed** until a human records acceptance. After acceptance, status becomes **Accepted (architecture only)**; implementation remains a separate stage.
+This ADR records the **architectural decision**. Human acceptance (2026-08-24) authorizes the architecture for **future** implementation only. It does **not** authorize persistence code in PR #214. Legal assent remains inactive while RG-LEGAL-01 is OPEN.
