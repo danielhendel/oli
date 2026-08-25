@@ -4,6 +4,7 @@
 
 import {
   EXPORT_PACKAGE_RETENTION_DAYS,
+  EXPORT_PENDING_MAX_AGE_MS,
   type ConsumerExportStatus,
   type ExportBackendStatus,
 } from "@oli/contracts";
@@ -13,6 +14,9 @@ export type ExportStatusInput = {
   packageAvailable: boolean;
   requestedAt: string | null;
   completedAt: string | null;
+  /** Prefer updatedAt/startedAt when present for age checks. */
+  updatedAt?: string | null;
+  startedAt?: string | null;
   now?: Date;
 };
 
@@ -20,7 +24,13 @@ export type NormalizedExportStatus = {
   status: ConsumerExportStatus;
   expiresAt: string | null;
   retryable: boolean;
-  failureCategory: "none" | "processing_failed" | "artifact_unavailable" | "expired" | "unknown";
+  failureCategory:
+    | "none"
+    | "processing_failed"
+    | "artifact_unavailable"
+    | "expired"
+    | "stale_pending"
+    | "unknown";
 };
 
 const PENDING_STATUSES: ReadonlySet<ExportBackendStatus> = new Set([
@@ -35,7 +45,7 @@ function exportStatus(value: ConsumerExportStatus): ConsumerExportStatus {
   return value;
 }
 
-function parseIso(iso: string | null): Date | null {
+function parseIso(iso: string | null | undefined): Date | null {
   if (!iso) return null;
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? null : d;
@@ -52,6 +62,32 @@ function isExpired(completedAt: string | null, now: Date): boolean {
   const expiresAt = retentionExpiresAt(completedAt);
   if (!expiresAt) return false;
   return now.getTime() > new Date(expiresAt).getTime();
+}
+
+/** Anchor for pending age: requestedAt, else startedAt, else updatedAt. */
+export function pendingAgeAnchorMs(input: {
+  requestedAt: string | null;
+  startedAt?: string | null;
+  updatedAt?: string | null;
+}): number | null {
+  const anchor =
+    parseIso(input.requestedAt) ?? parseIso(input.startedAt ?? null) ?? parseIso(input.updatedAt ?? null);
+  return anchor ? anchor.getTime() : null;
+}
+
+export function isPendingStale(input: {
+  requestedAt: string | null;
+  startedAt?: string | null;
+  updatedAt?: string | null;
+  now?: Date;
+  maxAgeMs?: number;
+}): boolean {
+  const now = input.now ?? new Date();
+  const maxAgeMs = input.maxAgeMs ?? EXPORT_PENDING_MAX_AGE_MS;
+  const anchorMs = pendingAgeAnchorMs(input);
+  // Malformed / missing timestamps on a pending job cannot be trusted as active.
+  if (anchorMs == null) return true;
+  return now.getTime() - anchorMs > maxAgeMs;
 }
 
 export function normalizeExportStatus(input: ExportStatusInput): NormalizedExportStatus {
@@ -85,6 +121,25 @@ export function normalizeExportStatus(input: ExportStatusInput): NormalizedExpor
   }
 
   if (PENDING_STATUSES.has(backendStatus)) {
+    const staleArgs: {
+      requestedAt: string | null;
+      now: Date;
+      startedAt?: string | null;
+      updatedAt?: string | null;
+    } = {
+      requestedAt: input.requestedAt,
+      now,
+    };
+    if (input.startedAt !== undefined) staleArgs.startedAt = input.startedAt;
+    if (input.updatedAt !== undefined) staleArgs.updatedAt = input.updatedAt;
+    if (isPendingStale(staleArgs)) {
+      return {
+        status: exportStatus("failed"),
+        expiresAt: null,
+        retryable: true,
+        failureCategory: "stale_pending",
+      };
+    }
     return {
       status: exportStatus("pending"),
       expiresAt: null,

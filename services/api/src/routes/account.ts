@@ -7,8 +7,10 @@ import { FieldValue, userCollection } from "../db";
 import {
   buildExportStatusDto,
   createExportDownloadResponse,
+  isActivePendingExport,
   loadLatestUserExportDoc,
   loadUserExportDoc,
+  markUserExportFailed,
 } from "../lib/account/exportStatus";
 
 const router = Router();
@@ -171,6 +173,29 @@ router.post("/export", async (req: AuthedRequest, res: Response) => {
     });
   }
 
+  // Reuse an actively pending (non-stale) request instead of flooding Pub/Sub.
+  const latest = await loadLatestUserExportDoc(uid);
+  if (latest && isActivePendingExport(latest.data)) {
+    const statusDto = buildExportStatusDto(latest.requestId, latest.data);
+    return res.status(200).json({
+      ok: true as const,
+      status: statusDto.backendStatus,
+      requestId: latest.requestId,
+    });
+  }
+
+  // Ready unexpired export: surface existing rather than regenerating duplicates.
+  if (latest) {
+    const latestDto = buildExportStatusDto(latest.requestId, latest.data);
+    if (latestDto.status === "ready") {
+      return res.status(200).json({
+        ok: true as const,
+        status: latestDto.backendStatus,
+        requestId: latest.requestId,
+      });
+    }
+  }
+
   const requestedAt = new Date().toISOString();
 
   await statusRef.set(
@@ -184,11 +209,23 @@ router.post("/export", async (req: AuthedRequest, res: Response) => {
     { merge: false },
   );
 
-  await publishJSON(
-    topic,
-    { uid, requestId, requestedAt },
-    { requestId, uid, kind: "export.requested.v1" },
-  );
+  try {
+    await publishJSON(
+      topic,
+      { uid, requestId, requestedAt },
+      { requestId, uid, kind: "export.requested.v1" },
+    );
+  } catch {
+    await markUserExportFailed(uid, requestId, "publish_failed");
+    return res.status(503).json({
+      ok: false as const,
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "Export could not be started. Try again.",
+        requestId: rid,
+      },
+    });
+  }
 
   return res.status(202).json({ ok: true as const, status: "queued" as const, requestId });
 });

@@ -1,20 +1,71 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { normalizeExportStatus } from "@/lib/data/user-data/export/normalizeExportStatus";
+import { EXPORT_PENDING_MAX_AGE_MS } from "@oli/contracts";
+import {
+  isPendingStale,
+  normalizeExportStatus,
+} from "@/lib/data/user-data/export/normalizeExportStatus";
 
 describe("normalizeExportStatus", () => {
-  const now = new Date("2026-08-23T12:00:00.000Z");
+  const now = new Date("2026-08-24T12:00:00.000Z");
 
-  it("maps queued to pending", () => {
+  it("maps queued to pending when recent", () => {
     const result = normalizeExportStatus({
       backendStatus: "queued",
       packageAvailable: false,
-      requestedAt: now.toISOString(),
+      requestedAt: "2026-08-24T11:00:00.000Z",
       completedAt: null,
       now,
     });
     expect(result.status).toBe("pending");
     expect(result.retryable).toBe(false);
+  });
+
+  it("maps ancient queued to failed stale_pending", () => {
+    const result = normalizeExportStatus({
+      backendStatus: "queued",
+      packageAvailable: false,
+      requestedAt: "2026-01-25T16:47:00.000Z",
+      completedAt: null,
+      now,
+    });
+    expect(result.status).toBe("failed");
+    expect(result.failureCategory).toBe("stale_pending");
+    expect(result.retryable).toBe(true);
+  });
+
+  it("maps ancient in_progress to failed stale_pending", () => {
+    const result = normalizeExportStatus({
+      backendStatus: "in_progress",
+      packageAvailable: false,
+      requestedAt: "2026-01-25T16:47:00.000Z",
+      startedAt: "2026-01-25T16:48:00.000Z",
+      completedAt: null,
+      now,
+    });
+    expect(result.status).toBe("failed");
+    expect(result.failureCategory).toBe("stale_pending");
+  });
+
+  it("treats pending without timestamps as stale", () => {
+    expect(
+      isPendingStale({
+        requestedAt: null,
+        updatedAt: null,
+        startedAt: null,
+        now,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps pending under max age", () => {
+    const requestedAt = new Date(now.getTime() - EXPORT_PENDING_MAX_AGE_MS + 60_000).toISOString();
+    expect(
+      isPendingStale({
+        requestedAt,
+        now,
+      }),
+    ).toBe(false);
   });
 
   it("maps completed with package to ready", () => {

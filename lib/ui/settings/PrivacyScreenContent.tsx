@@ -62,11 +62,11 @@ export function PrivacyScreenContent({ inventory }: PrivacyScreenContentProps) {
         </View>
 
         <View style={styles.card} testID="privacy-delete-card">
-          <Text style={styles.cardTitle}>Delete account</Text>
+          <Text style={styles.cardTitle}>Deletion coverage</Text>
           <Text style={styles.cardBody}>
             {privacy?.deleteCoverageComplete
-              ? "Account deletion covers all required durable stores."
-              : `Account deletion is available, but ${privacy?.deleteGapCount ?? "some"} required data areas are not fully covered yet. Do not assume complete erasure of every store.`}
+              ? "Account deletion coverage is complete for required durable stores. Deletion controls are not available in this build."
+              : `Deletion coverage is incomplete — ${privacy?.deleteGapCount ?? "some"} required data areas are not fully covered yet. Account deletion controls are not available in this build.`}
           </Text>
         </View>
 

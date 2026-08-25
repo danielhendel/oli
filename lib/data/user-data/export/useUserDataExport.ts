@@ -24,6 +24,7 @@ export type UserDataExportViewState = {
   expiresAt: string | null;
   retryable: boolean;
   packageAvailable: boolean;
+  failureCategory: ExportStatusResponseDto["failureCategory"];
 };
 
 export type UserDataExportHookResult = {
@@ -46,6 +47,7 @@ const IDLE_STATE: UserDataExportViewState = {
   expiresAt: null,
   retryable: true,
   packageAvailable: false,
+  failureCategory: "none",
 };
 
 function toViewState(dto: ExportStatusResponseDto): UserDataExportViewState {
@@ -57,6 +59,7 @@ function toViewState(dto: ExportStatusResponseDto): UserDataExportViewState {
     expiresAt: dto.expiresAt ?? null,
     retryable: dto.retryable,
     packageAvailable: dto.packageAvailable,
+    failureCategory: dto.failureCategory ?? "none",
   };
 }
 

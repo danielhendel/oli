@@ -73,7 +73,14 @@ export const exportStatusResponseDtoSchema = z.object({
   packageAvailable: z.boolean(),
   retryable: z.boolean(),
   failureCategory: z
-    .enum(["none", "processing_failed", "artifact_unavailable", "expired", "unknown"])
+    .enum([
+      "none",
+      "processing_failed",
+      "artifact_unavailable",
+      "expired",
+      "stale_pending",
+      "unknown",
+    ])
     .optional(),
 });
 export type ExportStatusResponseDto = z.infer<typeof exportStatusResponseDtoSchema>;
@@ -108,6 +115,14 @@ export type ExportArtifactPayload = z.infer<typeof exportArtifactPayloadSchema>;
 
 /** Package retention after completion (matches API default). */
 export const EXPORT_PACKAGE_RETENTION_DAYS = 7;
+
+/**
+ * Maximum age for queued / in_progress / running before API treats the request
+ * as failed (stale). Export Functions normally finish in minutes; Pub/Sub retries
+ * do not justify multi-day “in progress” UX. Ready artifacts retain separately
+ * for EXPORT_PACKAGE_RETENTION_DAYS.
+ */
+export const EXPORT_PENDING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 /** Short-lived signed download URL TTL (seconds). */
 export const EXPORT_DOWNLOAD_URL_TTL_SECONDS = 15 * 60;

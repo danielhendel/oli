@@ -46,7 +46,7 @@ function statusLabel(status: UserDataExportHookResult["exportState"]["status"]):
     case "ready":
       return "Export ready";
     case "failed":
-      return "Export failed";
+      return "Export could not be completed";
     case "expired":
       return "Export expired";
     default: {
@@ -54,6 +54,21 @@ function statusLabel(status: UserDataExportHookResult["exportState"]["status"]):
       return _exhaustive;
     }
   }
+}
+
+function failureExplanation(
+  failureCategory: UserDataExportHookResult["exportState"]["failureCategory"],
+): string | null {
+  if (failureCategory === "stale_pending") {
+    return "Your previous export could not be completed.";
+  }
+  if (failureCategory === "processing_failed" || failureCategory === "artifact_unavailable") {
+    return "Your previous export could not be completed.";
+  }
+  if (failureCategory === "unknown") {
+    return "Your previous export could not be completed.";
+  }
+  return null;
 }
 
 export function UserDataExportSection(props: UserDataExportSectionProps) {
@@ -78,6 +93,8 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
       exportState.status === "expired");
 
   const showDownload = exportState.status === "ready" && exportState.packageAvailable;
+  const failureCopy =
+    exportState.status === "failed" ? failureExplanation(exportState.failureCategory) : null;
 
   return (
     <View style={styles.card} testID="your-data-export-card" accessibilityRole="summary">
@@ -100,6 +117,11 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
         testID="your-data-export-status"
       >
         <Text style={styles.statusLabel}>{statusLabel(exportState.status)}</Text>
+        {failureCopy ? (
+          <Text style={styles.statusMeta} testID="your-data-export-failure-copy">
+            {failureCopy}
+          </Text>
+        ) : null}
         {exportState.requestedAt ? (
           <Text style={styles.statusMeta}>Requested {formatWhen(exportState.requestedAt)}</Text>
         ) : null}
@@ -121,6 +143,7 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
           accessibilityLabel="Request data export"
           testID="your-data-export-request"
           onPress={() => void requestExport()}
+          disabled={requesting || loading}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
         >
           {requesting ? (
@@ -152,7 +175,11 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
         </Pressable>
       ) : null}
 
-      {(exportState.status === "pending" || exportState.status === "ready") && !loading ? (
+      {(exportState.status === "pending" ||
+        exportState.status === "ready" ||
+        exportState.status === "failed" ||
+        exportState.status === "expired") &&
+      !loading ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Refresh export status"
@@ -160,7 +187,7 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
           onPress={refresh}
           style={({ pressed }) => [styles.link, pressed && styles.buttonPressed]}
         >
-          <Text style={styles.linkText}>Refresh status</Text>
+          <Text style={styles.linkText}>Refresh export status</Text>
         </Pressable>
       ) : null}
 
@@ -169,7 +196,9 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
           accessibilityRole="button"
           accessibilityLabel="Retry"
           testID="your-data-export-retry"
-          onPress={exportState.status === "ready" ? () => void downloadExport() : () => void requestExport()}
+          onPress={
+            exportState.status === "ready" ? () => void downloadExport() : () => void requestExport()
+          }
           style={({ pressed }) => [styles.link, pressed && styles.buttonPressed]}
         >
           <Text style={styles.linkText}>Retry</Text>

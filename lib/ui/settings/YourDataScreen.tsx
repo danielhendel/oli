@@ -128,7 +128,7 @@ export function YourDataScreen({ state, inventory, error, onRefresh, exportHook 
               onPress={onRefresh}
               style={({ pressed }) => [styles.linkRow, pressed && styles.linkPressed]}
             >
-              <Text style={styles.linkText}>Refresh</Text>
+              <Text style={styles.linkText}>Refresh inventory</Text>
             </Pressable>
           </>
         ) : null}
