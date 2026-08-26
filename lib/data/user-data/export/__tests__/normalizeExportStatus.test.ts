@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { EXPORT_PENDING_MAX_AGE_MS } from "@oli/contracts";
+import { EXPORT_PENDING_MAX_AGE_MS, EXPORT_PENDING_STARTED_MAX_AGE_MS } from "@oli/contracts";
 import {
   isPendingStale,
   normalizeExportStatus,
@@ -45,6 +45,35 @@ describe("normalizeExportStatus", () => {
     });
     expect(result.status).toBe("failed");
     expect(result.failureCategory).toBe("stale_pending");
+  });
+
+  it("maps started-but-stuck in_progress past started max age to stale", () => {
+    const startedAt = new Date(
+      now.getTime() - EXPORT_PENDING_STARTED_MAX_AGE_MS - 60_000,
+    ).toISOString();
+    const result = normalizeExportStatus({
+      backendStatus: "in_progress",
+      packageAvailable: false,
+      requestedAt: startedAt,
+      startedAt,
+      completedAt: null,
+      now,
+    });
+    expect(result.status).toBe("failed");
+    expect(result.failureCategory).toBe("stale_pending");
+  });
+
+  it("keeps recently started in_progress as pending", () => {
+    const startedAt = new Date(now.getTime() - 60_000).toISOString();
+    const result = normalizeExportStatus({
+      backendStatus: "in_progress",
+      packageAvailable: false,
+      requestedAt: startedAt,
+      startedAt,
+      completedAt: null,
+      now,
+    });
+    expect(result.status).toBe("pending");
   });
 
   it("treats pending without timestamps as stale", () => {

@@ -90,6 +90,9 @@ export const onAccountExportRequested = onMessagePublished(
     topic: TOPIC,
     region: "us-central1",
     serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+    // Staging OOM at 256Mi while collecting user collections + document bytes.
+    memory: "1GiB",
+    timeoutSeconds: 300,
   },
   async (event) => {
     const payload = event.data?.message?.json as unknown;
@@ -212,6 +215,11 @@ export const onAccountExportRequested = onMessagePublished(
           },
           { merge: true },
         );
+        await mirrorUserExportStatus(db, uid, requestId, {
+          status: "failed",
+          error: "document_export_incomplete",
+          incomplete: packaged.incomplete,
+        });
         logger.error("account.export: incomplete original packaging", {
           requestId,
           incompleteCount: packaged.incomplete.length,

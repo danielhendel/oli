@@ -68,9 +68,39 @@ describe("Your Data screen", () => {
     expect(str).not.toContain("settings/your-data");
     expect(str).toContain("your-data-export-card");
     expect(str).toContain("Request export");
+    expect(str).toContain("Processing is asynchronous");
+    expect(str).toContain("leave this screen and return later");
     expect(str).toContain("Refresh inventory");
     expect(str).not.toContain("Delete my account");
     expect(str).not.toMatch(/"fontWeight":"900"/);
+  });
+
+  it("keeps request button visible while requesting with clear busy label", async () => {
+    const requestingHook = {
+      ...idleExportHook,
+      requesting: true,
+      exportState: {
+        ...idleExportHook.exportState,
+        status: "failed" as const,
+        failureCategory: "stale_pending" as const,
+      },
+    };
+    const inventory = buildUserDataInventoryViewModel({ authPresent: true });
+    let test!: renderer.ReactTestRenderer;
+    await act(async () => {
+      test = renderer.create(
+        <YourDataScreen
+          state="ready"
+          inventory={inventory}
+          error={null}
+          onRefresh={() => undefined}
+          exportHook={requestingHook}
+        />,
+      );
+    });
+    const str = JSON.stringify(test.toJSON());
+    expect(str).toContain("Requesting…");
+    expect(str).toContain("your-data-export-request");
   });
 
   it("shows recoverable copy for stale failed export", async () => {

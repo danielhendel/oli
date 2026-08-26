@@ -5,6 +5,7 @@
 import {
   EXPORT_PACKAGE_RETENTION_DAYS,
   EXPORT_PENDING_MAX_AGE_MS,
+  EXPORT_PENDING_STARTED_MAX_AGE_MS,
   type ConsumerExportStatus,
   type ExportBackendStatus,
 } from "@oli/contracts";
@@ -81,8 +82,14 @@ export function isPendingStale(input: {
   updatedAt?: string | null;
   now?: Date;
   maxAgeMs?: number;
+  startedMaxAgeMs?: number;
 }): boolean {
   const now = input.now ?? new Date();
+  const started = parseIso(input.startedAt ?? null);
+  if (started) {
+    const startedMax = input.startedMaxAgeMs ?? EXPORT_PENDING_STARTED_MAX_AGE_MS;
+    return now.getTime() - started.getTime() > startedMax;
+  }
   const maxAgeMs = input.maxAgeMs ?? EXPORT_PENDING_MAX_AGE_MS;
   const anchorMs = pendingAgeAnchorMs(input);
   // Malformed / missing timestamps on a pending job cannot be trusted as active.

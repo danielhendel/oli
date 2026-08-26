@@ -117,12 +117,17 @@ export type ExportArtifactPayload = z.infer<typeof exportArtifactPayloadSchema>;
 export const EXPORT_PACKAGE_RETENTION_DAYS = 7;
 
 /**
- * Maximum age for queued / in_progress / running before API treats the request
- * as failed (stale). Export Functions normally finish in minutes; Pub/Sub retries
- * do not justify multi-day “in progress” UX. Ready artifacts retain separately
- * for EXPORT_PACKAGE_RETENTION_DAYS.
+ * Maximum age for queued (never started) before API treats the request as
+ * failed (stale). Ready artifacts retain separately for EXPORT_PACKAGE_RETENTION_DAYS.
  */
 export const EXPORT_PENDING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Once processing has started (`startedAt`), the Function timeout is short
+ * (staging ~60s). Pending beyond this after start means the worker died
+ * without a terminal write (e.g. OOM) and must not look “in progress” forever.
+ */
+export const EXPORT_PENDING_STARTED_MAX_AGE_MS = 10 * 60 * 1000;
 
 /** Short-lived signed download URL TTL (seconds). */
 export const EXPORT_DOWNLOAD_URL_TTL_SECONDS = 15 * 60;

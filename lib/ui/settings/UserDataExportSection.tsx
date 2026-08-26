@@ -85,23 +85,31 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
     downloadExport,
   } = props;
 
-  const canRequest =
-    !requesting &&
-    !loading &&
-    (exportState.status === "idle" ||
-      exportState.status === "failed" ||
-      exportState.status === "expired");
+  const showRequestSlot =
+    exportState.status === "idle" ||
+    exportState.status === "failed" ||
+    exportState.status === "expired" ||
+    requesting;
+
+  const canPressRequest = showRequestSlot && !requesting && !loading;
 
   const showDownload = exportState.status === "ready" && exportState.packageAvailable;
   const failureCopy =
     exportState.status === "failed" ? failureExplanation(exportState.failureCategory) : null;
 
+  const requestLabel =
+    exportState.status === "failed" || exportState.status === "expired"
+      ? "Request new export"
+      : "Request export";
+
   return (
     <View style={styles.card} testID="your-data-export-card" accessibilityRole="summary">
       <Text style={styles.title}>Personal data export</Text>
+      <Text style={styles.body} testID="your-data-export-explanation">
+        Request a copy of the data currently covered by Oli&apos;s export system.
+      </Text>
       <Text style={styles.body}>
-        Request a copy of the data currently covered by Oli&apos;s export system. Processing is
-        asynchronous — you can leave this screen and return later.
+        Processing is asynchronous — you can leave this screen and return later.
       </Text>
       <Text style={styles.disclosure} testID="your-data-export-coverage-disclosure">
         {gapCount > 0
@@ -137,23 +145,27 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
         </Text>
       ) : null}
 
-      {canRequest ? (
+      {showRequestSlot ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Request data export"
+          accessibilityLabel={requesting ? "Requesting export" : "Request data export"}
+          accessibilityState={{ disabled: !canPressRequest, busy: requesting }}
           testID="your-data-export-request"
           onPress={() => void requestExport()}
-          disabled={requesting || loading}
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          disabled={!canPressRequest}
+          style={({ pressed }) => [
+            styles.button,
+            !canPressRequest && styles.buttonDisabled,
+            pressed && canPressRequest && styles.buttonPressed,
+          ]}
         >
           {requesting ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <View style={styles.buttonBusyRow}>
+              <ActivityIndicator color={BUTTON_LABEL} />
+              <Text style={styles.buttonText}>Requesting…</Text>
+            </View>
           ) : (
-            <Text style={styles.buttonText}>
-              {exportState.status === "failed" || exportState.status === "expired"
-                ? "Request new export"
-                : "Request export"}
-            </Text>
+            <Text style={styles.buttonText}>{requestLabel}</Text>
           )}
         </Pressable>
       ) : null}
@@ -208,6 +220,10 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
   );
 }
 
+/** Light CTA fill on dark theme — must not reuse near-white textPrimary as fill. */
+const BUTTON_FILL = "#F7F8FA";
+const BUTTON_LABEL = "#1C1C1E";
+
 const styles = StyleSheet.create({
   card: {
     padding: 14,
@@ -216,6 +232,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: UI_BORDER_SUBTLE,
     gap: 10,
+    overflow: "visible",
   },
   title: {
     fontSize: 16,
@@ -224,13 +241,17 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
     color: UI_TEXT_SECONDARY,
+    flexShrink: 0,
+    alignSelf: "stretch",
   },
   disclosure: {
     fontSize: 13,
     lineHeight: 18,
     color: UI_TEXT_TERTIARY_LABEL,
+    flexShrink: 0,
+    alignSelf: "stretch",
   },
   statusBox: {
     gap: 4,
@@ -256,10 +277,18 @@ const styles = StyleSheet.create({
   button: {
     minHeight: 44,
     borderRadius: 12,
-    backgroundColor: UI_TEXT_PRIMARY,
+    backgroundColor: BUTTON_FILL,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
+  },
+  buttonDisabled: {
+    opacity: 0.72,
+  },
+  buttonBusyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   buttonSecondary: {
     minHeight: 44,
@@ -274,7 +303,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: BUTTON_LABEL,
   },
   buttonSecondaryText: {
     fontSize: 16,
