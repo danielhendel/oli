@@ -105,12 +105,14 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
   return (
     <View style={styles.card} testID="your-data-export-card" accessibilityRole="summary">
       <Text style={styles.title}>Personal data export</Text>
-      <Text style={styles.body} testID="your-data-export-explanation">
-        Request a copy of the data currently covered by Oli&apos;s export system.
-      </Text>
-      <Text style={styles.body}>
-        Processing is asynchronous — you can leave this screen and return later.
-      </Text>
+      <View style={styles.explanationBlock} testID="your-data-export-explanation">
+        <Text style={styles.body}>
+          Request a copy of the data currently covered by Oli&apos;s export system.
+        </Text>
+        <Text style={styles.body}>
+          Processing is asynchronous — you can leave this screen and return later.
+        </Text>
+      </View>
       <Text style={styles.disclosure} testID="your-data-export-coverage-disclosure">
         {gapCount > 0
           ? `Your export includes the data currently covered by Oli's export system. ${gapCount} required data areas are not fully covered yet.`
@@ -173,14 +175,22 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
       {showDownload ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Download or share export"
+          accessibilityLabel={downloading ? "Opening export" : "Download or share export"}
+          accessibilityState={{ disabled: downloading, busy: downloading }}
           testID="your-data-export-download"
           onPress={() => void downloadExport()}
           disabled={downloading}
-          style={({ pressed }) => [styles.buttonSecondary, pressed && styles.buttonPressed]}
+          style={({ pressed }) => [
+            styles.buttonSecondary,
+            downloading && styles.buttonDisabled,
+            pressed && !downloading && styles.buttonPressed,
+          ]}
         >
           {downloading ? (
-            <ActivityIndicator color={UI_TEXT_PRIMARY} />
+            <View style={styles.buttonBusyRow}>
+              <ActivityIndicator color={UI_TEXT_PRIMARY} />
+              <Text style={styles.buttonSecondaryText}>Opening…</Text>
+            </View>
           ) : (
             <Text style={styles.buttonSecondaryText}>Download / share</Text>
           )}
@@ -206,14 +216,17 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
       {error && errorRetryable ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Retry"
+          accessibilityLabel={exportState.status === "ready" ? "Retry opening export" : "Retry"}
           testID="your-data-export-retry"
           onPress={
             exportState.status === "ready" ? () => void downloadExport() : () => void requestExport()
           }
+          disabled={downloading || requesting}
           style={({ pressed }) => [styles.link, pressed && styles.buttonPressed]}
         >
-          <Text style={styles.linkText}>Retry</Text>
+          <Text style={styles.linkText}>
+            {exportState.status === "ready" ? "Retry download" : "Retry"}
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -239,19 +252,24 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: UI_TEXT_PRIMARY,
   },
+  explanationBlock: {
+    width: "100%",
+    alignSelf: "stretch",
+    gap: 8,
+  },
   body: {
     fontSize: 14,
-    lineHeight: 21,
+    lineHeight: 22,
     color: UI_TEXT_SECONDARY,
     flexShrink: 0,
-    alignSelf: "stretch",
+    width: "100%",
   },
   disclosure: {
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 19,
     color: UI_TEXT_TERTIARY_LABEL,
     flexShrink: 0,
-    alignSelf: "stretch",
+    width: "100%",
   },
   statusBox: {
     gap: 4,

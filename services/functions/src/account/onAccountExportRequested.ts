@@ -252,7 +252,12 @@ export const onAccountExportRequested = onMessagePublished(
         },
       });
 
+      const [exists] = await file.exists();
       const [meta] = await file.getMetadata();
+      const size = meta.size ? Number(meta.size) : packaged.zipBytes.length;
+      if (!exists || !Number.isFinite(size) || size <= 0) {
+        throw new Error("artifact_write_unverified");
+      }
 
       await ref.set(
         {
@@ -264,7 +269,7 @@ export const onAccountExportRequested = onMessagePublished(
             bucket: exportsBucketName,
             object: objectPath,
             contentType: meta.contentType ?? "application/zip",
-            size: meta.size ? Number(meta.size) : packaged.zipBytes.length,
+            size,
             generation: meta.generation ?? null,
             md5Hash: meta.md5Hash ?? null,
             updated: meta.updated ?? null,

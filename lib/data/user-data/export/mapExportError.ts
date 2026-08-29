@@ -86,6 +86,22 @@ export function mapExportApiFailure(failure: ApiFailure): ExportUserError {
     };
   }
 
+  if (failure.status === 503) {
+    const code = apiErrorCode(failure);
+    if (code === "SIGNED_URL_UNAVAILABLE") {
+      return {
+        message: "Your export is ready, but the file could not be opened. Try again.",
+        retryable: true,
+        category: "service_unavailable",
+      };
+    }
+    return {
+      message: "Export service is temporarily unavailable.",
+      retryable: true,
+      category: "service_unavailable",
+    };
+  }
+
   if (failure.status >= 500) {
     return {
       message: "Export service is temporarily unavailable.",
@@ -116,9 +132,34 @@ export function mapExportDownloadError(message: string): ExportUserError {
       category: "storage",
     };
   }
+  if (/shar/i.test(message)) {
+    return {
+      message: "Sharing is unavailable on this device.",
+      retryable: false,
+      category: "download_failed",
+    };
+  }
   return {
-    message: "Could not download the export. Try again.",
+    message: "Your export is ready, but the file could not be opened. Try again.",
     retryable: true,
     category: "download_failed",
   };
+}
+
+/** Prefer retrieval-specific copy when the export itself remains Ready. */
+export function mapExportRetrievalFailure(failure: ApiFailure): ExportUserError {
+  const mapped = mapExportApiFailure(failure);
+  if (
+    mapped.category === "service_unavailable" ||
+    mapped.category === "artifact_unavailable" ||
+    mapped.category === "download_failed" ||
+    mapped.category === "unknown"
+  ) {
+    return {
+      ...mapped,
+      message: "Your export is ready, but the file could not be opened. Try again.",
+      retryable: true,
+    };
+  }
+  return mapped;
 }

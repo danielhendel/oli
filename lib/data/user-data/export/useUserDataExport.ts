@@ -14,7 +14,7 @@ import {
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { ConsumerExportStatus, ExportStatusResponseDto } from "@/lib/contracts";
 import { downloadAndShareUserDataExport } from "@/lib/data/user-data/export/downloadUserDataExport";
-import { mapExportApiFailure } from "@/lib/data/user-data/export/mapExportError";
+import { mapExportApiFailure, mapExportRetrievalFailure } from "@/lib/data/user-data/export/mapExportError";
 
 export type UserDataExportViewState = {
   status: ConsumerExportStatus;
@@ -198,6 +198,7 @@ export function useUserDataExport(): UserDataExportHookResult {
 
   const downloadExport = useCallback(async () => {
     if (!user || !exportState.requestId || exportState.status !== "ready") return;
+    if (downloading) return;
 
     setDownloading(true);
     setError(null);
@@ -212,7 +213,7 @@ export function useUserDataExport(): UserDataExportHookResult {
 
       const res = await getUserDataExportDownload(token, exportState.requestId);
       if (!res.ok) {
-        const mapped = mapExportApiFailure(res);
+        const mapped = mapExportRetrievalFailure(res);
         setError(mapped.message);
         setErrorRetryable(mapped.retryable);
         return;
@@ -228,12 +229,12 @@ export function useUserDataExport(): UserDataExportHookResult {
         setErrorRetryable(download.retryable);
       }
     } catch {
-      setError("Could not download the export. Try again.");
+      setError("Your export is ready, but the file could not be opened. Try again.");
       setErrorRetryable(true);
     } finally {
       setDownloading(false);
     }
-  }, [user, getIdToken, exportState.requestId, exportState.status]);
+  }, [user, getIdToken, exportState.requestId, exportState.status, downloading]);
 
   return {
     exportState,

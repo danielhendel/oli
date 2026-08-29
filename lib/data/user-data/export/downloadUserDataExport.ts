@@ -17,14 +17,36 @@ export async function downloadAndShareUserDataExport(args: {
   contentType: string;
 }): Promise<DownloadUserDataExportResult> {
   const { downloadUrl, contentType } = args;
-  const extension = contentType.includes("zip") ? "zip" : "json";
-  const target = `${FileSystem.cacheDirectory}oli-export-${Date.now()}.${extension}`;
+  const baseDir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+  if (!baseDir) {
+    return {
+      ok: false,
+      message: "Your export is ready, but the file could not be opened. Try again.",
+      retryable: true,
+    };
+  }
+
+  const extension = contentType.includes("zip") ? "zip" : "bin";
+  // Safe local name: no email, UID, or request id.
+  const target = `${baseDir}oli-data-export.${extension}`;
 
   try {
+    // Replace any prior temp file so retries do not collide.
+    await FileSystem.deleteAsync(target, { idempotent: true });
+
     const result = await FileSystem.downloadAsync(downloadUrl, target);
-    if (result.status !== 200) {
+    if (result.status < 200 || result.status >= 300) {
       const mapped = mapExportDownloadError(`http_${result.status}`);
       return { ok: false, message: mapped.message, retryable: mapped.retryable };
+    }
+
+    const info = await FileSystem.getInfoAsync(result.uri);
+    if (!info.exists || ("size" in info && typeof info.size === "number" && info.size <= 0)) {
+      return {
+        ok: false,
+        message: "Your export is ready, but the file could not be opened. Try again.",
+        retryable: true,
+      };
     }
 
     await Share.share({
@@ -34,8 +56,6 @@ export async function downloadAndShareUserDataExport(args: {
     });
 
     // Best-effort cleanup after the share sheet returns.
-    // On iOS the sheet may still briefly reference the file; deletion is not
-    // guaranteed to be instantaneous and must never log the path or URL.
     void FileSystem.deleteAsync(result.uri, { idempotent: true });
 
     return { ok: true };

@@ -75,6 +75,43 @@ describe("Your Data screen", () => {
     expect(str).not.toMatch(/"fontWeight":"900"/);
   });
 
+  it("keeps Ready visible when retrieval fails and retry opens download", async () => {
+    const readyRetrievalError = {
+      ...idleExportHook,
+      exportState: {
+        ...idleExportHook.exportState,
+        status: "ready" as const,
+        requestedAt: "2026-08-29T17:40:22.000Z",
+        expiresAt: "2026-09-05T17:40:22.000Z",
+        packageAvailable: true,
+        failureCategory: "none" as const,
+      },
+      error: "Your export is ready, but the file could not be opened. Try again.",
+      errorRetryable: true,
+    };
+    const inventory = buildUserDataInventoryViewModel({ authPresent: true });
+    let test!: renderer.ReactTestRenderer;
+    await act(async () => {
+      test = renderer.create(
+        <YourDataScreen
+          state="ready"
+          inventory={inventory}
+          error={null}
+          onRefresh={() => undefined}
+          exportHook={readyRetrievalError}
+        />,
+      );
+    });
+    const str = JSON.stringify(test.toJSON());
+    expect(str).toContain("Export ready");
+    expect(str).toContain("could not be opened");
+    expect(str).toContain("Retry download");
+    expect(str).toContain("Download / share");
+    expect(str).toContain("leave this screen and return later");
+    expect(str).not.toContain("Export in progress");
+    expect(str).not.toContain("https://");
+  });
+
   it("keeps request button visible while requesting with clear busy label", async () => {
     const requestingHook = {
       ...idleExportHook,

@@ -154,7 +154,7 @@ export async function createExportDownloadResponse(
   }
 
   const artifact = globalSnap.data()?.artifact as
-    | { bucket?: string; object?: string; contentType?: string }
+    | { bucket?: string; object?: string; contentType?: string; size?: number }
     | undefined;
 
   const bucketName = typeof artifact?.bucket === "string" ? artifact.bucket : "";
@@ -163,19 +163,39 @@ export async function createExportDownloadResponse(
     return { code: "ARTIFACT_UNAVAILABLE", message: "Export file is not available." };
   }
 
+  const file = getStorage().bucket(bucketName).file(objectName);
+  try {
+    const [exists] = await file.exists();
+    if (!exists) {
+      return { code: "ARTIFACT_UNAVAILABLE", message: "Export file is not available." };
+    }
+    const [meta] = await file.getMetadata();
+    const size = meta.size != null ? Number(meta.size) : Number(artifact?.size ?? 0);
+    if (!Number.isFinite(size) || size <= 0) {
+      return { code: "ARTIFACT_UNAVAILABLE", message: "Export file is not available." };
+    }
+  } catch {
+    return { code: "ARTIFACT_UNAVAILABLE", message: "Export file is not available." };
+  }
+
   const expiresAt = new Date(Date.now() + EXPORT_DOWNLOAD_URL_TTL_SECONDS * 1000);
-  const [signedUrl] = await getStorage()
-    .bucket(bucketName)
-    .file(objectName)
-    .getSignedUrl({
+  try {
+    const [signedUrl] = await file.getSignedUrl({
       action: "read",
       expires: expiresAt,
     });
 
-  return {
-    ok: true,
-    contentType: artifact?.contentType ?? "application/zip",
-    expiresAt: expiresAt.toISOString(),
-    downloadUrl: signedUrl,
-  };
+    return {
+      ok: true,
+      contentType: artifact?.contentType ?? "application/zip",
+      expiresAt: expiresAt.toISOString(),
+      downloadUrl: signedUrl,
+    };
+  } catch {
+    // Never log the URL or object path. IAM/signBlob failures are retryable.
+    return {
+      code: "SIGNED_URL_UNAVAILABLE",
+      message: "Export download is temporarily unavailable. Try again.",
+    };
+  }
 }

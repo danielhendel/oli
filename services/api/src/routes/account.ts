@@ -135,7 +135,9 @@ router.get("/export/:requestId/download", async (req: AuthedRequest, res: Respon
         ? 410
         : download.code === "EXPORT_NOT_READY"
           ? 409
-          : 404;
+          : download.code === "SIGNED_URL_UNAVAILABLE"
+            ? 503
+            : 404;
     return res.status(status).json({
       ok: false as const,
       error: { code: download.code, message: download.message, requestId: rid },

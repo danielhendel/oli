@@ -17,6 +17,8 @@ jest.mock("firebase-admin/storage", () => ({
   getStorage: () => ({
     bucket: () => ({
       file: () => ({
+        exists: jest.fn().mockResolvedValue([true]),
+        getMetadata: jest.fn().mockResolvedValue([{ size: "1024", contentType: "application/zip" }]),
         getSignedUrl: jest.fn().mockResolvedValue(["https://signed.example/export.zip"]),
       }),
     }),
@@ -179,6 +181,141 @@ describe("account export routes", () => {
       expect(body.downloadUrl).toContain("https://");
       expect(body.expiresAt.length).toBeGreaterThan(0);
     } finally {
+      server.close();
+    }
+  });
+
+  it("GET /export/:requestId/download returns 503 when signing fails", async () => {
+    const requestId = "export-download-sign-fail";
+    const completedAt = new Date().toISOString();
+    await db
+      .collection("users")
+      .doc(TEST_UID)
+      .collection("accountExports")
+      .doc(requestId)
+      .set({
+        uid: TEST_UID,
+        requestId,
+        requestedAt: completedAt,
+        status: "completed",
+        packageAvailable: true,
+        completedAt,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    await db.collection("accountExports").doc(`${TEST_UID}_${requestId}`).set({
+      uid: TEST_UID,
+      requestId,
+      status: "completed",
+      artifact: {
+        bucket: "test-bucket",
+        object: `exports/${TEST_UID}/${requestId}.zip`,
+        contentType: "application/zip",
+        size: 2048,
+      },
+    });
+
+    const fileMock = {
+      exists: jest.fn().mockResolvedValue([true]),
+      getMetadata: jest.fn().mockResolvedValue([{ size: "2048", contentType: "application/zip" }]),
+      getSignedUrl: jest.fn().mockRejectedValue(new Error("Permission signBlob denied")),
+    };
+    const storageMod = jest.requireMock("firebase-admin/storage") as {
+      getStorage: () => { bucket: () => { file: () => typeof fileMock } };
+    };
+    storageMod.getStorage = () => ({
+      bucket: () => ({
+        file: () => fileMock,
+      }),
+    });
+
+    const app = buildTestApp();
+    const server = app.listen(0);
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("bind failed");
+    const base = `http://127.0.0.1:${address.port}`;
+
+    try {
+      const res = await fetch(`${base}/export/${requestId}/download`);
+      expect(res.status).toBe(503);
+      const body = (await res.json()) as { error: { code: string; message: string } };
+      expect(body.error.code).toBe("SIGNED_URL_UNAVAILABLE");
+      expect(body.error.message).not.toMatch(/signBlob|Permission/i);
+    } finally {
+      storageMod.getStorage = () => ({
+        bucket: () => ({
+          file: () => ({
+            exists: jest.fn().mockResolvedValue([true]),
+            getMetadata: jest.fn().mockResolvedValue([{ size: "1024", contentType: "application/zip" }]),
+            getSignedUrl: jest.fn().mockResolvedValue(["https://signed.example/export.zip"]),
+          }),
+        }),
+      });
+      server.close();
+    }
+  });
+
+  it("GET /export/:requestId/download returns 404 when object is missing", async () => {
+    const requestId = "export-download-missing-object";
+    const completedAt = new Date().toISOString();
+    await db
+      .collection("users")
+      .doc(TEST_UID)
+      .collection("accountExports")
+      .doc(requestId)
+      .set({
+        uid: TEST_UID,
+        requestId,
+        requestedAt: completedAt,
+        status: "completed",
+        packageAvailable: true,
+        completedAt,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    await db.collection("accountExports").doc(`${TEST_UID}_${requestId}`).set({
+      uid: TEST_UID,
+      requestId,
+      status: "completed",
+      artifact: {
+        bucket: "test-bucket",
+        object: `exports/${TEST_UID}/${requestId}.zip`,
+        contentType: "application/zip",
+      },
+    });
+
+    const storageMod = jest.requireMock("firebase-admin/storage") as {
+      getStorage: () => { bucket: () => { file: () => unknown } };
+    };
+    storageMod.getStorage = () => ({
+      bucket: () => ({
+        file: () => ({
+          exists: jest.fn().mockResolvedValue([false]),
+          getMetadata: jest.fn(),
+          getSignedUrl: jest.fn(),
+        }),
+      }),
+    });
+
+    const app = buildTestApp();
+    const server = app.listen(0);
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("bind failed");
+    const base = `http://127.0.0.1:${address.port}`;
+
+    try {
+      const res = await fetch(`${base}/export/${requestId}/download`);
+      expect(res.status).toBe(404);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("ARTIFACT_UNAVAILABLE");
+    } finally {
+      storageMod.getStorage = () => ({
+        bucket: () => ({
+          file: () => ({
+            exists: jest.fn().mockResolvedValue([true]),
+            getMetadata: jest.fn().mockResolvedValue([{ size: "1024", contentType: "application/zip" }]),
+            getSignedUrl: jest.fn().mockResolvedValue(["https://signed.example/export.zip"]),
+          }),
+        }),
+      });
       server.close();
     }
   });
