@@ -90,9 +90,10 @@ export const onAccountExportRequested = onMessagePublished(
     topic: TOPIC,
     region: "us-central1",
     serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
-    // Staging OOM at 256Mi while collecting user collections + document bytes.
-    memory: "1GiB",
-    timeoutSeconds: 300,
+    // Staging OOM: 256Mi (collect), then 1024Mi with ~1210Mi used while writing zip.
+    // Hold full collection snapshots + packaged zip in memory until streaming rewrite.
+    memory: "4GiB",
+    timeoutSeconds: 540,
   },
   async (event) => {
     const payload = event.data?.message?.json as unknown;
