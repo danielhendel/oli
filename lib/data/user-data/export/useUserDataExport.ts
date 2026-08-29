@@ -27,6 +27,8 @@ export type UserDataExportViewState = {
   failureCategory: ExportStatusResponseDto["failureCategory"];
 };
 
+export type ExportErrorRetryKind = "refresh" | "download" | "request" | null;
+
 export type UserDataExportHookResult = {
   exportState: UserDataExportViewState;
   loading: boolean;
@@ -34,6 +36,8 @@ export type UserDataExportHookResult = {
   downloading: boolean;
   error: string | null;
   errorRetryable: boolean;
+  /** Which recovery action matches the current error (never invents a download retry for a status refresh failure). */
+  errorRetryKind: ExportErrorRetryKind;
   refresh: () => void;
   requestExport: () => Promise<void>;
   downloadExport: () => Promise<void>;
@@ -78,21 +82,39 @@ export function useUserDataExport(): UserDataExportHookResult {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorRetryable, setErrorRetryable] = useState(false);
+  const [errorRetryKind, setErrorRetryKind] = useState<ExportErrorRetryKind>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const submitGuardRef = useRef(false);
   const userUidRef = useRef<string | null>(null);
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
+  const clearError = useCallback(() => {
+    setError(null);
+    setErrorRetryable(false);
+    setErrorRetryKind(null);
+  }, []);
+
+  const setMappedError = useCallback(
+    (
+      mapped: { message: string; retryable: boolean },
+      kind: Exclude<ExportErrorRetryKind, null>,
+    ) => {
+      setError(mapped.message);
+      setErrorRetryable(mapped.retryable);
+      setErrorRetryKind(mapped.retryable ? kind : null);
+    },
+    [],
+  );
+
   useEffect(() => {
     const uid = user?.uid ?? null;
     if (userUidRef.current !== uid) {
       userUidRef.current = uid;
       setExportState(IDLE_STATE);
-      setError(null);
-      setErrorRetryable(false);
+      clearError();
     }
-  }, [user?.uid]);
+  }, [user?.uid, clearError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,7 +127,7 @@ export function useUserDataExport(): UserDataExportHookResult {
       }
 
       setLoading(true);
-      setError(null);
+      clearError();
 
       try {
         const token = await getIdToken(false);
@@ -116,8 +138,7 @@ export function useUserDataExport(): UserDataExportHookResult {
 
         if (!res.ok) {
           const mapped = mapExportApiFailure(res);
-          setError(mapped.message);
-          setErrorRetryable(mapped.retryable);
+          setMappedError(mapped, "refresh");
           return;
         }
 
@@ -129,8 +150,10 @@ export function useUserDataExport(): UserDataExportHookResult {
         setExportState(toViewState({ ok: true, ...res.json.export }));
       } catch {
         if (!cancelled) {
-          setError("No connection. Check your network and try again.");
-          setErrorRetryable(true);
+          setMappedError(
+            { message: "No connection. Check your network and try again.", retryable: true },
+            "refresh",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -141,7 +164,7 @@ export function useUserDataExport(): UserDataExportHookResult {
     return () => {
       cancelled = true;
     };
-  }, [user, getIdToken, refreshKey]);
+  }, [user, getIdToken, refreshKey, clearError, setMappedError]);
 
   const requestExport = useCallback(async () => {
     if (!user || submitGuardRef.current) return;
@@ -150,15 +173,17 @@ export function useUserDataExport(): UserDataExportHookResult {
 
     submitGuardRef.current = true;
     setRequesting(true);
-    setError(null);
+    clearError();
 
     const clientRequestId = createExportRequestId();
 
     try {
       const token = await getIdToken(true);
       if (!token) {
-        setError("Your session expired. Sign in again and retry.");
-        setErrorRetryable(false);
+        setMappedError(
+          { message: "Your session expired. Sign in again and retry.", retryable: false },
+          "request",
+        );
         return;
       }
 
@@ -171,8 +196,7 @@ export function useUserDataExport(): UserDataExportHookResult {
       const res = await requestUserDataExport(token, { clientRequestId });
       if (!res.ok) {
         const mapped = mapExportApiFailure(res);
-        setError(mapped.message);
-        setErrorRetryable(mapped.retryable);
+        setMappedError(mapped, "request");
         setExportState(IDLE_STATE);
         return;
       }
@@ -180,42 +204,44 @@ export function useUserDataExport(): UserDataExportHookResult {
       const statusRes = await getUserDataExportStatus(token, res.json.requestId);
       if (!statusRes.ok) {
         const mapped = mapExportApiFailure(statusRes);
-        setError(mapped.message);
-        setErrorRetryable(mapped.retryable);
+        setMappedError(mapped, "refresh");
         return;
       }
 
       setExportState(toViewState(statusRes.json));
     } catch {
-      setError("No connection. Check your network and try again.");
-      setErrorRetryable(true);
+      setMappedError(
+        { message: "No connection. Check your network and try again.", retryable: true },
+        "request",
+      );
       setExportState(IDLE_STATE);
     } finally {
       setRequesting(false);
       submitGuardRef.current = false;
     }
-  }, [user, getIdToken, exportState.status]);
+  }, [user, getIdToken, exportState.status, clearError, setMappedError]);
 
   const downloadExport = useCallback(async () => {
     if (!user || !exportState.requestId || exportState.status !== "ready") return;
     if (downloading) return;
 
     setDownloading(true);
-    setError(null);
+    clearError();
 
     try {
       const token = await getIdToken(true);
       if (!token) {
-        setError("Your session expired. Sign in again and retry.");
-        setErrorRetryable(false);
+        setMappedError(
+          { message: "Your session expired. Sign in again and retry.", retryable: false },
+          "download",
+        );
         return;
       }
 
       const res = await getUserDataExportDownload(token, exportState.requestId);
       if (!res.ok) {
         const mapped = mapExportRetrievalFailure(res);
-        setError(mapped.message);
-        setErrorRetryable(mapped.retryable);
+        setMappedError(mapped, "download");
         return;
       }
 
@@ -225,16 +251,31 @@ export function useUserDataExport(): UserDataExportHookResult {
       });
 
       if (!download.ok) {
-        setError(download.message);
-        setErrorRetryable(download.retryable);
+        setMappedError(
+          { message: download.message, retryable: download.retryable },
+          "download",
+        );
       }
     } catch {
-      setError("Your export is ready, but the file could not be opened. Try again.");
-      setErrorRetryable(true);
+      setMappedError(
+        {
+          message: "Your export is ready, but the file could not be opened. Try again.",
+          retryable: true,
+        },
+        "download",
+      );
     } finally {
       setDownloading(false);
     }
-  }, [user, getIdToken, exportState.requestId, exportState.status, downloading]);
+  }, [
+    user,
+    getIdToken,
+    exportState.requestId,
+    exportState.status,
+    downloading,
+    clearError,
+    setMappedError,
+  ]);
 
   return {
     exportState,
@@ -243,6 +284,7 @@ export function useUserDataExport(): UserDataExportHookResult {
     downloading,
     error,
     errorRetryable,
+    errorRetryKind,
     refresh,
     requestExport,
     downloadExport,

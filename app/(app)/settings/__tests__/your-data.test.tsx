@@ -33,6 +33,7 @@ const idleExportHook = {
   downloading: false,
   error: null,
   errorRetryable: false,
+  errorRetryKind: null as const,
   refresh: () => undefined,
   requestExport: async () => undefined,
   downloadExport: async () => undefined,
@@ -69,7 +70,7 @@ describe("Your Data screen", () => {
     expect(str).toContain("your-data-export-card");
     expect(str).toContain("Request export");
     expect(str).toContain("Processing is asynchronous");
-    expect(str).toContain("leave this screen and return later");
+    expect(str).toContain("You can leave this screen and return later");
     expect(str).toContain("Refresh inventory");
     expect(str).not.toContain("Delete my account");
     expect(str).not.toMatch(/"fontWeight":"900"/);
@@ -88,6 +89,7 @@ describe("Your Data screen", () => {
       },
       error: "Your export is ready, but the file could not be opened. Try again.",
       errorRetryable: true,
+      errorRetryKind: "download" as const,
     };
     const inventory = buildUserDataInventoryViewModel({ authPresent: true });
     let test!: renderer.ReactTestRenderer;
@@ -107,9 +109,48 @@ describe("Your Data screen", () => {
     expect(str).toContain("could not be opened");
     expect(str).toContain("Retry download");
     expect(str).toContain("Download / share");
-    expect(str).toContain("leave this screen and return later");
+    expect(str).toContain("Processing is asynchronous");
+    expect(str).toContain("You can leave this screen and return later");
+    expect(str).not.toContain("Retry status refresh");
     expect(str).not.toContain("Export in progress");
     expect(str).not.toContain("https://");
+  });
+
+  it("offers status-refresh recovery for offline Ready without inventing download retry", async () => {
+    const offlineReady = {
+      ...idleExportHook,
+      exportState: {
+        ...idleExportHook.exportState,
+        status: "ready" as const,
+        requestedAt: "2026-08-29T17:40:22.000Z",
+        expiresAt: "2026-09-05T17:40:22.000Z",
+        packageAvailable: true,
+        failureCategory: "none" as const,
+      },
+      error: "No connection. Check your network and try again.",
+      errorRetryable: true,
+      errorRetryKind: "refresh" as const,
+    };
+    const inventory = buildUserDataInventoryViewModel({ authPresent: true });
+    let test!: renderer.ReactTestRenderer;
+    await act(async () => {
+      test = renderer.create(
+        <YourDataScreen
+          state="ready"
+          inventory={inventory}
+          error={null}
+          onRefresh={() => undefined}
+          exportHook={offlineReady}
+        />,
+      );
+    });
+    const str = JSON.stringify(test.toJSON());
+    expect(str).toContain("Export ready");
+    expect(str).toContain("Available until");
+    expect(str).toContain("No connection");
+    expect(str).toContain("Retry status refresh");
+    expect(str).toContain("Refresh export status");
+    expect(str).not.toContain("Retry download");
   });
 
   it("keeps request button visible while requesting with clear busy label", async () => {

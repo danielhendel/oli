@@ -23,6 +23,7 @@ export type UserDataExportSectionProps = Pick<
   | "downloading"
   | "error"
   | "errorRetryable"
+  | "errorRetryKind"
   | "refresh"
   | "requestExport"
   | "downloadExport"
@@ -80,6 +81,7 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
     downloading,
     error,
     errorRetryable,
+    errorRetryKind,
     refresh,
     requestExport,
     downloadExport,
@@ -102,18 +104,68 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
       ? "Request new export"
       : "Request export";
 
+  const showRetry = Boolean(error && errorRetryable && errorRetryKind);
+  const retryLabel =
+    errorRetryKind === "download"
+      ? "Retry download"
+      : errorRetryKind === "refresh"
+        ? "Retry status refresh"
+        : "Retry";
+  const retryAccessibilityLabel =
+    errorRetryKind === "download"
+      ? "Retry opening export"
+      : errorRetryKind === "refresh"
+        ? "Retry export status refresh"
+        : "Retry";
+  const onRetry = () => {
+    if (errorRetryKind === "download") {
+      void downloadExport();
+      return;
+    }
+    if (errorRetryKind === "refresh") {
+      refresh();
+      return;
+    }
+    if (errorRetryKind === "request") {
+      void requestExport();
+    }
+  };
+
   return (
     <View style={styles.card} testID="your-data-export-card" accessibilityRole="summary">
       <Text style={styles.title}>Personal data export</Text>
       <View style={styles.explanationBlock} testID="your-data-export-explanation">
-        <Text style={styles.body}>
+        <Text
+          style={styles.body}
+          allowFontScaling
+          maxFontSizeMultiplier={1.35}
+          testID="your-data-export-explanation-line-1"
+        >
           Request a copy of the data currently covered by Oli&apos;s export system.
         </Text>
-        <Text style={styles.body}>
-          Processing is asynchronous — you can leave this screen and return later.
+        <Text
+          style={styles.body}
+          allowFontScaling
+          maxFontSizeMultiplier={1.35}
+          testID="your-data-export-explanation-line-2"
+        >
+          Processing is asynchronous.
+        </Text>
+        <Text
+          style={styles.body}
+          allowFontScaling
+          maxFontSizeMultiplier={1.35}
+          testID="your-data-export-explanation-line-3"
+        >
+          You can leave this screen and return later.
         </Text>
       </View>
-      <Text style={styles.disclosure} testID="your-data-export-coverage-disclosure">
+      <Text
+        style={styles.disclosure}
+        allowFontScaling
+        maxFontSizeMultiplier={1.35}
+        testID="your-data-export-coverage-disclosure"
+      >
         {gapCount > 0
           ? `Your export includes the data currently covered by Oli's export system. ${gapCount} required data areas are not fully covered yet.`
           : "Your export includes the data currently covered by Oli's export system."}
@@ -126,23 +178,40 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
         accessibilityLabel={`Export status: ${statusLabel(exportState.status)}`}
         testID="your-data-export-status"
       >
-        <Text style={styles.statusLabel}>{statusLabel(exportState.status)}</Text>
+        <Text style={styles.statusLabel} allowFontScaling maxFontSizeMultiplier={1.35}>
+          {statusLabel(exportState.status)}
+        </Text>
         {failureCopy ? (
-          <Text style={styles.statusMeta} testID="your-data-export-failure-copy">
+          <Text
+            style={styles.statusMeta}
+            allowFontScaling
+            maxFontSizeMultiplier={1.35}
+            testID="your-data-export-failure-copy"
+          >
             {failureCopy}
           </Text>
         ) : null}
         {exportState.requestedAt ? (
-          <Text style={styles.statusMeta}>Requested {formatWhen(exportState.requestedAt)}</Text>
+          <Text style={styles.statusMeta} allowFontScaling maxFontSizeMultiplier={1.35}>
+            Requested {formatWhen(exportState.requestedAt)}
+          </Text>
         ) : null}
         {exportState.expiresAt && exportState.status === "ready" ? (
-          <Text style={styles.statusMeta}>Available until {formatWhen(exportState.expiresAt)}</Text>
+          <Text style={styles.statusMeta} allowFontScaling maxFontSizeMultiplier={1.35}>
+            Available until {formatWhen(exportState.expiresAt)}
+          </Text>
         ) : null}
         {loading ? <ActivityIndicator color={UI_TEXT_PRIMARY} style={styles.spinner} /> : null}
       </View>
 
       {error ? (
-        <Text style={styles.error} testID="your-data-export-error" accessibilityRole="alert">
+        <Text
+          style={styles.error}
+          allowFontScaling
+          maxFontSizeMultiplier={1.35}
+          testID="your-data-export-error"
+          accessibilityRole="alert"
+        >
           {error}
         </Text>
       ) : null}
@@ -213,20 +282,16 @@ export function UserDataExportSection(props: UserDataExportSectionProps) {
         </Pressable>
       ) : null}
 
-      {error && errorRetryable ? (
+      {showRetry ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={exportState.status === "ready" ? "Retry opening export" : "Retry"}
+          accessibilityLabel={retryAccessibilityLabel}
           testID="your-data-export-retry"
-          onPress={
-            exportState.status === "ready" ? () => void downloadExport() : () => void requestExport()
-          }
-          disabled={downloading || requesting}
+          onPress={onRetry}
+          disabled={downloading || requesting || loading}
           style={({ pressed }) => [styles.link, pressed && styles.buttonPressed]}
         >
-          <Text style={styles.linkText}>
-            {exportState.status === "ready" ? "Retry download" : "Retry"}
-          </Text>
+          <Text style={styles.linkText}>{retryLabel}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -244,45 +309,48 @@ const styles = StyleSheet.create({
     backgroundColor: UI_PANEL_SURFACE,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: UI_BORDER_SUBTLE,
-    gap: 10,
     overflow: "visible",
   },
   title: {
     fontSize: 16,
     fontWeight: "600",
     color: UI_TEXT_PRIMARY,
+    marginBottom: 10,
   },
   explanationBlock: {
-    width: "100%",
     alignSelf: "stretch",
-    gap: 8,
+    marginBottom: 10,
   },
   body: {
     fontSize: 14,
     lineHeight: 22,
     color: UI_TEXT_SECONDARY,
-    flexShrink: 0,
-    width: "100%",
+    marginBottom: 6,
+    flexWrap: "wrap",
   },
   disclosure: {
     fontSize: 13,
     lineHeight: 19,
     color: UI_TEXT_TERTIARY_LABEL,
-    flexShrink: 0,
-    width: "100%",
+    marginBottom: 10,
+    flexWrap: "wrap",
   },
   statusBox: {
-    gap: 4,
     paddingVertical: 8,
+    marginBottom: 10,
   },
   statusLabel: {
     fontSize: 15,
     fontWeight: "600",
     color: UI_TEXT_PRIMARY,
+    marginBottom: 4,
   },
   statusMeta: {
     fontSize: 13,
+    lineHeight: 18,
     color: UI_TEXT_TERTIARY_LABEL,
+    marginBottom: 2,
+    flexWrap: "wrap",
   },
   spinner: {
     marginTop: 6,
@@ -291,6 +359,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: "#FF9F0A",
+    marginBottom: 10,
+    flexWrap: "wrap",
   },
   button: {
     minHeight: 44,
@@ -299,6 +369,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
+    marginBottom: 10,
   },
   buttonDisabled: {
     opacity: 0.72,
@@ -316,6 +387,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
+    marginBottom: 10,
   },
   buttonPressed: { opacity: 0.85 },
   buttonText: {

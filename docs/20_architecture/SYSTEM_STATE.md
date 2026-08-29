@@ -1,9 +1,9 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-08-23 (Stage 1A merged; Stage 1B **active**; **RG-LEGAL-01 OPEN**)
+**Last updated:** 2026-08-29 (Stage 1B **complete on branch**; Draft PR #214; **RG-LEGAL-01 OPEN**)
 **Merged `main` SHA:** `10f85ee3d377d25075353c152b27611b6b572c84`
-**Stage 1B branch:** `feat/consumer-stage1b-consent-export` (active implementation)
+**Stage 1B branch:** `feat/consumer-stage1b-consent-export` (complete on branch; pending merge review)
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
 **Approved product direction (not implementation proof):** [VISION.md](../10_product/vision/VISION.md)
@@ -91,21 +91,23 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 
 ### Ownership and gaps
 
-| Capability | Merged `main` reality | Stage 1B branch (in progress) |
+| Capability | Merged `main` reality | Stage 1B branch (complete on branch) |
 |------------|----------------------|--------------------------------|
-| Export/delete backend | Exists (API + Functions) | Export status + download API being added |
-| Export UI CTAs | Implemented on Stage 1B branch | Request, status, download/share |
-| Delete UI CTAs | Missing | Still missing (Stage 1C) |
+| Export/delete backend | Exists (API + Functions) | Export status + signed download API; Function 4 GiB worker |
+| Export UI CTAs | Missing on `main` | Request, status, download/share — physical E2E **PASS** |
+| Delete UI CTAs | Missing | Still missing (Stage 1C — not begun) |
 | Password reset | Merged (Stage 1A) | Unchanged |
 | You → Account routing | Fixed (Stage 1A) | Unchanged |
 | Sign-in error mapping | Centralized safe mapping | Unchanged |
 | Public-link contract / external open | Merged (Stage 1A) | Unchanged |
 | Hosted Privacy / Terms / Support pages | Not published | **RG-LEGAL-01 OPEN** |
-| Durable consent persistence | Missing | RFC/ADR on branch; activation blocked by RG-LEGAL-01 |
+| Durable consent persistence | Missing | RFC/ADR approved for future implementation; **not implemented** |
 | Local-data purge | Missing | Stage 1C |
+| Export coverage closure | Gaps disclosed | **OPEN** |
+| Export scalability (streaming/pagination) | Buffered ZIP worker | Gate **OPEN** — `docs/90_audits/export-scalability-gate.md` |
 | Crash reporting product | Missing | Release hardening |
 | Production Firebase project config | Release-hardening gap | Unchanged |
-| Current State / What Oli Sees / Plan persistence / Progress analytics | **Not** implemented | Out of Stage 1A scope |
+| Current State / What Oli Sees / Plan persistence / Progress analytics | **Not** implemented | Out of Stage 1B scope |
 | Body salvage (PR #178) | CLOSED unmerged; deferred | Not begun |
 
 ---
@@ -147,9 +149,9 @@ Home · Plan · Progress · You
 | Home | Analytics-first Current State, standards, direction, What Oli Sees | Transitional shell; Daily Monitor Today section; no Current State / What Oli Sees |
 | Plan | Human-created or externally sourced plan representation | Honest empty state; no persistence |
 | Progress | Execution, adherence, outcomes, trends, analysis | History + Weekly Progress; no outcome analytics product |
-| You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export/delete UI and durable consent still missing |
+| You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export UI on Stage 1B branch (physical PASS); delete UI and durable consent persistence still missing |
 
-Next ownership work: Stage 1A (active) → Stage 1B → Stage 1C.
+Next ownership work after Stage 1B merges: Stage 1C (not begun).
 
 ---
 

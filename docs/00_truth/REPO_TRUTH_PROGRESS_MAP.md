@@ -1,14 +1,14 @@
 # Repo-Truth Progress Map
 
 **Status:** Current operational truth (subordinate to code + CI)
-**Last verified:** 2026-08-23
+**Last verified:** 2026-08-29
 **Merged `main` SHA:** `10f85ee3d377d25075353c152b27611b6b572c84`
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
 **R1:** Merged (PR #212) at the SHA above
 **Prior Stage 1A truth freeze (historical):** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `Stage 1B — Consent Architecture and Consumer Data Export`
-**Current next implementation stage after Stage 1B:** `Stage 1C — Account Deletion and Local Data Lifecycle`
+**Current execution-stage label:** `Stage 1B — Consent Architecture and Consumer Data Export` (**complete on branch**; pending independent merge review)
+**Current next implementation stage after Stage 1B:** `Stage 1C — Account Deletion and Local Data Lifecycle` (**not begun**)
 
 > **Rule:** If this map conflicts with merged code or CI, **code and CI win**. Update this map; do not invent product truth from docs alone.
 
@@ -18,7 +18,7 @@
 
 > **Stage 1A status:** **Merged** (PR [#213](https://github.com/danielhendel/oli/pull/213) at `10f85ee3d377d25075353c152b27611b6b572c84`). Password recovery verified on physical iPhone. Public-link infrastructure merged. Hosted legal/support pages **not published**. **RG-LEGAL-01 OPEN**. Durable legal assent remains **inactive**.
 >
-> **Stage 1B status:** **Active implementation** on branch `feat/consumer-stage1b-consent-export`. Consumer Data Export and consent architecture in progress. Do **not** mark Stage 1B complete until engineering gates pass. Do **not** activate durable legal assent until RG-LEGAL-01 passes.
+> **Stage 1B status:** **Complete on branch** `feat/consumer-stage1b-consent-export` (Draft PR #214). Physical-iPhone export E2E **PASS** on staging. Do **not** mark PR Ready / merge until independent review. Do **not** activate durable legal assent until RG-LEGAL-01 passes. Do **not** begin Stage 1C.
 
 ---
 
@@ -124,21 +124,26 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - **Release gate:** **RG-LEGAL-01 OPEN** — Public Legal and Support Readiness
 - **Physical-iPhone staging smoke (2026-08-22):** **PASS**
 
-## Stage 1B branch (active — RG-LEGAL-01 OPEN)
+## Stage 1B branch (complete on branch — RG-LEGAL-01 OPEN)
 
 - Branch: `feat/consumer-stage1b-consent-export`
-- Final branch head: `425b2f0` (pending final verification commit)
+- Draft PR: [#214](https://github.com/danielhendel/oli/pull/214) — **keep Draft**; pending independent merge review
+- Final branch head: see latest commit on PR (export download IAM + UI wrap/retry coupling)
 - Baseline `main`: `10f85ee3d377d25075353c152b27611b6b572c84`
 - Scope delivered on branch:
-  - Consent architecture RFC/ADR; typed readiness presentation; **durable persistence blocked** (RG-LEGAL-01 + governance)
-  - Consumer Data Export: request, status restoration, ready/failed/expired/offline states, signed-URL download/share
+  - Consent architecture RFC/ADR; typed readiness presentation; **durable persistence not implemented** (RG-LEGAL-01 + governance)
+  - Consumer Data Export: request → pending → restore → ready → authorized download → iOS share
   - Export API: `GET /export/latest`, `GET /export/:requestId`, `GET /export/:requestId/download`, `POST /export`
+  - Stale-pending recovery; signed-URL download IAM (`scripts/admin/apply-export-download-iam.sh`)
   - Honest export coverage disclosure in Your Data
+- **Consent architecture:** approved for **future** implementation
+- **Consent persistence:** **not** implemented
 - **Legal assent:** inactive (no fake acceptance)
-- **Static verification (2026-08-23):** `npm ci`, typecheck, lint, invariants, client trust boundary, `npm test -- --ci` (**999 suites / 6223 tests / 0 skipped**), `npm run check`, `git diff --check` all exit 0
-- **Expo Doctor:** same 5 pre-existing findings; no new Stage 1B finding
-- **Physical-iPhone staging smoke:** pending human verification on `oli-staging-fdbba`
-- **Not implemented yet (Stage 1C):** delete-account UI; local-data purge; retention/export/delete coverage closure
+- **RG-LEGAL-01:** **OPEN**
+- **Physical-iPhone staging smoke (2026-08-29):** **PASS** — Request → Pending → Restore → Ready → Download → iOS Share; offline-safe status; post-login restoration
+- **Export coverage closure:** **OPEN** (honest gaps remain; Stage 1C / later)
+- **Export scalability gate:** **OPEN** — see `docs/90_audits/export-scalability-gate.md` (buffered ZIP; large archives need streaming/pagination before production confidence)
+- **Not begun:** Stage 1C (delete-account UI; local-data purge; coverage closure)
 - **Not begun:** Body salvage (PR #178 remains closed/unmerged)
 
 ### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
