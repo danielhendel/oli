@@ -37,6 +37,8 @@ export type GetOptions = {
 
 export type PostOptions = {
   idempotencyKey?: string;
+  /** Sets x-request-id for idempotent server operations (e.g. export request). */
+  clientRequestId?: string;
   timeoutMs?: number;
   noStore?: boolean;
   cacheBust?: string;
@@ -347,7 +349,7 @@ async function apiFetchJson<T>(
   }
 }
 
-type HeaderOptions = { noStore?: true; idempotencyKey?: string };
+type HeaderOptions = { noStore?: true; idempotencyKey?: string; clientRequestId?: string };
 
 function buildHeaders(opts?: HeaderOptions): Record<string, string> {
   const headers: Record<string, string> = {
@@ -361,6 +363,9 @@ function buildHeaders(opts?: HeaderOptions): Record<string, string> {
   }
   if (opts?.idempotencyKey) {
     headers["Idempotency-Key"] = opts.idempotencyKey;
+  }
+  if (opts?.clientRequestId) {
+    headers["x-request-id"] = opts.clientRequestId;
   }
 
   return headers;
@@ -445,6 +450,7 @@ export async function apiPostJsonAuthed<T>(
   const headerOpts: HeaderOptions = {};
   if (opts?.noStore) headerOpts.noStore = true;
   if (opts?.idempotencyKey) headerOpts.idempotencyKey = opts.idempotencyKey;
+  if (opts?.clientRequestId) headerOpts.clientRequestId = opts.clientRequestId;
 
   const headers = buildHeaders(headerOpts);
   headers.Authorization = `Bearer ${idToken}`;

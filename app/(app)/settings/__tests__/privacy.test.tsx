@@ -57,12 +57,16 @@ describe("Privacy screen honesty", () => {
     expect(str).toContain("privacy-screen");
     expect(str).toContain("privacy-intro");
     expect(str).toContain("Export");
-    expect(str).toContain("Delete account");
+    expect(str).toContain("Deletion coverage");
+    expect(str).toContain("not available in this build");
+    expect(str).not.toMatch(/\bDelete account\b/);
     expect(str).toContain("not fully covered yet");
     expect(str).toContain("Open Your Data");
     expect(str).not.toContain("settings/privacy");
     expect(str).not.toMatch(/"fontWeight":"900"/);
     expect(str).toContain("privacy-coverage-footnote");
+    expect(str).toContain("privacy-consent-card");
+    expect(str).not.toMatch(/You agreed|acceptedAt|Coming soon/i);
   });
 
   it("omits Documents card when public links are not configured (RG-LEGAL-01 open)", async () => {

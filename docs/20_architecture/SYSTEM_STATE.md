@@ -1,9 +1,10 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-08-22 (R1 merged; Stage 1A **complete on branch**; **RG-LEGAL-01 OPEN**)
-**Merged `main` SHA:** `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
-**Stage 1A branch:** `feat/consumer-stage1a-account-recovery-legal` (Draft PR #213; do not treat as merged)
+**Last updated:** 2026-08-29 (Stage 1B **complete on branch** @ `b1c4b6f`; Draft PR #214; physical export E2E **PASS**; **RG-LEGAL-01 OPEN**)
+**Merged `main` SHA:** `10f85ee3d377d25075353c152b27611b6b572c84`
+**Stage 1B branch:** `feat/consumer-stage1b-consent-export` @ `b1c4b6f6728dd5a82b3be1605b54f4a4f60e0f49` (physically verified; pending merge review)
+**Staging export:** Cloud Run `oli-api-00273-rg2`; Function `onAccountExportRequested` 4 GiB / 540 s; project `oli-staging-fdbba`
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
 **Approved product direction (not implementation proof):** [VISION.md](../10_product/vision/VISION.md)
@@ -46,7 +47,7 @@ The analytics-first product direction **strengthens** this pipeline; it does not
 
 ---
 
-## Merged state (`main` @ `f502d8b`)
+## Merged state (`main` @ `10f85ee`)
 
 ### Navigation and homes
 
@@ -72,9 +73,9 @@ Plan: `currentPrograms = []`; no persistence; no Oli-authored plan language; not
 
 Progress: no adherence/outcome/causal claims.
 
-You: DNA / Medical History / Scans / Medication placeholders are hidden from launch navigation. Account screen title is **Account**; Firebase UID absent from consumer UI. On merged `main`, You → Account still incorrectly routes to Settings until Stage 1A merges.
+You: DNA / Medical History / Scans / Medication placeholders are hidden from launch navigation. Account screen title is **Account**; Firebase UID absent from consumer UI. You → Account routes to `/(app)/settings/account` (Stage 1A merged).
 
-Auth: dark Sign In / Create account; light iOS status bar. Password-reset request flow is Stage 1A work (branch), not yet on `main`.
+Auth: dark Sign In / Create account; light iOS status bar. Password-reset request flow merged (Stage 1A).
 
 ### Integrations and pipeline
 
@@ -91,20 +92,23 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 
 ### Ownership and gaps
 
-| Capability | Merged `main` reality | Stage 1A branch (complete on branch) |
-|------------|----------------------|--------------------------------------|
-| Export/delete backend | Exists (API + Functions) | Unchanged |
-| Export/delete UI CTAs | Missing | Still missing (Stage 1B / 1C) — no fake/Coming soon CTAs added |
-| Password reset | Missing | Implemented + physical staging PASS (enumeration-safe request; completion; new-password sign-in) |
-| You → Account routing | Defect: Account href equals Settings | Fixed + physical PASS |
-| Sign-in error mapping | Raw Firebase messages possible | Centralized safe mapping; no `Firebase:` / `auth/…` in consumer UI |
-| Public-link contract / external open | Missing | Implemented; missing URLs omit actions (no fake destinations) |
-| Hosted Privacy / Terms / Support pages | Not published | **RG-LEGAL-01 OPEN** — not configured; app not externally release-ready for legal links |
-| Durable consent persistence | Missing | Stage 1B (assent activation blocked by RG-LEGAL-01) |
+| Capability | Merged `main` reality | Stage 1B branch (complete on branch) |
+|------------|----------------------|--------------------------------|
+| Export/delete backend | Exists (API + Functions) | Export status + signed download API; Function 4 GiB worker |
+| Export UI CTAs | Missing on `main` | Request, status, download/share — physical E2E **PASS** |
+| Delete UI CTAs | Missing | Still missing (Stage 1C — not begun) |
+| Password reset | Merged (Stage 1A) | Unchanged |
+| You → Account routing | Fixed (Stage 1A) | Unchanged |
+| Sign-in error mapping | Centralized safe mapping | Unchanged |
+| Public-link contract / external open | Merged (Stage 1A) | Unchanged |
+| Hosted Privacy / Terms / Support pages | Not published | **RG-LEGAL-01 OPEN** |
+| Durable consent persistence | Missing | RFC/ADR approved for future implementation; **not implemented** |
 | Local-data purge | Missing | Stage 1C |
+| Export coverage closure | Gaps disclosed | **OPEN** |
+| Export scalability (streaming/pagination) | Buffered ZIP worker | Gate **OPEN** — `docs/90_audits/export-scalability-gate.md` |
 | Crash reporting product | Missing | Release hardening |
 | Production Firebase project config | Release-hardening gap | Unchanged |
-| Current State / What Oli Sees / Plan persistence / Progress analytics | **Not** implemented | Out of Stage 1A scope |
+| Current State / What Oli Sees / Plan persistence / Progress analytics | **Not** implemented | Out of Stage 1B scope |
 | Body salvage (PR #178) | CLOSED unmerged; deferred | Not begun |
 
 ---
@@ -146,9 +150,9 @@ Home · Plan · Progress · You
 | Home | Analytics-first Current State, standards, direction, What Oli Sees | Transitional shell; Daily Monitor Today section; no Current State / What Oli Sees |
 | Plan | Human-created or externally sourced plan representation | Honest empty state; no persistence |
 | Progress | Execution, adherence, outcomes, trends, analysis | History + Weekly Progress; no outcome analytics product |
-| You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export/delete UI and durable consent still missing |
+| You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export UI on Stage 1B branch (physical PASS); delete UI and durable consent persistence still missing |
 
-Next ownership work: Stage 1A (active) → Stage 1B → Stage 1C.
+Next ownership work after Stage 1B merges: Stage 1C (not begun).
 
 ---
 

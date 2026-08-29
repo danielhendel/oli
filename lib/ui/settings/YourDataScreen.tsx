@@ -10,7 +10,9 @@ import { useRouter } from "expo-router";
 import type { InventorySectionRow, InventoryStatusChip } from "@/lib/data/user-data/buildUserDataInventoryViewModel";
 import type { UserDataInventoryLoadState } from "@/lib/data/user-data/useUserDataInventory";
 import type { UserDataInventoryViewModel } from "@/lib/data/user-data/buildUserDataInventoryViewModel";
+import type { UserDataExportHookResult } from "@/lib/data/user-data/export/useUserDataExport";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
+import { UserDataExportSection } from "@/lib/ui/settings/UserDataExportSection";
 import {
   UI_BORDER_SUBTLE,
   UI_PANEL_SURFACE,
@@ -24,6 +26,7 @@ export type YourDataScreenProps = {
   inventory: UserDataInventoryViewModel | null;
   error: string | null;
   onRefresh: () => void;
+  exportHook: UserDataExportHookResult;
 };
 
 function StatusChip({ chip }: { chip: InventoryStatusChip }) {
@@ -76,7 +79,7 @@ function Section({
   );
 }
 
-export function YourDataScreen({ state, inventory, error, onRefresh }: YourDataScreenProps) {
+export function YourDataScreen({ state, inventory, error, onRefresh, exportHook }: YourDataScreenProps) {
   const router = useRouter();
 
   return (
@@ -106,6 +109,8 @@ export function YourDataScreen({ state, inventory, error, onRefresh }: YourDataS
             <Section title="Health records" rows={inventory.recordRows} testID="your-data-records" />
             <Section title="Controls" rows={inventory.controlRows} testID="your-data-controls" />
 
+            <UserDataExportSection {...exportHook} />
+
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Open privacy"
@@ -123,7 +128,7 @@ export function YourDataScreen({ state, inventory, error, onRefresh }: YourDataS
               onPress={onRefresh}
               style={({ pressed }) => [styles.linkRow, pressed && styles.linkPressed]}
             >
-              <Text style={styles.linkText}>Refresh</Text>
+              <Text style={styles.linkText}>Refresh inventory</Text>
             </Pressable>
           </>
         ) : null}

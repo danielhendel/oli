@@ -3,10 +3,10 @@
 **Status:** Current execution roadmap
 **Version:** 2.0
 **Effective date:** 2026-08-14
-**Last operational refresh:** 2026-08-22
+**Last operational refresh:** 2026-08-23
 **Authority level:** T2 execution roadmap (subordinate to Constitution and code/CI)
 **Supersedes:** 2026-08-10 Today / coordinated My Plan / adaptation roadmap
-**Merged baseline:** `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10` (R1 / PR #212)
+**Merged baseline:** `10f85ee3d377d25075353c152b27611b6b572c84` (Stage 1A / PR #213)
 **R0 baseline:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb` (PR #211)
 **Prior Stage 1A truth freeze:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (PR #209)
 **Product decisions:** [CONSUMER_LAUNCH_PRODUCT_DECISIONS.md](../decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md)
@@ -34,7 +34,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Primary dock on `main`: **Home · Plan · Progress · You** (R1 / PR #212 merged)
 - PR #210 (Today IA) is **CLOSED**, **unmerged**, and based on a superseded navigation doctrine
 - PR #178 (Profile floating shortcut / Body salvage candidate) is **CLOSED**, **unmerged**; Body salvage deferred
-- Password reset, public-link infrastructure, You → Account routing, and safe auth error mapping are **complete on Stage 1A branch** (Draft PR #213; not yet merged)
+- Password reset, public-link infrastructure, You → Account routing, and safe auth error mapping are **merged** (Stage 1A / PR #213)
 - Hosted Privacy / Terms / Support pages are **not published** (**RG-LEGAL-01 OPEN**)
 
 ## What does not exist yet (launch-critical under analytics-first)
@@ -42,7 +42,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Unified Current State / What Oli Sees / confidence contracts as one product system
 - Human-authored Plan representation with provenance (no Oli authorship)
 - Execution, adherence, and outcome Progress analytics as a first-class surface
-- Durable consent; export/delete UI; local-data lifecycle (Stage 1B / 1C)
+- Durable consent architecture (Stage 1B complete on branch; persistence deferred); export UI (Stage 1B physical PASS); delete UI and local-data lifecycle (Stage 1C — not begun)
 - Crash reporting product; production Firebase project config
 - Defensible overall score methodology (gated; not a P0 assumption)
 - Body salvage (deferred)
@@ -72,14 +72,17 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **Stage 1A — complete on branch, pending merge** (Draft PR [#213](https://github.com/danielhendel/oli/pull/213); physical-iPhone password-recovery smoke **PASS** 2026-08-22).
+**Current stage:** **Stage 1B — complete on branch** (`feat/consumer-stage1b-consent-export` @ `b1c4b6f6728dd5a82b3be1605b54f4a4f60e0f49`; Draft PR [#214](https://github.com/danielhendel/oli/pull/214); pending independent merge review).
+**Stage 1A:** Merged (PR #213) at `10f85ee3d377d25075353c152b27611b6b572c84`; physical-iPhone password-recovery smoke **PASS** (2026-08-22).
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`.
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`.
 **Release gate:** **RG-LEGAL-01 OPEN** (hosted Privacy / Terms / Support not published).
-**Planned next after Stage 1A merges:** **Stage 1B — Consent and Data Export** (not started; durable legal assent blocked by RG-LEGAL-01).
-**Then:** **Stage 1C — Account Deletion and Local Data Lifecycle** (not started).
+**Staging export runtime (physical PASS 2026-08-29):** Cloud Run `oli-api-00273-rg2`; Function 4 GiB / 540 s; Firebase `oli-staging-fdbba`.
+**Export:** Physical E2E **PASS** (request → pending → restore → ready → download → share; offline/reconnect; sign-out restoration). Coverage closure **OPEN**. Scalability gate **OPEN** (`docs/90_audits/export-scalability-gate.md`).
+**Consent:** Architecture approved for future implementation (`docs/80_rfc/RFC-consumer-consent-persistence-v1.md`, `docs/70_adrs/ADR-consumer-consent-architecture-v1.md`); **persistence not implemented**; legal assent **inactive**.
+**Planned next after Stage 1B merges:** **Stage 1C — Account Deletion and Local Data Lifecycle** (**not started**).
 
-Do **not** begin Stage 1B until PR #213 merges. Do **not** activate durable Terms/Privacy assent until RG-LEGAL-01 passes.
+Durable Terms/Privacy assent remains **inactive** until RG-LEGAL-01 passes. Stage 1B must not record acceptance of unpublished documents.
 
 ### Stage 1A acceptance split
 
@@ -122,9 +125,9 @@ Stage **1C** under the old Today/My Plan roadmap is **not** the immediate next s
 ```text
 R0 Product authority reset (docs) — MERGED (PR #211)
  → R1 Four-destination IA + PR #210 disposition — MERGED (PR #212)
- → 1A Account recovery + legal/support foundation (COMPLETE ON BRANCH, PENDING MERGE; RG-LEGAL-01 OPEN)
- → 1B Consent + data export
- → 1C Account deletion + local data lifecycle
+ → 1A Account recovery + legal/support foundation — **MERGED** (PR #213; RG-LEGAL-01 OPEN)
+ → 1B Consent + data export — **COMPLETE ON BRANCH** (Draft PR #214; pending merge review)
+ → 1C Account deletion + local data lifecycle — **NOT BEGUN**
  → 2 Minimal onboarding / data readiness
  → 3 Analytics truth contracts (RFC/ADR)
  → 4 Seven-domain Current State

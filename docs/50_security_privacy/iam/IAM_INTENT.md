@@ -12,6 +12,18 @@ This document defines the allowed IAM state for the oli-staging-fdbba project.
    - Cloud Functions Gen2 → oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com
    - Cloud Run API → oli-api-runtime@oli-staging-fdbba.iam.gserviceaccount.com
 
+## Export download (Stage 1B)
+
+Cloud Run signs short-lived GCS URLs with Application Default Credentials (no JSON key).
+Staging apply path: `scripts/admin/apply-export-download-iam.sh`.
+
+| Binding | Purpose |
+|---------|---------|
+| `oli-api-runtime` → TokenCreator **on itself** | `iam.serviceAccounts.signBlob` for V4 signed URLs |
+| `oli-api-runtime` → `objectViewer` on `gs://oli-staging-fdbba-staging-data-exports` | Signed URL authorizes private object reads |
+
+Do not grant project-wide TokenCreator to the API SA. Do not make the exports bucket public.
+
 ## Allowed Elevated Accounts
 
 | Service Account | Purpose |

@@ -90,6 +90,10 @@ export const onAccountExportRequested = onMessagePublished(
     topic: TOPIC,
     region: "us-central1",
     serviceAccount: "oli-functions-runtime@oli-staging-fdbba.iam.gserviceaccount.com",
+    // Staging OOM: 256Mi (collect), then 1024Mi with ~1210Mi used while writing zip.
+    // Hold full collection snapshots + packaged zip in memory until streaming rewrite.
+    memory: "4GiB",
+    timeoutSeconds: 540,
   },
   async (event) => {
     const payload = event.data?.message?.json as unknown;
@@ -212,6 +216,11 @@ export const onAccountExportRequested = onMessagePublished(
           },
           { merge: true },
         );
+        await mirrorUserExportStatus(db, uid, requestId, {
+          status: "failed",
+          error: "document_export_incomplete",
+          incomplete: packaged.incomplete,
+        });
         logger.error("account.export: incomplete original packaging", {
           requestId,
           incompleteCount: packaged.incomplete.length,
@@ -243,7 +252,12 @@ export const onAccountExportRequested = onMessagePublished(
         },
       });
 
+      const [exists] = await file.exists();
       const [meta] = await file.getMetadata();
+      const size = meta.size ? Number(meta.size) : packaged.zipBytes.length;
+      if (!exists || !Number.isFinite(size) || size <= 0) {
+        throw new Error("artifact_write_unverified");
+      }
 
       await ref.set(
         {
@@ -255,7 +269,7 @@ export const onAccountExportRequested = onMessagePublished(
             bucket: exportsBucketName,
             object: objectPath,
             contentType: meta.contentType ?? "application/zip",
-            size: meta.size ? Number(meta.size) : packaged.zipBytes.length,
+            size,
             generation: meta.generation ?? null,
             md5Hash: meta.md5Hash ?? null,
             updated: meta.updated ?? null,

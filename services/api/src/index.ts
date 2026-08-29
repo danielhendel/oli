@@ -214,6 +214,9 @@ app.use("/integrations", authMiddleware, integrationsRoutes);
 
 /**
  * Account operations (authenticated)
+ * - GET /export/latest
+ * - GET /export/:requestId
+ * - GET /export/:requestId/download
  * - POST /export
  * - POST /account/delete
  */

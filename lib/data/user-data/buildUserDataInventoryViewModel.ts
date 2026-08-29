@@ -142,11 +142,11 @@ export function buildUserDataInventoryViewModel(
     },
     {
       id: "delete",
-      title: "Delete account",
+      title: "Deletion coverage",
       statusChip: graph.deleteCoverageComplete ? "Available" : "Needs attention",
       summary: graph.deleteCoverageComplete
-        ? "Account deletion covers all required stores."
-        : `Account deletion is available, but ${graph.deleteGapCount} required data areas are not fully covered yet.`,
+        ? "Deletion coverage is complete for required stores. Deletion controls are not in this build."
+        : `Deletion coverage incomplete — ${graph.deleteGapCount} required data areas are not fully covered yet. Deletion controls are not in this build.`,
     },
     {
       id: "sources",
