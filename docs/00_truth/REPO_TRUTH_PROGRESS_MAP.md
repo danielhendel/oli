@@ -128,21 +128,30 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 
 - Branch: `feat/consumer-stage1b-consent-export`
 - Draft PR: [#214](https://github.com/danielhendel/oli/pull/214) — **keep Draft**; pending independent merge review
-- Final branch head: see latest commit on PR (export download IAM + UI wrap/retry coupling)
-- Baseline `main`: `10f85ee3d377d25075353c152b27611b6b572c84`
+- **Physically verified UI head:** `b1c4b6f6728dd5a82b3be1605b54f4a4f60e0f49`
+- Baseline `main` (Stage 1A merge): `10f85ee3d377d25075353c152b27611b6b572c84`
+- Staging (physical E2E): Firebase `oli-staging-fdbba`; Cloud Run **`oli-api-00273-rg2`**; Function `onAccountExportRequested` **4 GiB / 540 s**
+- Canonical consent docs: `docs/80_rfc/RFC-consumer-consent-persistence-v1.md`, `docs/70_adrs/ADR-consumer-consent-architecture-v1.md`
 - Scope delivered on branch:
   - Consent architecture RFC/ADR; typed readiness presentation; **durable persistence not implemented** (RG-LEGAL-01 + governance)
   - Consumer Data Export: request → pending → restore → ready → authorized download → iOS share
   - Export API: `GET /export/latest`, `GET /export/:requestId`, `GET /export/:requestId/download`, `POST /export`
   - Stale-pending recovery; signed-URL download IAM (`scripts/admin/apply-export-download-iam.sh`)
+  - Operation-specific retry (status refresh vs download); offline/reconnect; sign-out restoration
   - Honest export coverage disclosure in Your Data
+- **Stage 1A:** Merged (PR #213)
 - **Consent architecture:** approved for **future** implementation
-- **Consent persistence:** **not** implemented
-- **Legal assent:** inactive (no fake acceptance)
-- **RG-LEGAL-01:** **OPEN**
-- **Physical-iPhone staging smoke (2026-08-29):** **PASS** — Request → Pending → Restore → Ready → Download → iOS Share; offline-safe status; post-login restoration
-- **Export coverage closure:** **OPEN** (honest gaps remain; Stage 1C / later)
-- **Export scalability gate:** **OPEN** — see `docs/90_audits/export-scalability-gate.md` (buffered ZIP; large archives need streaming/pagination before production confidence)
+- **Consent persistence:** **not** implemented (no Firestore/API consent writes)
+- **Legal assent:** **inactive** (no fake acceptedAt / legal version)
+- **RG-LEGAL-01:** **OPEN** (informational only in UI)
+- **Physical-iPhone staging smoke (2026-08-29):** **PASS**
+  - Consent readiness PASS; stale-request recovery PASS
+  - Export E2E: request → pending → force-quit restore → ready → download → share PASS
+  - Offline Ready preservation + Retry status refresh PASS; reconnect PASS
+  - Sign-out / sign-in restoration PASS; full explanation copy PASS
+- **Export coverage closure:** **OPEN**
+- **Export scalability gate:** **OPEN** — `docs/90_audits/export-scalability-gate.md` (buffered ZIP; ~161–169 MB archives; prior OOM at 256 MiB and 1 GiB; success at 4 GiB / ~78 s)
+- **Production deploy:** **none**
 - **Not begun:** Stage 1C (delete-account UI; local-data purge; coverage closure)
 - **Not begun:** Body salvage (PR #178 remains closed/unmerged)
 

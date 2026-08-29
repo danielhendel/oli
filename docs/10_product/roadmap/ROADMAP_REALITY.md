@@ -72,13 +72,14 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **Stage 1B — complete on branch** (`feat/consumer-stage1b-consent-export`; Draft PR [#214](https://github.com/danielhendel/oli/pull/214); pending independent merge review).
+**Current stage:** **Stage 1B — complete on branch** (`feat/consumer-stage1b-consent-export` @ `b1c4b6f6728dd5a82b3be1605b54f4a4f60e0f49`; Draft PR [#214](https://github.com/danielhendel/oli/pull/214); pending independent merge review).
 **Stage 1A:** Merged (PR #213) at `10f85ee3d377d25075353c152b27611b6b572c84`; physical-iPhone password-recovery smoke **PASS** (2026-08-22).
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`.
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`.
 **Release gate:** **RG-LEGAL-01 OPEN** (hosted Privacy / Terms / Support not published).
-**Export:** Physical E2E **PASS** on staging (2026-08-29). Coverage closure **OPEN**. Scalability gate **OPEN** (`docs/90_audits/export-scalability-gate.md`).
-**Consent:** Architecture approved for future implementation; **persistence not implemented**; legal assent **inactive**.
+**Staging export runtime (physical PASS 2026-08-29):** Cloud Run `oli-api-00273-rg2`; Function 4 GiB / 540 s; Firebase `oli-staging-fdbba`.
+**Export:** Physical E2E **PASS** (request → pending → restore → ready → download → share; offline/reconnect; sign-out restoration). Coverage closure **OPEN**. Scalability gate **OPEN** (`docs/90_audits/export-scalability-gate.md`).
+**Consent:** Architecture approved for future implementation (`docs/80_rfc/RFC-consumer-consent-persistence-v1.md`, `docs/70_adrs/ADR-consumer-consent-architecture-v1.md`); **persistence not implemented**; legal assent **inactive**.
 **Planned next after Stage 1B merges:** **Stage 1C — Account Deletion and Local Data Lifecycle** (**not started**).
 
 Durable Terms/Privacy assent remains **inactive** until RG-LEGAL-01 passes. Stage 1B must not record acceptance of unpublished documents.

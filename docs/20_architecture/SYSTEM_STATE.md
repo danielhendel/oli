@@ -1,9 +1,10 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-08-29 (Stage 1B **complete on branch**; Draft PR #214; **RG-LEGAL-01 OPEN**)
+**Last updated:** 2026-08-29 (Stage 1B **complete on branch** @ `b1c4b6f`; Draft PR #214; physical export E2E **PASS**; **RG-LEGAL-01 OPEN**)
 **Merged `main` SHA:** `10f85ee3d377d25075353c152b27611b6b572c84`
-**Stage 1B branch:** `feat/consumer-stage1b-consent-export` (complete on branch; pending merge review)
+**Stage 1B branch:** `feat/consumer-stage1b-consent-export` @ `b1c4b6f6728dd5a82b3be1605b54f4a4f60e0f49` (physically verified; pending merge review)
+**Staging export:** Cloud Run `oli-api-00273-rg2`; Function `onAccountExportRequested` 4 GiB / 540 s; project `oli-staging-fdbba`
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
 **Approved product direction (not implementation proof):** [VISION.md](../10_product/vision/VISION.md)

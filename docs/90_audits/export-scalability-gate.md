@@ -9,10 +9,12 @@
 
 | Metric | Observation |
 |--------|-------------|
-| Successful archive size category | `50_to_200mb` (~161 MB) |
+| Successful archive size category | `50_to_200mb` (~161–169 MB observed) |
 | Processing duration (started → completed) | ~78 s |
-| Peak memory (failed attempt @ 1 GiB) | ~1210 MiB used → OOM |
-| Peak memory (success @ 4 GiB) | Below limit (exact peak not exported in logs); worker configured **4 GiB** |
+| Peak memory (failed attempt @ 256 MiB) | OOM during collect |
+| Peak memory (failed attempt @ 1 GiB) | ~1210 MiB used → OOM while writing ZIP |
+| Peak memory (success @ 4 GiB) | Below limit; worker configured **4 GiB** / **540 s** |
+| Cloud Run (physical E2E) | `oli-api-00273-rg2` |
 | Record volume | Broad: multi-collection user mirror + document originals packaged into one ZIP |
 | Construction model | **Fully buffered** — collections loaded into memory; ZIP built in-process; then uploaded |
 
