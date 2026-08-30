@@ -531,6 +531,10 @@ export default function AppLayout() {
             name="settings/account"
             options={{ title: "Account", ...workoutsStackNavigationOptions("module") }}
           />
+          <Stack.Screen
+            name="settings/delete-account"
+            options={{ title: "Delete Account", ...workoutsStackNavigationOptions("module") }}
+          />
           <Stack.Screen name="settings/devices" options={{ title: "Devices" }} />
           <Stack.Screen name="settings/devices/[deviceId]" options={{ title: "" }} />
           <Stack.Screen
