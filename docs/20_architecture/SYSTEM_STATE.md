@@ -1,9 +1,9 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-08-29 (Stage 1B **merged** @ `3d4859e`; Stage 1C **active**; **RG-LEGAL-01 OPEN**)
+**Last updated:** 2026-08-29 (Stage 1C **complete on branch** @ `09acada`; physical verification pending; **RG-LEGAL-01 OPEN**)
 **Merged `main` SHA:** `3d4859e45d537813b6846ecaf4cb49222519ef80`
-**Stage 1C branch:** `feat/consumer-stage1c-account-deletion-lifecycle` (in progress)
+**Stage 1C branch:** `feat/consumer-stage1c-account-deletion-lifecycle` @ `09acada`
 **Staging export:** Cloud Run `oli-api-00273-rg2`; Function `onAccountExportRequested` 4 GiB / 540 s; project `oli-staging-fdbba`
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
@@ -92,11 +92,13 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 
 ### Ownership and gaps
 
-| Capability | Merged `main` reality | Stage 1C (active) |
-|------------|----------------------|-------------------|
-| Export/delete backend | Exists (API + Functions) | Deletion status API + worker coverage expansion in progress |
+| Capability | Merged `main` reality | Stage 1C branch |
+|------------|----------------------|-----------------|
+| Export/delete backend | Exists (API + Functions) | Deletion status API + expanded worker |
 | Export UI CTAs | Merged (Stage 1B) | Unchanged |
-| Delete UI CTAs | Missing | In progress |
+| Delete UI CTAs | Missing | Implemented (You → Account → Delete Account) |
+| Local-data purge | Missing | Coordinator + recovery marker |
+| Deletion coverage | Gaps disclosed | Closed (export gaps remain open) |
 | Password reset | Merged (Stage 1A) | Unchanged |
 | You → Account routing | Fixed (Stage 1A) | Unchanged |
 | Sign-in error mapping | Centralized safe mapping | Unchanged |

@@ -7,9 +7,9 @@
 **R1:** Merged (PR #212) at the SHA above
 **Prior Stage 1A truth freeze (historical):** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `Stage 1C — Account Deletion and Local Data Lifecycle` (**active**)
+**Current execution-stage label:** `Stage 1C — Account Deletion and Local Data Lifecycle` (**complete on branch**; pending physical verification and staging deploy)
 **Stage 1B:** **MERGED** (PR #214 at `3d4859e45d537813b6846ecaf4cb49222519ef80`)
-**Current next implementation stage after Stage 1C:** `Stage 2 — Minimal Onboarding and Data Readiness` (**not begun**)
+**Stage 1C branch:** `feat/consumer-stage1c-account-deletion-lifecycle` @ `09acada` (implementation complete; Draft PR pending)
 
 > **Rule:** If this map conflicts with merged code or CI, **code and CI win**. Update this map; do not invent product truth from docs alone.
 
@@ -21,7 +21,7 @@
 >
 > **Stage 1B status:** **MERGED** (PR [#214](https://github.com/danielhendel/oli/pull/214) at `3d4859e45d537813b6846ecaf4cb49222519ef80`). Consumer Data Export physical E2E **PASS** on staging. Consent architecture approved for future implementation; durable consent persistence **not implemented**. Legal assent **inactive**. **RG-LEGAL-01 OPEN**.
 >
-> **Stage 1C status:** **Active** on `feat/consumer-stage1c-account-deletion-lifecycle`. Account deletion UI **not yet implemented**. Local-data lifecycle **not yet implemented**. Account-switch isolation **not yet verified**. Deletion coverage **not yet closed**. Infrastructure CI validation truth gap **remains open**.
+> **Stage 1C status:** **Complete on branch** `feat/consumer-stage1c-account-deletion-lifecycle`. Delete Account UI, reauthentication, deletion status API, expanded worker, local lifecycle coordinator, and coverage closure **implemented**. Physical-iPhone deletion E2E and exact-SHA staging deploy **pending**. Export coverage closure **OPEN**. Infrastructure CI validation truth gap **remains open**.
 
 ---
 
@@ -156,22 +156,21 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - **Production deploy:** **none**
 - **Not begun:** Body salvage (PR #178 remains closed/unmerged)
 
-## Stage 1C (ACTIVE — not complete)
+## Stage 1C (COMPLETE ON BRANCH — pending physical verification)
 
-- Branch: `feat/consumer-stage1c-account-deletion-lifecycle`
+- Branch: `feat/consumer-stage1c-account-deletion-lifecycle` @ `09acada`
 - Baseline `main` (Stage 1B merge): `3d4859e45d537813b6846ecaf4cb49222519ef80`
-- Scope in progress:
-  - In-app account deletion with reauthentication
-  - Idempotent deletion request/status recovery
-  - Local user-data lifecycle and account-transition isolation
-  - Export-archive cleanup; server-side deletion coverage closure
-- **Account deletion UI:** not yet implemented
-- **Local-data lifecycle:** not yet implemented
-- **Account-switch isolation:** not yet verified
-- **Deletion coverage closure:** not yet closed
-- **Export coverage closure:** **OPEN**
+- Scope delivered on branch:
+  - Delete Account flow (You → Account → Delete Account) with reauthentication
+  - Idempotent `POST /account/delete` + `GET /delete/latest` + `GET /delete/:requestId`
+  - Expanded deletion worker (integrations, exports, full Firestore subtree, Auth last)
+  - Local lifecycle coordinator (sign-out, account switch, deletion cleanup)
+  - Export archive cleanup; lifecycle classification registry; delete coverage closed
+- **Physical-iPhone deletion E2E:** **pending**
+- **Exact-SHA staging deploy:** **pending**
+- **Export coverage closure:** **OPEN** (15 export gaps remain classified)
 - **Export scalability gate:** **OPEN**
-- **Infrastructure CI validation truth gap:** **OPEN** (GitHub `tf-validate` false-green)
+- **Infrastructure CI validation truth gap:** **OPEN**
 - **RG-LEGAL-01:** **OPEN**
 - **Consent persistence:** **not implemented**
 - **Legal assent:** **inactive**
@@ -217,7 +216,7 @@ RG-LEGAL-01 remaining OPEN does **not** block Stage 1A engineering merge. It **d
 
 ## In progress (not complete)
 
-- **Stage 1C is active** on `feat/consumer-stage1c-account-deletion-lifecycle`
+- **Stage 1C complete on branch** — physical verification and staging deploy pending
 - **RG-LEGAL-01 OPEN** (hosted legal/support pages not published)
 - PR #178 remains CLOSED unmerged; Body salvage deferred
 - PR #210 remains CLOSED unmerged; preserved branch unmodified
