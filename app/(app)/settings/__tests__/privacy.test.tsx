@@ -58,8 +58,8 @@ describe("Privacy screen honesty", () => {
     expect(str).toContain("privacy-intro");
     expect(str).toContain("Export");
     expect(str).toContain("Deletion coverage");
-    expect(str).toContain("not available in this build");
-    expect(str).not.toMatch(/\bDelete account\b/);
+    expect(str).toContain("Delete Account");
+    expect(str).not.toMatch(/\bDelete account\b.*not available in this build/);
     expect(str).toContain("not fully covered yet");
     expect(str).toContain("Open Your Data");
     expect(str).not.toContain("settings/privacy");
