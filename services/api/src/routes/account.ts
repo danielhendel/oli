@@ -20,6 +20,7 @@ import {
   loadUserDeletionDoc,
   markUserDeletionFailed,
 } from "../lib/account/deleteStatus";
+import { checkRecentAuthForDeletion } from "../lib/account/recentAuthForDeletion";
 
 const router = Router();
 
@@ -285,6 +286,19 @@ router.post("/account/delete", async (req: AuthedRequest, res: Response) => {
 
   if (!rid || rid === "missing") {
     return jsonBadRequest(res, rid, "Missing x-request-id");
+  }
+
+  // Server-enforced recent auth (ADR v1). Ignore any client body freshness flags.
+  const recent = checkRecentAuthForDeletion(req.authTime);
+  if (!recent.ok) {
+    return res.status(401).json({
+      ok: false as const,
+      error: {
+        code: "REAUTH_REQUIRED",
+        message: "Recent authentication is required to delete your account.",
+        requestId: rid,
+      },
+    });
   }
 
   const topic = requireEnv("TOPIC_DELETE");

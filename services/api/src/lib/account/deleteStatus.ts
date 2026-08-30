@@ -106,45 +106,87 @@ export function isActivePendingDeletion(data: UserDeletionDoc): boolean {
   return dto.status === "queued" || dto.status === "processing";
 }
 
+/**
+ * Whether this UID has an active deletion (mirror and/or durable ledger).
+ * Ledger check covers the window after user-subtree removal but before Auth delete.
+ */
+export async function hasActivePendingDeletion(uid: string): Promise<boolean> {
+  const latest = await loadLatestUserDeletionDoc(uid);
+  if (latest && isActivePendingDeletion(latest.data)) {
+    return true;
+  }
+
+  try {
+    const snap = await db
+      .collection(ACCOUNT_DELETIONS_GLOBAL)
+      .where("uid", "==", uid)
+      .limit(25)
+      .get();
+    for (const doc of snap.docs) {
+      if (isActivePendingDeletion(doc.data() as UserDeletionDoc)) {
+        return true;
+      }
+    }
+  } catch {
+    // Query unavailable — fall through to prefix-safe empty result.
+  }
+
+  return false;
+}
+
 export async function markUserDeletionFailed(
   uid: string,
   requestId: string,
   errorCode: string,
 ): Promise<void> {
+  const patch = {
+    status: "failed",
+    error: errorCode,
+    updatedAt: FieldValue.serverTimestamp(),
+  };
   await db
     .collection("users")
     .doc(uid)
     .collection("accountDeletion")
     .doc(requestId)
-    .set(
-      {
-        status: "failed",
-        error: errorCode,
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
+    .set(patch, { merge: true });
+
+  const globalId = globalAccountDeletionDocId(uid, requestId);
+  await db.collection(ACCOUNT_DELETIONS_GLOBAL).doc(globalId).set(
+    {
+      uid,
+      requestId,
+      ...patch,
+    },
+    { merge: true },
+  );
 }
 
+/**
+ * Create user-scoped mirror + durable operation ledger before Pub/Sub publish.
+ * Ledger must exist before destructive deletion begins (ADR v1).
+ */
 export async function createUserDeletionRequestDoc(args: {
   uid: string;
   requestId: string;
   requestedAt: string;
 }): Promise<void> {
   const { uid, requestId, requestedAt } = args;
+  const base = {
+    uid,
+    requestId,
+    requestedAt,
+    status: "queued",
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+
   await db
     .collection("users")
     .doc(uid)
     .collection("accountDeletion")
     .doc(requestId)
-    .set(
-      {
-        uid,
-        requestId,
-        requestedAt,
-        status: "queued",
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: false },
-    );
+    .set(base, { merge: false });
+
+  const globalId = globalAccountDeletionDocId(uid, requestId);
+  await db.collection(ACCOUNT_DELETIONS_GLOBAL).doc(globalId).set(base, { merge: false });
 }

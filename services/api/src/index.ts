@@ -23,9 +23,13 @@ import ouraPullNowRouter from "./routes/integrations/ouraPullNow";
 import ouraSleepDayRefreshRouter from "./routes/integrations/ouraSleepDayRefresh";
 import ouraPullRouter from "./routes/ouraPull";
 import { authMiddleware } from "./middleware/auth";
+import { deletionPendingGate } from "./middleware/deletionPendingGate";
 import { requireInvokerAuth } from "./middleware/invokerAuth";
 import { requestIdMiddleware, logger, type RequestWithRid } from "./lib/logger";
 import { accessLogMiddleware } from "./middleware/accessLogMiddleware";
+
+/** User Firebase auth + deletion-pending product gate (ADR v1). */
+const withUserAuth = [authMiddleware, deletionPendingGate] as const;
 
 const assertNoUsersMeWriteRoutes = (router: Router): void => {
   // Regression invariant: /users/me must be READ-only.
@@ -133,51 +137,51 @@ app.get("/", (_req: Request, res: Response) => {
 /**
  * Firebase helper routes (authenticated) — used for client-side token debugging.
  */
-app.use("/firebase", authMiddleware, firebaseRoutes);
+app.use("/firebase", ...withUserAuth, firebaseRoutes);
 
 /**
  * Ingestion boundary (authenticated).
  */
-app.use("/ingest", authMiddleware, eventsRoutes);
+app.use("/ingest", ...withUserAuth, eventsRoutes);
 
 /**
  * Upload ingestion boundary (authenticated).
  * Phase 1: writes storage bytes + emits memory-only RawEvent(kind="file").
  */
-app.use("/uploads", authMiddleware, uploadsRoutes);
+app.use("/uploads", ...withUserAuth, uploadsRoutes);
 
 /**
  * View-layer preferences (authenticated).
  * Phase 1: units + timezone bucketing preferences.
  */
-app.use("/preferences", authMiddleware, preferencesRoutes);
+app.use("/preferences", ...withUserAuth, preferencesRoutes);
 
 /**
  * Profile main (`users/{uid}/profile/main`) — authenticated read/write via API.
  */
-app.use("/profile", authMiddleware, profileMainRoutes);
+app.use("/profile", ...withUserAuth, profileMainRoutes);
 
 /**
  * User-owned exercise definitions (`users/{uid}/exerciseDefinitions/*`).
  * Media upload lives in a separate router module so Jest suites that import the CRUD router
  * do not eagerly load firebase-admin.
  */
-app.use("/exercise-definitions", authMiddleware, exerciseDefinitionMediaUploadRoutes);
-app.use("/exercise-definitions", authMiddleware, exerciseDefinitionsRoutes);
+app.use("/exercise-definitions", ...withUserAuth, exerciseDefinitionMediaUploadRoutes);
+app.use("/exercise-definitions", ...withUserAuth, exerciseDefinitionsRoutes);
 
 /**
  * AUTHENTICATED READ BOUNDARY
  */
-app.use("/users/me", authMiddleware, usersMeRoutes);
-app.use("/users/me", authMiddleware, nutritionUserMetaRoutes);
-app.use("/users/me", authMiddleware, nutritionPantryRoutes);
-app.use("/users/me", authMiddleware, nutritionMealsRoutes);
-app.use("/users/me", authMiddleware, nutritionStoresRoutes);
+app.use("/users/me", ...withUserAuth, usersMeRoutes);
+app.use("/users/me", ...withUserAuth, nutritionUserMetaRoutes);
+app.use("/users/me", ...withUserAuth, nutritionPantryRoutes);
+app.use("/users/me", ...withUserAuth, nutritionMealsRoutes);
+app.use("/users/me", ...withUserAuth, nutritionStoresRoutes);
 
 /**
  * Apple Health status — user-authenticated. Read-only status from rawEvents (provider apple_health).
  */
-app.use("/integrations/apple-health/status", authMiddleware, appleHealthStatusRouter);
+app.use("/integrations/apple-health/status", ...withUserAuth, appleHealthStatusRouter);
 
 /**
  * Oura OAuth callback — PUBLIC so Oura can redirect here.
@@ -202,15 +206,15 @@ app.get("/integrations/oura/complete", (_req: Request, res: Response) => {
   );
 });
 
-app.use("/integrations/oura/ingest", authMiddleware, ouraIngestRouter);
+app.use("/integrations/oura/ingest", ...withUserAuth, ouraIngestRouter);
 app.use("/integrations/oura/pull", requireInvokerAuth, ouraPullRouter);
-app.use("/integrations/oura/pull-now", authMiddleware, ouraPullNowRouter);
-app.use("/integrations/oura/sleep-day-refresh", authMiddleware, ouraSleepDayRefreshRouter);
+app.use("/integrations/oura/pull-now", ...withUserAuth, ouraPullNowRouter);
+app.use("/integrations/oura/sleep-day-refresh", ...withUserAuth, ouraSleepDayRefreshRouter);
 
 /**
  * Integrations (authenticated): connect, revoke.
  */
-app.use("/integrations", authMiddleware, integrationsRoutes);
+app.use("/integrations", ...withUserAuth, integrationsRoutes);
 
 /**
  * Account operations (authenticated)
@@ -218,9 +222,11 @@ app.use("/integrations", authMiddleware, integrationsRoutes);
  * - GET /export/:requestId
  * - GET /export/:requestId/download
  * - POST /export
+ * - GET /delete/latest
+ * - GET /delete/:requestId
  * - POST /account/delete
  */
-app.use("/", authMiddleware, accountRoutes);
+app.use("/", ...withUserAuth, accountRoutes);
 
 /**
  * CORS rejection handler

@@ -142,7 +142,8 @@ async function revokeIntegrationCredentials(db: FirebaseFirestore.Firestore, uid
 /**
  * Account deletion executor
  *
- * Order: mark accepted → revoke integrations → delete storage → delete Firestore → delete Auth last.
+ * Order: mark in_progress → revoke integrations → delete storage → delete Firestore → Auth last → ledger completed.
+ * Durable ledger must already exist from API accept (ADR v1); worker upserts if missing for crash recovery.
  */
 export const onAccountDeleteRequested = onMessagePublished(
   {
@@ -174,6 +175,7 @@ export const onAccountDeleteRequested = onMessagePublished(
       return;
     }
 
+    // Ensure durable ledger exists before destructive work (recovery if accept-time write was lost).
     await ref.set(
       {
         uid,
@@ -185,7 +187,10 @@ export const onAccountDeleteRequested = onMessagePublished(
       },
       { merge: true },
     );
-    await mirrorUserDeletionStatus(db, uid, requestId, { status: "in_progress" });
+    await mirrorUserDeletionStatus(db, uid, requestId, {
+      status: "in_progress",
+      startedAt: FieldValue.serverTimestamp(),
+    }).catch(() => undefined);
 
     try {
       logger.info("account.delete: revoking integration credentials");
@@ -222,12 +227,13 @@ export const onAccountDeleteRequested = onMessagePublished(
       logger.info("account.delete: deleting auth user");
       await deleteAuthUser(uid);
 
+      // Minimized completed ledger — no Storage path inventories (ADR v1).
       await ref.set(
         {
           status: "completed",
           completedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
-          storageDelete: [...exportStorageOutcome.results, ...storageOutcome.results],
+          storageDelete: FieldValue.delete(),
         },
         { merge: true },
       );
@@ -236,17 +242,22 @@ export const onAccountDeleteRequested = onMessagePublished(
     } catch (err) {
       logger.error("account.delete: failed", { err });
 
+      const errorCode =
+        err instanceof Error && err.message.length > 0 && err.message.length < 80
+          ? err.message
+          : "delete_failed";
+
       await ref.set(
         {
           status: "failed",
-          error: err instanceof Error ? err.message : "delete_failed",
+          error: errorCode,
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true },
       );
       await mirrorUserDeletionStatus(db, uid, requestId, {
         status: "failed",
-        error: err instanceof Error ? err.message : "delete_failed",
+        error: errorCode,
       }).catch(() => undefined);
 
       throw err;

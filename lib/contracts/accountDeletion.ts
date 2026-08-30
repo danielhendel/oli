@@ -65,3 +65,9 @@ export const DELETE_PENDING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 /** Once processing started, worker timeout window before stale. */
 export const DELETE_PENDING_STARTED_MAX_AGE_MS = 15 * 60 * 1000;
+
+/**
+ * Server-enforced recent-authentication window for POST /account/delete.
+ * Bound is verified Firebase ID token `auth_time` vs server now (ADR v1).
+ */
+export const DELETE_RECENT_AUTH_MAX_AGE_SECONDS = 5 * 60;

@@ -6,6 +6,8 @@ import type { RequestWithRid } from "../lib/logger";
 
 export type AuthedRequest = RequestWithRid & {
   uid?: string;
+  /** Verified Firebase ID token `auth_time` (seconds since epoch), when present. */
+  authTime?: number;
 };
 
 type UnauthorizedJson = {
@@ -62,6 +64,11 @@ export const authMiddleware = async (req: AuthedRequest, res: Response, next: Ne
   try {
     const decoded = await admin.auth().verifyIdToken(token);
     req.uid = decoded.uid;
+    if (typeof decoded.auth_time === "number" && Number.isFinite(decoded.auth_time)) {
+      req.authTime = decoded.auth_time;
+    } else {
+      delete req.authTime;
+    }
     return next();
   } catch (e) {
     const msg = e instanceof Error ? e.message : "verify_failed";

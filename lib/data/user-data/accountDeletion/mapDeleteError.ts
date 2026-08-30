@@ -12,8 +12,19 @@ export type MappedDeleteError = {
     | "already_requested"
     | "service_unavailable"
     | "session_expired"
+    | "reauth_required"
+    | "deletion_pending"
     | "unknown";
 };
+
+function readErrorCode(failure: ApiFailure): string | null {
+  const json = failure.json;
+  if (!json || typeof json !== "object" || Array.isArray(json)) return null;
+  const error = (json as { error?: unknown }).error;
+  if (!error || typeof error !== "object" || Array.isArray(error)) return null;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : null;
+}
 
 export function mapDeleteApiFailure(failure: ApiFailure): MappedDeleteError {
   if (failure.kind === "network") {
@@ -21,6 +32,24 @@ export function mapDeleteApiFailure(failure: ApiFailure): MappedDeleteError {
       message: "No connection. Check your network and try again.",
       retryable: true,
       kind: "network",
+    };
+  }
+
+  const code = readErrorCode(failure);
+
+  if (code === "REAUTH_REQUIRED") {
+    return {
+      message: "Confirm your password again to continue deleting your account.",
+      retryable: true,
+      kind: "reauth_required",
+    };
+  }
+
+  if (code === "ACCOUNT_DELETION_PENDING") {
+    return {
+      message: "Account deletion is already in progress.",
+      retryable: false,
+      kind: "deletion_pending",
     };
   }
 

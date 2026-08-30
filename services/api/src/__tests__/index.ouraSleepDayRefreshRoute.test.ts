@@ -17,9 +17,9 @@ describe("services/api/src/index.ts — sleep-day-refresh route registration", (
     expect(source).toContain('from "./routes/integrations/ouraSleepDayRefresh"');
   });
 
-  it("mounts POST /integrations/oura/sleep-day-refresh behind authMiddleware", () => {
+  it("mounts POST /integrations/oura/sleep-day-refresh behind user auth", () => {
     expect(source).toContain(
-      'app.use("/integrations/oura/sleep-day-refresh", authMiddleware, ouraSleepDayRefreshRouter)',
+      'app.use("/integrations/oura/sleep-day-refresh", ...withUserAuth, ouraSleepDayRefreshRouter)',
     );
   });
 });
