@@ -72,16 +72,17 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **Stage 1C — complete on branch** (`feat/consumer-stage1c-account-deletion-lifecycle` @ `09acada`; physical verification pending).
+**Current stage:** **Stage 1C — PARTIAL PASS** (`feat/consumer-stage1c-account-deletion-lifecycle`; Draft PR #215; **not complete**).
 **Stage 1B:** **MERGED** (PR #214) at `3d4859e45d537813b6846ecaf4cb49222519ef80`; physical-iPhone export E2E **PASS** (2026-08-29).
 **Stage 1A:** Merged (PR #213) at `10f85ee3d377d25075353c152b27611b6b572c84`; physical-iPhone password-recovery smoke **PASS** (2026-08-22).
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`.
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`.
 **Release gate:** **RG-LEGAL-01 OPEN** (hosted Privacy / Terms / Support not published).
-**Staging export runtime (physical PASS 2026-08-29):** Cloud Run `oli-api-00273-rg2`; Function 4 GiB / 540 s; Firebase `oli-staging-fdbba`.
+**Staging Stage 1C runtime:** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep `onaccountdeletionledgerexpiresweep-00001-pec`; Firestore TTL on `accountDeletions.expireAt` **ACTIVE**; Firebase `oli-staging-fdbba`.
+**Staging export runtime (physical PASS 2026-08-29):** prior E2E Cloud Run `oli-api-00273-rg2`; Function 4 GiB / 540 s.
 **Export:** Physical E2E **PASS** (request → pending → restore → ready → download → share; offline/reconnect; sign-out restoration). Coverage closure **OPEN**. Scalability gate **OPEN** (`docs/90_audits/export-scalability-gate.md`).
 **Consent:** Architecture approved for future implementation (`docs/80_rfc/RFC-consumer-consent-persistence-v1.md`, `docs/70_adrs/ADR-consumer-consent-architecture-v1.md`); **persistence not implemented**; legal assent **inactive**.
-**Planned next after Stage 1C merges:** **Stage 2 — Minimal Onboarding and Data Readiness** (**not begun**).
+**Planned next after Stage 1C completes and merges:** **Stage 2 — Minimal Onboarding and Data Readiness** (**not begun**).
 
 Durable Terms/Privacy assent remains **inactive** until RG-LEGAL-01 passes. Stage 1B must not record acceptance of unpublished documents.
 

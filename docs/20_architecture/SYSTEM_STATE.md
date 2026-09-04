@@ -1,10 +1,11 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-08-29 (Stage 1C **complete on branch** @ `09acada`; physical verification pending; **RG-LEGAL-01 OPEN**)
+**Last updated:** 2026-09-04 (Stage 1C **PARTIAL PASS** — not complete; Draft PR #215; **RG-LEGAL-01 OPEN**)
 **Merged `main` SHA:** `3d4859e45d537813b6846ecaf4cb49222519ef80`
-**Stage 1C branch:** `feat/consumer-stage1c-account-deletion-lifecycle` @ `09acada`
-**Staging export:** Cloud Run `oli-api-00273-rg2`; Function `onAccountExportRequested` 4 GiB / 540 s; project `oli-staging-fdbba`
+**Stage 1C branch:** `feat/consumer-stage1c-account-deletion-lifecycle` @ `b94d3b0`
+**Staging Stage 1C:** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep ACTIVE; Firestore TTL `accountDeletions.expireAt` ACTIVE; project `oli-staging-fdbba`
+**Staging export (historical E2E):** Function `onAccountExportRequested` 4 GiB / 540 s
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
 **Approved product direction (not implementation proof):** [VISION.md](../10_product/vision/VISION.md)
