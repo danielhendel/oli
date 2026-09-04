@@ -44,6 +44,7 @@ import { onOuraPullScheduled } from "./oura/onOuraPullScheduled";
 
 // Account executors (Pub/Sub)
 import { onAccountDeleteRequested } from "./account/onAccountDeleteRequested";
+import { onAccountDeletionLedgerExpireSweep } from "./account/onAccountDeletionLedgerExpireSweep";
 import { onAccountExportRequested } from "./account/onAccountExportRequested";
 import { onOuraPostRawRequested } from "./oura/onOuraPostRawRequested";
 
@@ -114,6 +115,7 @@ export { onOuraPullScheduled };
 
 // Account executors (Pub/Sub)
 export { onAccountDeleteRequested };
+export { onAccountDeletionLedgerExpireSweep };
 export { onAccountExportRequested };
 export { onOuraPostRawRequested };
 

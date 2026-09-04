@@ -12,6 +12,15 @@ import {
   loadUserExportDoc,
   markUserExportFailed,
 } from "../lib/account/exportStatus";
+import {
+  buildDeleteStatusDto,
+  createUserDeletionRequestDoc,
+  isActivePendingDeletion,
+  loadLatestUserDeletionDoc,
+  loadUserDeletionDoc,
+  markUserDeletionFailed,
+} from "../lib/account/deleteStatus";
+import { checkRecentAuthForDeletion } from "../lib/account/recentAuthForDeletion";
 
 const router = Router();
 
@@ -232,6 +241,42 @@ router.post("/export", async (req: AuthedRequest, res: Response) => {
   return res.status(202).json({ ok: true as const, status: "queued" as const, requestId });
 });
 
+/** Latest deletion status for the authenticated user. */
+/** Route: GET /delete/latest */
+router.get("/delete/latest", async (req: AuthedRequest, res: Response) => {
+  const uid = assertAuthedUid(req, res);
+  if (!uid) return;
+
+  const latest = await loadLatestUserDeletionDoc(uid);
+  if (!latest) {
+    return res.status(200).json({ ok: true as const, deletion: null });
+  }
+
+  const deletionStatus = buildDeleteStatusDto(latest.requestId, latest.data);
+  return res.status(200).json({ ok: true as const, deletion: deletionStatus });
+});
+
+/** Deletion status for a specific request. */
+/** Route: GET /delete/:requestId */
+router.get("/delete/:requestId", async (req: AuthedRequest, res: Response) => {
+  const rid = getRequestId(req, res);
+  const uid = assertAuthedUid(req, res);
+  if (!uid) return;
+
+  const requestId = typeof req.params.requestId === "string" ? req.params.requestId.trim() : "";
+  if (!requestId) {
+    return jsonBadRequest(res, rid, "Missing request id");
+  }
+
+  const data = await loadUserDeletionDoc(uid, requestId);
+  if (!data) {
+    return jsonNotFound(res, rid, "Deletion request not found");
+  }
+
+  const deletionStatus = buildDeleteStatusDto(requestId, data);
+  return res.status(200).json({ ok: true as const, ...deletionStatus });
+});
+
 /** Request account deletion (publishes to Pub/Sub) */
 /** Route: POST /account/delete */
 router.post("/account/delete", async (req: AuthedRequest, res: Response) => {
@@ -243,17 +288,67 @@ router.post("/account/delete", async (req: AuthedRequest, res: Response) => {
     return jsonBadRequest(res, rid, "Missing x-request-id");
   }
 
+  // Server-enforced recent auth (ADR v1). Ignore any client body freshness flags.
+  const recent = checkRecentAuthForDeletion(req.authTime);
+  if (!recent.ok) {
+    return res.status(401).json({
+      ok: false as const,
+      error: {
+        code: "REAUTH_REQUIRED",
+        message: "Recent authentication is required to delete your account.",
+        requestId: rid,
+      },
+    });
+  }
+
   const topic = requireEnv("TOPIC_DELETE");
   if (!topic) return jsonServerMisconfig(res, rid, "Missing TOPIC_DELETE env var");
 
-  const requestedAt = new Date().toISOString();
   const requestId = rid;
+  const statusRef = userCollection(uid, "accountDeletion").doc(requestId);
 
-  await publishJSON(
-    topic,
-    { uid, requestId, requestedAt },
-    { requestId, uid, kind: "account.delete.requested.v1" },
-  );
+  const existing = await statusRef.get();
+  if (existing.exists) {
+    const data = existing.data() as Record<string, unknown> | undefined;
+    const statusDto = buildDeleteStatusDto(requestId, data ?? {});
+    return res.status(200).json({
+      ok: true as const,
+      status: statusDto.backendStatus,
+      requestId,
+    });
+  }
+
+  const latest = await loadLatestUserDeletionDoc(uid);
+  if (latest && isActivePendingDeletion(latest.data)) {
+    const statusDto = buildDeleteStatusDto(latest.requestId, latest.data);
+    return res.status(200).json({
+      ok: true as const,
+      status: statusDto.backendStatus,
+      requestId: latest.requestId,
+    });
+  }
+
+  const requestedAt = new Date().toISOString();
+
+  await createUserDeletionRequestDoc({ uid, requestId, requestedAt });
+
+  try {
+    await publishJSON(
+      topic,
+      { uid, requestId, requestedAt },
+      { requestId, uid, kind: "account.delete.requested.v1" },
+    );
+  } catch {
+    await markUserDeletionFailed(uid, requestId, "publish_failed");
+    return res.status(503).json({
+      ok: false as const,
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "Account deletion could not be started. Try again.",
+        requestId: rid,
+      },
+    });
+  }
 
   return res.status(202).json({ ok: true as const, status: "queued" as const, requestId });
 });

@@ -88,3 +88,9 @@ export function setEventsCached(key: string, data: CanonicalEventsListResponseDt
   evictStale(eventsCache);
   eventsCache.set(key, { data, at: Date.now() });
 }
+
+/** Clear all in-memory timeline/events caches (account lifecycle). */
+export function clearTimelineAndEventsCaches(): void {
+  timelineCache.clear();
+  eventsCache.clear();
+}

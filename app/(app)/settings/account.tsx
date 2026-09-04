@@ -12,6 +12,8 @@ import {
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 
+const UI_DESTRUCTIVE = "#FF3B30";
+
 export default function SettingsAccountScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
@@ -40,23 +42,33 @@ export default function SettingsAccountScreen() {
             <Text style={styles.ctaLabel}>Sign in</Text>
           </Pressable>
         ) : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Sign out"
-            onPress={() => {
-              Alert.alert("Sign out?", "You’ll need to sign in again to access your data.", [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Sign out",
-                  style: "destructive",
-                  onPress: () => void signOut(),
-                },
-              ]);
-            }}
-            style={styles.cta}
-          >
-            <Text style={styles.ctaLabel}>Sign out</Text>
-          </Pressable>
+          <>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete account"
+              onPress={() => router.push("/(app)/settings/delete-account")}
+              style={styles.destructiveLink}
+            >
+              <Text style={styles.destructiveLinkLabel}>Delete Account</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Sign out"
+              onPress={() => {
+                Alert.alert("Sign out?", "You'll need to sign in again to access your data.", [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Sign out",
+                    style: "destructive",
+                    onPress: () => void signOut(),
+                  },
+                ]);
+              }}
+              style={styles.cta}
+            >
+              <Text style={styles.ctaLabel}>Sign out</Text>
+            </Pressable>
+          </>
         )}
       </View>
     </ModuleScreenShell>
@@ -83,4 +95,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   ctaLabel: { color: "#fff", fontWeight: "800" },
+  destructiveLink: {
+    minHeight: 44,
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: UI_DESTRUCTIVE,
+  },
+  destructiveLinkLabel: { color: UI_DESTRUCTIVE, fontWeight: "800" },
 });

@@ -12,6 +12,7 @@ import { onAuthStateChanged } from "firebase/auth";
 
 import { getFirebaseAuth } from "@/lib/firebaseConfig";
 import { signOutUser as signOutUserAction } from "@/lib/auth/actions";
+import { clearUserScopedLocalData } from "@/lib/auth/accountLifecycleCleanup";
 
 export type AuthContextValue = {
   user: User | null;
@@ -26,12 +27,22 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export const AuthProvider = ({ children }: PropsWithChildren): React.ReactElement => {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
+  const previousUidRef = React.useRef<string | null>(null);
 
   // Important: resolve auth once for the provider lifetime (prevents instance drift)
   const auth = useMemo(() => getFirebaseAuth(), []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
+      const nextUid = u?.uid ?? null;
+      const prevUid = previousUidRef.current;
+      if (prevUid && nextUid && prevUid !== nextUid) {
+        void clearUserScopedLocalData({
+          previousUserId: prevUid,
+          reason: "account_switch",
+        });
+      }
+      previousUidRef.current = nextUid;
       setUser(u);
       setInitializing(false);
     });
@@ -50,9 +61,13 @@ export const AuthProvider = ({ children }: PropsWithChildren): React.ReactElemen
         return u.getIdToken(!!forceRefresh);
       },
       signOutUser: async () => {
+        const uid = user?.uid ?? auth.currentUser?.uid ?? null;
+        await clearUserScopedLocalData({ previousUserId: uid, reason: "sign_out" });
         await signOutUserAction();
       },
       signOut: async () => {
+        const uid = user?.uid ?? auth.currentUser?.uid ?? null;
+        await clearUserScopedLocalData({ previousUserId: uid, reason: "sign_out" });
         await signOutUserAction();
       },
     };

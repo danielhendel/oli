@@ -6,6 +6,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
 import { AuthProvider, useAuth } from "../lib/auth/AuthProvider";
+import { AccountDeletionRecoveryRunner } from "../lib/auth/AccountDeletionRecoveryRunner";
 import { CONSUMER_HOME_HREF } from "../lib/navigation/consumerHome";
 import { OliThemeProvider } from "../lib/ui/theme/OliThemeContext";
 import { useNutritionOutboxSync } from "../lib/hooks/useNutritionOutboxSync";
@@ -63,6 +64,7 @@ export default function RootLayout() {
               <StatusBar style="light" />
               <AppleHealthForcedYesterdayFinalizeRunner />
               <NutritionOutboxSyncRunner />
+              <AccountDeletionRecoveryRunner />
               <RouteGuard />
               <Stack screenOptions={{ headerShown: false }}>
                 {/* Auth flow */}

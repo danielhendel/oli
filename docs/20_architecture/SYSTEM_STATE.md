@@ -1,10 +1,11 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-08-29 (Stage 1B **complete on branch** @ `b1c4b6f`; Draft PR #214; physical export E2E **PASS**; **RG-LEGAL-01 OPEN**)
-**Merged `main` SHA:** `10f85ee3d377d25075353c152b27611b6b572c84`
-**Stage 1B branch:** `feat/consumer-stage1b-consent-export` @ `b1c4b6f6728dd5a82b3be1605b54f4a4f60e0f49` (physically verified; pending merge review)
-**Staging export:** Cloud Run `oli-api-00273-rg2`; Function `onAccountExportRequested` 4 GiB / 540 s; project `oli-staging-fdbba`
+**Last updated:** 2026-09-04 (Stage 1C **complete on branch** — physical E2E PASS; Draft PR #215; **RG-LEGAL-01 OPEN**)
+**Merged `main` SHA:** `3d4859e45d537813b6846ecaf4cb49222519ef80`
+**Stage 1C branch:** `feat/consumer-stage1c-account-deletion-lifecycle` @ `3fbed7a`
+**Staging Stage 1C:** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep ACTIVE; Firestore TTL `accountDeletions.expireAt` ACTIVE; Gateway `oli-api-config-20260830-082245`; project `oli-staging-fdbba`
+**Staging export (historical E2E):** Function `onAccountExportRequested` 4 GiB / 540 s
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
 **Approved product direction (not implementation proof):** [VISION.md](../10_product/vision/VISION.md)
@@ -92,18 +93,20 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 
 ### Ownership and gaps
 
-| Capability | Merged `main` reality | Stage 1B branch (complete on branch) |
-|------------|----------------------|--------------------------------|
-| Export/delete backend | Exists (API + Functions) | Export status + signed download API; Function 4 GiB worker |
-| Export UI CTAs | Missing on `main` | Request, status, download/share — physical E2E **PASS** |
-| Delete UI CTAs | Missing | Still missing (Stage 1C — not begun) |
+| Capability | Merged `main` reality | Stage 1C branch |
+|------------|----------------------|-----------------|
+| Export/delete backend | Exists (API + Functions) | Deletion status API + expanded worker |
+| Export UI CTAs | Merged (Stage 1B) | Unchanged |
+| Delete UI CTAs | Missing | Implemented (You → Account → Delete Account) |
+| Local-data purge | Missing | Coordinator + recovery marker |
+| Deletion coverage | Gaps disclosed | Closed (export gaps remain open) |
 | Password reset | Merged (Stage 1A) | Unchanged |
 | You → Account routing | Fixed (Stage 1A) | Unchanged |
 | Sign-in error mapping | Centralized safe mapping | Unchanged |
 | Public-link contract / external open | Merged (Stage 1A) | Unchanged |
 | Hosted Privacy / Terms / Support pages | Not published | **RG-LEGAL-01 OPEN** |
 | Durable consent persistence | Missing | RFC/ADR approved for future implementation; **not implemented** |
-| Local-data purge | Missing | Stage 1C |
+| Local-data purge | Missing | In progress (Stage 1C) |
 | Export coverage closure | Gaps disclosed | **OPEN** |
 | Export scalability (streaming/pagination) | Buffered ZIP worker | Gate **OPEN** — `docs/90_audits/export-scalability-gate.md` |
 | Crash reporting product | Missing | Release hardening |
@@ -150,9 +153,9 @@ Home · Plan · Progress · You
 | Home | Analytics-first Current State, standards, direction, What Oli Sees | Transitional shell; Daily Monitor Today section; no Current State / What Oli Sees |
 | Plan | Human-created or externally sourced plan representation | Honest empty state; no persistence |
 | Progress | Execution, adherence, outcomes, trends, analysis | History + Weekly Progress; no outcome analytics product |
-| You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export UI on Stage 1B branch (physical PASS); delete UI and durable consent persistence still missing |
+| You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export UI merged (Stage 1B); delete UI and local lifecycle in progress (Stage 1C) |
 
-Next ownership work after Stage 1B merges: Stage 1C (not begun).
+Next ownership work: Stage 1C completion (not Stage 2).
 
 ---
 

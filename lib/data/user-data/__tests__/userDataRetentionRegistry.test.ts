@@ -4,6 +4,7 @@ import {
   USER_DATA_RETENTION_REGISTRY,
   isExportDeletionCoverageComplete,
   listExportCoverageGaps,
+  listDeleteCoverageGaps,
   listUserDataRetentionEntries,
 } from "../userDataRetentionRegistry";
 
@@ -45,6 +46,7 @@ describe("userDataRetentionRegistry", () => {
     expect(USER_DATA_RETENTION_REGISTRY.storage_document_originals.currentDeleteCoverage).toBe("covered");
     expect(USER_DATA_RETENTION_REGISTRY.storage_document_originals.currentExportCoverage).toBe("covered");
     expect(listExportCoverageGaps().length).toBeGreaterThan(0);
+    expect(listDeleteCoverageGaps().length).toBe(0);
     expect(isExportDeletionCoverageComplete()).toBe(false);
   });
 

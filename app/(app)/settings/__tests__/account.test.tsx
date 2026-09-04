@@ -74,6 +74,16 @@ describe("Account screen", () => {
   it("registers a consumer stack title in the app layout", () => {
     const src = fs.readFileSync(path.join(__dirname, "../../_layout.tsx"), "utf8");
     expect(src).toMatch(/name="settings\/account"/);
+    expect(src).toMatch(/name="settings\/delete-account"/);
     expect(src).toMatch(/title:\s*"Account"/);
+  });
+
+  it("exposes Delete Account entry when signed in", () => {
+    let test!: renderer.ReactTestRenderer;
+    act(() => {
+      test = renderer.create(<SettingsAccountScreen />);
+    });
+    const text = collectText(test);
+    expect(text).toContain("Delete Account");
   });
 });

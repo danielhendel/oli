@@ -21,6 +21,6 @@ describe("buildUserDataInventoryViewModel", () => {
     expect(vm.recordRows.find((r) => r.id === "labs")?.statusChip).toBe("Stored, not structured");
     expect(vm.recordRows.find((r) => r.id === "scans")?.statusChip).toBe("Not set up");
     expect(vm.privacy.exportCoverageComplete).toBe(false);
-    expect(vm.privacy.deleteCoverageComplete).toBe(false);
+    expect(vm.privacy.deleteCoverageComplete).toBe(true);
   });
 });

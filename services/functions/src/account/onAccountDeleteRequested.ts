@@ -3,18 +3,26 @@
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { logger } from "firebase-functions";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import {
-  DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS,
-  deleteStoragePrefix,
-  documentAccountStoragePrefixes,
-} from "./documentAccountDelete";
+  ACCOUNT_DELETION_LEDGER_RETENTION_DAYS,
+  accountDeletionLedgerExpireAt,
+} from "@oli/contracts";
+import {
+  ACCOUNT_DELETION_FIRESTORE_COLLECTIONS,
+  accountDeletionAppStoragePrefixes,
+  accountDeletionExportStoragePrefix,
+  globalAccountDeletionDocId,
+  globalAccountExportDocId,
+} from "../../../../lib/data/user-data/accountDeletionFirestoreCollections";
+import { deleteStoragePrefix } from "./documentAccountDelete";
+import { deleteRefreshToken } from "../../../api/src/lib/ouraSecrets";
 
 const TOPIC = "account.delete.v1";
-
-// Global lifecycle collection (NOT under /users/{uid})
 const ACCOUNT_DELETIONS_COLLECTION = "accountDeletions";
+const ACCOUNT_EXPORTS_COLLECTION = "accountExports";
+const DEFAULT_EXPORTS_BUCKET = "oli-staging-fdbba-staging-data-exports";
 
 type AccountDeleteMessage = {
   uid: string;
@@ -25,33 +33,35 @@ type AccountDeleteMessage = {
 const assertUid = (uid: unknown): uid is string => typeof uid === "string" && uid.trim().length > 0;
 
 function deletionDocRef(db: FirebaseFirestore.Firestore, uid: string, requestId: string) {
-  // Single doc per (uid, requestId) for idempotency & observability.
-  // Keep IDs short + safe (Firestore disallows "/")
-  const id = `${uid}_${requestId}`.replace(/\//g, "_");
+  const id = globalAccountDeletionDocId(uid, requestId);
   return db.collection(ACCOUNT_DELETIONS_COLLECTION).doc(id);
+}
+
+function userDeletionStatusRef(db: FirebaseFirestore.Firestore, uid: string, requestId: string) {
+  return db.collection("users").doc(uid).collection("accountDeletion").doc(requestId);
+}
+
+async function mirrorUserDeletionStatus(
+  db: FirebaseFirestore.Firestore,
+  uid: string,
+  requestId: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const safe: Record<string, unknown> = {
+    requestId,
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+  if (typeof patch.status === "string") safe.status = patch.status;
+  if (typeof patch.error === "string") safe.error = patch.error;
+  if (patch.completedAt != null) safe.completedAt = patch.completedAt;
+  if (patch.startedAt != null) safe.startedAt = patch.startedAt;
+  await userDeletionStatusRef(db, uid, requestId).set(safe, { merge: true });
 }
 
 async function deleteUserFirestoreSubtree(db: FirebaseFirestore.Firestore, uid: string) {
   const userRef = db.collection("users").doc(uid);
 
-  // ✅ Verified: profile exists (functions index writes users/{uid}/profile/general)
-  // Keep accountDeletion here to clean up any legacy docs from earlier versions.
-  const collections = [
-    "profile",
-    "exerciseDefinitions",
-    "rawEvents",
-    "rawEventIngestSuppressions",
-    "events",
-    "dailyFacts",
-    "insights",
-    "intelligenceContext",
-    "healthScores",
-    "healthSignals",
-    "accountDeletion",
-    ...DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS,
-  ] as const;
-
-  for (const col of collections) {
+  for (const col of ACCOUNT_DELETION_FIRESTORE_COLLECTIONS) {
     await db.recursiveDelete(userRef.collection(col));
   }
 
@@ -71,24 +81,23 @@ async function deleteAuthUser(uid: string) {
   }
 }
 
-async function deleteUserDocumentStorage(uid: string): Promise<{
-  results: Awaited<ReturnType<typeof deleteStoragePrefix>>[];
-  failed: boolean;
-}> {
+function resolveAppStorageBucket(): string | null {
   const fromEnv = process.env.FIREBASE_STORAGE_BUCKET?.trim();
   const project = process.env.GCLOUD_PROJECT?.trim() || process.env.GCP_PROJECT?.trim();
-  const bucketName = fromEnv || (project ? `${project}.firebasestorage.app` : null);
+  return fromEnv || (project ? `${project}.firebasestorage.app` : null);
+}
 
-  if (!bucketName) {
-    return {
-      results: [],
-      failed: true,
-    };
-  }
+function resolveExportsBucket(): string {
+  return process.env.EXPORTS_BUCKET?.trim() || DEFAULT_EXPORTS_BUCKET;
+}
 
-  const bucket = getStorage().bucket(bucketName);
+async function deleteStoragePrefixes(args: {
+  bucketName: string;
+  prefixes: readonly string[];
+}): Promise<{ results: Awaited<ReturnType<typeof deleteStoragePrefix>>[]; failed: boolean }> {
+  const bucket = getStorage().bucket(args.bucketName);
   const results = [];
-  for (const prefix of documentAccountStoragePrefixes(uid)) {
+  for (const prefix of args.prefixes) {
     const result = await deleteStoragePrefix({
       prefix,
       listFiles: async (p) => {
@@ -104,14 +113,41 @@ async function deleteUserDocumentStorage(uid: string): Promise<{
   return { results, failed: results.some((r) => r.errors.length > 0) };
 }
 
+async function deleteGlobalExportDocs(db: FirebaseFirestore.Firestore, uid: string): Promise<void> {
+  const prefix = `${uid}_`;
+  const snap = await db.collection(ACCOUNT_EXPORTS_COLLECTION).get();
+  const batch = db.batch();
+  let count = 0;
+  for (const doc of snap.docs) {
+    if (doc.id.startsWith(prefix)) {
+      batch.delete(doc.ref);
+      count += 1;
+    }
+  }
+  if (count > 0) await batch.commit();
+}
+
+async function revokeIntegrationCredentials(db: FirebaseFirestore.Firestore, uid: string): Promise<void> {
+  try {
+    await deleteRefreshToken(uid);
+  } catch {
+    // Best-effort token destroy; Firestore cleanup still proceeds.
+  }
+
+  await db
+    .collection("system")
+    .doc("integrations")
+    .collection("oura_connected")
+    .doc(uid)
+    .delete()
+    .catch(() => undefined);
+}
+
 /**
  * Account deletion executor
  *
- * Guarantees:
- * - user-scoped deletes only (data removed under /users/{uid})
- * - Document OS Firestore + original Storage prefixes removed
- * - idempotent (safe retries)
- * - observable lifecycle state (stored outside user subtree)
+ * Order: mark in_progress → revoke integrations → delete storage → delete Firestore → Auth last → ledger completed.
+ * Durable ledger must already exist from API accept (ADR v1); worker upserts if missing for crash recovery.
  */
 export const onAccountDeleteRequested = onMessagePublished(
   {
@@ -130,21 +166,20 @@ export const onAccountDeleteRequested = onMessagePublished(
     const { uid, requestId = event.id, requestedAt } = payload as AccountDeleteMessage;
 
     if (!assertUid(uid)) {
-      logger.error("account.delete: invalid uid", { uid });
+      logger.error("account.delete: invalid uid");
       return;
     }
 
     const db = getFirestore();
     const ref = deletionDocRef(db, uid, requestId);
 
-    // Idempotency guard
     const snap = await ref.get();
     if (snap.exists && snap.data()?.status === "completed") {
-      logger.info("account.delete: already completed, skipping", { uid, requestId });
+      logger.info("account.delete: already completed, skipping");
       return;
     }
 
-    // Mark in-progress
+    // Ensure durable ledger exists before destructive work (recovery if accept-time write was lost).
     await ref.set(
       {
         uid,
@@ -153,56 +188,100 @@ export const onAccountDeleteRequested = onMessagePublished(
         status: "in_progress",
         startedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
+        expireAt: Timestamp.fromDate(accountDeletionLedgerExpireAt(new Date())),
+        retentionDays: ACCOUNT_DELETION_LEDGER_RETENTION_DAYS,
+        storageDelete: FieldValue.delete(),
       },
       { merge: true },
     );
+    await mirrorUserDeletionStatus(db, uid, requestId, {
+      status: "in_progress",
+      startedAt: FieldValue.serverTimestamp(),
+    }).catch(() => undefined);
 
     try {
-      logger.info("account.delete: deleting document storage prefixes", { uid, requestId });
-      const storageOutcome = await deleteUserDocumentStorage(uid);
+      logger.info("account.delete: revoking integration credentials");
+      await revokeIntegrationCredentials(db, uid);
+
+      logger.info("account.delete: deleting export artifacts");
+      const exportsBucket = resolveExportsBucket();
+      const exportStorageOutcome = await deleteStoragePrefixes({
+        bucketName: exportsBucket,
+        prefixes: [accountDeletionExportStoragePrefix(uid)],
+      });
+      if (exportStorageOutcome.failed) {
+        throw new Error("export_storage_delete_partial_failure");
+      }
+      await deleteGlobalExportDocs(db, uid);
+
+      const appBucket = resolveAppStorageBucket();
+      if (!appBucket) {
+        throw new Error("app_storage_bucket_unavailable");
+      }
+
+      logger.info("account.delete: deleting app storage prefixes");
+      const storageOutcome = await deleteStoragePrefixes({
+        bucketName: appBucket,
+        prefixes: accountDeletionAppStoragePrefixes(uid),
+      });
       if (storageOutcome.failed) {
-        await ref.set(
-          {
-            status: "failed",
-            error: "document_storage_delete_partial_failure",
-            storageDelete: storageOutcome.results,
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
-        );
         throw new Error("document_storage_delete_partial_failure");
       }
 
-      logger.info("account.delete: deleting firestore subtree", { uid, requestId });
+      logger.info("account.delete: deleting firestore subtree");
       await deleteUserFirestoreSubtree(db, uid);
 
-      logger.info("account.delete: deleting auth user", { uid, requestId });
+      logger.info("account.delete: deleting auth user");
       await deleteAuthUser(uid);
 
+      // Minimized completed ledger — no Storage path inventories (ADR v1).
+      const completedExpireAt = Timestamp.fromDate(accountDeletionLedgerExpireAt(new Date()));
       await ref.set(
         {
           status: "completed",
           completedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
-          storageDelete: storageOutcome.results,
+          expireAt: completedExpireAt,
+          retentionDays: ACCOUNT_DELETION_LEDGER_RETENTION_DAYS,
+          storageDelete: FieldValue.delete(),
         },
         { merge: true },
       );
 
-      logger.info("account.delete: completed", { uid, requestId });
+      logger.info("account.delete: completed");
     } catch (err) {
-      logger.error("account.delete: failed", { uid, requestId, err });
+      logger.error("account.delete: failed", { err });
+
+      const errorCode =
+        err instanceof Error && err.message.length > 0 && err.message.length < 80
+          ? err.message
+          : "delete_failed";
 
       await ref.set(
         {
           status: "failed",
-          error: err instanceof Error ? err.message : String(err),
+          error: errorCode,
           updatedAt: FieldValue.serverTimestamp(),
+          expireAt: Timestamp.fromDate(accountDeletionLedgerExpireAt(new Date())),
+          retentionDays: ACCOUNT_DELETION_LEDGER_RETENTION_DAYS,
+          storageDelete: FieldValue.delete(),
         },
         { merge: true },
       );
+      await mirrorUserDeletionStatus(db, uid, requestId, {
+        status: "failed",
+        error: errorCode,
+      }).catch(() => undefined);
 
-      throw err; // let Pub/Sub retry
+      throw err;
     }
   },
 );
+
+// Exported for tests
+export {
+  deleteUserFirestoreSubtree,
+  revokeIntegrationCredentials,
+  deleteGlobalExportDocs,
+  globalAccountExportDocId,
+};

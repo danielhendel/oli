@@ -66,11 +66,11 @@ describe("buildUserProfileGraph", () => {
     expect(b.facts.find((f) => f.factId === "auth_uid_present")?.valueAvailability).toBe("unavailable");
   });
 
-  it("surfaces export/delete coverage gaps without claiming completeness", () => {
+  it("surfaces export coverage gaps while deletion coverage is complete", () => {
     const graph = buildUserProfileGraph({ authPresent: true });
     expect(graph.exportCoverageComplete).toBe(false);
-    expect(graph.deleteCoverageComplete).toBe(false);
+    expect(graph.deleteCoverageComplete).toBe(true);
     expect(graph.exportGapCount).toBeGreaterThan(0);
-    expect(graph.deleteGapCount).toBeGreaterThan(0);
+    expect(graph.deleteGapCount).toBe(0);
   });
 });
