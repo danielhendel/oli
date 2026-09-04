@@ -1,15 +1,15 @@
 # Repo-Truth Progress Map
 
 **Status:** Current operational truth (subordinate to code + CI)
-**Last verified:** 2026-08-29
+**Last verified:** 2026-09-04
 **Merged `main` SHA:** `3d4859e45d537813b6846ecaf4cb49222519ef80`
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
 **R1:** Merged (PR #212) at the SHA above
 **Prior Stage 1A truth freeze (historical):** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `Stage 1C — Account Deletion and Local Data Lifecycle` (**PARTIAL PASS**; not complete)
+**Current execution-stage label:** `Stage 1C — Account Deletion and Local Data Lifecycle` (**complete on branch**; Draft PR #215 unmerged)
 **Stage 1B:** **MERGED** (PR #214 at `3d4859e45d537813b6846ecaf4cb49222519ef80`)
-**Stage 1C branch:** `feat/consumer-stage1c-account-deletion-lifecycle` (Draft PR #215)
+**Stage 1C branch:** `feat/consumer-stage1c-account-deletion-lifecycle` @ `3fbed7a` (Draft PR #215)
 
 > **Rule:** If this map conflicts with merged code or CI, **code and CI win**. Update this map; do not invent product truth from docs alone.
 
@@ -21,7 +21,7 @@
 >
 > **Stage 1B status:** **MERGED** (PR [#214](https://github.com/danielhendel/oli/pull/214) at `3d4859e45d537813b6846ecaf4cb49222519ef80`). Consumer Data Export physical E2E **PASS** on staging. Consent architecture approved for future implementation; durable consent persistence **not implemented**. Legal assent **inactive**. **RG-LEGAL-01 OPEN**.
 >
-> **Stage 1C status:** **PARTIAL PASS** on Draft PR [#215](https://github.com/danielhendel/oli/pull/215). Core deletion journey + Auth removal + sanitized backend lifecycle for the latest deleted account **PASS**. Account B isolation / force-quit / incorrect-password (if not performed) remain open. Ledger 90-day TTL enforcement landed (`expireAt` + Firestore TTL + daily sweep). **Do not mark complete.** Export coverage closure **OPEN**. Infrastructure CI validation truth gap **remains open**.
+> **Stage 1C status:** **Complete on branch** — Draft PR [#215](https://github.com/danielhendel/oli/pull/215) unmerged. Physical-iPhone deletion E2E **PASS** (wrong password, offline, force-quit, deleted-account Sign In denial, Account B isolation, Account B sign-out/sign-in). Sanitized backend lifecycle **PASS**. Deletion coverage gaps **0**; BLOCKED/UNKNOWN **0**. Ledger 90-day TTL enforced (Firestore TTL ACTIVE + daily sweep ACTIVE); legacy `storageDelete` remediated. Consent persistence **not implemented**. Legal assent **inactive**. **RG-LEGAL-01 OPEN**. Export coverage closure **OPEN** (15 gaps). Export scalability gate **OPEN**. Infrastructure CI validation truth gap **OPEN**. Production deploy **none**. Stage 2 **not begun**.
 
 ---
 
@@ -156,29 +156,33 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - **Production deploy:** **none**
 - **Not begun:** Body salvage (PR #178 remains closed/unmerged)
 
-## Stage 1C (PARTIAL PASS — not complete)
+## Stage 1C (COMPLETE ON BRANCH — Draft PR #215 unmerged)
 
-- Branch: `feat/consumer-stage1c-account-deletion-lifecycle`
-- Draft PR: [#215](https://github.com/danielhendel/oli/pull/215) — **keep Draft**
+- Branch: `feat/consumer-stage1c-account-deletion-lifecycle` @ `3fbed7a45e4c87809479c7ed6763d6f7e626ad0f`
+- Draft PR: [#215](https://github.com/danielhendel/oli/pull/215) — **keep Draft**; pending independent merge review
+- Physically tested SHA: `3fbed7a45e4c87809479c7ed6763d6f7e626ad0f`
 - Baseline `main` (Stage 1B merge): `3d4859e45d537813b6846ecaf4cb49222519ef80`
 - Governance: `docs/80_rfc/RFC-account-deletion-lifecycle-v1.md`, `docs/70_adrs/ADR-account-deletion-lifecycle-v1.md` (**Accepted** 2026-08-30)
-- Staging (current): Firebase `oli-staging-fdbba`; Cloud Run **`oli-api-00275-5sc`**; deletion Function **`onaccountdeleterequested-00067-puy`**; ledger sweep **`onaccountdeletionledgerexpiresweep-00001-pec`**; Firestore TTL on `accountDeletions.expireAt` **ACTIVE**
-- Scope on branch:
-  - Delete Account flow with server recent-auth + deletion-pending API gate
-  - Durable ledger at accept; Auth last; minimized retained fields; `expireAt` 90-day retention
-  - Local lifecycle coordinator; coverage registry
-- **Physical-iPhone:** core deletion journey **PASS**; Auth removal **PASS**; offline **PASS**
-- **Still open physically:** incorrect-password (unless separately evidenced), force-quit recovery, Account B isolation, Account B sign-out regression
-- **Sanitized backend (latest completed deletion):** RawEvents/events/dailyFacts/insights/intelligenceContext/profile/preferences/sources/integrations/Storage/exports **absent**; Auth **gone**; ledger minimized with `expireAt`+`retentionDays=90`; legacy `storageDelete` **cleared fleet-wide**; other user unaffected
-- **Ledger TTL:** **enforced** (`expireAt` writes + Firestore TTL ACTIVE + daily sweep)
-- **Export coverage closure:** **OPEN**
+- Staging: Firebase `oli-staging-fdbba`; Cloud Run **`oli-api-00275-5sc`** (TTL backend ancestor `b94d3b0`); Gateway **`oli-api-config-20260830-082245`**; deletion Function **`onaccountdeleterequested-00067-puy`**; sweep **`onaccountdeletionledgerexpiresweep-00001-pec`**; Firestore TTL `accountDeletions.expireAt` **ACTIVE**
+- Scope delivered:
+  - Delete Account UI + password reauthentication + server 5-minute `auth_time` enforcement
+  - Deletion-pending API gate; idempotent delete request/status
+  - Durable minimized ledger at accept; Auth last; local cleanup + account-switch isolation
+  - P0 deletion coverage closed (0 gaps; 0 BLOCKED; 0 UNKNOWN)
+  - Enforceable 90-day ledger retention (`expireAt` + TTL + daily sweep); legacy `storageDelete` remediated
+- **Physical-iPhone deletion E2E (2026-09-04):** **PASS**
+  - Wrong password; offline; successful deletion; force-quit recovery; deleted-account Sign In denial
+  - Account B isolation; Account B normal sign-out/sign-in (server data preserved)
+- **Sanitized backend lifecycle:** RawEvents/events/dailyFacts/insights/intelligenceContext/profile/preferences/sources/integrations/Storage/exports **0 remaining**; Auth removed; other user unaffected
+- **Export coverage closure:** **OPEN** (15 classified P0 export gaps)
 - **Export scalability gate:** **OPEN**
-- **Infrastructure CI validation truth gap:** **OPEN**
+- **Infrastructure CI validation truth gap:** **OPEN** (no Terraform roots changed in Stage 1C; gateway OpenAPI only)
 - **RG-LEGAL-01:** **OPEN**
 - **Consent persistence:** **not implemented**
 - **Legal assent:** **inactive**
 - **Production deploy:** **none**
-- **Stage 1C complete:** **NO**
+- **Stage 2:** **not begun**
+- **Next after merge review:** Stage 2 — Minimal Onboarding and Data Readiness (per ROADMAP_REALITY)
 
 ### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
 
