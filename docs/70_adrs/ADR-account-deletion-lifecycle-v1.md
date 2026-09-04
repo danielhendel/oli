@@ -50,7 +50,7 @@ Independent review also found Stage 1C security gaps that must be fixed under th
 
 4. **Minimization:** Retained ledger fields are limited to operational status, timestamps, request correlation, sanitized error codes, and the Stage 1C operational UID join (`uid` / document id `{uid}_{requestId}`). No health data, email, tokens, export contents, signed URLs, or Storage path inventories on completed records.
 
-5. **Retention:** Default **90-day** retention from completion (or last update if failed). Indefinite retention because a record is called an “audit” is forbidden. Excluded from consumer export and analytics. TTL/purge may be implemented in a follow-on change; the policy is binding now.
+5. **Retention:** Default **90-day** retention from completion (or last update if failed). Indefinite retention because a record is called an “audit” is forbidden. Excluded from consumer export and analytics. Enforcement: ledger `expireAt` / `retentionDays`, Firestore TTL on `expireAt`, and scheduled sweep `onAccountDeletionLedgerExpireSweep`. Legacy path inventories (`storageDelete`) are forbidden on retained records and must be stripped.
 
 6. **Recent authentication:** `POST /account/delete` requires verified Firebase ID token `auth_time` within **5 minutes**. Client reauth UI alone is insufficient. Password never reaches the API. GET status routes use ordinary Auth only.
 

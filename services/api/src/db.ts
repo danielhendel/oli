@@ -3,6 +3,7 @@ import {
   getFirestore,
   FieldValue,
   FieldPath,
+  Timestamp,
   type CollectionReference,
   type DocumentReference,
 } from "firebase-admin/firestore";
@@ -46,7 +47,7 @@ export function foodGraphSourceMapCollection(): CollectionReference {
 }
 
 // Re-export FieldValue so routes can use serverTimestamp without importing firestore directly.
-export { FieldValue };
+export { FieldValue, Timestamp };
 
 export function userDoc(uid: string): DocumentReference {
   if (!uid) throw new Error("userDoc(uid): uid is required");

@@ -155,6 +155,7 @@ Forbidden in the retained ledger:
 |------|----------|
 | **Retention purpose** | Crash/retry recovery + sanitized operational outcome for a bounded window |
 | **Default retention** | **90 days** from `completedAt` (or from `updatedAt` if failed and never completed) |
+| **Enforcement** | Ledger documents carry `expireAt` + `retentionDays`. Firestore TTL on `expireAt` and a daily scheduled sweep (`onAccountDeletionLedgerExpireSweep`) purge expired docs. Legacy `storageDelete` inventories are stripped on write and by disposition/sweep. |
 | **Indefinite retention** | **Forbidden** merely because the record is labeled “audit” |
 | **Legal hold** | If counsel later requires longer retention, a separate RFC updates TTL; RG-LEGAL-01 does not by itself authorize indefinite keep |
 | **Export policy** | Excluded from consumer export packages |

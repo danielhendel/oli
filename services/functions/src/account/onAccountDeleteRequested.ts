@@ -3,8 +3,12 @@
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { logger } from "firebase-functions";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
+import {
+  ACCOUNT_DELETION_LEDGER_RETENTION_DAYS,
+  accountDeletionLedgerExpireAt,
+} from "@oli/contracts";
 import {
   ACCOUNT_DELETION_FIRESTORE_COLLECTIONS,
   accountDeletionAppStoragePrefixes,
@@ -184,6 +188,9 @@ export const onAccountDeleteRequested = onMessagePublished(
         status: "in_progress",
         startedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
+        expireAt: Timestamp.fromDate(accountDeletionLedgerExpireAt(new Date())),
+        retentionDays: ACCOUNT_DELETION_LEDGER_RETENTION_DAYS,
+        storageDelete: FieldValue.delete(),
       },
       { merge: true },
     );
@@ -228,11 +235,14 @@ export const onAccountDeleteRequested = onMessagePublished(
       await deleteAuthUser(uid);
 
       // Minimized completed ledger — no Storage path inventories (ADR v1).
+      const completedExpireAt = Timestamp.fromDate(accountDeletionLedgerExpireAt(new Date()));
       await ref.set(
         {
           status: "completed",
           completedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
+          expireAt: completedExpireAt,
+          retentionDays: ACCOUNT_DELETION_LEDGER_RETENTION_DAYS,
           storageDelete: FieldValue.delete(),
         },
         { merge: true },
@@ -252,6 +262,9 @@ export const onAccountDeleteRequested = onMessagePublished(
           status: "failed",
           error: errorCode,
           updatedAt: FieldValue.serverTimestamp(),
+          expireAt: Timestamp.fromDate(accountDeletionLedgerExpireAt(new Date())),
+          retentionDays: ACCOUNT_DELETION_LEDGER_RETENTION_DAYS,
+          storageDelete: FieldValue.delete(),
         },
         { merge: true },
       );

@@ -4,12 +4,16 @@
 
 import type { DeleteStatusResponseDto } from "@oli/contracts";
 import {
+  ACCOUNT_DELETION_LEDGER_RETENTION_DAYS,
+  accountDeletionLedgerExpireAt,
+} from "@oli/contracts";
+import {
   coerceDeleteBackendStatus,
   firestoreTimestampToIso,
   normalizeDeleteStatus,
 } from "../../../../../lib/data/user-data/accountDeletion/normalizeDeleteStatus";
 import { globalAccountDeletionDocId } from "../../../../../lib/data/user-data/accountDeletionFirestoreCollections";
-import { db, FieldValue } from "../../db";
+import { db, FieldValue, Timestamp } from "../../db";
 
 const ACCOUNT_DELETIONS_GLOBAL = "accountDeletions";
 
@@ -139,17 +143,28 @@ export async function markUserDeletionFailed(
   requestId: string,
   errorCode: string,
 ): Promise<void> {
+  const expireAt = Timestamp.fromDate(accountDeletionLedgerExpireAt(new Date()));
   const patch = {
     status: "failed",
     error: errorCode,
     updatedAt: FieldValue.serverTimestamp(),
+    expireAt,
+    retentionDays: ACCOUNT_DELETION_LEDGER_RETENTION_DAYS,
+    storageDelete: FieldValue.delete(),
   };
   await db
     .collection("users")
     .doc(uid)
     .collection("accountDeletion")
     .doc(requestId)
-    .set(patch, { merge: true });
+    .set(
+      {
+        status: "failed",
+        error: errorCode,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
 
   const globalId = globalAccountDeletionDocId(uid, requestId);
   await db.collection(ACCOUNT_DELETIONS_GLOBAL).doc(globalId).set(
@@ -172,12 +187,18 @@ export async function createUserDeletionRequestDoc(args: {
   requestedAt: string;
 }): Promise<void> {
   const { uid, requestId, requestedAt } = args;
-  const base = {
+  const expireAt = Timestamp.fromDate(accountDeletionLedgerExpireAt(new Date()));
+  const mirror = {
     uid,
     requestId,
     requestedAt,
     status: "queued",
     updatedAt: FieldValue.serverTimestamp(),
+  };
+  const ledger = {
+    ...mirror,
+    expireAt,
+    retentionDays: ACCOUNT_DELETION_LEDGER_RETENTION_DAYS,
   };
 
   await db
@@ -185,8 +206,8 @@ export async function createUserDeletionRequestDoc(args: {
     .doc(uid)
     .collection("accountDeletion")
     .doc(requestId)
-    .set(base, { merge: false });
+    .set(mirror, { merge: false });
 
   const globalId = globalAccountDeletionDocId(uid, requestId);
-  await db.collection(ACCOUNT_DELETIONS_GLOBAL).doc(globalId).set(base, { merge: false });
+  await db.collection(ACCOUNT_DELETIONS_GLOBAL).doc(globalId).set(ledger, { merge: false });
 }

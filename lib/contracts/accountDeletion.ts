@@ -71,3 +71,16 @@ export const DELETE_PENDING_STARTED_MAX_AGE_MS = 15 * 60 * 1000;
  * Bound is verified Firebase ID token `auth_time` vs server now (ADR v1).
  */
 export const DELETE_RECENT_AUTH_MAX_AGE_SECONDS = 5 * 60;
+
+/**
+ * Durable accountDeletions ledger retention (ADR Account Deletion Lifecycle v1).
+ * Enforced via `expireAt` Timestamp + Firestore TTL / scheduled sweep.
+ */
+export const ACCOUNT_DELETION_LEDGER_RETENTION_DAYS = 90;
+
+/** Compute ledger `expireAt` from a retention anchor (completedAt, or updatedAt for failed). */
+export function accountDeletionLedgerExpireAt(anchor: Date): Date {
+  const ms = ACCOUNT_DELETION_LEDGER_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  return new Date(anchor.getTime() + ms);
+}
+

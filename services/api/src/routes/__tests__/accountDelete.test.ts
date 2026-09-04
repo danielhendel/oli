@@ -158,6 +158,8 @@ describe("account deletion routes", () => {
       expect(ledger.data()?.status).toBe("queued");
       expect(ledger.data()?.uid).toBe(uid);
       expect(ledger.data()?.storageDelete).toBeUndefined();
+      expect(ledger.data()?.expireAt).toBeTruthy();
+      expect(ledger.data()?.retentionDays).toBe(90);
 
       const second = await fetch(`${base}/account/delete`, {
         method: "POST",

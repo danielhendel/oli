@@ -591,7 +591,7 @@ export const USER_DATA_RETENTION_REGISTRY = {
     currentExportCoverage: "n_a",
     currentDeleteCoverage: "n_a",
     storageObjectRelationship: false,
-    retentionPolicy: "Deletion lifecycle ledger; retain 90 days from completion (ADR v1)",
+    retentionPolicy: "Deletion lifecycle ledger; expireAt enforces 90 days from completion (ADR v1)",
     owner: "oli",
     testCoverage: "required",
   }),
