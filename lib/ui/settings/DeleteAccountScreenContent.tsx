@@ -110,8 +110,7 @@ export function DeleteAccountScreenContent({ deletion }: DeleteAccountScreenCont
               our deletion system. This cannot be undone. Processing may be asynchronous.
             </Text>
             <Text style={styles.panelMuted}>
-              Some operational records may be retained where required. Final legal-retention copy
-              remains governed by our release legal gate.
+              Some limited operational records may be retained where required.
             </Text>
             <Pressable
               accessibilityRole="button"
