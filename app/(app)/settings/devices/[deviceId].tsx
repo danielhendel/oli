@@ -15,6 +15,8 @@ import { deriveOuraImportState } from "@/lib/integrations/oura/importState";
 import { getOuraConnectUrl, postOuraRevoke } from "@/lib/api/oura";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
 import { resolveAppleHealthDeviceConnected } from "@/lib/integrations/appleHealth/resolveAppleHealthDeviceConnected";
+import { connectAppleHealthForOnboarding } from "@/lib/onboarding/appleHealthOnboardingConnect";
+import { getAppleHealthConnected } from "@/lib/integrations/appleHealth/storage";
 
 const OURA_AUTHORIZE_PREFIX = "https://cloud.ouraring.com/oauth/authorize";
 
@@ -41,6 +43,7 @@ function DeviceDetailScreen() {
 
   const [ouraConnecting, setOuraConnecting] = useState(false);
   const [ouraRevoking, setOuraRevoking] = useState(false);
+  const [appleConnecting, setAppleConnecting] = useState(false);
   const bodyBackfill = useAppleHealthBodyBackfill();
   const stepsBackfill = useAppleHealthStepsBackfill();
 
@@ -94,6 +97,36 @@ function DeviceDetailScreen() {
     };
   }, [isAppleHealth, user, getIdToken]);
 
+  const handleConnectAppleHealth = useCallback(async () => {
+    setAppleConnecting(true);
+    try {
+      const result = await connectAppleHealthForOnboarding({
+        getIdToken,
+        userUid: user?.uid,
+      });
+      if (!result.ok) {
+        if (result.reason === "permission_denied") {
+          Alert.alert(
+            "Permission needed",
+            "Allow Health access in Settings to connect Apple Health, then try again.",
+          );
+        } else if (result.reason === "unavailable" || result.reason === "not_ios") {
+          Alert.alert("Unavailable", "Apple Health is not available on this device.");
+        } else {
+          Alert.alert("Connection failed", "Could not connect Apple Health. Try again.");
+        }
+        return;
+      }
+      const connected = await getAppleHealthConnected().catch(() => true);
+      setAppleStatus(connected ? "connected" : "not_connected");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Something went wrong";
+      Alert.alert("Connection failed", message);
+    } finally {
+      setAppleConnecting(false);
+    }
+  }, [getIdToken, user?.uid]);
+
   const handleConnectOura = useCallback(async () => {
     const token = await getIdToken(true);
     if (!token) {
@@ -113,13 +146,11 @@ function DeviceDetailScreen() {
         return;
       }
       const authUrl = res.json.url;
-      console.log("[OURA_AUTH_URL]", authUrl);
       if (!authUrl.startsWith(OURA_AUTHORIZE_PREFIX)) {
         Alert.alert("Connection failed", "Invalid authorization URL host.");
         return;
       }
       const result = await WebBrowser.openAuthSessionAsync(authUrl, getOuraReturnUrl());
-      console.log("[OURA_AUTH_RESULT]", JSON.stringify(result));
       if (result.type === "cancel") {
         Alert.alert("Cancelled", "Oura connection was cancelled.");
         return;
@@ -245,6 +276,28 @@ function DeviceDetailScreen() {
             )}
           </View>
         </View>
+
+        {isAppleHealth && appleStatus === "not_connected" ? (
+          <View style={styles.group}>
+            <Pressable
+              style={[styles.primaryButton, appleConnecting ? styles.primaryButtonDisabled : null]}
+              disabled={appleConnecting}
+              onPress={() => {
+                void handleConnectAppleHealth();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Connect Apple Health"
+            >
+              <Text style={styles.primaryButtonText}>
+                {appleConnecting ? "Connecting…" : "Connect Apple Health"}
+              </Text>
+            </Pressable>
+            <Text style={styles.description}>
+              Connecting grants Health access and starts sync. Device permission alone does not connect
+              your account.
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.body}>
           <Text style={styles.description}>
