@@ -1,15 +1,17 @@
 # Repo-Truth Progress Map
 
 **Status:** Current operational truth (subordinate to code + CI)
-**Last verified:** 2026-09-04
-**Merged `main` SHA:** `3d4859e45d537813b6846ecaf4cb49222519ef80`
+**Last verified:** 2026-09-11
+**Merged `main` SHA:** `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
-**R1:** Merged (PR #212) at the SHA above
+**R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
 **Prior Stage 1A truth freeze (historical):** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `Stage 1C — Account Deletion and Local Data Lifecycle` (**complete on branch**; Draft PR #215 unmerged)
+**Current execution-stage label:** `Stage 2 — Minimal Onboarding and Data Readiness` (**active on branch**; onboarding **not yet implemented**)
 **Stage 1B:** **MERGED** (PR #214 at `3d4859e45d537813b6846ecaf4cb49222519ef80`)
-**Stage 1C branch:** `feat/consumer-stage1c-account-deletion-lifecycle` @ `3fbed7a` (Draft PR #215)
+**Stage 1C:** **MERGED** (PR #215 at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`)
+**Build hygiene:** **MERGED** (PR #216 at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`)
+**Stage 2 branch:** `feat/consumer-stage2-minimal-onboarding-readiness`
 
 > **Rule:** If this map conflicts with merged code or CI, **code and CI win**. Update this map; do not invent product truth from docs alone.
 
@@ -21,7 +23,11 @@
 >
 > **Stage 1B status:** **MERGED** (PR [#214](https://github.com/danielhendel/oli/pull/214) at `3d4859e45d537813b6846ecaf4cb49222519ef80`). Consumer Data Export physical E2E **PASS** on staging. Consent architecture approved for future implementation; durable consent persistence **not implemented**. Legal assent **inactive**. **RG-LEGAL-01 OPEN**.
 >
-> **Stage 1C status:** **Complete on branch** — Draft PR [#215](https://github.com/danielhendel/oli/pull/215) unmerged. Physical-iPhone deletion E2E **PASS** (wrong password, offline, force-quit, deleted-account Sign In denial, Account B isolation, Account B sign-out/sign-in). Sanitized backend lifecycle **PASS**. Deletion coverage gaps **0**; BLOCKED/UNKNOWN **0**. Ledger 90-day TTL enforced (Firestore TTL ACTIVE + daily sweep ACTIVE); legacy `storageDelete` remediated. Consent persistence **not implemented**. Legal assent **inactive**. **RG-LEGAL-01 OPEN**. Export coverage closure **OPEN** (15 gaps). Export scalability gate **OPEN**. Infrastructure CI validation truth gap **OPEN**. Production deploy **none**. Stage 2 **not begun**.
+> **Stage 1C status:** **MERGED** (PR [#215](https://github.com/danielhendel/oli/pull/215) at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`). In-app account deletion implemented and physically verified. Server-side deletion lifecycle and local account-transition isolation implemented. Consent persistence **not implemented**. Legal assent **inactive**. **RG-LEGAL-01 OPEN**. Export coverage closure **OPEN**. Export scalability gate **OPEN**. Infrastructure CI validation truth gap **OPEN**. Production deploy **none**.
+>
+> **PR #216 status:** **MERGED** at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`. Ordinary API builds no longer mutate tracked checksum truth. Local `main` synchronized to `origin/main`.
+>
+> **Stage 2 status:** **ACTIVE** on `feat/consumer-stage2-minimal-onboarding-readiness`. Objective: Opening → About You → Connect → Understand. No subjective-goals questionnaire. Primary IA remains **Home · Plan · Progress · You**. Onboarding runtime **not yet implemented** on this first operational-truth commit. Consent persistence **not implemented**. Legal assent **inactive**. **RG-LEGAL-01 OPEN**. Export coverage closure **OPEN**. Export scalability gate **OPEN**. Infrastructure CI validation truth gap **OPEN**. Stage 3 **not begun**.
 
 ---
 
@@ -111,7 +117,7 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Progress: Weekly Progress once (when relocation flag ON) + history links
 - You: profile, devices, assessments, labs, privacy, settings, Account, failures, domain discovery
 - Assessment / Baseline / Target UI with **in-memory** assessment store
-- Ownership backend complete; mobile export UI **merged** (Stage 1B); delete-account UI **not yet implemented** (Stage 1C active)
+- Ownership backend complete; mobile export UI **merged** (Stage 1B); delete-account UI **merged** (Stage 1C / PR #215)
 - Account route at `/(app)/settings/account`; You → Account routing **merged** (Stage 1A)
 
 ## Stage 1A (MERGED — RG-LEGAL-01 OPEN)
@@ -156,14 +162,11 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - **Production deploy:** **none**
 - **Not begun:** Body salvage (PR #178 remains closed/unmerged)
 
-## Stage 1C (COMPLETE ON BRANCH — Draft PR #215 unmerged)
+## Stage 1C (MERGED — PR #215)
 
-- Branch: `feat/consumer-stage1c-account-deletion-lifecycle` @ `3fbed7a45e4c87809479c7ed6763d6f7e626ad0f`
-- Draft PR: [#215](https://github.com/danielhendel/oli/pull/215) — **keep Draft**; pending independent merge review
-- Physically tested SHA: `3fbed7a45e4c87809479c7ed6763d6f7e626ad0f`
-- Baseline `main` (Stage 1B merge): `3d4859e45d537813b6846ecaf4cb49222519ef80`
+- Merged via PR [#215](https://github.com/danielhendel/oli/pull/215) at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`
+- Branch (historical): `feat/consumer-stage1c-account-deletion-lifecycle`
 - Governance: `docs/80_rfc/RFC-account-deletion-lifecycle-v1.md`, `docs/70_adrs/ADR-account-deletion-lifecycle-v1.md` (**Accepted** 2026-08-30)
-- Staging: Firebase `oli-staging-fdbba`; Cloud Run **`oli-api-00275-5sc`** (TTL backend ancestor `b94d3b0`); Gateway **`oli-api-config-20260830-082245`**; deletion Function **`onaccountdeleterequested-00067-puy`**; sweep **`onaccountdeletionledgerexpiresweep-00001-pec`**; Firestore TTL `accountDeletions.expireAt` **ACTIVE**
 - Scope delivered:
   - Delete Account UI + password reauthentication + server 5-minute `auth_time` enforcement
   - Deletion-pending API gate; idempotent delete request/status
@@ -171,18 +174,35 @@ Technical foundations from the August 10 audit remain valid unless merged code d
   - P0 deletion coverage closed (0 gaps; 0 BLOCKED; 0 UNKNOWN)
   - Enforceable 90-day ledger retention (`expireAt` + TTL + daily sweep); legacy `storageDelete` remediated
 - **Physical-iPhone deletion E2E (2026-09-04):** **PASS**
-  - Wrong password; offline; successful deletion; force-quit recovery; deleted-account Sign In denial
-  - Account B isolation; Account B normal sign-out/sign-in (server data preserved)
-- **Sanitized backend lifecycle:** RawEvents/events/dailyFacts/insights/intelligenceContext/profile/preferences/sources/integrations/Storage/exports **0 remaining**; Auth removed; other user unaffected
 - **Export coverage closure:** **OPEN** (15 classified P0 export gaps)
 - **Export scalability gate:** **OPEN**
-- **Infrastructure CI validation truth gap:** **OPEN** (no Terraform roots changed in Stage 1C; gateway OpenAPI only)
+- **Infrastructure CI validation truth gap:** **OPEN**
 - **RG-LEGAL-01:** **OPEN**
 - **Consent persistence:** **not implemented**
 - **Legal assent:** **inactive**
 - **Production deploy:** **none**
-- **Stage 2:** **not begun**
-- **Next after merge review:** Stage 2 — Minimal Onboarding and Data Readiness (per ROADMAP_REALITY)
+
+## PR #216 (MERGED — build hygiene)
+
+- Merged via PR [#216](https://github.com/danielhendel/oli/pull/216) at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`
+- Ordinary API builds no longer mutate tracked workout-summary checksum truth
+- Local `main` synchronized to `origin/main` at the SHA above
+
+## Stage 2 (ACTIVE — onboarding not yet implemented)
+
+- Branch: `feat/consumer-stage2-minimal-onboarding-readiness`
+- Baseline `main`: `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`
+- Objective: Opening → About You → Connect → Understand
+- Product constraints: no subjective-goals questionnaire; no overall score; no domain ratings; no What Oli Sees; no recommendations; primary IA remains **Home · Plan · Progress · You**
+- **Onboarding runtime:** **not yet implemented** (this operational-truth sync only)
+- **Consent persistence:** **not implemented**
+- **Legal assent:** **inactive**
+- **RG-LEGAL-01:** **OPEN**
+- **Export coverage closure:** **OPEN**
+- **Export scalability gate:** **OPEN**
+- **Infrastructure CI validation truth gap:** **OPEN**
+- **Production deploy:** **none**
+- **Stage 3:** **not begun**
 
 ### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
 
@@ -214,17 +234,18 @@ RG-LEGAL-01 remaining OPEN does **not** block Stage 1A engineering merge. It **d
 - Current State productization, What Oli Sees, confidence / analytical explanation contracts
 - Human-created Plan representation with provenance (no Oli authorship)
 - Progress analytics (execution, adherence, outcomes) as a first-class surface
-- Durable consent; export/delete UI; local-data lifecycle (Stage 1B / 1C)
+- Durable consent persistence (RFC/ADR approved; not implemented)
 - Crash reporting product; production Firebase project config
 - Device-verified E2E golden paths for launch acceptance
 - Defensible overall score (gated — not a P0 assumption)
 - Body salvage (PR #178 deferred)
+- Minimal onboarding / data readiness (Stage 2 **active**, not yet implemented)
 
-**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-authored Plan persistence, Progress outcome analytics, consent persistence, export/delete UI, onboarding.
+**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-authored Plan persistence, Progress outcome analytics, consent persistence, onboarding (Stage 2 in progress).
 
 ## In progress (not complete)
 
-- **Stage 1C complete on branch** — physical verification and staging deploy pending
+- **Stage 2 active** — Opening → About You → Connect → Understand (not yet implemented on first truth sync)
 - **RG-LEGAL-01 OPEN** (hosted legal/support pages not published)
 - PR #178 remains CLOSED unmerged; Body salvage deferred
 - PR #210 remains CLOSED unmerged; preserved branch unmodified
