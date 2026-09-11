@@ -36,11 +36,11 @@ export function buildOnboardingPatch(args: {
 export async function advanceOnboardingStep(
   args: AdvanceOnboardingArgs,
 ): Promise<ApiResult<UserProfileMain>> {
-  const patch = buildOnboardingPatch({
-    status: args.status,
-    step: args.step,
-    version: args.version,
-  });
+  const patch = buildOnboardingPatch(
+    args.version !== undefined
+      ? { status: args.status, step: args.step, version: args.version }
+      : { status: args.status, step: args.step },
+  );
   return putUserProfileMain(args.idToken, patch);
 }
 

@@ -81,12 +81,16 @@ function hydrateFromFirestore(raw: unknown): UserProfileMain {
  */
 function sanitizeOnboardingPatch(patch: ReturnType<typeof userProfileMainPatchSchema.parse>) {
   if (!patch.app?.onboarding) return patch;
-  const { completedAt: _c, updatedAt: _u, ...safeOnboarding } = patch.app.onboarding;
+  const onboarding = patch.app.onboarding;
   return {
     ...patch,
     app: {
       ...patch.app,
-      onboarding: safeOnboarding,
+      onboarding: {
+        ...(onboarding.version !== undefined ? { version: onboarding.version } : {}),
+        ...(onboarding.status !== undefined ? { status: onboarding.status } : {}),
+        ...(onboarding.step !== undefined ? { step: onboarding.step } : {}),
+      },
     },
   };
 }

@@ -57,12 +57,12 @@ export type DataReadinessViewModel = {
   subtitle: string;
   /** Honest closing line after signals resolve. */
   summary: string;
-  signals: Array<{
+  signals: {
     id: "profile" | "weight" | "steps" | "sleep" | "apple_health" | "oura";
     label: string;
     state: ReadinessSignalState;
     detail: string;
-  }>;
+  }[];
   canContinue: boolean;
 };
 

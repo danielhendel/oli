@@ -98,7 +98,7 @@ export function useConnectSources() {
       try {
         const result = await connectAppleHealthForOnboarding({
           getIdToken,
-          userUid: user?.uid,
+          ...(user?.uid ? { userUid: user.uid } : {}),
         });
         if (!result.ok) {
           if (result.reason === "unavailable" || result.reason === "not_ios") {

@@ -15,7 +15,7 @@ import {
 
 import { OnboardingScreenShell, onboardingCtaStyles } from "./OnboardingScreenShell";
 
-const SEX_OPTIONS: Array<{ value: ProfileSexAtBirth; label: string }> = [
+const SEX_OPTIONS: { value: ProfileSexAtBirth; label: string }[] = [
   { value: "female", label: "Female" },
   { value: "male", label: "Male" },
   { value: "intersex", label: "Intersex" },
@@ -192,7 +192,7 @@ function Field({
   children,
 }: {
   label: string;
-  error?: string;
+  error?: string | undefined;
   children: React.ReactNode;
 }) {
   return (
