@@ -80,7 +80,16 @@ describe("GET/PUT /profile/main", () => {
               hipCircumferenceCm: null,
               neckCircumferenceCm: null,
             },
-            app: { preferredUnits: { length: "cm" } },
+            app: {
+              preferredUnits: { length: "cm" },
+              onboarding: {
+                version: 1,
+                status: "not_started",
+                step: null,
+                completedAt: null,
+                updatedAt: null,
+              },
+            },
           }),
         }) satisfies DocSnap,
       set: setMock,
@@ -94,6 +103,62 @@ describe("GET/PUT /profile/main", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.identity.firstName).toBe("Jordan");
+    expect(setMock).toHaveBeenCalled();
+  });
+
+  test("PUT stamps onboarding updatedAt/completedAt server-side and ignores client timestamps", async () => {
+    const setMock = jest.fn(async () => undefined);
+    (userProfileMainDoc as jest.Mock).mockReturnValue({
+      get: async () =>
+        ({
+          exists: true,
+          data: () => ({
+            identity: { firstName: null, lastName: null, dateOfBirth: null, sexAtBirth: null },
+            body: { heightCm: null },
+            bodyInputs: {
+              athleteMode: false,
+              primaryGoal: null,
+              usualWeighInPreference: null,
+              waistCircumferenceCm: null,
+              hipCircumferenceCm: null,
+              neckCircumferenceCm: null,
+            },
+            app: {
+              preferredUnits: { length: "cm" },
+              onboarding: {
+                version: 1,
+                status: "in_progress",
+                step: "understand",
+                completedAt: null,
+                updatedAt: "2026-01-01T00:00:00.000Z",
+              },
+            },
+          }),
+        }) satisfies DocSnap,
+      set: setMock,
+    } satisfies DocRef);
+
+    const res = await fetch(`${baseUrl}/profile/main`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        app: {
+          onboarding: {
+            status: "completed",
+            step: "understand",
+            completedAt: "2000-01-01T00:00:00.000Z",
+            updatedAt: "2000-01-01T00:00:00.000Z",
+          },
+        },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.app.onboarding.status).toBe("completed");
+    expect(json.app.onboarding.completedAt).not.toBe("2000-01-01T00:00:00.000Z");
+    expect(json.app.onboarding.updatedAt).not.toBe("2000-01-01T00:00:00.000Z");
+    expect(typeof json.app.onboarding.completedAt).toBe("string");
+    expect(typeof json.app.onboarding.updatedAt).toBe("string");
     expect(setMock).toHaveBeenCalled();
   });
 

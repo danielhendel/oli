@@ -42,6 +42,27 @@ export const profileWeighInPreferenceSchema = z.enum([
 ]);
 export type ProfileWeighInPreference = z.infer<typeof profileWeighInPreferenceSchema>;
 
+/** Stage 2 minimal onboarding version stamped on `app.onboarding`. */
+export const CURRENT_ONBOARDING_VERSION = 1 as const;
+
+export const onboardingStatusSchema = z.enum(["not_started", "in_progress", "completed"]);
+export type OnboardingStatus = z.infer<typeof onboardingStatusSchema>;
+
+export const onboardingStepSchema = z.enum(["about_you", "connect", "understand"]);
+export type OnboardingStep = z.infer<typeof onboardingStepSchema>;
+
+export const userProfileOnboardingSchema = z
+  .object({
+    version: z.number().int().positive(),
+    status: onboardingStatusSchema,
+    step: onboardingStepSchema.nullable(),
+    completedAt: z.string().datetime().nullable(),
+    updatedAt: z.string().datetime().nullable(),
+  })
+  .strip();
+
+export type UserProfileOnboarding = z.infer<typeof userProfileOnboardingSchema>;
+
 export const userProfileIdentitySchema = z
   .object({
     firstName: z.string().max(80).nullable(),
@@ -72,6 +93,7 @@ export const userProfileBodyInputsSchema = z
 /**
  * Display preferences that are not health-ingest truth.
  * Weight display continues to live in `users/{uid}.preferences.units.mass` (GET/PUT /preferences).
+ * Onboarding progress lives under `app.onboarding` (server stamps timestamps).
  */
 export const userProfileAppSchema = z
   .object({
@@ -80,6 +102,7 @@ export const userProfileAppSchema = z
         length: profileLengthUnitSchema,
       })
       .strip(),
+    onboarding: userProfileOnboardingSchema,
   })
   .strip();
 
@@ -122,6 +145,20 @@ export const userProfileBodyInputsPatchSchema = z
   })
   .strip();
 
+/**
+ * Client may patch onboarding status/step/version only.
+ * `completedAt` / `updatedAt` are server-authoritative and stripped on PUT.
+ */
+export const userProfileOnboardingPatchSchema = z
+  .object({
+    version: z.number().int().positive().optional(),
+    status: onboardingStatusSchema.optional(),
+    step: onboardingStepSchema.nullable().optional(),
+    completedAt: z.string().datetime().nullable().optional(),
+    updatedAt: z.string().datetime().nullable().optional(),
+  })
+  .strip();
+
 export const userProfileAppPatchSchema = z
   .object({
     preferredUnits: z
@@ -130,6 +167,7 @@ export const userProfileAppPatchSchema = z
       })
       .strip()
       .optional(),
+    onboarding: userProfileOnboardingPatchSchema.optional(),
   })
   .strip();
 
@@ -143,6 +181,16 @@ export const userProfileMainPatchSchema = z
   .strip();
 
 export type UserProfileMainPatch = z.infer<typeof userProfileMainPatchSchema>;
+
+export function defaultUserProfileOnboarding(): UserProfileOnboarding {
+  return {
+    version: CURRENT_ONBOARDING_VERSION,
+    status: "not_started",
+    step: null,
+    completedAt: null,
+    updatedAt: null,
+  };
+}
 
 export function defaultUserProfileMain(): UserProfileMain {
   return {
@@ -163,6 +211,7 @@ export function defaultUserProfileMain(): UserProfileMain {
     },
     app: {
       preferredUnits: { length: "cm" },
+      onboarding: defaultUserProfileOnboarding(),
     },
   };
 }
@@ -197,10 +246,23 @@ export function mergeUserProfileMain(base: UserProfileMain, patch: UserProfileMa
   };
 
   const pl = patch.app?.preferredUnits;
+  const ob = patch.app?.onboarding;
+  const baseOb = base.app.onboarding;
+  const onboarding: UserProfileOnboarding = {
+    version: ob?.version !== undefined ? ob.version : baseOb.version,
+    status: ob?.status !== undefined ? ob.status : baseOb.status,
+    step: ob?.step !== undefined ? ob.step : baseOb.step,
+    // Timestamps are never taken from client patch in this pure merge;
+    // the API route stamps them after merge when onboarding is patched.
+    completedAt: baseOb.completedAt,
+    updatedAt: baseOb.updatedAt,
+  };
+
   const app: UserProfileMain["app"] = {
     preferredUnits: {
       length: pl?.length !== undefined ? pl.length : base.app.preferredUnits.length,
     },
+    onboarding,
   };
 
   return userProfileMainSchema.parse({ identity, body, bodyInputs, app });
@@ -213,4 +275,31 @@ export function mergeUserProfileMain(base: UserProfileMain, patch: UserProfileMa
  */
 export function materializeUserProfileMainForPutCreate(patch: UserProfileMainPatch): UserProfileMain {
   return mergeUserProfileMain(defaultUserProfileMain(), patch);
+}
+
+/**
+ * Apply server-authoritative onboarding timestamps after merge.
+ * Call only when the PUT patch included `app.onboarding`.
+ */
+export function stampUserProfileOnboardingServerTimes(
+  profile: UserProfileMain,
+  opts: { nowIso: string; previousCompletedAt: string | null },
+): UserProfileMain {
+  const status = profile.app.onboarding.status;
+  const completedAt =
+    status === "completed"
+      ? opts.previousCompletedAt ?? opts.nowIso
+      : profile.app.onboarding.completedAt;
+
+  return userProfileMainSchema.parse({
+    ...profile,
+    app: {
+      ...profile.app,
+      onboarding: {
+        ...profile.app.onboarding,
+        updatedAt: opts.nowIso,
+        completedAt,
+      },
+    },
+  });
 }

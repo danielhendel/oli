@@ -5,6 +5,7 @@ import {
   defaultUserProfileMain,
   materializeUserProfileMainForPutCreate,
   mergeUserProfileMain,
+  stampUserProfileOnboardingServerTimes,
   userProfileMainPatchSchema,
   userProfileMainSchema,
   type UserProfileMain,
@@ -52,6 +53,7 @@ function hydrateFromFirestore(raw: unknown): UserProfileMain {
   const def = defaultUserProfileMain();
   const appRaw = r["app"] as Record<string, unknown> | undefined;
   const puRaw = appRaw?.["preferredUnits"] as Record<string, unknown> | undefined;
+  const onboardingRaw = appRaw?.["onboarding"] as Record<string, unknown> | undefined;
   const merged: UserProfileMain = {
     identity: { ...def.identity, ...((r["identity"] ?? {}) as Record<string, unknown>) },
     body: { ...def.body, ...((r["body"] ?? {}) as Record<string, unknown>) },
@@ -61,6 +63,10 @@ function hydrateFromFirestore(raw: unknown): UserProfileMain {
         ...def.app.preferredUnits,
         ...(puRaw ?? {}),
       },
+      onboarding: {
+        ...def.app.onboarding,
+        ...(onboardingRaw ?? {}),
+      },
     },
   };
   const parsed = userProfileMainSchema.safeParse(merged);
@@ -68,6 +74,21 @@ function hydrateFromFirestore(raw: unknown): UserProfileMain {
     throw parsed.error;
   }
   return parsed.data;
+}
+
+/**
+ * Strip client-supplied onboarding timestamps before merge; server stamps after.
+ */
+function sanitizeOnboardingPatch(patch: ReturnType<typeof userProfileMainPatchSchema.parse>) {
+  if (!patch.app?.onboarding) return patch;
+  const { completedAt: _c, updatedAt: _u, ...safeOnboarding } = patch.app.onboarding;
+  return {
+    ...patch,
+    app: {
+      ...patch.app,
+      onboarding: safeOnboarding,
+    },
+  };
 }
 
 /**
@@ -119,13 +140,18 @@ router.put(
       return;
     }
 
+    const patchIncludesOnboarding = parsedBody.data.app?.onboarding !== undefined;
+    const sanitizedPatch = sanitizeOnboardingPatch(parsedBody.data);
+
     const ref = userProfileMainDoc(uid);
     const snap = await ref.get();
 
     let next: UserProfileMain;
+    let previousCompletedAt: string | null = null;
     if (!snap.exists) {
       try {
-        next = materializeUserProfileMainForPutCreate(parsedBody.data);
+        next = materializeUserProfileMainForPutCreate(sanitizedPatch);
+        previousCompletedAt = null;
       } catch {
         res.status(400).json({
           ok: false,
@@ -145,8 +171,9 @@ router.put(
         invalidDoc500(req, res, "profile/main", err);
         return;
       }
+      previousCompletedAt = base.app.onboarding.completedAt;
       try {
-        next = mergeUserProfileMain(base, parsedBody.data);
+        next = mergeUserProfileMain(base, sanitizedPatch);
       } catch {
         res.status(400).json({
           ok: false,
@@ -158,6 +185,13 @@ router.put(
         });
         return;
       }
+    }
+
+    if (patchIncludesOnboarding) {
+      next = stampUserProfileOnboardingServerTimes(next, {
+        nowIso: new Date().toISOString(),
+        previousCompletedAt,
+      });
     }
 
     await ref.set(stripUndefined(next), { merge: true });
