@@ -130,6 +130,7 @@ services/functions/lib/
 
 # API: esbuild output for workout summary rebuild (built before `tsc -b`)
 services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs
+services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.runtime.sha256
 
 # ----------------------------------------
 # Cloud Run local env (never commit)

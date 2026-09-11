@@ -1,10 +1,21 @@
 /**
- * Copies the esbuild artifact (and checksum, when present) into dist/ so production
- * `require("../lib/workoutDaySummaryRebuild.bundled.cjs")` from dist/services/api/src/routes resolves.
+ * Copies the esbuild artifact into dist/ and writes a **runtime** sidecar checksum
+ * beside the dist bundle from the copied bytes.
+ *
+ * Does **not** modify the tracked `src/lib/*.sha256` canonical fingerprint.
+ * Runtime integrity (Cloud Run / `node dist/...`) uses the dist sidecar.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const {
+  BUNDLE_NAME,
+  CHECKSUM_NAME,
+  writeRuntimeChecksumBesideBundle,
+} = require("./workout-summary-rebuild-checksum-lib.cjs");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,10 +23,8 @@ const apiRoot = path.resolve(__dirname, "..");
 
 const srcDir = path.join(apiRoot, "src", "lib");
 const destDir = path.join(apiRoot, "dist", "services", "api", "src", "lib");
-const bundleName = "workoutDaySummaryRebuild.bundled.cjs";
-const checksumName = "workoutDaySummaryRebuild.bundled.cjs.sha256";
 
-const srcBundle = path.join(srcDir, bundleName);
+const srcBundle = path.join(srcDir, BUNDLE_NAME);
 if (!fs.existsSync(srcBundle)) {
   console.error(
     `copy-workout-summary-rebuild-bundle-to-dist: missing ${srcBundle}. Run bundle:workout-summary-rebuild first (via npm run build).`,
@@ -24,15 +33,12 @@ if (!fs.existsSync(srcBundle)) {
 }
 
 fs.mkdirSync(destDir, { recursive: true });
-fs.copyFileSync(srcBundle, path.join(destDir, bundleName));
+const destBundle = path.join(destDir, BUNDLE_NAME);
+const destChecksum = path.join(destDir, CHECKSUM_NAME);
+fs.copyFileSync(srcBundle, destBundle);
 
-const srcChecksum = path.join(srcDir, checksumName);
-if (!fs.existsSync(srcChecksum)) {
-  console.error(
-    `copy-workout-summary-rebuild-bundle-to-dist: missing ${srcChecksum}. The API build must run write-workout-summary-rebuild-bundle-checksum after esbuild (see npm run build in services/api/package.json).`,
-  );
-  process.exit(1);
-}
-fs.copyFileSync(srcChecksum, path.join(destDir, checksumName));
+const { hex, byteLength } = writeRuntimeChecksumBesideBundle(destBundle, destChecksum);
 
-console.log(`Copied ${bundleName} and ${checksumName} to ${destDir}`);
+console.log(`Copied ${BUNDLE_NAME} to ${destDir}`);
+console.log(`Wrote runtime ${CHECKSUM_NAME} beside dist bundle (${byteLength} bytes, sha256 ${hex})`);
+console.log(`Tracked src canonical checksum was not modified.`);

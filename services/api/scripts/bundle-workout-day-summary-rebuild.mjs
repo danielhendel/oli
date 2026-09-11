@@ -15,5 +15,8 @@ await writeWorkoutSummaryRebuildBundle(outFile);
 
 console.log(`Built ${outFile}`);
 console.log(
-  "Next: npm run -w api bundle:workout-summary-rebuild:checksum (or full `npm run -w api build`, which hashes this artifact automatically).",
+  "Ordinary `npm run -w api build` copies this artifact to dist/ and writes a runtime sidecar there (tracked src .sha256 is unchanged).",
+);
+console.log(
+  "To refresh the tracked canonical checksum intentionally: npm run -w api bundle:workout-summary-rebuild:checksum (prefer Linux/CI).",
 );

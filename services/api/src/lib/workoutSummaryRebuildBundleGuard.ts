@@ -3,6 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 const BUNDLE = "workoutDaySummaryRebuild.bundled.cjs";
+/** Gitignored local-dev sidecar; preferred over the tracked canonical `.sha256` when present. */
+const RUNTIME_CHECKSUM = `${BUNDLE}.runtime.sha256`;
+const CANONICAL_CHECKSUM = `${BUNDLE}.sha256`;
 
 const EXPECTED_EXPORTS = [
   "rebuildWorkoutDaySummariesForRange",
@@ -23,10 +26,20 @@ function readExpectedChecksumSha256(checksumPath: string): string | null {
   return /^[a-f0-9]{64}$/i.test(hex) ? hex.toLowerCase() : null;
 }
 
+function resolveChecksumPath(libDir: string): string | null {
+  const runtimePath = path.join(libDir, RUNTIME_CHECKSUM);
+  if (fs.existsSync(runtimePath)) return runtimePath;
+  const canonicalPath = path.join(libDir, CANONICAL_CHECKSUM);
+  if (fs.existsSync(canonicalPath)) return canonicalPath;
+  return null;
+}
+
 /**
  * Resolves next to `server.js` (`dist/services/api/src` or `src` under ts-node): `lib/workoutDaySummaryRebuild.bundled.cjs`.
  * Fails fast if the file is missing, unreadable, or exports the wrong surface.
- * If `lib/workoutDaySummaryRebuild.bundled.cjs.sha256` exists, verifies SHA-256 (cheap one-time read at startup).
+ * If a checksum sidecar exists, verifies SHA-256 (cheap one-time read at startup):
+ * - prefers gitignored `*.bundled.cjs.runtime.sha256` (local `dev` / platform-local bytes)
+ * - else uses tracked/dist `*.bundled.cjs.sha256`
  */
 export function assertWorkoutSummaryRebuildBundleReady(serverSrcDir: string): void {
   const bundlePath = path.join(serverSrcDir, "lib", BUNDLE);
@@ -37,13 +50,13 @@ export function assertWorkoutSummaryRebuildBundleReady(serverSrcDir: string): vo
   }
 
   const bytes = fs.readFileSync(bundlePath);
-  const checksumPath = path.join(serverSrcDir, "lib", `${BUNDLE}.sha256`);
-  const expectedHex = readExpectedChecksumSha256(checksumPath);
+  const checksumPath = resolveChecksumPath(path.join(serverSrcDir, "lib"));
+  const expectedHex = checksumPath != null ? readExpectedChecksumSha256(checksumPath) : null;
   if (expectedHex != null) {
     const actualHex = crypto.createHash("sha256").update(bytes).digest("hex");
     if (actualHex !== expectedHex) {
       throw new Error(
-        `Workout summary rebuild bundle checksum mismatch at ${bundlePath}. Expected ${expectedHex}, got ${actualHex}. Re-run a full API build on this platform (\`npm run -w api build\`) so the sidecar .sha256 is generated from the same on-disk bundle that is copied into dist (Linux vs macOS produce different bundles).`,
+        `Workout summary rebuild bundle checksum mismatch at ${bundlePath}. Expected ${expectedHex}, got ${actualHex} (sidecar ${checksumPath}). For local \`dev\`, ensure the gitignored runtime sidecar was written; for production, re-run \`npm run -w api build\` so dist gets a matching runtime sidecar. Do not commit a macOS hash over the Linux canonical fingerprint.`,
       );
     }
   }

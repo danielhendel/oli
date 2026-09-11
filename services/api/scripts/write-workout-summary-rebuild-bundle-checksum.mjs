@@ -1,18 +1,26 @@
 /**
- * Writes `workoutDaySummaryRebuild.bundled.cjs.sha256` from the **on-disk** bundle bytes.
- * Must run after `bundle-workout-day-summary-rebuild.mjs` so the fingerprint matches the artifact
- * that is copied into `dist/` (Linux Docker vs macOS produce different bundles; checksum must follow the file).
+ * Explicitly updates the **tracked** canonical checksum from the on-disk bundle.
+ *
+ * Ordinary `npm run -w api build` does **not** run this. Use only when intentionally
+ * refreshing committed truth (prefer Linux/CI — macOS esbuild output can differ).
  */
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const {
+  BUNDLE_NAME,
+  CHECKSUM_NAME,
+  writeCanonicalChecksumFromBundle,
+} = require("./workout-summary-rebuild-checksum-lib.cjs");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const apiRoot = path.resolve(__dirname, "..");
-const bundlePath = path.join(apiRoot, "src", "lib", "workoutDaySummaryRebuild.bundled.cjs");
-const outChecksum = path.join(apiRoot, "src", "lib", "workoutDaySummaryRebuild.bundled.cjs.sha256");
+const bundlePath = path.join(apiRoot, "src", "lib", BUNDLE_NAME);
+const outChecksum = path.join(apiRoot, "src", "lib", CHECKSUM_NAME);
 
 if (!fs.existsSync(bundlePath)) {
   console.error(
@@ -21,13 +29,13 @@ if (!fs.existsSync(bundlePath)) {
   process.exit(1);
 }
 
-const bytes = fs.readFileSync(bundlePath);
-const hex = crypto.createHash("sha256").update(bytes).digest("hex");
+const { hex, byteLength } = writeCanonicalChecksumFromBundle(bundlePath, outChecksum);
 
-fs.mkdirSync(path.dirname(outChecksum), { recursive: true });
-fs.writeFileSync(outChecksum, `${hex}\n`, "utf8");
-
-console.log(`write-workout-summary-rebuild-bundle-checksum: hashed on-disk bundle (${bytes.length} bytes)`);
+console.log(`write-workout-summary-rebuild-bundle-checksum: wrote tracked canonical checksum`);
 console.log(`  bundle: ${bundlePath}`);
 console.log(`  wrote:  ${outChecksum}`);
+console.log(`  bytes:  ${byteLength}`);
 console.log(`  sha256: ${hex}`);
+console.log(
+  "  Note: macOS vs Linux esbuild output may differ. Commit this file from Linux/CI when refreshing canonical truth.",
+);
