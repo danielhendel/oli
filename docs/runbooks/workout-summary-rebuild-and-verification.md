@@ -21,7 +21,7 @@ git add services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256
 
 - Generated **`services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs`** remains gitignored.
 - Local **`*.bundled.cjs.runtime.sha256`** is gitignored (written by `npm run -w api dev` / `bundle:workout-summary-rebuild:runtime-checksum`).
-- **Cross-platform note:** esbuild output can differ between macOS and Linux even with the same lockfile. Do **not** commit a macOS hash over the Linux canonical fingerprint. CI on `ubuntu-latest` is the source of canonical truth.
+- **Cross-platform note:** Prefer refreshing the canonical fingerprint from Linux/CI. Current Node 20 + esbuild 0.24.2 produced the **same** hash on macOS and GitHub `ubuntu-latest` for this artifact; the previous dirty-tree symptom was mainly a **stale committed fingerprint** being rewritten by ordinary builds. Still do not invent platform-specific expected hashes.
 - **Interrupted build recovery:** delete `services/api/dist` if partially written, re-run `npm run -w api build`. If a tracked checksum was accidentally rewritten locally, restore it with
   `git restore --source=HEAD -- services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256`
   then refresh intentionally on Linux if sources actually changed.
