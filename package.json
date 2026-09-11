@@ -28,6 +28,7 @@
     "export:bundled-exercise-usage": "tsx --tsconfig scripts/tsconfig.json scripts/workouts/exportBundledExerciseUsage.cli.ts",
     "check:invariants": "node scripts/ci/check-invariants.mjs",
     "check:workout-summary-rebuild-bundle": "npm run -w api verify:workout-summary-rebuild-bundle",
+    "check:workout-summary-rebuild-bundle:canonical": "npm run -w api verify:workout-summary-rebuild-bundle:canonical",
     "check:expo-resolution": "node scripts/ci/check-expo-resolution.mjs",
     "check:client-trust-boundary": "node scripts/ci/assert-client-trust-boundary.mjs",
     "check": "npm run typecheck && npm run lint && npm run check:invariants && npm run check:client-trust-boundary && npm test -- --ci",

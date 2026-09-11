@@ -48,6 +48,11 @@ jobs:
       - name: Workout summary rebuild bundle checksum
         run: npm run check:workout-summary-rebuild-bundle
 
+      # Linux-only canonical gate: built bundle must match tracked src fingerprint.
+      # Ordinary local builds do not rewrite that file (avoids macOS/Linux esbuild drift).
+      - name: Workout summary rebuild bundle canonical checksum
+        run: npm run check:workout-summary-rebuild-bundle:canonical
+
       - name: API route invariants
         run: node scripts/ci/assert-api-routes.mjs
 
