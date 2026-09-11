@@ -43,6 +43,21 @@ describe("assertWorkoutSummaryRebuildBundleReady", () => {
     expect(() => assertWorkoutSummaryRebuildBundleReady(dir)).toThrow(/checksum mismatch/);
   });
 
+  it("throws when runtime sidecar mismatches even if canonical would match", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "oli-bundle-guard-runtime-bad-"));
+    const lib = path.join(dir, "lib");
+    fs.mkdirSync(lib, { recursive: true });
+    const bundlePath = path.join(lib, "workoutDaySummaryRebuild.bundled.cjs");
+    fs.writeFileSync(bundlePath, MINIMAL_BUNDLE_SRC, "utf8");
+    const hex = crypto.createHash("sha256").update(fs.readFileSync(bundlePath)).digest("hex");
+    fs.writeFileSync(path.join(lib, "workoutDaySummaryRebuild.bundled.cjs.sha256"), `${hex}\n`);
+    fs.writeFileSync(
+      path.join(lib, "workoutDaySummaryRebuild.bundled.cjs.runtime.sha256"),
+      `${"d".repeat(64)}\n`,
+    );
+    expect(() => assertWorkoutSummaryRebuildBundleReady(dir)).toThrow(/checksum mismatch/);
+  });
+
   it("throws when bundle exports are missing", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "oli-bundle-guard-d-"));
     const lib = path.join(dir, "lib");
