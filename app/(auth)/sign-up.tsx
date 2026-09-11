@@ -5,7 +5,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 import { signUpWithEmail } from "@/lib/auth/actions";
-import { CONSUMER_HOME_HREF } from "@/lib/navigation/consumerHome";
 import { PublicDocumentLinks } from "@/lib/ui/legal/PublicDocumentLinks";
 import {
   UI_APP_SCREEN_BG,
@@ -40,8 +39,7 @@ export default function SignUpScreen() {
         return;
       }
 
-      // After sign up, treat as signed-in (Firebase does this by default).
-      router.replace(CONSUMER_HOME_HREF);
+      // RouteGuard sends new accounts to About You (incomplete onboarding).
     } finally {
       setSubmitting(false);
     }
