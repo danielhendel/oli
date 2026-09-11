@@ -85,7 +85,8 @@ export function AboutYouScreenContent({
         />
       </Field>
 
-      <Field label="Sex at birth" error={errors.sexAtBirth}>
+      <Field label="Sex used for health interpretation" error={errors.sexAtBirth}>
+        <Text style={styles.hint}>{ABOUT_YOU_COPY.sexHint}</Text>
         <View style={styles.chipRow}>
           {SEX_OPTIONS.map((opt) => {
             const selected = draft.sexAtBirth === opt.value;
@@ -209,6 +210,12 @@ const styles = StyleSheet.create({
     color: UI_TEXT_SECONDARY,
     fontSize: 13,
     fontWeight: "600",
+    marginBottom: 8,
+  },
+  hint: {
+    color: UI_TEXT_MUTED,
+    fontSize: 13,
+    lineHeight: 18,
     marginBottom: 8,
   },
   input: {

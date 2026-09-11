@@ -159,8 +159,8 @@ describe("DevicesScreen", () => {
     expect(str).toContain("Connected");
   });
 
-  it("shows Apple Health as Connected when resolver upgrades API not_connected (e.g. HK authorized)", async () => {
-    mockResolveAppleHealthDeviceConnected.mockImplementation(async () => true);
+  it("shows Apple Health as not connected when resolver refuses HK-only upgrade", async () => {
+    mockResolveAppleHealthDeviceConnected.mockImplementation(async () => false);
     mockGetAppleHealthStatus.mockResolvedValue({
       ok: true,
       status: 200,
@@ -180,7 +180,8 @@ describe("DevicesScreen", () => {
       await Promise.resolve();
     });
     const str = JSON.stringify(tree!.toJSON());
-    expect(str).toContain("Connected");
+    expect(str).toContain("Apple Health");
+    expect(str).not.toContain('"Connected"');
   });
 
   describe("Oura auto-refresh", () => {

@@ -1,6 +1,6 @@
 // lib/onboarding/useConnectSources.ts
 import { useCallback, useEffect, useState } from "react";
-import { Platform } from "react-native";
+import { Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 
@@ -15,7 +15,7 @@ import {
 
 import { connectAppleHealthForOnboarding } from "./appleHealthOnboardingConnect";
 import { markOnboardingUnderstand } from "./advanceOnboardingStep";
-import { ONBOARDING_ROUTES } from "./constants";
+import { CONNECT_COPY, ONBOARDING_ROUTES } from "./constants";
 import { mapOnboardingError } from "./mapOnboardingError";
 import type { ConnectSourceCardState } from "./types";
 
@@ -92,44 +92,67 @@ export function useConnectSources() {
 
   const connectAppleHealth = useCallback(async () => {
     setBannerError(null);
-    setApple({ id: "apple_health", status: "connecting" });
-    try {
-      const result = await connectAppleHealthForOnboarding({
-        getIdToken,
-        userUid: user?.uid,
-      });
-      if (!result.ok) {
-        if (result.reason === "unavailable" || result.reason === "not_ios") {
-          setApple({
-            id: "apple_health",
-            status: "unavailable",
-            reason: "Apple Health is not available on this device.",
-          });
-          return;
-        }
-        if (result.reason === "permission_denied") {
+
+    const runConnect = async () => {
+      setApple({ id: "apple_health", status: "connecting" });
+      try {
+        const result = await connectAppleHealthForOnboarding({
+          getIdToken,
+          userUid: user?.uid,
+        });
+        if (!result.ok) {
+          if (result.reason === "unavailable" || result.reason === "not_ios") {
+            setApple({
+              id: "apple_health",
+              status: "unavailable",
+              reason: "Apple Health is not available on this device.",
+            });
+            return;
+          }
+          if (result.reason === "permission_denied") {
+            setApple({
+              id: "apple_health",
+              status: "error",
+              message: "Permission was not granted. You can try again or continue later.",
+            });
+            return;
+          }
           setApple({
             id: "apple_health",
             status: "error",
-            message: "Permission was not granted. You can try again or continue later.",
+            message: "Could not connect Apple Health. Try again.",
           });
           return;
         }
+        setApple({ id: "apple_health", status: "connected" });
+      } catch (e) {
         setApple({
           id: "apple_health",
           status: "error",
-          message: "Could not connect Apple Health. Try again.",
+          message: mapOnboardingError(e).message,
         });
-        return;
       }
-      setApple({ id: "apple_health", status: "connected" });
-    } catch (e) {
-      setApple({
-        id: "apple_health",
-        status: "error",
-        message: mapOnboardingError(e).message,
-      });
-    }
+    };
+
+    Alert.alert(
+      CONNECT_COPY.appleHealthPrePermissionTitle,
+      CONNECT_COPY.appleHealthPrePermissionBody,
+      [
+        {
+          text: CONNECT_COPY.appleHealthPrePermissionCancel,
+          style: "cancel",
+          onPress: () => {
+            setApple({ id: "apple_health", status: "idle" });
+          },
+        },
+        {
+          text: CONNECT_COPY.appleHealthPrePermissionContinue,
+          onPress: () => {
+            void runConnect();
+          },
+        },
+      ],
+    );
   }, [getIdToken, user?.uid]);
 
   const connectOura = useCallback(async () => {

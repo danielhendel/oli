@@ -25,13 +25,14 @@ export const OPENING_COPY = {
     "Discover how good you can become.",
   ] as const,
   primaryCta: "Get Started",
-  secondaryCta: "I already have an account",
+  secondaryCta: "Sign In",
 } as const;
 
 export const ABOUT_YOU_COPY = {
-  title: "About you",
-  subtitle: "A few details so Oli can interpret your health data.",
+  title: "Let’s get to know you.",
+  subtitle: "Only information required to interpret health and performance data correctly.",
   continueCta: "Continue",
+  sexHint: "Used only where health interpretation requires it.",
 } as const;
 
 export const CONNECT_COPY = {
@@ -39,12 +40,22 @@ export const CONNECT_COPY = {
   subtitle: "Connect what you already use.",
   laterCta: "I’ll do this later",
   continueCta: "Continue",
+  appleHealthPrePermissionTitle: "Connect Apple Health",
+  appleHealthPrePermissionBody:
+    "Oli will ask iOS for access to workouts, steps, activity, sleep, and body metrics. You can change access anytime in iOS Settings. Connecting is for this Oli account only — device permission alone does not connect another account.",
+  appleHealthPrePermissionContinue: "Continue",
+  appleHealthPrePermissionCancel: "Cancel",
 } as const;
 
 export const UNDERSTAND_COPY = {
   title: "Building your health picture…",
-  subtitle: "Oli shows what is present so far — missing data stays missing.",
-  continueCta: "This is you. Continue to Home",
+  subtitle: "Checking what Oli can see from your profile and connected sources.",
+  continueCta: "See My Health",
+  summaryStarting: "Your health picture is starting to take shape.",
+  summaryNeedsData:
+    "You’re ready to begin. Oli needs more data before it can assess your health and performance.",
+  summaryPartial: "Some areas still need more information.",
+  summarySyncing: "Your first sync may continue in the background.",
 } as const;
 
 /** Ownership escape routes reachable during onboarding (Account menu). */

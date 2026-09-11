@@ -25,6 +25,9 @@ describe("buildDataReadinessViewModel", () => {
     expect(vm.signals.find((s) => s.id === "sleep")?.state).toBe("missing");
     expect(vm.signals.find((s) => s.id === "apple_health")?.state).toBe("missing");
     expect(vm.canContinue).toBe(true);
+    expect(vm.summary).toBe(
+      "You’re ready to begin. Oli needs more data before it can assess your health and performance.",
+    );
   });
 
   it("marks apple health unavailable when platform cannot provide it", () => {

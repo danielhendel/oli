@@ -44,7 +44,7 @@ function getDeviceTimezone(): string {
 
 export type AppleHealthOnboardingConnectResult =
   | { ok: true; alreadyConnected: boolean }
-  | { ok: false; reason: "unavailable" | "permission_denied" | "sync_failed" | "no_token" | "not_ios" };
+  | { ok: false; reason: "unavailable" | "permission_denied" | "no_token" | "not_ios" };
 
 export async function connectAppleHealthForOnboarding(args: {
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
@@ -92,11 +92,11 @@ export async function connectAppleHealthForOnboarding(args: {
 
   await setAppleHealthBodyLastCheckedAt(nowIso()).catch(() => undefined);
 
-  if (!result.ok) {
-    return { ok: false, reason: "sync_failed" };
+  // Account connection is established after permission + flag. Initial sync may
+  // continue in the background; failure here must not undo the connection.
+  if (result.ok) {
+    await setLastSyncAt(nowIso()).catch(() => undefined);
   }
-
-  await setLastSyncAt(nowIso()).catch(() => undefined);
 
   if (!wasConnected) {
     scheduleAppleHealthStepsRepair({

@@ -55,6 +55,8 @@ export type ReadinessSignalState = "present" | "missing" | "unavailable";
 export type DataReadinessViewModel = {
   title: string;
   subtitle: string;
+  /** Honest closing line after signals resolve. */
+  summary: string;
   signals: Array<{
     id: "profile" | "weight" | "steps" | "sleep" | "apple_health" | "oura";
     label: string;

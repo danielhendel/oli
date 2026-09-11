@@ -33,6 +33,26 @@ function profileReady(profile: UserProfileMain | null): boolean {
   );
 }
 
+function buildSummary(signals: DataReadinessViewModel["signals"], input: DataReadinessInput): string {
+  const healthSignals = signals.filter((s) => s.id === "weight" || s.id === "steps" || s.id === "sleep");
+  const anyHealthPresent = healthSignals.some((s) => s.state === "present");
+  const anyHealthUnavailable = healthSignals.some((s) => s.state === "unavailable");
+  const anySourceConnected =
+    input.appleHealthConnected === true || input.ouraConnected === true;
+
+  if (anyHealthUnavailable && !anyHealthPresent) {
+    return UNDERSTAND_COPY.summaryPartial;
+  }
+  if (anyHealthPresent) {
+    const anyMissing = healthSignals.some((s) => s.state === "missing");
+    return anyMissing ? UNDERSTAND_COPY.summaryPartial : UNDERSTAND_COPY.summaryStarting;
+  }
+  if (anySourceConnected) {
+    return UNDERSTAND_COPY.summarySyncing;
+  }
+  return UNDERSTAND_COPY.summaryNeedsData;
+}
+
 /**
  * Honest readiness view model — present / missing / unavailable only.
  * No scores, recommendations, or fabricated baselines.
@@ -41,28 +61,19 @@ export function buildDataReadinessViewModel(input: DataReadinessInput): DataRead
   const signals: DataReadinessViewModel["signals"] = [];
 
   if (profileReady(input.profile)) {
-    signals.push(signal("profile", "About you", "present", "Name, date of birth, sex, and height are saved."));
+    signals.push(signal("profile", "Profile", "present", "Saved."));
   } else {
-    signals.push(signal("profile", "About you", "missing", "Interpretation basics are not complete yet."));
-  }
-
-  const weightKg = input.dailyFacts?.body?.weightKg;
-  if (typeof weightKg === "number" && Number.isFinite(weightKg)) {
-    signals.push(signal("weight", "Weight", "present", "A recent weight is in your record."));
-  } else if (input.dailyFactsStatus === "error") {
-    signals.push(signal("weight", "Weight", "unavailable", "Weight could not be checked right now."));
-  } else {
-    signals.push(signal("weight", "Weight", "missing", "No weight in today’s facts yet."));
+    signals.push(signal("profile", "Profile", "missing", "Interpretation basics are not complete yet."));
   }
 
   if (!input.appleHealthAvailable) {
     signals.push(
-      signal("apple_health", "Apple Health", "unavailable", "Apple Health is not available on this device."),
+      signal("apple_health", "Apple Health", "unavailable", "Not available on this device."),
     );
   } else if (input.appleHealthConnected === true) {
-    signals.push(signal("apple_health", "Apple Health", "present", "Connected for sync."));
+    signals.push(signal("apple_health", "Apple Health", "present", "Connected for this account."));
   } else if (input.appleHealthConnected === false) {
-    signals.push(signal("apple_health", "Apple Health", "missing", "Not connected yet."));
+    signals.push(signal("apple_health", "Apple Health", "missing", "No health source connected."));
   } else {
     signals.push(signal("apple_health", "Apple Health", "unavailable", "Connection status is still loading."));
   }
@@ -70,9 +81,18 @@ export function buildDataReadinessViewModel(input: DataReadinessInput): DataRead
   if (input.ouraConnected === true) {
     signals.push(signal("oura", "Oura", "present", "Connected."));
   } else if (input.ouraConnected === false) {
-    signals.push(signal("oura", "Oura", "missing", "Not connected yet."));
+    signals.push(signal("oura", "Oura", "missing", "Not connected."));
   } else {
     signals.push(signal("oura", "Oura", "unavailable", "Connection status is still loading."));
+  }
+
+  const weightKg = input.dailyFacts?.body?.weightKg;
+  if (typeof weightKg === "number" && Number.isFinite(weightKg)) {
+    signals.push(signal("weight", "Recent health data", "present", "Weight is in today’s facts."));
+  } else if (input.dailyFactsStatus === "error") {
+    signals.push(signal("weight", "Recent health data", "unavailable", "Could not check recent data right now."));
+  } else {
+    signals.push(signal("weight", "Recent health data", "missing", "No recent health data yet."));
   }
 
   const steps = input.dailyFacts?.activity?.steps;
@@ -96,6 +116,7 @@ export function buildDataReadinessViewModel(input: DataReadinessInput): DataRead
   return {
     title: UNDERSTAND_COPY.title,
     subtitle: UNDERSTAND_COPY.subtitle,
+    summary: buildSummary(signals, input),
     signals,
     canContinue: true,
   };

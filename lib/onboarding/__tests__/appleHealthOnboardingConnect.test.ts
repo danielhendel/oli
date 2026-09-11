@@ -66,4 +66,14 @@ describe("connectAppleHealthForOnboarding", () => {
     expect(mockSetConnected).not.toHaveBeenCalled();
     expect(mockRunSync).not.toHaveBeenCalled();
   });
+
+  it("keeps account connected when initial sync fails after permission grant", async () => {
+    mockRunSync.mockResolvedValue({ ok: false, error: "ingest failed" });
+    const result = await connectAppleHealthForOnboarding({
+      getIdToken: async () => "token",
+      userUid: "u1",
+    });
+    expect(result.ok).toBe(true);
+    expect(mockSetConnected).toHaveBeenCalledWith(true);
+  });
 });

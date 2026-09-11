@@ -70,6 +70,9 @@ export function UnderstandScreenContent({
             <Text style={styles.rowDetail}>{s.detail}</Text>
           </View>
         ))}
+        <Text style={styles.summary} accessibilityRole="summary">
+          {viewModel.summary}
+        </Text>
       </View>
     </OnboardingScreenShell>
   );
@@ -119,5 +122,12 @@ const styles = StyleSheet.create({
     color: UI_TEXT_SECONDARY,
     fontSize: 13,
     lineHeight: 18,
+  },
+  summary: {
+    color: UI_TEXT_PRIMARY,
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: "600",
+    marginTop: 8,
   },
 });
