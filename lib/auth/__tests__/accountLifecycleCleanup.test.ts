@@ -36,14 +36,14 @@ describe("clearUserScopedLocalData", () => {
 
   it("removes per-uid keys on account switch", async () => {
     (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue([
+      "onboarding:draft:v1:u:uid_a",
       "nutrition:recentLogging:v1:uid_a",
       "nutrition:recentLogging:v1:uid_b",
     ]);
 
     await clearUserScopedLocalData({ previousUserId: "uid_a", reason: "account_switch" });
 
-    expect(AsyncStorage.multiRemove).toHaveBeenCalledWith(
-      expect.arrayContaining(["nutrition:recentLogging:v1:uid_a"]),
-    );
+    expect(AsyncStorage.multiRemove).toHaveBeenCalledWith(["onboarding:draft:v1:u:uid_a"]);
+    expect(AsyncStorage.multiRemove).toHaveBeenCalledWith(["nutrition:recentLogging:v1:uid_a"]);
   });
 });

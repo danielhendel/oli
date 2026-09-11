@@ -13,17 +13,18 @@ function readRepoFile(rel: string): string {
 }
 
 describe("R1 analytics-first routing compatibility", () => {
-  it("routes auth success and restored session to Home, not Command Center or Today", () => {
+  it("routes auth success and restored session through RouteGuard (Home or onboarding)", () => {
     const signIn = readRepoFile("app/(auth)/sign-in.tsx");
     const signUp = readRepoFile("app/(auth)/sign-up.tsx");
     const rootLayout = readRepoFile("app/_layout.tsx");
     const appIndex = readRepoFile("app/(app)/index.tsx");
 
-    expect(signIn).toContain("CONSUMER_HOME_HREF");
+    expect(signIn).toMatch(/RouteGuard/);
     expect(signIn).not.toContain("command-center");
-    expect(signUp).toContain("CONSUMER_HOME_HREF");
+    expect(signUp).toMatch(/RouteGuard/);
     expect(signUp).not.toContain("command-center");
     expect(rootLayout).toContain("CONSUMER_HOME_HREF");
+    expect(rootLayout).toContain("useOnboardingGate");
     expect(rootLayout).not.toMatch(/replace\(.*command-center/);
     expect(appIndex).toContain("CONSUMER_HOME_HREF");
     expect(CONSUMER_HOME_HREF).toBe(OLI_TAB_ROUTES.dash);
