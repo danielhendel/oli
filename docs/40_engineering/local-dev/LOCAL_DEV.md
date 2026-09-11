@@ -57,6 +57,8 @@ npm run check
 
 `npm run check` runs typecheck → lint → invariants → client trust boundary → `npm test -- --ci`.
 
+When working on the API locally, `npm run -w api build` regenerates the workout-summary rebuild bundle under `dist/` but does **not** rewrite the tracked canonical checksum (avoids macOS/Linux esbuild drift). See `docs/runbooks/workout-summary-rebuild-and-verification.md`.
+
 Individual diagnostics:
 
 ```bash

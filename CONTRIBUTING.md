@@ -90,6 +90,10 @@ npm run check
 
 Current execution docs: `docs/00_truth/REPO_TRUTH_PROGRESS_MAP.md`, `docs/10_product/roadmap/ROADMAP_REALITY.md`.
 
+### Workout summary rebuild checksum
+
+Ordinary `npm run -w api build` must leave a clean git tree: it does **not** rewrite the tracked canonical `services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256`. Full workflow: `docs/runbooks/workout-summary-rebuild-and-verification.md`.
+
 ---
 
 ## 7. PULL REQUEST CHECKLIST

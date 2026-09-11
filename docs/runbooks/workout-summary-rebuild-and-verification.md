@@ -3,16 +3,29 @@
 ## Bundle artifact (drift control)
 
 - **Source of truth** is the TypeScript entry `services/api/scripts/workout-day-summary-rebuild.entry.ts` and the shared app code it pulls in (e.g. `lib/data/workouts/workoutDaySummaryCompute`, `services/functions/src/workouts/recomputeWorkoutDaySummary.ts`).
-- **Build** runs esbuild, then **writes the SHA-256 from the on-disk bundle** (same bytes copied to `dist/`), then `tsc`, then copy: `npm run -w api build`. (`bundle:workout-summary-rebuild` alone only produces the `.cjs`; use `bundle:workout-summary-rebuild:checksum` after it if you are not running a full build.)
-- Generated **`services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs`** remains gitignored; **committed** `services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256` is a convenience fingerprint for review/diff — **Docker/CI always regenerate it during build** so it matches the Linux-built artifact (macOS vs Linux bundles differ).
-- After changing bundled code paths, run a full API build and commit the updated fingerprint if you want the repo to reflect your machine’s hash:
+- **Why a checksum exists:** Cloud Run loads a generated CommonJS bundle for workout summary rebuild routes. The sidecar SHA-256 proves the on-disk bytes were not swapped or truncated. The **tracked** `services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256` is the **canonical Linux fingerprint** used by CI. A separate **runtime** sidecar is written beside the artifact that actually runs (dist in production; gitignored `*.runtime.sha256` for local `dev`).
+- **Ordinary developer command:** `npm run -w api build`
+  - Runs esbuild → `tsc` → copies the gitignored `.cjs` into `dist/` and writes a **runtime** `.sha256` beside the dist bundle from those bytes.
+  - Does **not** rewrite the tracked canonical checksum (so macOS vs Linux esbuild differences do not leave unexplained git drift).
+- **Read-only validation (local):** `npm run check:workout-summary-rebuild-bundle`
+  Confirms the built dist (or src) bundle matches its adjacent runtime sidecar.
+- **Canonical validation (CI / Linux truth):** `npm run check:workout-summary-rebuild-bundle:canonical`
+  Also requires `sha256(built bundle) ===` tracked `src/lib/*.sha256`. GitHub Actions runs this after `npm run -w api build`.
+- **Intentional canonical refresh** (after changing bundled sources; prefer Linux or CI):
 
 ```bash
-npm run -w api build
+npm run -w api bundle:workout-summary-rebuild
+npm run -w api bundle:workout-summary-rebuild:checksum
 git add services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256
 ```
 
-- CI runs `npm run -w api build` then `npm run check:workout-summary-rebuild-bundle`, which verifies **`dist/services/api/src/lib/*.cjs` bytes match `dist/services/api/src/lib/*.sha256`** (same layout as Cloud Run), not a second esbuild pass.
+- Generated **`services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs`** remains gitignored.
+- Local **`*.bundled.cjs.runtime.sha256`** is gitignored (written by `npm run -w api dev` / `bundle:workout-summary-rebuild:runtime-checksum`).
+- **Cross-platform note:** esbuild output can differ between macOS and Linux even with the same lockfile. Do **not** commit a macOS hash over the Linux canonical fingerprint. CI on `ubuntu-latest` is the source of canonical truth.
+- **Interrupted build recovery:** delete `services/api/dist` if partially written, re-run `npm run -w api build`. If a tracked checksum was accidentally rewritten locally, restore it with
+  `git restore --source=HEAD -- services/api/src/lib/workoutDaySummaryRebuild.bundled.cjs.sha256`
+  then refresh intentionally on Linux if sources actually changed.
+- Docker/Cloud Run: `services/api/Dockerfile` runs `npm run build` on Linux and requires the dist bundle + runtime sidecar to exist. Production does not depend on the developer’s local macOS hash.
 
 ## Recompute / backfill (Firestore only — existing collections)
 
@@ -39,13 +52,13 @@ Legacy vs id-based strength rows: taxonomy aggregates appear only when ingest pa
 
 - **`computedAt` changes** every rebuild; comparisons should ignore it (verification helpers do).
 - **Overview month linkage**: day rebuild triggers month refresh only when the calendar day participates in the fixed overview year logic inside `maybeRecomputeWorkoutMonthSummaryForUiDay`; use explicit **month rebuild** when you only need month rows refreshed.
-- **Deployments** must run `npm run -w api build` (or equivalent) before shipping the API artifact; fingerprint CI catches source/hash drift but not a skipped build step in an unstandardized deploy script.
+- **Deployments** must run `npm run -w api build` (or equivalent) before shipping the API artifact; CI canonical checksum catches source/hash drift on Linux but not a skipped build step in an unstandardized deploy script.
 
 ## PR 5 suggested review scope (hardening slice)
 
 When isolating from unrelated branch work, prefer a commit that contains only:
 
-- `services/api/scripts/workout-summary-rebuild-bundle-shared.mjs`, bundle/write/verify scripts, `*.sha256`
+- `services/api/scripts/workout-summary-rebuild-bundle-shared.mjs`, bundle/write/verify/copy scripts, checksum lib, `*.sha256`
 - `lib/contracts/workoutSummaryRebuildLimits.ts`, `lib/contracts/retrieval.ts` (range validation), `lib/contracts/index.ts`
 - `lib/data/workouts/workoutSummaryRebuildPolicy.ts`, `lib/data/workouts/workoutSummaryVerification.ts`
 - `services/functions/src/workouts/recomputeWorkoutMonthSummary.ts`, `services/api/scripts/workout-day-summary-rebuild.entry.ts`
