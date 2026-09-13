@@ -2,7 +2,7 @@
  * Daily Monitor host — presence-driven current-day cards only (Phase 2C).
  */
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
@@ -42,8 +42,7 @@ import {
   DailyMonitorStressCard,
   DailyMonitorWorkoutCard,
 } from "@/lib/ui/dash/DailyMonitorDomainCards";
-import { AppHeader } from "@/lib/ui/navigation/AppHeader";
-import { AppNavigationDrawer } from "@/lib/ui/navigation/AppNavigationDrawer";
+import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { EmptyState, ErrorState } from "@/lib/ui/ScreenStates";
 import {
@@ -60,7 +59,6 @@ export function DailyMonitorHost(): React.ReactElement {
   const router = useRouter();
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const { user, getIdToken } = useAuth();
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const refreshQuietRef = React.useRef<(reason: "focus" | "foreground") => void>(() => undefined);
 
@@ -199,10 +197,10 @@ export function DailyMonitorHost(): React.ReactElement {
 
   return (
     <View style={styles.root} testID="daily-monitor-host">
-      <AppHeader
+      <TabRootScreenHeader
         title={CONSUMER_TODAY_LABEL}
-        accessibilityLabel={CONSUMER_TODAY_LABEL}
-        onMenuPress={() => setDrawerOpen(true)}
+        subtitle={dateLabel}
+        subtitleTestID="daily-monitor-page-date"
       />
       <ScrollView
         style={styles.scrollView}
@@ -212,16 +210,6 @@ export function DailyMonitorHost(): React.ReactElement {
         refreshControl={refreshControl}
         testID="daily-monitor-scroll"
       >
-        <View
-          style={styles.pageIntro}
-          accessible
-          accessibilityLabel={`${CONSUMER_TODAY_LABEL}. ${dateLabel}`}
-        >
-          <Text style={styles.pageDate} accessibilityRole="text" testID="daily-monitor-page-date">
-            {dateLabel}
-          </Text>
-        </View>
-
         {monitorVm.showPartialRefreshBanner ? (
           <View
             style={styles.banner}
@@ -343,7 +331,6 @@ export function DailyMonitorHost(): React.ReactElement {
           </View>
         ))}
       </ScrollView>
-      <AppNavigationDrawer visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </View>
   );
 }
@@ -359,19 +346,9 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: UI_TAB_ROOT_INSET,
-    paddingTop: 0,
+    paddingTop: 4,
     flexGrow: 1,
     backgroundColor: UI_APP_SCREEN_BG,
-  },
-  pageIntro: {
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  pageDate: {
-    marginTop: 0,
-    fontSize: 15,
-    fontWeight: "500",
-    color: UI_TEXT_SECONDARY,
   },
   section: {
     marginTop: 8,

@@ -322,8 +322,10 @@ describe("Today Daily Monitor cards", () => {
       test = renderer.create(<TodayScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toMatch(/Loading|Energy Expenditure|Sleep/i);
+    expect(text).toContain("Today");
+    expect(text).toContain("Mon May 5, 2026");
     expect(text).not.toMatch(/Building your health picture/i);
+    expect(text).not.toContain("Open navigation menu");
   });
 
   it("shows honest empty copy when no current-day evidence", () => {

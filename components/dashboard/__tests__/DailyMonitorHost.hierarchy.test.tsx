@@ -1,5 +1,5 @@
 /**
- * Today host: compact Today header + date + Daily Monitor content (no Home categories).
+ * Today host: Plan-style page title + date + Daily Monitor (no compact app header).
  * Home host: Oli header + My Health & Performance cards (no Daily Monitor).
  */
 
@@ -161,7 +161,7 @@ describe("Home / Today separation", () => {
     mockStressHook.mockClear();
   });
 
-  it("Today host shows Today header, date, and no Home category section", async () => {
+  it("Today host shows Plan-style page title, date, and no compact app header", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
@@ -169,27 +169,34 @@ describe("Home / Today separation", () => {
       await Promise.resolve();
     });
 
-    const header = tree.root.findByProps({ testID: "app-header" });
-    expect(header.props.accessibilityLabel).toBe(CONSUMER_TODAY_LABEL);
-    const headerTitle = header.findAll(
+    expect(tree.root.findAllByProps({ testID: "app-header" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "app-header-menu-button" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "app-navigation-drawer" })).toHaveLength(0);
+
+    const titleNodes = tree.root.findAll(
       (n) =>
         n.type === "Text" &&
-        (n.props as { accessibilityRole?: string }).accessibilityRole === "header",
+        (n.props as { accessibilityRole?: string }).accessibilityRole === "header" &&
+        String((n.children ?? []).join("")) === CONSUMER_TODAY_LABEL,
     );
-    expect(
-      (headerTitle[0]!.children as (string | number)[])
-        .filter((c) => typeof c === "string" || typeof c === "number")
-        .join(""),
-    ).toBe("Today");
+    expect(titleNodes).toHaveLength(1);
+    expect(titleNodes[0]!.props.style).toEqual(
+      expect.objectContaining({
+        fontSize: 22,
+        fontWeight: "600",
+      }),
+    );
 
     const pageDate = tree.root.findByProps({ testID: "daily-monitor-page-date" });
     expect(pageDate.props.children).toBe("Mon Jul 20, 2026");
+    expect(pageDate.props.accessibilityRole).toBe("text");
 
     expect(tree.root.findAllByProps({ testID: "home-my-health-performance" })).toHaveLength(0);
     const text = collectText(tree.root);
     expect(text).not.toContain(HOME_MY_HEALTH_PERFORMANCE_TITLE);
     expect(text).not.toContain("Where am I?");
     expect(text).not.toContain("Building your health picture");
+    expect((text.match(/\bToday\b/g) ?? []).length).toBe(1);
 
     expect(mockActivityHook).toHaveBeenCalled();
     tree.unmount();

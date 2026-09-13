@@ -5,7 +5,7 @@ import { UI_APP_SCREEN_BG, UI_TAB_ROOT_CONTENT_GUTTER, UI_TAB_ROOT_INSET } from 
 
 export type TabRootScreenHeaderProps = Pick<
   PageTitleRowProps,
-  "title" | "subtitle" | "subtitleVariant" | "rightSlot"
+  "title" | "subtitle" | "subtitleVariant" | "rightSlot" | "subtitleTestID"
 > & {
   /**
    * Override default title inset (defaults to `UI_TAB_ROOT_CONTENT_GUTTER` so tab titles align with primary body text).

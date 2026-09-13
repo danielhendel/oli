@@ -9,6 +9,8 @@ export type PageTitleRowProps = {
   /** `soft` = light gray; `dash` = readable secondary on Dash grouped background. */
   subtitleVariant?: "default" | "soft" | "dash";
   rightSlot?: React.ReactNode;
+  /** Optional test id for the subtitle (e.g. Today date). */
+  subtitleTestID?: string;
 };
 
 function subtitleStyleForVariant(variant: "default" | "soft" | "dash") {
@@ -17,11 +19,17 @@ function subtitleStyleForVariant(variant: "default" | "soft" | "dash") {
   return styles.subtitle;
 }
 
-export function PageTitleRow({ title, subtitle, subtitleVariant = "default", rightSlot }: PageTitleRowProps) {
+export function PageTitleRow({
+  title,
+  subtitle,
+  subtitleVariant = "default",
+  rightSlot,
+  subtitleTestID,
+}: PageTitleRowProps) {
   return (
     <View style={styles.container}>
       <View style={styles.row}>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
           {title}
         </Text>
         {rightSlot != null ? (
@@ -29,7 +37,13 @@ export function PageTitleRow({ title, subtitle, subtitleVariant = "default", rig
         ) : null}
       </View>
       {subtitle != null && subtitle !== "" ? (
-        <Text style={subtitleStyleForVariant(subtitleVariant)}>{subtitle}</Text>
+        <Text
+          style={subtitleStyleForVariant(subtitleVariant)}
+          accessibilityRole="text"
+          testID={subtitleTestID}
+        >
+          {subtitle}
+        </Text>
       ) : null}
     </View>
   );
