@@ -17,6 +17,8 @@ export type DashScreenHeaderProps = {
   title?: string;
   /** Optional subtitle under the title. Daily Monitor keeps date in page content instead. */
   dateLabel?: string | null;
+  /** `start` = Oli + avatar row; `center` = legacy centered title. */
+  titlePlacement?: "center" | "start";
   /** Combined accessibility label for title (+ date when present). */
   accessibilityLabel?: string;
 };
@@ -24,11 +26,34 @@ export type DashScreenHeaderProps = {
 export function DashScreenHeader({
   title = DEFAULT_TITLE,
   dateLabel = null,
+  titlePlacement = "center",
   accessibilityLabel,
 }: DashScreenHeaderProps = {}): React.ReactElement {
   const a11y =
     accessibilityLabel ??
     (dateLabel != null && dateLabel.length > 0 ? `${title}. ${dateLabel}` : title);
+
+  if (titlePlacement === "start") {
+    return (
+      <View style={styles.wrap} testID="dash-screen-header" accessibilityLabel={a11y}>
+        <View style={styles.row}>
+          <View style={styles.leftTitleCluster}>
+            <Text style={styles.titleStart} numberOfLines={1} accessibilityRole="header">
+              {title}
+            </Text>
+            {dateLabel != null && dateLabel.length > 0 ? (
+              <Text style={styles.dateLabelStart} numberOfLines={1} accessibilityRole="text">
+                {dateLabel}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.rightCluster}>
+            <UserInitialSettingsButton />
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.wrap} testID="dash-screen-header" accessibilityLabel={a11y}>
@@ -71,6 +96,13 @@ const styles = StyleSheet.create({
     minWidth: 44,
     alignItems: "flex-start",
   },
+  leftTitleCluster: {
+    zIndex: 1,
+    flex: 1,
+    paddingRight: 12,
+    justifyContent: "center",
+    minHeight: 44,
+  },
   titleLayer: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
@@ -84,12 +116,26 @@ const styles = StyleSheet.create({
     letterSpacing: 0.15,
     textAlign: "center",
   },
+  titleStart: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: UI_TEXT_PRIMARY,
+    letterSpacing: -0.3,
+    textAlign: "left",
+  },
   dateLabel: {
     marginTop: 2,
     fontSize: 13,
     fontWeight: "500",
     color: UI_TEXT_SECONDARY,
     textAlign: "center",
+  },
+  dateLabelStart: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: "500",
+    color: UI_TEXT_SECONDARY,
+    textAlign: "left",
   },
   rightCluster: {
     zIndex: 1,

@@ -118,7 +118,7 @@ export function buildDailyMonitorViewModel(
   } else if (visibleDomainIds.length === 0 && allTerminalAbsentOrUnavailable && !anyLoading) {
     screenStatus = "empty";
     emptyTitle = "No health data is available for today yet.";
-    emptySubtitle = "Data will appear as devices sync or you add entries.";
+    emptySubtitle = "Data will appear as you add information or connect supported sources.";
   } else {
     screenStatus = "ready";
     if (anyError && visibleDomainIds.length > 0) {

@@ -6,10 +6,9 @@ import React, { act } from "react";
 import renderer from "react-test-renderer";
 
 import {
-  HOME_BASELINE_HEADING,
-  HOME_HEALTH_PERFORMANCE_TITLE,
+  CONSUMER_HOME_SCREEN_TITLE,
+  HOME_MY_HEALTH_PERFORMANCE_TITLE,
   HOME_TODAY_SECTION_TITLE,
-  CONSUMER_HOME_LABEL,
 } from "@/lib/navigation/consumerHome";
 import { allowConsoleForThisTest } from "../../../scripts/test/consoleGuard";
 
@@ -151,7 +150,7 @@ describe("Daily Monitor header hierarchy", () => {
     mockStressHook.mockClear();
   });
 
-  it("uses Home in the fixed header and Today + health-picture copy in page content", async () => {
+  it("uses Oli header, My Health & Performance first, then Today", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
@@ -160,7 +159,7 @@ describe("Daily Monitor header hierarchy", () => {
     });
 
     const header = tree.root.findByProps({ testID: "dash-screen-header" });
-    expect(header.props.accessibilityLabel).toBe(CONSUMER_HOME_LABEL);
+    expect(header.props.accessibilityLabel).toBe(CONSUMER_HOME_SCREEN_TITLE);
 
     const pageTitle = tree.root.findByProps({ testID: "daily-monitor-page-title" });
     expect(pageTitle.props.children).toBe(HOME_TODAY_SECTION_TITLE);
@@ -169,14 +168,30 @@ describe("Daily Monitor header hierarchy", () => {
     expect(pageDate.props.children).toBe("Mon Jul 20, 2026");
     expect(pageDate.props.accessibilityRole).toBe("text");
 
+    const sectionTitle = tree.root.findByProps({ testID: "home-my-health-performance-title" });
+    expect(sectionTitle.props.children).toBe(HOME_MY_HEALTH_PERFORMANCE_TITLE);
+    expect(sectionTitle.props.accessibilityRole).toBe("header");
+
     const text = collectText(tree.root);
-    expect(text).toContain("Home");
-    expect(text).toContain(HOME_HEALTH_PERFORMANCE_TITLE);
-    expect(text).toContain(HOME_BASELINE_HEADING);
+    expect(text).toContain("Oli");
+    expect(text).toContain(HOME_MY_HEALTH_PERFORMANCE_TITLE);
+    expect(text).toContain("Body Composition");
+    expect(text).toContain("Strength");
+    expect(text).toContain("Cardio Fitness");
+    expect(text).toContain("Nutrition");
+    expect(text).toContain("Sleep");
+    expect(text).toContain("Recovery");
+    expect(text).toContain("Health");
     expect(text).toContain("Today");
+    expect(text).not.toContain("Your Health & Performance");
+    expect(text).not.toContain("Building your health picture");
+    expect(text).not.toContain("Connect data or add information to begin establishing your baseline.");
+    expect(text).not.toContain("Where am I?");
     expect(text).not.toContain("What Oli Sees");
     expect(text).not.toMatch(/overall score/i);
     expect(text).toContain("Mon Jul 20, 2026");
+    // Movement must not appear as a primary Home category card label.
+    expect(tree.root.findAllByProps({ testID: "home-category-card-activity" })).toHaveLength(0);
 
     const headerTitle = header.findAll(
       (n) =>
@@ -188,7 +203,7 @@ describe("Daily Monitor header hierarchy", () => {
       (headerTitle[0]!.children as (string | number)[])
         .filter((c) => typeof c === "string" || typeof c === "number")
         .join(""),
-    ).toBe("Home");
+    ).toBe("Oli");
     expect(header.findAllByProps({ testID: "daily-monitor-page-title" })).toHaveLength(0);
     expect(header.findAllByProps({ testID: "daily-monitor-page-date" })).toHaveLength(0);
     const headerJoined = header
@@ -200,8 +215,29 @@ describe("Daily Monitor header hierarchy", () => {
       )
       .join(" ");
     expect(headerJoined).not.toContain("Today");
-    expect(headerJoined).toContain("Where am I?");
+    expect(headerJoined).not.toContain("Where am I?");
+    expect(headerJoined).not.toContain("Home");
     expect(headerJoined).not.toContain("Mon Jul 20");
+
+    const categoryIds = [
+      "body_composition",
+      "strength",
+      "cardio_fitness",
+      "nutrition",
+      "sleep",
+      "recovery",
+      "health",
+    ];
+    const categoryCards = categoryIds.map((id) =>
+      tree.root.findByProps({ testID: `home-category-card-${id}` }),
+    );
+    expect(categoryCards).toHaveLength(7);
+    expect(tree.root.findAllByProps({ testID: "home-category-card-activity" })).toHaveLength(0);
+
+    const sectionNode = tree.root.findByProps({ testID: "home-my-health-performance" });
+    const todayTitle = tree.root.findByProps({ testID: "daily-monitor-page-title" });
+    expect(sectionNode).toBeTruthy();
+    expect(todayTitle).toBeTruthy();
 
     expect(mockActivityHook).toHaveBeenCalled();
     expect(mockSessionHook).toHaveBeenCalled();
@@ -209,7 +245,7 @@ describe("Daily Monitor header hierarchy", () => {
     tree.unmount();
   });
 
-  it("preserves Home header on the legacy host and does not mount Monitor-only domain hooks", async () => {
+  it("preserves Oli header on the legacy host and does not mount Monitor-only domain hooks", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
     mockActivityHook.mockClear();
     mockSessionHook.mockClear();
@@ -229,8 +265,9 @@ describe("Daily Monitor header hierarchy", () => {
           .filter((c) => typeof c === "string" || typeof c === "number")
           .join(""),
       );
-    expect(headerTexts).toContain(CONSUMER_HOME_LABEL);
+    expect(headerTexts).toContain(CONSUMER_HOME_SCREEN_TITLE);
     expect(headerTexts.join(" ")).not.toContain("Daily Monitor");
+    expect(headerTexts.join(" ")).not.toContain("Where am I?");
     expect(tree.root.findAllByProps({ testID: "daily-monitor-page-title" })).toHaveLength(0);
     expect(mockActivityHook).not.toHaveBeenCalled();
     expect(mockSessionHook).not.toHaveBeenCalled();

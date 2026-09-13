@@ -10,11 +10,9 @@ import { DashScreenHeader } from "@/components/dashboard/DashScreenHeader";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   CONSUMER_HOME_A11Y_LABEL,
-  CONSUMER_HOME_LABEL,
-  CONSUMER_HOME_QUESTION,
-  HOME_BASELINE_BODY,
-  HOME_BASELINE_HEADING,
-  HOME_HEALTH_PERFORMANCE_TITLE,
+  CONSUMER_HOME_SCREEN_TITLE,
+  HOME_TODAY_EMPTY_BODY,
+  HOME_TODAY_EMPTY_TITLE,
   HOME_TODAY_SECTION_TITLE,
 } from "@/lib/navigation/consumerHome";
 import { buildDailyMonitorViewModel } from "@/lib/data/dash/buildDailyMonitorViewModel";
@@ -47,6 +45,7 @@ import {
   DailyMonitorStressCard,
   DailyMonitorWorkoutCard,
 } from "@/lib/ui/dash/DailyMonitorDomainCards";
+import { MyHealthPerformanceSection } from "@/lib/ui/home/MyHealthPerformanceSection";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { EmptyState, ErrorState } from "@/lib/ui/ScreenStates";
 import {
@@ -202,8 +201,8 @@ export function DailyMonitorHost(): React.ReactElement {
   return (
     <View style={styles.root} testID="daily-monitor-host">
       <DashScreenHeader
-        title={CONSUMER_HOME_LABEL}
-        dateLabel={CONSUMER_HOME_QUESTION}
+        title={CONSUMER_HOME_SCREEN_TITLE}
+        titlePlacement="start"
         accessibilityLabel={CONSUMER_HOME_A11Y_LABEL}
       />
       <ScrollView
@@ -214,20 +213,7 @@ export function DailyMonitorHost(): React.ReactElement {
         refreshControl={refreshControl}
         testID="daily-monitor-scroll"
       >
-        <View
-          style={styles.healthPicture}
-          testID="home-health-performance"
-          accessible
-          accessibilityLabel={`${HOME_HEALTH_PERFORMANCE_TITLE}. ${HOME_BASELINE_HEADING}. ${HOME_BASELINE_BODY}`}
-        >
-          <Text style={styles.healthPictureTitle} accessibilityRole="header">
-            {HOME_HEALTH_PERFORMANCE_TITLE}
-          </Text>
-          <Text style={styles.baselineHeading} testID="home-baseline-heading">
-            {HOME_BASELINE_HEADING}
-          </Text>
-          <Text style={styles.baselineBody}>{HOME_BASELINE_BODY}</Text>
-        </View>
+        <MyHealthPerformanceSection />
         <View
           style={styles.pageIntro}
           accessible
@@ -281,11 +267,8 @@ export function DailyMonitorHost(): React.ReactElement {
 
         {monitorVm.screenStatus === "empty" ? (
           <EmptyState
-            title={monitorVm.emptyTitle ?? "No health data is available for today yet."}
-            description={
-              monitorVm.emptySubtitle ??
-              "Data will appear as devices sync or you add entries."
-            }
+            title={monitorVm.emptyTitle ?? HOME_TODAY_EMPTY_TITLE}
+            description={monitorVm.emptySubtitle ?? HOME_TODAY_EMPTY_BODY}
           />
         ) : null}
 
@@ -388,33 +371,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: UI_APP_SCREEN_BG,
   },
-  healthPicture: {
-    marginTop: 4,
-    marginBottom: 12,
-    gap: 6,
-  },
-  healthPictureTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: UI_TEXT_SECONDARY,
-    letterSpacing: 0.2,
-  },
-  baselineHeading: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: UI_TEXT_PRIMARY,
-  },
-  baselineBody: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: UI_TEXT_SECONDARY,
-  },
   pageIntro: {
     marginTop: 4,
     marginBottom: 8,
   },
   pageTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "700",
     color: UI_TEXT_PRIMARY,
     letterSpacing: 0.1,

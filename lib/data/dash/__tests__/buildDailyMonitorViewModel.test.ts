@@ -67,6 +67,7 @@ describe("buildDailyMonitorViewModel", () => {
     });
     expect(vm.screenStatus).toBe("empty");
     expect(vm.emptyTitle).toMatch(/No health data is available for today/i);
+    expect(vm.emptySubtitle).toMatch(/add information or connect supported sources/i);
     expect(vm.visibleDomainIds).toEqual([]);
   });
 
