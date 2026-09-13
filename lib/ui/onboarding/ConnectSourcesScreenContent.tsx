@@ -4,15 +4,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CONNECT_COPY } from "@/lib/onboarding/constants";
 import type { ConnectSourceCardState } from "@/lib/onboarding/types";
-import {
-  UI_BORDER_HAIRLINE,
-  UI_CARD_SURFACE,
-  UI_TEXT_MUTED,
-  UI_TEXT_PRIMARY,
-  UI_TEXT_SECONDARY,
-} from "@/lib/ui/theme/uiTokens";
 
 import { OnboardingScreenShell, onboardingCtaStyles } from "./OnboardingScreenShell";
+import { ONBOARDING_VISUAL } from "./onboardingVisualTokens";
 
 export type ConnectSourcesScreenContentProps = {
   apple: ConnectSourceCardState;
@@ -42,7 +36,11 @@ export function ConnectSourcesScreenContent({
       stepIndex={2}
       footer={
         <>
-          {bannerError ? <Text style={onboardingCtaStyles.error}>{bannerError}</Text> : null}
+          {bannerError ? (
+            <Text style={onboardingCtaStyles.error} accessibilityLiveRegion="polite">
+              {bannerError}
+            </Text>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={CONNECT_COPY.continueCta}
@@ -59,7 +57,8 @@ export function ConnectSourcesScreenContent({
             accessibilityLabel={CONNECT_COPY.laterCta}
             disabled={advancing}
             onPress={onLater}
-            style={onboardingCtaStyles.secondary}
+            style={[onboardingCtaStyles.secondary, advancing ? onboardingCtaStyles.primaryDisabled : null]}
+            testID="onboarding-connect-later"
           >
             <Text style={onboardingCtaStyles.secondaryLabel}>{CONNECT_COPY.laterCta}</Text>
           </Pressable>
@@ -68,14 +67,16 @@ export function ConnectSourcesScreenContent({
     >
       <SourceCard
         title="Apple Health"
-        description="Workouts, steps, activity, sleep, and body metrics from iPhone and Apple Watch. Connection is separate from device permission — sync starts only when you Connect."
+        description="Workouts, steps, activity, sleep, and body metrics from iPhone and Apple Watch. Sync starts only when you Connect for this account."
         state={apple}
+        accent="apple"
         onConnect={onConnectApple}
       />
       <SourceCard
         title="Oura"
         description="Sleep and HRV from your Oura account."
         state={oura}
+        accent="oura"
         onConnect={onConnectOura}
       />
     </OnboardingScreenShell>
@@ -86,11 +87,13 @@ function SourceCard({
   title,
   description,
   state,
+  accent,
   onConnect,
 }: {
   title: string;
   description: string;
   state: ConnectSourceCardState;
+  accent: "apple" | "oura";
   onConnect: () => void;
 }) {
   const statusLabel =
@@ -104,14 +107,31 @@ function SourceCard({
             ? "Try again"
             : "Not connected";
 
-  const canConnect =
-    state.status === "idle" || state.status === "error";
+  const canConnect = state.status === "idle" || state.status === "error";
+  const accentFill = accent === "apple" ? ONBOARDING_VISUAL.appleAccent : ONBOARDING_VISUAL.ouraAccent;
+  const accentBorder =
+    accent === "apple" ? ONBOARDING_VISUAL.appleAccentBorder : ONBOARDING_VISUAL.ouraAccentBorder;
 
   return (
-    <View style={styles.card}>
+    <View
+      style={[styles.card, { borderColor: accentBorder }]}
+      accessibilityLabel={`${title}, ${statusLabel}`}
+    >
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{title}</Text>
-        <Text style={styles.cardStatus}>{statusLabel}</Text>
+        <View style={[styles.iconBadge, { backgroundColor: accentFill }]}>
+          <Text style={styles.iconGlyph}>{accent === "apple" ? "AH" : "Ou"}</Text>
+        </View>
+        <View style={styles.cardTitles}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <Text
+            style={[
+              styles.statusPill,
+              state.status === "connected" ? styles.statusConnected : null,
+            ]}
+          >
+            {statusLabel}
+          </Text>
+        </View>
       </View>
       <Text style={styles.cardBody}>{description}</Text>
       {state.status === "unavailable" ? (
@@ -134,37 +154,66 @@ function SourceCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: ONBOARDING_VISUAL.radiusLg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: UI_BORDER_HAIRLINE,
     padding: 16,
     marginBottom: 14,
   },
   cardHeader: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 10,
+  },
+  iconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconGlyph: {
+    color: ONBOARDING_VISUAL.textPrimary,
+    fontWeight: "800",
+    fontSize: 13,
+    letterSpacing: 0.4,
+  },
+  cardTitles: {
+    flex: 1,
+    flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    gap: 8,
   },
   cardTitle: {
-    color: UI_TEXT_PRIMARY,
+    color: ONBOARDING_VISUAL.textPrimary,
     fontSize: 17,
     fontWeight: "700",
+    flexShrink: 1,
   },
-  cardStatus: {
-    color: UI_TEXT_MUTED,
-    fontSize: 13,
-    fontWeight: "600",
+  statusPill: {
+    color: ONBOARDING_VISUAL.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  statusConnected: {
+    color: "#9BE7B0",
+    backgroundColor: "rgba(80,180,120,0.18)",
   },
   cardBody: {
-    color: UI_TEXT_SECONDARY,
+    color: ONBOARDING_VISUAL.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 12,
   },
   cardHint: {
-    color: UI_TEXT_MUTED,
+    color: ONBOARDING_VISUAL.textMuted,
     fontSize: 13,
     marginBottom: 8,
   },
@@ -174,14 +223,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   connectBtn: {
-    minHeight: 44,
-    borderRadius: 12,
+    minHeight: ONBOARDING_VISUAL.minTap,
+    borderRadius: ONBOARDING_VISUAL.radiusSm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(58,91,219,0.22)",
+    backgroundColor: ONBOARDING_VISUAL.accentWash,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(58,91,219,0.4)",
   },
   connectBtnLabel: {
-    color: UI_TEXT_PRIMARY,
+    color: ONBOARDING_VISUAL.textPrimary,
     fontWeight: "700",
     fontSize: 15,
   },

@@ -1,16 +1,12 @@
 // lib/ui/onboarding/OnboardingScreenShell.tsx
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import {
-  UI_APP_SCREEN_BG,
-  UI_TEXT_MUTED,
-  UI_TEXT_PRIMARY,
-  UI_TEXT_SECONDARY,
-} from "@/lib/ui/theme/uiTokens";
-
+import { OnboardingAmbientBackground } from "./OnboardingAmbientBackground";
 import { OnboardingOwnershipMenu } from "./OnboardingOwnershipMenu";
+import { OnboardingStepIndicator } from "./OnboardingStepIndicator";
+import { ONBOARDING_VISUAL } from "./onboardingVisualTokens";
 
 export type OnboardingScreenShellProps = {
   title?: string;
@@ -33,33 +29,37 @@ export function OnboardingScreenShell({
 }: OnboardingScreenShellProps) {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+      <OnboardingAmbientBackground />
       <View style={styles.topRow}>
         {typeof stepIndex === "number" ? (
-          <View style={styles.progressRow} accessibilityLabel={`Step ${stepIndex} of ${stepCount}`}>
-            {Array.from({ length: stepCount }).map((_, i) => (
-              <View
-                key={i}
-                style={[styles.progressDot, i + 1 <= stepIndex ? styles.progressDotActive : null]}
-              />
-            ))}
-          </View>
+          <OnboardingStepIndicator stepIndex={stepIndex} stepCount={stepCount} />
         ) : (
-          <View />
+          <View style={styles.topSpacer} />
         )}
         {showOwnershipMenu ? <OnboardingOwnershipMenu /> : <View />}
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={8}
       >
-        {title ? <Text style={styles.title}>{title}</Text> : null}
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        {children}
-      </ScrollView>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          {title ? (
+            <Text style={styles.title} accessibilityRole="header">
+              {title}
+            </Text>
+          ) : null}
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          {children}
+        </ScrollView>
 
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+        {footer ? <View style={styles.footer}>{footer}</View> : null}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -67,62 +67,58 @@ export function OnboardingScreenShell({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: UI_APP_SCREEN_BG,
+    backgroundColor: ONBOARDING_VISUAL.canvas,
   },
+  flex: { flex: 1 },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    minHeight: 44,
+    paddingTop: 4,
+    gap: 12,
+    zIndex: 1,
   },
-  progressRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  progressDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.18)",
-  },
-  progressDotActive: {
-    backgroundColor: UI_TEXT_PRIMARY,
-  },
-  scroll: { flex: 1 },
+  topSpacer: { flex: 1, minHeight: 44 },
+  scroll: { flex: 1, zIndex: 1 },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 24,
+    paddingTop: 16,
+    paddingBottom: 28,
   },
   title: {
-    color: UI_TEXT_PRIMARY,
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 8,
+    color: ONBOARDING_VISUAL.textPrimary,
+    fontSize: 30,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+    marginBottom: 10,
   },
   subtitle: {
-    color: UI_TEXT_SECONDARY,
+    color: ONBOARDING_VISUAL.textSecondary,
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 24,
     marginBottom: 24,
   },
   footer: {
     paddingHorizontal: 20,
     paddingBottom: 12,
     gap: 10,
+    zIndex: 1,
   },
 });
 
 export const onboardingCtaStyles = StyleSheet.create({
   primary: {
-    minHeight: 44,
-    borderRadius: 12,
-    backgroundColor: "#3A5BDB",
+    minHeight: ONBOARDING_VISUAL.minTap,
+    borderRadius: ONBOARDING_VISUAL.radiusMd,
+    backgroundColor: ONBOARDING_VISUAL.primaryButton,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
+    shadowColor: ONBOARDING_VISUAL.accent,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
   },
   primaryDisabled: {
     opacity: 0.45,
@@ -133,14 +129,17 @@ export const onboardingCtaStyles = StyleSheet.create({
     fontSize: 16,
   },
   secondary: {
-    minHeight: 44,
-    borderRadius: 12,
+    minHeight: ONBOARDING_VISUAL.minTap,
+    borderRadius: ONBOARDING_VISUAL.radiusMd,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: ONBOARDING_VISUAL.secondaryBorder,
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
   secondaryLabel: {
-    color: UI_TEXT_SECONDARY,
+    color: ONBOARDING_VISUAL.textPrimary,
     fontWeight: "600",
     fontSize: 15,
   },
@@ -150,7 +149,7 @@ export const onboardingCtaStyles = StyleSheet.create({
     marginBottom: 8,
   },
   muted: {
-    color: UI_TEXT_MUTED,
+    color: ONBOARDING_VISUAL.textMuted,
     fontSize: 13,
   },
 });
