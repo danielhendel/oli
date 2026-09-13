@@ -52,7 +52,7 @@ export function useConnectSources() {
   const { refresh: refreshProfile } = useUserProfileMain();
   const router = useRouter();
 
-  const [appleSnapshot, setAppleSnapshot] = useState<AppleHealthSnapshot>({ status: "loading" });
+  const [appleSnapshot, setAppleSnapshot] = useState<AppleHealthSnapshot>({ status: "partial" });
   const [appleAction, setAppleAction] = useState<SourceActionOverlay>({ kind: "none" });
   const [ouraAction, setOuraAction] = useState<SourceActionOverlay>({ kind: "none" });
   const [advancing, setAdvancing] = useState(false);

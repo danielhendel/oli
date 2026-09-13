@@ -12,7 +12,7 @@ export type OuraPresenceSnapshot =
   | { status: "error" };
 
 export type AppleHealthSnapshot =
-  | { status: "loading" }
+  | { status: "partial" }
   | { status: "unavailable"; reason: string }
   | { status: "ready"; connected: boolean };
 
