@@ -1,8 +1,10 @@
+// lib/data/activity/useActivityHealthKitTodayStepsCard.ts
 import { useCallback, useState } from "react";
 import { Platform } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { pullStepCountForLocalCalendarDay } from "@/lib/integrations/appleHealth";
+import { getAppleHealthConnected } from "@/lib/integrations/appleHealth/storage";
 import type { DayKey } from "@/lib/ui/calendar/types";
 
 export type ActivityHealthKitTodayStepsCardState =
@@ -12,8 +14,9 @@ export type ActivityHealthKitTodayStepsCardState =
   | { status: "skipped" };
 
 /**
- * Live HealthKit step total for one local calendar day (device TZ). Used for Activity “Today’s Steps”
- * so the card is not limited to persisted daily-facts lag. Non‑iOS or unsigned-in callers get `skipped`.
+ * Live HealthKit step total for one local calendar day (device TZ).
+ * Requires an explicit current-account Apple Health connection — device
+ * permission alone must not authorize a HealthKit query.
  */
 export function useActivityHealthKitTodayStepsCard(opts: { todayDayKey: DayKey; enabled: boolean }): {
   hkToday: ActivityHealthKitTodayStepsCardState;
@@ -33,18 +36,40 @@ export function useActivityHealthKitTodayStepsCard(opts: { todayDayKey: DayKey; 
     }
   }, []);
 
+  const pullIfConnected = useCallback(async () => {
+    if (!enabled || Platform.OS !== "ios") {
+      setHkToday({ status: "skipped" });
+      return;
+    }
+    const connected = await getAppleHealthConnected().catch(() => false);
+    if (!connected) {
+      setHkToday({ status: "skipped" });
+      return;
+    }
+    setHkToday({ status: "partial" });
+    const r = await pullStepCountForLocalCalendarDay(todayDayKey);
+    applyPullResult(r);
+  }, [applyPullResult, enabled, todayDayKey]);
+
   useFocusEffect(
     useCallback(() => {
-      if (!enabled || Platform.OS !== "ios") {
-        setHkToday({ status: "skipped" });
-        return undefined;
-      }
       let cancelled = false;
-      setHkToday({ status: "partial" });
-      void pullStepCountForLocalCalendarDay(todayDayKey).then((r) => {
+      void (async () => {
+        if (!enabled || Platform.OS !== "ios") {
+          if (!cancelled) setHkToday({ status: "skipped" });
+          return;
+        }
+        const connected = await getAppleHealthConnected().catch(() => false);
+        if (cancelled) return;
+        if (!connected) {
+          setHkToday({ status: "skipped" });
+          return;
+        }
+        setHkToday({ status: "partial" });
+        const r = await pullStepCountForLocalCalendarDay(todayDayKey);
         if (cancelled) return;
         applyPullResult(r);
-      });
+      })();
       return () => {
         cancelled = true;
       };
@@ -52,10 +77,8 @@ export function useActivityHealthKitTodayStepsCard(opts: { todayDayKey: DayKey; 
   );
 
   const refreshHealthKitToday = useCallback(() => {
-    if (!enabled || Platform.OS !== "ios") return;
-    setHkToday({ status: "partial" });
-    void pullStepCountForLocalCalendarDay(todayDayKey).then(applyPullResult);
-  }, [applyPullResult, enabled, todayDayKey]);
+    void pullIfConnected();
+  }, [pullIfConnected]);
 
   return { hkToday, refreshHealthKitToday };
 }

@@ -24,7 +24,7 @@ export function MyHealthPerformanceSection({
       >
         {HOME_MY_HEALTH_PERFORMANCE_TITLE}
       </Text>
-      <HealthPerformanceCategoryGrid cards={cards} />
+      {cards ? <HealthPerformanceCategoryGrid cards={cards} /> : <HealthPerformanceCategoryGrid />}
     </View>
   );
 }
