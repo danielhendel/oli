@@ -1,12 +1,14 @@
 // lib/onboarding/useAboutYouForm.ts
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useUserProfileMain } from "@/lib/data/profile/useUserProfileMain";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
+import { cmToFeetInches } from "@/lib/profile/heightConvert";
 
 import { ONBOARDING_ROUTES } from "./constants";
+import { splitCanonicalDateOfBirth } from "./dateOfBirthParts";
 import { mapOnboardingError } from "./mapOnboardingError";
 import {
   emptyAboutYouDraft,
@@ -16,9 +18,22 @@ import {
 import { saveAboutYou } from "./saveAboutYou";
 import type { AboutYouDraft, AboutYouFieldErrors } from "./types";
 
+function draftHasUserInput(d: AboutYouDraft): boolean {
+  return (
+    d.preferredName.trim().length > 0 ||
+    d.birthMonth.trim().length > 0 ||
+    d.birthDay.trim().length > 0 ||
+    d.birthYear.trim().length > 0 ||
+    d.sexAtBirth !== "" ||
+    d.heightCm.trim().length > 0 ||
+    d.heightFeet.trim().length > 0 ||
+    d.weightValue.trim().length > 0
+  );
+}
+
 export function useAboutYouForm() {
   const { user, getIdToken } = useAuth();
-  const { refresh: refreshProfile } = useUserProfileMain();
+  const { state: profileState, refresh: refreshProfile } = useUserProfileMain();
   const prefs = usePreferences();
   const router = useRouter();
 
@@ -27,9 +42,11 @@ export function useAboutYouForm() {
   const [submitting, setSubmitting] = useState(false);
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const draftHydratedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    draftHydratedRef.current = false;
     void (async () => {
       if (!user?.uid) {
         if (!cancelled) {
@@ -46,6 +63,7 @@ export function useAboutYouForm() {
           weightUnit: stored.weightValue ? stored.weightUnit : mass,
           lengthUnit: stored.lengthUnit || "cm",
         });
+        draftHydratedRef.current = true;
         setLoaded(true);
       }
     })();
@@ -53,6 +71,47 @@ export function useAboutYouForm() {
       cancelled = true;
     };
   }, [user?.uid, prefs.state.preferences.units.mass]);
+
+  // Prefill from server profile when draft is empty (existing accounts / resume).
+  useEffect(() => {
+    if (!loaded || !draftHydratedRef.current) return;
+    if (profileState.status !== "ready" || !profileState.profile) return;
+
+    const profile = profileState.profile;
+    const dobParts = profile.identity.dateOfBirth
+      ? splitCanonicalDateOfBirth(profile.identity.dateOfBirth)
+      : null;
+    const heightCm = profile.body.heightCm;
+    const lengthUnit = profile.app.preferredUnits.length === "in" ? "in" : "cm";
+    let heightFeet = "";
+    let heightInches = "";
+    let heightCmStr = "";
+    if (typeof heightCm === "number") {
+      if (lengthUnit === "in") {
+        const fi = cmToFeetInches(heightCm);
+        heightFeet = String(fi.feet);
+        heightInches = String(fi.inches);
+      } else {
+        heightCmStr = String(Math.round(heightCm));
+      }
+    }
+
+    setDraft((prev) => {
+      if (draftHasUserInput(prev)) return prev;
+      return {
+        ...prev,
+        preferredName: profile.identity.firstName?.trim() || "",
+        birthMonth: dobParts?.month ?? "",
+        birthDay: dobParts?.day ?? "",
+        birthYear: dobParts?.year ?? "",
+        sexAtBirth: profile.identity.sexAtBirth ?? "",
+        lengthUnit,
+        heightCm: heightCmStr,
+        heightFeet,
+        heightInches,
+      };
+    });
+  }, [loaded, profileState]);
 
   const updateDraft = useCallback(
     (patch: Partial<AboutYouDraft>) => {

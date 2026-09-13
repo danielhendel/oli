@@ -17,12 +17,12 @@ export const ONBOARDING_ROUTES = {
 } as const;
 
 export const OPENING_COPY = {
-  brand: "Oli",
-  headline: "Pursue Excellence.",
+  brand: "OLI",
+  headline: "Pursue Health Excellence.",
   lines: [
-    "Understand where you are.",
-    "See how you’re progressing.",
-    "Discover how good you can become.",
+    "Know where you are.",
+    "Know what to do.",
+    "Discover how great you can become.",
   ] as const,
   primaryCta: "Get Started",
   secondaryCta: "Sign In",
@@ -30,9 +30,15 @@ export const OPENING_COPY = {
 
 export const ABOUT_YOU_COPY = {
   title: "Let’s get to know you.",
-  subtitle: "Only information required to interpret health and performance data correctly.",
   continueCta: "Continue",
   sexHint: "Used only where health interpretation requires it.",
+  dobGroupLabel: "Date of birth",
+  dobMonthLabel: "Month",
+  dobDayLabel: "Day",
+  dobYearLabel: "Year",
+  dobMonthPlaceholder: "MM",
+  dobDayPlaceholder: "DD",
+  dobYearPlaceholder: "YYYY",
 } as const;
 
 export const CONNECT_COPY = {

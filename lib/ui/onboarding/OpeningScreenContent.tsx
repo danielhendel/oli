@@ -4,14 +4,10 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { OPENING_COPY } from "@/lib/onboarding/constants";
-import {
-  UI_APP_SCREEN_BG,
-  UI_TEXT_MUTED,
-  UI_TEXT_PRIMARY,
-  UI_TEXT_SECONDARY,
-} from "@/lib/ui/theme/uiTokens";
 
+import { OnboardingAmbientBackground } from "./OnboardingAmbientBackground";
 import { onboardingCtaStyles } from "./OnboardingScreenShell";
+import { ONBOARDING_VISUAL } from "./onboardingVisualTokens";
 
 export type OpeningScreenContentProps = {
   onGetStarted: () => void;
@@ -21,8 +17,11 @@ export type OpeningScreenContentProps = {
 export function OpeningScreenContent({ onGetStarted, onSignIn }: OpeningScreenContentProps) {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]} testID="onboarding-opening">
+      <OnboardingAmbientBackground />
       <View style={styles.body}>
-        <Text style={styles.brand}>{OPENING_COPY.brand}</Text>
+        <View style={styles.brandMark} accessibilityRole="header">
+          <Text style={styles.brand}>{OPENING_COPY.brand}</Text>
+        </View>
         <Text style={styles.headline}>{OPENING_COPY.headline}</Text>
         <View style={styles.lines}>
           {OPENING_COPY.lines.map((line) => (
@@ -57,36 +56,49 @@ export function OpeningScreenContent({ onGetStarted, onSignIn }: OpeningScreenCo
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: UI_APP_SCREEN_BG,
+    backgroundColor: ONBOARDING_VISUAL.canvas,
   },
   body: {
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
+    zIndex: 1,
+  },
+  brandMark: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: ONBOARDING_VISUAL.accentWash,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(58,91,219,0.45)",
+    marginBottom: 22,
   },
   brand: {
-    color: UI_TEXT_MUTED,
-    fontSize: 18,
-    fontWeight: "700",
-    letterSpacing: 1.2,
-    marginBottom: 16,
-    textTransform: "uppercase",
+    color: ONBOARDING_VISUAL.textPrimary,
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 2.4,
   },
   headline: {
-    color: UI_TEXT_PRIMARY,
+    color: ONBOARDING_VISUAL.textPrimary,
     fontSize: 36,
     fontWeight: "800",
-    marginBottom: 20,
+    letterSpacing: -0.6,
+    lineHeight: 42,
+    marginBottom: 22,
   },
-  lines: { gap: 10 },
+  lines: { gap: 12 },
   line: {
-    color: UI_TEXT_SECONDARY,
+    color: ONBOARDING_VISUAL.textSecondary,
     fontSize: 18,
-    lineHeight: 26,
+    lineHeight: 28,
+    fontWeight: "500",
   },
   footer: {
     paddingHorizontal: 20,
     paddingBottom: 16,
-    gap: 8,
+    gap: 10,
+    zIndex: 1,
   },
 });

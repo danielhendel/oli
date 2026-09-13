@@ -24,7 +24,12 @@ export type OnboardingRouteState =
 
 export type AboutYouDraft = {
   preferredName: string;
-  dateOfBirth: string;
+  /** Month digits 1–12 (display string). */
+  birthMonth: string;
+  /** Day digits 1–31 (display string). */
+  birthDay: string;
+  /** Year digits YYYY (display string). */
+  birthYear: string;
   sexAtBirth: ProfileSexAtBirth | "";
   heightCm: string;
   weightValue: string;

@@ -1,19 +1,14 @@
 // lib/ui/onboarding/AboutYouScreenContent.tsx
-import React from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useRef } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View, type TextInput as TextInputType } from "react-native";
 
 import { ABOUT_YOU_COPY } from "@/lib/onboarding/constants";
+import { sanitizeDobPartInput } from "@/lib/onboarding/dateOfBirthParts";
 import type { AboutYouDraft, AboutYouFieldErrors } from "@/lib/onboarding/types";
 import type { ProfileSexAtBirth } from "@oli/contracts";
-import {
-  UI_BORDER_HAIRLINE,
-  UI_CARD_SURFACE,
-  UI_TEXT_MUTED,
-  UI_TEXT_PRIMARY,
-  UI_TEXT_SECONDARY,
-} from "@/lib/ui/theme/uiTokens";
 
 import { OnboardingScreenShell, onboardingCtaStyles } from "./OnboardingScreenShell";
+import { ONBOARDING_VISUAL } from "./onboardingVisualTokens";
 
 const SEX_OPTIONS: { value: ProfileSexAtBirth; label: string }[] = [
   { value: "female", label: "Female" },
@@ -39,10 +34,12 @@ export function AboutYouScreenContent({
   onChange,
   onSubmit,
 }: AboutYouScreenContentProps) {
+  const dayRef = useRef<TextInputType>(null);
+  const yearRef = useRef<TextInputType>(null);
+
   return (
     <OnboardingScreenShell
       title={ABOUT_YOU_COPY.title}
-      subtitle={ABOUT_YOU_COPY.subtitle}
       stepIndex={1}
       footer={
         <>
@@ -66,24 +63,72 @@ export function AboutYouScreenContent({
           value={draft.preferredName}
           onChangeText={(preferredName) => onChange({ preferredName })}
           placeholder="What should we call you?"
-          placeholderTextColor={UI_TEXT_MUTED}
+          placeholderTextColor={ONBOARDING_VISUAL.textMuted}
           style={styles.input}
           autoCapitalize="words"
           editable={!submitting}
+          returnKeyType="next"
         />
       </Field>
 
-      <Field label="Date of birth" error={errors.dateOfBirth}>
-        <TextInput
-          value={draft.dateOfBirth}
-          onChangeText={(dateOfBirth) => onChange({ dateOfBirth })}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={UI_TEXT_MUTED}
-          style={styles.input}
-          autoCapitalize="none"
-          editable={!submitting}
-        />
-      </Field>
+      <View style={styles.dobGroup} accessibilityLabel={ABOUT_YOU_COPY.dobGroupLabel}>
+        <Text style={styles.groupLabel}>{ABOUT_YOU_COPY.dobGroupLabel}</Text>
+        <View style={styles.dobRow}>
+          <View style={styles.dobMonth}>
+            <Text style={styles.partLabel}>{ABOUT_YOU_COPY.dobMonthLabel}</Text>
+            <TextInput
+              value={draft.birthMonth}
+              onChangeText={(raw) => {
+                const birthMonth = sanitizeDobPartInput("month", raw);
+                onChange({ birthMonth });
+                if (birthMonth.length === 2) dayRef.current?.focus();
+              }}
+              placeholder={ABOUT_YOU_COPY.dobMonthPlaceholder}
+              placeholderTextColor={ONBOARDING_VISUAL.textMuted}
+              style={styles.input}
+              keyboardType="number-pad"
+              maxLength={2}
+              editable={!submitting}
+              accessibilityLabel={ABOUT_YOU_COPY.dobMonthLabel}
+            />
+          </View>
+          <View style={styles.dobDay}>
+            <Text style={styles.partLabel}>{ABOUT_YOU_COPY.dobDayLabel}</Text>
+            <TextInput
+              ref={dayRef}
+              value={draft.birthDay}
+              onChangeText={(raw) => {
+                const birthDay = sanitizeDobPartInput("day", raw);
+                onChange({ birthDay });
+                if (birthDay.length === 2) yearRef.current?.focus();
+              }}
+              placeholder={ABOUT_YOU_COPY.dobDayPlaceholder}
+              placeholderTextColor={ONBOARDING_VISUAL.textMuted}
+              style={styles.input}
+              keyboardType="number-pad"
+              maxLength={2}
+              editable={!submitting}
+              accessibilityLabel={ABOUT_YOU_COPY.dobDayLabel}
+            />
+          </View>
+          <View style={styles.dobYear}>
+            <Text style={styles.partLabel}>{ABOUT_YOU_COPY.dobYearLabel}</Text>
+            <TextInput
+              ref={yearRef}
+              value={draft.birthYear}
+              onChangeText={(raw) => onChange({ birthYear: sanitizeDobPartInput("year", raw) })}
+              placeholder={ABOUT_YOU_COPY.dobYearPlaceholder}
+              placeholderTextColor={ONBOARDING_VISUAL.textMuted}
+              style={styles.input}
+              keyboardType="number-pad"
+              maxLength={4}
+              editable={!submitting}
+              accessibilityLabel={ABOUT_YOU_COPY.dobYearLabel}
+            />
+          </View>
+        </View>
+        {errors.dateOfBirth ? <Text style={styles.fieldError}>{errors.dateOfBirth}</Text> : null}
+      </View>
 
       <Field label="Sex used for health interpretation" error={errors.sexAtBirth}>
         <Text style={styles.hint}>{ABOUT_YOU_COPY.sexHint}</Text>
@@ -113,12 +158,14 @@ export function AboutYouScreenContent({
           <Pressable
             onPress={() => onChange({ lengthUnit: "cm" })}
             style={[styles.unitBtn, draft.lengthUnit === "cm" ? styles.unitBtnOn : null]}
+            accessibilityState={{ selected: draft.lengthUnit === "cm" }}
           >
             <Text style={styles.unitBtnLabel}>cm</Text>
           </Pressable>
           <Pressable
             onPress={() => onChange({ lengthUnit: "in" })}
             style={[styles.unitBtn, draft.lengthUnit === "in" ? styles.unitBtnOn : null]}
+            accessibilityState={{ selected: draft.lengthUnit === "in" }}
           >
             <Text style={styles.unitBtnLabel}>ft/in</Text>
           </Pressable>
@@ -127,8 +174,8 @@ export function AboutYouScreenContent({
           <TextInput
             value={draft.heightCm}
             onChangeText={(heightCm) => onChange({ heightCm })}
-            placeholder="175"
-            placeholderTextColor={UI_TEXT_MUTED}
+            placeholder="cm"
+            placeholderTextColor={ONBOARDING_VISUAL.textMuted}
             keyboardType="decimal-pad"
             style={styles.input}
             editable={!submitting}
@@ -139,7 +186,7 @@ export function AboutYouScreenContent({
               value={draft.heightFeet}
               onChangeText={(heightFeet) => onChange({ heightFeet })}
               placeholder="ft"
-              placeholderTextColor={UI_TEXT_MUTED}
+              placeholderTextColor={ONBOARDING_VISUAL.textMuted}
               keyboardType="number-pad"
               style={[styles.input, styles.half]}
               editable={!submitting}
@@ -148,7 +195,7 @@ export function AboutYouScreenContent({
               value={draft.heightInches}
               onChangeText={(heightInches) => onChange({ heightInches })}
               placeholder="in"
-              placeholderTextColor={UI_TEXT_MUTED}
+              placeholderTextColor={ONBOARDING_VISUAL.textMuted}
               keyboardType="number-pad"
               style={[styles.input, styles.half]}
               editable={!submitting}
@@ -162,12 +209,14 @@ export function AboutYouScreenContent({
           <Pressable
             onPress={() => onChange({ weightUnit: "kg" })}
             style={[styles.unitBtn, draft.weightUnit === "kg" ? styles.unitBtnOn : null]}
+            accessibilityState={{ selected: draft.weightUnit === "kg" }}
           >
             <Text style={styles.unitBtnLabel}>kg</Text>
           </Pressable>
           <Pressable
             onPress={() => onChange({ weightUnit: "lb" })}
             style={[styles.unitBtn, draft.weightUnit === "lb" ? styles.unitBtnOn : null]}
+            accessibilityState={{ selected: draft.weightUnit === "lb" }}
           >
             <Text style={styles.unitBtnLabel}>lb</Text>
           </Pressable>
@@ -176,7 +225,7 @@ export function AboutYouScreenContent({
           value={draft.weightValue}
           onChangeText={(weightValue) => onChange({ weightValue })}
           placeholder="Optional"
-          placeholderTextColor={UI_TEXT_MUTED}
+          placeholderTextColor={ONBOARDING_VISUAL.textMuted}
           keyboardType="decimal-pad"
           style={styles.input}
           editable={!submitting}
@@ -205,26 +254,40 @@ function Field({
 }
 
 const styles = StyleSheet.create({
-  field: { marginBottom: 18 },
+  field: { marginBottom: 20 },
   label: {
-    color: UI_TEXT_SECONDARY,
+    color: ONBOARDING_VISUAL.textSecondary,
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
     marginBottom: 8,
+    letterSpacing: 0.2,
+  },
+  groupLabel: {
+    color: ONBOARDING_VISUAL.textSecondary,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 8,
+    letterSpacing: 0.2,
+  },
+  partLabel: {
+    color: ONBOARDING_VISUAL.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 6,
   },
   hint: {
-    color: UI_TEXT_MUTED,
+    color: ONBOARDING_VISUAL.textMuted,
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 8,
   },
   input: {
-    minHeight: 44,
-    borderRadius: 12,
+    minHeight: ONBOARDING_VISUAL.minTap,
+    borderRadius: ONBOARDING_VISUAL.radiusSm,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: UI_BORDER_HAIRLINE,
-    backgroundColor: UI_CARD_SURFACE,
-    color: UI_TEXT_PRIMARY,
+    borderColor: ONBOARDING_VISUAL.border,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    color: ONBOARDING_VISUAL.textPrimary,
     paddingHorizontal: 14,
     fontSize: 16,
   },
@@ -233,26 +296,41 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 13,
   },
+  dobGroup: {
+    marginBottom: 20,
+    padding: 14,
+    borderRadius: ONBOARDING_VISUAL.radiusMd,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: ONBOARDING_VISUAL.border,
+    backgroundColor: "rgba(255,255,255,0.03)",
+  },
+  dobRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  dobMonth: { flex: 1 },
+  dobDay: { flex: 1 },
+  dobYear: { flex: 1.35 },
   chipRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
   },
   chip: {
-    minHeight: 44,
+    minHeight: ONBOARDING_VISUAL.minTap,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: ONBOARDING_VISUAL.radiusSm,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: UI_BORDER_HAIRLINE,
-    backgroundColor: UI_CARD_SURFACE,
+    borderColor: ONBOARDING_VISUAL.border,
+    backgroundColor: "rgba(255,255,255,0.04)",
     justifyContent: "center",
   },
   chipSelected: {
-    borderColor: "#3A5BDB",
-    backgroundColor: "rgba(58,91,219,0.18)",
+    borderColor: ONBOARDING_VISUAL.accent,
+    backgroundColor: ONBOARDING_VISUAL.accentWash,
   },
-  chipLabel: { color: UI_TEXT_SECONDARY, fontWeight: "600" },
-  chipLabelSelected: { color: UI_TEXT_PRIMARY },
+  chipLabel: { color: ONBOARDING_VISUAL.textSecondary, fontWeight: "600" },
+  chipLabelSelected: { color: ONBOARDING_VISUAL.textPrimary },
   unitToggle: {
     flexDirection: "row",
     gap: 8,
@@ -263,14 +341,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: UI_BORDER_HAIRLINE,
+    borderColor: ONBOARDING_VISUAL.border,
     justifyContent: "center",
   },
   unitBtnOn: {
-    borderColor: "#3A5BDB",
-    backgroundColor: "rgba(58,91,219,0.18)",
+    borderColor: ONBOARDING_VISUAL.accent,
+    backgroundColor: ONBOARDING_VISUAL.accentWash,
   },
-  unitBtnLabel: { color: UI_TEXT_PRIMARY, fontWeight: "600" },
+  unitBtnLabel: { color: ONBOARDING_VISUAL.textPrimary, fontWeight: "600" },
   row: { flexDirection: "row", gap: 10 },
   half: { flex: 1 },
 });

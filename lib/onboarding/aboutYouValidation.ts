@@ -1,12 +1,9 @@
 // lib/onboarding/aboutYouValidation.ts
-import {
-  profileIsoDateSchema,
-  profileSexAtBirthSchema,
-  type ProfileSexAtBirth,
-} from "@oli/contracts";
+import { profileSexAtBirthSchema, type ProfileSexAtBirth } from "@oli/contracts";
 
 import { feetInchesToCm } from "@/lib/profile/heightConvert";
 
+import { validateDateOfBirthParts } from "./dateOfBirthParts";
 import type { AboutYouDraft, AboutYouFieldErrors } from "./types";
 
 export type AboutYouValidated = {
@@ -17,14 +14,6 @@ export type AboutYouValidated = {
   /** Optional weight in kg; null when left blank. */
   weightKg: number | null;
 };
-
-function todayUtcYmd(): string {
-  const d = new Date();
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 function resolveHeightCm(draft: AboutYouDraft): { ok: true; heightCm: number } | { ok: false; error: string } {
   if (draft.lengthUnit === "in") {
@@ -78,17 +67,18 @@ export function validateAboutYouDraft(
     errors.preferredName = "Name must be 80 characters or fewer.";
   }
 
-  const dobRaw = draft.dateOfBirth.trim();
-  const dobParsed = profileIsoDateSchema.safeParse(dobRaw);
-  if (!dobParsed.success) {
-    errors.dateOfBirth = "Enter date of birth as YYYY-MM-DD.";
-  } else if (dobParsed.data > todayUtcYmd()) {
-    errors.dateOfBirth = "Date of birth can’t be in the future.";
+  const dob = validateDateOfBirthParts({
+    month: draft.birthMonth,
+    day: draft.birthDay,
+    year: draft.birthYear,
+  });
+  if (!dob.ok) {
+    errors.dateOfBirth = dob.error;
   }
 
   const sexParsed = profileSexAtBirthSchema.safeParse(draft.sexAtBirth);
   if (!sexParsed.success) {
-    errors.sexAtBirth = "Select sex at birth.";
+    errors.sexAtBirth = "Select sex used for health interpretation.";
   }
 
   const height = resolveHeightCm(draft);
@@ -109,7 +99,7 @@ export function validateAboutYouDraft(
     ok: true,
     value: {
       preferredName,
-      dateOfBirth: dobParsed.data!,
+      dateOfBirth: dob.ok ? dob.iso : "",
       sexAtBirth: sexParsed.data!,
       heightCm: height.ok ? height.heightCm : 0,
       weightKg: weight.ok ? weight.weightKg : null,

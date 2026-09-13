@@ -32,4 +32,26 @@ describe("onboarding draft account isolation", () => {
     await clearUserScopedLocalData({ previousUserId: "uid_a", reason: "account_switch" });
     expect(await AsyncStorage.getItem(`${ONBOARDING_DRAFT_KEY_PREFIX}uid_a`)).toBeNull();
   });
+
+  it("migrates legacy single dateOfBirth draft into month/day/year", async () => {
+    await AsyncStorage.setItem(
+      `${ONBOARDING_DRAFT_KEY_PREFIX}uid_legacy`,
+      JSON.stringify({
+        preferredName: "Legacy",
+        dateOfBirth: "1991-07-04",
+        sexAtBirth: "",
+        heightCm: "",
+        weightValue: "",
+        weightUnit: "kg",
+        lengthUnit: "cm",
+        heightFeet: "",
+        heightInches: "",
+      }),
+    );
+    const draft = await loadAboutYouDraft("uid_legacy");
+    expect(draft.preferredName).toBe("Legacy");
+    expect(draft.birthYear).toBe("1991");
+    expect(draft.birthMonth).toBe("7");
+    expect(draft.birthDay).toBe("4");
+  });
 });

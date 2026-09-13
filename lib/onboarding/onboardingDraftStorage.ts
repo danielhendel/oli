@@ -2,12 +2,15 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { onboardingDraftStorageKey } from "./constants";
+import { splitCanonicalDateOfBirth } from "./dateOfBirthParts";
 import type { AboutYouDraft } from "./types";
 
 export function emptyAboutYouDraft(): AboutYouDraft {
   return {
     preferredName: "",
-    dateOfBirth: "",
+    birthMonth: "",
+    birthDay: "",
+    birthYear: "",
     sexAtBirth: "",
     heightCm: "",
     weightValue: "",
@@ -18,15 +21,38 @@ export function emptyAboutYouDraft(): AboutYouDraft {
   };
 }
 
-function isDraftShape(v: unknown): v is AboutYouDraft {
+function migrateLegacyDob(raw: Record<string, unknown>): Pick<
+  AboutYouDraft,
+  "birthMonth" | "birthDay" | "birthYear"
+> {
+  if (
+    typeof raw.birthMonth === "string" ||
+    typeof raw.birthDay === "string" ||
+    typeof raw.birthYear === "string"
+  ) {
+    return {
+      birthMonth: typeof raw.birthMonth === "string" ? raw.birthMonth : "",
+      birthDay: typeof raw.birthDay === "string" ? raw.birthDay : "",
+      birthYear: typeof raw.birthYear === "string" ? raw.birthYear : "",
+    };
+  }
+  if (typeof raw.dateOfBirth === "string" && raw.dateOfBirth.trim()) {
+    const parts = splitCanonicalDateOfBirth(raw.dateOfBirth);
+    if (parts) {
+      return {
+        birthMonth: parts.month,
+        birthDay: parts.day,
+        birthYear: parts.year,
+      };
+    }
+  }
+  return { birthMonth: "", birthDay: "", birthYear: "" };
+}
+
+function isDraftShape(v: unknown): v is Record<string, unknown> {
   if (typeof v !== "object" || v === null) return false;
   const o = v as Record<string, unknown>;
-  return (
-    typeof o.preferredName === "string" &&
-    typeof o.dateOfBirth === "string" &&
-    typeof o.heightCm === "string" &&
-    typeof o.weightValue === "string"
-  );
+  return typeof o.preferredName === "string" && typeof o.heightCm === "string";
 }
 
 export async function loadAboutYouDraft(uid: string): Promise<AboutYouDraft> {
@@ -35,10 +61,21 @@ export async function loadAboutYouDraft(uid: string): Promise<AboutYouDraft> {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!isDraftShape(parsed)) return emptyAboutYouDraft();
+    const dob = migrateLegacyDob(parsed);
     return {
       ...emptyAboutYouDraft(),
-      ...parsed,
-      sexAtBirth: parsed.sexAtBirth === "" || parsed.sexAtBirth == null ? "" : parsed.sexAtBirth,
+      preferredName: typeof parsed.preferredName === "string" ? parsed.preferredName : "",
+      ...dob,
+      sexAtBirth:
+        parsed.sexAtBirth === "" || parsed.sexAtBirth == null
+          ? ""
+          : (parsed.sexAtBirth as AboutYouDraft["sexAtBirth"]),
+      heightCm: typeof parsed.heightCm === "string" ? parsed.heightCm : "",
+      weightValue: typeof parsed.weightValue === "string" ? parsed.weightValue : "",
+      weightUnit: parsed.weightUnit === "lb" ? "lb" : "kg",
+      lengthUnit: parsed.lengthUnit === "in" ? "in" : "cm",
+      heightFeet: typeof parsed.heightFeet === "string" ? parsed.heightFeet : "",
+      heightInches: typeof parsed.heightInches === "string" ? parsed.heightInches : "",
     };
   } catch {
     return emptyAboutYouDraft();
