@@ -1,5 +1,16 @@
 // lib/onboarding/useConnectSources.ts
-import { useCallback, useEffect, useState } from "react";
+/**
+ * Connect-step orchestration.
+ *
+ * ROOT CAUSE (physical redbox): useOuraPresence() returns a new object every
+ * render (`{ ...state, refetch }`). An effect that depended on that object and
+ * called setOura(...) produced a maximum-update-depth loop.
+ *
+ * FIX: Derive card state with useMemo from scalar presence values + transient
+ * action overlays. Never mirror presence into local state via effect.
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -17,7 +28,13 @@ import { connectAppleHealthForOnboarding } from "./appleHealthOnboardingConnect"
 import { markOnboardingUnderstand } from "./advanceOnboardingStep";
 import { CONNECT_COPY, ONBOARDING_ROUTES } from "./constants";
 import { mapOnboardingError } from "./mapOnboardingError";
-import type { ConnectSourceCardState } from "./types";
+import {
+  mapAppleHealthConnectCard,
+  mapOuraConnectCard,
+  type AppleHealthSnapshot,
+  type OuraPresenceSnapshot,
+  type SourceActionOverlay,
+} from "./mapConnectSourceCards";
 
 const OURA_AUTHORIZE_PREFIX = "https://cloud.ouraring.com/oauth/authorize";
 
@@ -35,18 +52,20 @@ export function useConnectSources() {
   const { refresh: refreshProfile } = useUserProfileMain();
   const router = useRouter();
 
-  const [apple, setApple] = useState<ConnectSourceCardState>({ id: "apple_health", status: "idle" });
-  const [oura, setOura] = useState<ConnectSourceCardState>({ id: "oura", status: "idle" });
+  const [appleSnapshot, setAppleSnapshot] = useState<AppleHealthSnapshot>({ status: "loading" });
+  const [appleAction, setAppleAction] = useState<SourceActionOverlay>({ kind: "none" });
+  const [ouraAction, setOuraAction] = useState<SourceActionOverlay>({ kind: "none" });
   const [advancing, setAdvancing] = useState(false);
   const [bannerError, setBannerError] = useState<string | null>(null);
+  const advancingRef = useRef(false);
 
+  // One-shot account-scoped Apple Health flag read — no HealthKit query/ingest.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       if (Platform.OS !== "ios") {
         if (!cancelled) {
-          setApple({
-            id: "apple_health",
+          setAppleSnapshot({
             status: "unavailable",
             reason: "Apple Health is available on iPhone.",
           });
@@ -56,8 +75,7 @@ export function useConnectSources() {
       const notAvailable = await getAppleHealthNotAvailable().catch(() => false);
       if (cancelled) return;
       if (notAvailable) {
-        setApple({
-          id: "apple_health",
+        setAppleSnapshot({
           status: "unavailable",
           reason: "Apple Health is not available on this device.",
         });
@@ -65,36 +83,51 @@ export function useConnectSources() {
       }
       const connected = await getAppleHealthConnected().catch(() => false);
       if (cancelled) return;
-      setApple({
-        id: "apple_health",
-        status: connected ? "connected" : "idle",
-      });
+      setAppleSnapshot({ status: "ready", connected });
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  useEffect(() => {
-    if (ouraPresence.status === "ready") {
-      setOura({
-        id: "oura",
-        status: ouraPresence.data.connected ? "connected" : "idle",
-      });
-    } else if (ouraPresence.status === "error") {
-      setOura({
-        id: "oura",
-        status: "error",
-        message: "Could not check Oura status.",
-      });
+  // Scalar presence deps only — never the whole ouraPresence wrapper object.
+  const ouraPresenceStatus = ouraPresence.status;
+  const ouraConnected =
+    ouraPresence.status === "ready" ? ouraPresence.data.connected : null;
+  const ouraRefetch = ouraPresence.refetch;
+
+  const ouraPresenceSnapshot: OuraPresenceSnapshot = useMemo(() => {
+    if (ouraPresenceStatus === "ready") {
+      return { status: "ready", connected: ouraConnected === true };
     }
-  }, [ouraPresence]);
+    if (ouraPresenceStatus === "error") {
+      return { status: "error" };
+    }
+    return { status: "partial" };
+  }, [ouraConnected, ouraPresenceStatus]);
+
+  // Clear local Oura action overlay once server presence confirms connected.
+  useEffect(() => {
+    if (ouraPresenceStatus === "ready" && ouraConnected === true) {
+      setOuraAction((prev) => (prev.kind === "none" ? prev : { kind: "none" }));
+    }
+  }, [ouraConnected, ouraPresenceStatus]);
+
+  const apple = useMemo(
+    () => mapAppleHealthConnectCard(appleSnapshot, appleAction),
+    [appleAction, appleSnapshot],
+  );
+
+  const oura = useMemo(
+    () => mapOuraConnectCard(ouraPresenceSnapshot, ouraAction),
+    [ouraAction, ouraPresenceSnapshot],
+  );
 
   const connectAppleHealth = useCallback(async () => {
     setBannerError(null);
 
     const runConnect = async () => {
-      setApple({ id: "apple_health", status: "connecting" });
+      setAppleAction({ kind: "connecting" });
       try {
         const result = await connectAppleHealthForOnboarding({
           getIdToken,
@@ -102,33 +135,31 @@ export function useConnectSources() {
         });
         if (!result.ok) {
           if (result.reason === "unavailable" || result.reason === "not_ios") {
-            setApple({
-              id: "apple_health",
+            setAppleAction({ kind: "none" });
+            setAppleSnapshot({
               status: "unavailable",
               reason: "Apple Health is not available on this device.",
             });
             return;
           }
           if (result.reason === "permission_denied") {
-            setApple({
-              id: "apple_health",
-              status: "error",
+            setAppleAction({
+              kind: "error",
               message: "Permission was not granted. You can try again or continue later.",
             });
             return;
           }
-          setApple({
-            id: "apple_health",
-            status: "error",
+          setAppleAction({
+            kind: "error",
             message: "Could not connect Apple Health. Try again.",
           });
           return;
         }
-        setApple({ id: "apple_health", status: "connected" });
+        setAppleAction({ kind: "none" });
+        setAppleSnapshot({ status: "ready", connected: true });
       } catch (e) {
-        setApple({
-          id: "apple_health",
-          status: "error",
+        setAppleAction({
+          kind: "error",
           message: mapOnboardingError(e).message,
         });
       }
@@ -141,9 +172,6 @@ export function useConnectSources() {
         {
           text: CONNECT_COPY.appleHealthPrePermissionCancel,
           style: "cancel",
-          onPress: () => {
-            setApple({ id: "apple_health", status: "idle" });
-          },
         },
         {
           text: CONNECT_COPY.appleHealthPrePermissionContinue,
@@ -157,49 +185,47 @@ export function useConnectSources() {
 
   const connectOura = useCallback(async () => {
     setBannerError(null);
-    setOura({ id: "oura", status: "connecting" });
+    setOuraAction({ kind: "connecting" });
     try {
       const token = await getIdToken(true);
       if (!token) {
-        setOura({ id: "oura", status: "error", message: "Please sign in again." });
+        setOuraAction({ kind: "error", message: "Please sign in again." });
         return;
       }
       const res = await getOuraConnectUrl(token);
       if (!res.ok || !res.json?.url) {
-        setOura({
-          id: "oura",
-          status: "error",
+        setOuraAction({
+          kind: "error",
           message: "Could not start Oura connection.",
         });
         return;
       }
       const authUrl = res.json.url;
       if (!authUrl.startsWith(OURA_AUTHORIZE_PREFIX)) {
-        setOura({
-          id: "oura",
-          status: "error",
+        setOuraAction({
+          kind: "error",
           message: "Invalid Oura authorization URL.",
         });
         return;
       }
       const result = await WebBrowser.openAuthSessionAsync(authUrl, getOuraReturnUrl());
       if (result.type === "cancel") {
-        setOura({ id: "oura", status: "idle" });
+        setOuraAction({ kind: "none" });
         return;
       }
-      await ouraPresence.refetch();
-      // Stay on connect screen after OAuth return.
+      setOuraAction({ kind: "none" });
+      await ouraRefetch();
     } catch (e) {
-      setOura({
-        id: "oura",
-        status: "error",
+      setOuraAction({
+        kind: "error",
         message: mapOnboardingError(e).message,
       });
     }
-  }, [getIdToken, ouraPresence]);
+  }, [getIdToken, ouraRefetch]);
 
-  const continueNext = useCallback(async () => {
-    if (advancing) return;
+  const advanceToUnderstand = useCallback(async () => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
     setAdvancing(true);
     setBannerError(null);
     try {
@@ -218,9 +244,10 @@ export function useConnectSources() {
     } catch (e) {
       setBannerError(mapOnboardingError(e).message);
     } finally {
+      advancingRef.current = false;
       setAdvancing(false);
     }
-  }, [advancing, getIdToken, refreshProfile, router]);
+  }, [getIdToken, refreshProfile, router]);
 
   return {
     apple,
@@ -229,7 +256,9 @@ export function useConnectSources() {
     bannerError,
     connectAppleHealth,
     connectOura,
-    continueNext,
-    skipForLater: continueNext,
+    /** Continues without connecting sources — no HealthKit / Oura side effects. */
+    continueNext: advanceToUnderstand,
+    /** Explicit skip path — identical persistence, no source actions. */
+    skipForLater: advanceToUnderstand,
   };
 }
