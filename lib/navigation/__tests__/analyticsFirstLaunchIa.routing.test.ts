@@ -55,14 +55,15 @@ describe("R1 analytics-first routing compatibility", () => {
     expect(builder).not.toContain("ProgramBuilderHubScreen");
   });
 
-  it("locks production dock to Home Plan Progress You", () => {
+  it("locks production dock to Home Today Plan Progress You", () => {
     expect(PRIMARY_NAVIGATION_ITEMS.map((i) => i.label)).toEqual([
       "Home",
+      "Today",
       "Plan",
       "Progress",
       "You",
     ]);
-    expect(PRIMARY_NAVIGATION_ITEMS).toHaveLength(4);
+    expect(PRIMARY_NAVIGATION_ITEMS).toHaveLength(5);
   });
 
   it("maps Movement only as a presentation label for Activity", () => {

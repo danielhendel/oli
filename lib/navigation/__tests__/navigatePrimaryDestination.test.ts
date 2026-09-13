@@ -43,6 +43,30 @@ describe("navigatePrimaryDestination", () => {
     expect(push).toHaveBeenCalledWith("/(app)/(tabs)/dash");
   });
 
+  it("pushes Today via navigatePrimaryDestination(\"today\")", () => {
+    const push = jest.fn();
+    const today = PRIMARY_NAVIGATION_ITEMS.find((i) => i.id === "today")!;
+    navigatePrimaryDestination({
+      item: today,
+      activeDestination: "home",
+      pathname: "/dash",
+      router: { push, replace: jest.fn() },
+    });
+    expect(push).toHaveBeenCalledWith("/(app)/(tabs)/today");
+  });
+
+  it("does not push Today when already on Today", () => {
+    const push = jest.fn();
+    const today = PRIMARY_NAVIGATION_ITEMS.find((i) => i.id === "today")!;
+    navigatePrimaryDestination({
+      item: today,
+      activeDestination: "today",
+      pathname: "/today",
+      router: { push, replace: jest.fn() },
+    });
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it("does not invoke a health-menu callback as a fifth destination", () => {
     const push = jest.fn();
     const onHealthMenuPress = jest.fn();

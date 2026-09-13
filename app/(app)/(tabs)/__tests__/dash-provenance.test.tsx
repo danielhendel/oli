@@ -1,253 +1,88 @@
-// app/(app)/(tabs)/__tests__/dash-provenance.test.tsx
-// Dash shows title, subtitle, and Daily Energy hero card.
+/**
+ * Home tab provenance: domain map shell (no Daily Energy / legacy Dash composition).
+ */
 
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
-import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
-import { setDashDailyMonitorFoundationEnabledForTests } from "@/lib/data/dash/dashDailyMonitorFoundation";
-
-const mockUseTodayHealthHero = jest.fn();
-jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
-  useTodayHealthHero: (...args: unknown[]) => mockUseTodayHealthHero(...args),
-}));
-
-jest.mock("@/lib/hooks/useDailyReadinessCard", () => ({
-  useDailyReadinessCard: () => ({
-    vm: { status: "missing", day: "2026-05-11", message: "Waiting for Oura readiness data." },
-    refetch: jest.fn(),
-  }),
-}));
+import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
-  useAuth: () => ({ user: { uid: "t1" }, initializing: false, getIdToken: jest.fn() }),
-}));
-
-jest.mock("@/components/navigation/ManageNavigationContext", () => ({
-  useManageNavigation: () => ({
-    manageVisible: false,
-    menuAnchor: null,
-    openManage: jest.fn(),
-    closeManage: jest.fn(),
+  useAuth: () => ({
+    user: { uid: "u1", displayName: "Sam", email: "s@example.com" },
+    initializing: false,
+    getIdToken: jest.fn(async () => "token"),
   }),
 }));
 
 jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
-  useUserProfileMain: () => ({ state: { status: "missing" } }),
-}));
-
-jest.mock("@/lib/data/dash/useBodyCompositionDashCard", () => ({
-  useBodyCompositionDashCard: () => ({
-    loading: false,
-    error: null,
-    hasUser: true,
-    goalsHref: "/(app)/body/settings",
-    overviewDay: "2026-05-11",
-    built: {
-      tag: "ready" as const,
-      weightPrimaryLabel: "159.3 lb",
-      readingAsOfLabel: "As of today",
-      rows: [],
-      cardAccessibilityLabel: "bc",
+  useUserProfileMain: () => ({
+    state: {
+      status: "ready",
+      profile: {
+        identity: { firstName: "Sam", lastName: null, dateOfBirth: null, sexAtBirth: null },
+      },
     },
   }),
 }));
 
-jest.mock("@/lib/data/dash/useWeeklyFitnessCard", () => ({
-  useWeeklyFitnessCard: () => ({
-    loading: false,
-    error: null,
-    model: null,
-    goals: {
-      activityStepsPerDayGoal: 10000,
-      strengthWorkoutsPerWeekGoal: 5,
-      cardioMilesPerWeekGoal: 10,
-      isDefault: true,
-    },
-    goalsHref: "/(app)/fitness-goals",
-  }),
-}));
-
-jest.mock("@/lib/data/dash/useDailyNutritionCard", () => ({
-  useDailyNutritionCard: () => ({
-    model: {
-      calorieLabel: "0 kcal",
-      hasAnyNutrition: false,
-      rows: [],
-    },
-    loading: false,
-    error: null,
-  }),
-}));
-
-jest.mock("react-native", () => ({
-  View: "View",
-  Text: "Text",
-  Pressable: "Pressable",
-  Modal: "Modal",
-  ScrollView: "ScrollView",
-  ActivityIndicator: "ActivityIndicator",
-  StyleSheet: { create: (s: unknown) => s },
-  Easing: {
-    out: (e: (t: number) => number) => e,
-    cubic: (t: number) => t * t * t,
-    inOut: (fn: (t: number) => number) => fn,
-    quad: (t: number) => t * t,
-  },
-  Animated: {
-    View: "Animated.View",
-    Value: function (initial: number) {
-      return {
-        _value: initial,
-        interpolate: () => "0%",
-        setValue: jest.fn(),
-      };
-    },
-    timing: function () {
-      return { start: jest.fn() };
-    },
-    sequence: () => ({ start: jest.fn() }),
-    loop: () => ({ start: jest.fn(), stop: jest.fn() }),
-  },
-}));
-
-jest.mock("react-native-safe-area-context", () => ({
-  SafeAreaView: "SafeAreaView",
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+jest.mock("@/lib/ui/navigation/useFloatingTabBarScrollPadding", () => ({
+  useFloatingTabBarScrollPadding: () => 80,
 }));
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: jest.fn() }),
-  useFocusEffect: (cb: () => void) => cb(),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  usePathname: () => "/dash",
+  useFocusEffect: () => undefined,
 }));
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: () => require("react").createElement("View", { "data-testid": "icon" }),
-}));
-
-jest.mock("react-native-svg", () => ({
-  __esModule: true,
-  default: "Svg",
-  Circle: "Circle",
-}));
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const DashScreen = require("../dash").default;
+jest.mock("@/lib/ui/ScreenStates", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const R = require("react");
+  return {
+    ScreenContainer: ({ children }: { children: unknown }) =>
+      R.createElement(R.Fragment, null, children),
+  };
+});
 
 function collectAllText(test: renderer.ReactTestRenderer): string {
-  const nodes = test.root.findAllByType("Text");
   const parts: string[] = [];
-  for (const n of nodes) {
-    for (const child of n.children) {
-      if (typeof child === "string" || typeof child === "number") parts.push(String(child));
+  const walk = (n: renderer.ReactTestInstance | string | number) => {
+    if (typeof n === "string" || typeof n === "number") {
+      parts.push(String(n));
+      return;
     }
-  }
+    if (n.children) {
+      for (const c of n.children) {
+        if (typeof c === "string" || typeof c === "number") parts.push(String(c));
+        else if (c && typeof c === "object") walk(c as renderer.ReactTestInstance);
+      }
+    }
+  };
+  walk(test.root);
   return parts.join(" ");
 }
 
-describe("Dash provenance", () => {
-  beforeEach(() => {
-    setDashDailyMonitorFoundationEnabledForTests(false);
-    setDashWeeklyProgressRelocationEnabledForTests(true);
-    mockUseTodayHealthHero.mockReset();
-    mockUseTodayHealthHero.mockReturnValue({
-      energyLoading: false,
-      energyError: null,
-      refetch: jest.fn(),
-      energy: {
-        modelVersion: "daily_energy_v3",
-        computedAt: "2026-05-05T12:00:00.000Z",
-        day: "2026-05-05",
-        estimatedKcal: { low: 2120, high: 2480, midpoint: 2300 },
-        variancePct: 0.081,
-        confidence: "moderate",
-        factors: {
-          baseline: { kcal: 1680 },
-          steps: { kcal: 320 },
-          cardio: { kcal: 180 },
-          strength: { kcalLow: 90, kcalHigh: 180 },
-        },
-        missingRequiredInputs: [],
-      },
-      sleepCardVm: {
-        status: "missing",
-        day: "2026-05-05",
-        message: "No sleep data logged for this day.",
-      },
-    });
-  });
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const DashScreen = require("../dash").default;
 
-  afterEach(() => {
-    setDashWeeklyProgressRelocationEnabledForTests(null);
-    setDashDailyMonitorFoundationEnabledForTests(null);
-  });
-
-  it("shows Oli screen title and Body Composition + Daily Energy sections", () => {
+describe("Dash / Home provenance", () => {
+  it("shows Oli header, hamburger, and My Health & Performance cards", () => {
+    allowConsoleForThisTest({ error: [/not wrapped in act/] });
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
     expect(text).toContain("Oli");
+    expect(text).toContain("My Health & Performance");
     expect(text).toContain("Body Composition");
-    expect(text).toContain("Daily Energy");
+    expect(text).toContain("Cardio Fitness");
     expect(text).not.toContain("Where am I?");
-    expect(text).not.toContain("Track, understand, and improve every part of your health.");
-  });
-
-  it("renders header settings control on Dash without a hamburger fifth destination", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<DashScreen />);
-    });
-    expect(
-      test.root.findAll(
-        (n) => (n.props as { testID?: string }).testID === "dash-manage-menu-trigger",
-      ).length,
-    ).toBe(0);
-    expect(
-      test.root.findAll(
-        (n) => (n.props as { testID?: string }).testID === "user-initial-settings-button",
-      ).length,
-    ).toBe(1);
-  });
-
-  it("renders factor rows on Daily Energy without legacy Dash tagline", () => {
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<DashScreen />);
-    });
-    const text = collectAllText(test);
-    expect(text).not.toContain("Track, understand, and improve every part of your health.");
-    expect(text).toContain("Body Composition");
-    expect(text).toContain("BMR");
-    expect(text).toContain("NEAT");
-    expect(text).toContain("Cardio");
-    expect(text).toContain("Strength");
-    expect(text).not.toContain("Weekly Fitness");
-    expect(text).not.toContain("Progress to goal");
-    expect(text).toContain("Daily Nutrition");
-    expect(text).toContain("Oura Readiness");
-    expect(text).not.toContain("Labs");
-  });
-
-  it("renders empty-state copy when energy is unavailable", () => {
-    mockUseTodayHealthHero.mockReturnValue({
-      energyLoading: false,
-      energyError: null,
-      refetch: jest.fn(),
-      energy: undefined,
-      sleepCardVm: {
-        status: "missing",
-        day: "2026-05-05",
-        message: "No sleep data logged for this day.",
-      },
-    });
-    let test!: renderer.ReactTestRenderer;
-    act(() => {
-      test = renderer.create(<DashScreen />);
-    });
-    const text = collectAllText(test);
-    expect(text).toContain("Not enough data yet to estimate energy.");
+    expect(text).not.toContain("Daily Energy");
+    expect(text).not.toContain("Building your health picture");
+    expect(test.root.findByProps({ testID: "app-header-menu-button" })).toBeTruthy();
+    expect(test.root.findByProps({ testID: "user-initial-settings-button" })).toBeTruthy();
+    expect(test.root.findAllByProps({ testID: "daily-monitor-host" }).length).toBe(0);
   });
 });

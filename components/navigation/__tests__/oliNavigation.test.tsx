@@ -86,12 +86,14 @@ const TEST_ANCHOR = { x: 300, y: 680, width: 52, height: 52 };
 function buildTabBarProps(focusedRouteIndex: number): BottomTabBarProps {
   const routes = [
     { key: "dash-k", name: "dash" },
+    { key: "today-k", name: "today" },
     { key: "program-k", name: "program" },
     { key: "progress-k", name: "progress" },
     { key: "you-k", name: "you" },
   ];
   const titles: Record<string, string> = {
     dash: "Home",
+    today: "Today",
     program: "Plan",
     progress: "Progress",
     you: "You",
@@ -141,12 +143,12 @@ describe("Oli bottom navigation", () => {
     setPrimaryNavHealthV1EnabledForTests(null);
   });
 
-  it("renders four primary tabs (Home, Plan, Progress, You)", () => {
+  it("renders five primary tabs (Home, Today, Plan, Progress, You)", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(0)} />);
     });
-    const ids = ["home", "plan", "progress", "you"].map((n) => `oli-tab-${n}`);
+    const ids = ["home", "today", "plan", "progress", "you"].map((n) => `oli-tab-${n}`);
     for (const id of ids) {
       test.root.findByProps({ testID: id });
     }
@@ -184,7 +186,7 @@ describe("Oli bottom navigation", () => {
   it("uses calendar-ring blue for the active tab and white for inactive tabs", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(2)} />);
+      test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(3)} />);
     });
     const json = JSON.stringify(test.toJSON());
     expect(json).toContain(SYSTEM_ACCENT);
@@ -236,7 +238,7 @@ describe("Oli bottom navigation", () => {
   it("marks the active tab as selected when that tab is focused", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(2)} />);
+      test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(3)} />);
     });
     const progressTab = test.root.findByProps({ testID: "oli-tab-progress" });
     expect(progressTab.props.accessibilityState.selected).toBe(true);
@@ -252,7 +254,7 @@ describe("Oli bottom navigation", () => {
     expect(test.root.findByProps({ testID: "oli-tab-home" }).props.accessibilityState.selected).toBe(
       true,
     );
-    for (const id of ["plan", "progress", "you"]) {
+    for (const id of ["today", "plan", "progress", "you"]) {
       expect(test.root.findByProps({ testID: `oli-tab-${id}` }).props.accessibilityState.selected).toBe(
         false,
       );
@@ -449,7 +451,7 @@ describe("Phase 2G-A health primary navigation", () => {
     setPrimaryNavHealthV1EnabledForTests(null);
   });
 
-  it("renders a four-item pill without Health inside", () => {
+  it("renders a five-item pill without Health inside", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<OliBottomNav tabBarProps={buildTabBarProps(0)} />);
@@ -535,7 +537,7 @@ describe("Phase 2G-A health primary navigation", () => {
     expect(FLOATING_NAV_PILL_FAB_GAP).toBe(10);
   });
 
-  it("chrome renders the four-item pill with no detached FAB", () => {
+  it("chrome renders the five-item pill with no detached FAB", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(
@@ -649,7 +651,7 @@ describe("deprecated health-nav flag does not restore a fifth destination", () =
     setPrimaryNavHealthV1EnabledForTests(null);
   });
 
-  it("EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1=0 still renders Home Plan Progress You with no FAB", () => {
+  it("EXPO_PUBLIC_PRIMARY_NAV_HEALTH_V1=0 still renders Home Today Plan Progress You with no FAB", () => {
     setPrimaryNavHealthV1EnabledForTests(false);
     let test!: renderer.ReactTestRenderer;
     act(() => {
@@ -659,7 +661,7 @@ describe("deprecated health-nav flag does not restore a fifth destination", () =
         />,
       );
     });
-    for (const id of ["home", "plan", "progress", "you"]) {
+    for (const id of ["home", "today", "plan", "progress", "you"]) {
       test.root.findByProps({ testID: `oli-tab-${id}` });
     }
     test.root.findByProps({ testID: "oli-primary-nav-pill" });

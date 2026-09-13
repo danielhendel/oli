@@ -191,7 +191,7 @@ describe("TabsLayout", () => {
     expect(tabsNode.props["data-initial-route"]).toBe("dash");
   });
 
-  it("registers Home Plan Progress You as visible titles and hides Timeline Library Profile", () => {
+  it("registers Home Today Plan Progress You as visible titles and hides Timeline Library Profile", () => {
     let test!: renderer.ReactTestRenderer;
 
     act(() => {
@@ -201,6 +201,7 @@ describe("TabsLayout", () => {
     const tabs = findTabs(test);
     expect(tabs.map((t) => t.name)).toEqual([
       "dash",
+      "today",
       "program",
       "progress",
       "you",
@@ -210,6 +211,7 @@ describe("TabsLayout", () => {
     ]);
     expect(tabs.map((t) => t.title)).toEqual([
       "Home",
+      "Today",
       "Plan",
       "Progress",
       "You",
@@ -219,7 +221,7 @@ describe("TabsLayout", () => {
     ]);
     expect(
       tabs
-        .filter((t) => ["dash", "program", "progress", "you"].includes(t.name))
+        .filter((t) => ["dash", "today", "program", "progress", "you"].includes(t.name))
         .every((t) => t.href === "visible"),
     ).toBe(true);
     expect(
@@ -249,7 +251,7 @@ describe("TabsLayout", () => {
     expect(profile?.href).toBe("hidden");
   });
 
-  it("renders four-item pill with no Manage or Health FAB", () => {
+  it("renders five-item pill with no Manage or Health FAB", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<TabsLayout />);
@@ -257,7 +259,7 @@ describe("TabsLayout", () => {
     test.root.findByProps({ testID: "oli-primary-nav-pill" });
     expect(() => test.root.findByProps({ testID: "oli-manage-fab" })).toThrow();
     expect(() => test.root.findByProps({ testID: "oli-health-fab" })).toThrow();
-    for (const id of ["home", "plan", "progress", "you"]) {
+    for (const id of ["home", "today", "plan", "progress", "you"]) {
       test.root.findByProps({ testID: `oli-tab-${id}` });
     }
   });

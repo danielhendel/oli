@@ -33,6 +33,7 @@ describe("primaryNavHealthV1 flag (deprecated)", () => {
     expect(isPrimaryNavHealthV1Enabled()).toBe(false);
     expect(PRIMARY_NAVIGATION_ITEMS.map((i) => i.label)).toEqual([
       "Home",
+      "Today",
       "Plan",
       "Progress",
       "You",
@@ -41,23 +42,25 @@ describe("primaryNavHealthV1 flag (deprecated)", () => {
 });
 
 describe("PRIMARY_NAVIGATION_ITEMS contract", () => {
-  it("has exactly Home, Plan, Progress, You", () => {
+  it("has exactly Home, Today, Plan, Progress, You", () => {
     expect(PRIMARY_NAVIGATION_ITEMS.map((i) => i.label)).toEqual([
       "Home",
+      "Today",
       "Plan",
       "Progress",
       "You",
     ]);
     expect(PRIMARY_NAVIGATION_ITEMS.map((i) => i.id)).toEqual([
       "home",
+      "today",
       "plan",
       "progress",
       "you",
     ]);
-    expect(PRIMARY_NAVIGATION_ITEMS).toHaveLength(4);
+    expect(PRIMARY_NAVIGATION_ITEMS).toHaveLength(5);
   });
 
-  it("keeps all four destinations in the pill with no detached fifth control", () => {
+  it("keeps all five destinations in the pill with no detached sixth control", () => {
     expect(PRIMARY_PILL_ITEMS).toEqual(PRIMARY_NAVIGATION_ITEMS);
     expect(PRIMARY_NAVIGATION_ITEMS.every((i) => i.action.kind === "tab")).toBe(true);
   });
@@ -113,6 +116,11 @@ describe("resolvePrimaryNavActiveDestination", () => {
     expect(resolvePrimaryNavActiveDestination({ pathname: "/dash" })).toBe("home");
   });
 
+  it("selects Today on /today and focused today tab", () => {
+    expect(resolvePrimaryNavActiveDestination({ pathname: "/today" })).toBe("today");
+    expect(resolvePrimaryNavActiveDestination({ focusedTabName: "today" })).toBe("today");
+  });
+
   it("selects Plan on program", () => {
     expect(resolvePrimaryNavActiveDestination({ pathname: "/program" })).toBe("plan");
   });
@@ -141,7 +149,7 @@ describe("resolvePrimaryNavActiveDestination", () => {
     expect(resolvePrimaryNavActiveDestination({ pathname: "/nutrition" })).toBe("home");
   });
 
-  it("ignores healthMenuOpen so Health cannot become a fifth destination", () => {
+  it("ignores healthMenuOpen so Health cannot become a sixth destination", () => {
     expect(
       resolvePrimaryNavActiveDestination({ pathname: "/dash", healthMenuOpen: true }),
     ).toBe("home");

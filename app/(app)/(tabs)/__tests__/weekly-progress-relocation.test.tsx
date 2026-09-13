@@ -144,6 +144,17 @@ jest.mock("react-native-svg", () => ({
   Circle: "Circle",
 }));
 
+jest.mock("@/lib/ui/home/HomeScreenContent", () => ({
+  HomeScreenContent: () =>
+    require("react").createElement(
+      require("react").Fragment,
+      null,
+      require("react").createElement("Text", null, "Oli"),
+      require("react").createElement("Text", null, "My Health & Performance"),
+      require("react").createElement("Text", null, "Body Composition"),
+    ),
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const DashScreen = require("../dash").default;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -258,8 +269,9 @@ describe("Weekly Progress relocation", () => {
 
     expect(dashText).not.toContain("Weekly Fitness");
     expect(dashText).not.toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
+    expect(dashText).not.toContain("Daily Energy");
     expect(dashText).toContain("Body Composition");
-    expect(dashText).toContain("Daily Energy");
+    expect(dashText).toContain("My Health & Performance");
 
     expect(programText).not.toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
     expect(programText).toContain("No active plan");
@@ -306,7 +318,7 @@ describe("Weekly Progress relocation", () => {
     expect(mockPush).toHaveBeenCalledWith(WEEKLY_FITNESS_ROUTES.strength);
   });
 
-  it("disabled: Dash restores Weekly Fitness; Progress and Plan do not duplicate the card", () => {
+  it("disabled: Home stays domain-map only; Progress and Plan do not show Weekly Progress", () => {
     setDashWeeklyProgressRelocationEnabledForTests(false);
 
     let dash!: renderer.ReactTestRenderer;
@@ -322,13 +334,15 @@ describe("Weekly Progress relocation", () => {
     const programText = collectAllText(program);
     const progressText = collectAllText(progress);
 
-    expect(dashText).toContain("Weekly Fitness");
+    // Stage 2 Home is the health-and-performance map; it never hosts Weekly Fitness.
     expect(dashText).toContain("Body Composition");
+    expect(dashText).not.toContain("Weekly Fitness");
+    expect(dashText).not.toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
     expect(programText).not.toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
     expect(progressText).not.toContain(WEEKLY_PROGRESS_CONSUMER_TITLE);
     expect(progress.root.findAll((n) => (n.props as { testID?: string }).testID === "progress-weekly-progress-section")).toHaveLength(0);
     expect(programText).toContain("No active plan");
-    expect(mockUseWeeklyFitnessCard).toHaveBeenCalledTimes(1);
+    expect(mockUseWeeklyFitnessCard).toHaveBeenCalledTimes(0);
   });
 
   it("source guards: screens do not call Firebase/API; only the host imports the heavy hook", () => {
@@ -352,7 +366,8 @@ describe("Weekly Progress relocation", () => {
       expect(src).not.toContain("useWeeklyFitnessCard");
     }
     expect(hostSrc).toContain("useWeeklyFitnessCard");
-    expect(dashSrc).toContain("LegacyDashHost");
+    expect(dashSrc).toContain("HomeScreenContent");
+    expect(dashSrc).not.toContain("DailyMonitorHost");
     expect(legacyDashHostSrc).toContain("WeeklyFitnessCardHost");
     expect(programSrc).not.toContain("WeeklyFitnessCardHost");
     expect(progressSrc).toContain("WeeklyFitnessCardHost");
