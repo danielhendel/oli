@@ -27,7 +27,7 @@
 >
 > **PR #216 status:** **MERGED** at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`. Ordinary API builds no longer mutate tracked checksum truth. Local `main` synchronized to `origin/main`.
 >
-> **Stage 2 status:** **ACTIVE** on `feat/consumer-stage2-minimal-onboarding-readiness`. Objective: Opening → About You → Connect → Understand. No subjective-goals questionnaire. Primary IA remains **Home · Plan · Progress · You**. Onboarding runtime **not yet implemented** on this first operational-truth commit. Consent persistence **not implemented**. Legal assent **inactive**. **RG-LEGAL-01 OPEN**. Export coverage closure **OPEN**. Export scalability gate **OPEN**. Infrastructure CI validation truth gap **OPEN**. Stage 3 **not begun**.
+> **Stage 2 status:** **ACTIVE** on `feat/consumer-stage2-minimal-onboarding-readiness`. Profile-only onboarding **Opening → About You → Home**. Primary IA: **Home · Today · Plan · Progress · You**. Home is domain map (full-width cards + drawer); Today owns Daily Monitor. Source connection contextual. Consent persistence **not implemented**. Legal assent **inactive**. **RG-LEGAL-01 OPEN**. Export coverage closure **OPEN**. Export scalability gate **OPEN**. Infrastructure CI validation truth gap **OPEN**. Stage 3 **not begun**.
 
 ---
 
@@ -188,16 +188,17 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Ordinary API builds no longer mutate tracked workout-summary checksum truth
 - Local `main` synchronized to `origin/main` at the SHA above
 
-## Stage 2 (ACTIVE — profile-only onboarding + Home categories)
+## Stage 2 (ACTIVE — profile-only onboarding + Home/Today navigation)
 
 - Branch: `feat/consumer-stage2-minimal-onboarding-readiness`
 - Baseline `main`: `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`
-- Product direction (**supersedes Connect → Understand**):
+- Product direction:
   - Opening → About You → Home
+  - Primary dock **Home · Today · Plan · Progress · You**
   - Source connection not part of mandatory onboarding
-  - Home title **Oli**; first section **My Health & Performance** with seven category cards
-  - Today beneath the category grid
-  - Movement/Activity preserved outside the Home grid
+  - Home: compact centered **Oli**, hamburger drawer, seven full-width category cards
+  - Today: separate primary tab owning Daily Monitor (not embedded on Home)
+  - Movement/Activity preserved outside the Home list
   - No scores / ratings / recommendations / What Oli Sees
   - Apple Health requires explicit current-account connection
 - Staging: Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`

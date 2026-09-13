@@ -75,14 +75,14 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 
 **Current stage:** **Stage 2 — Minimal Onboarding and Data Readiness** (**active** on `feat/consumer-stage2-minimal-onboarding-readiness`).
 
-**Stage 2 product direction (supersedes Connect → Understand):**
+**Stage 2 product direction (supersedes Connect → Understand; supersedes Today-on-Home):**
 - Onboarding: **Opening → About You → Home**
+- Primary navigation: **Home · Today · Plan · Progress · You**
 - Source / device connection is **not** part of mandatory onboarding
 - Source connection occurs contextually from category pages or You → Connected Devices
-- Home visible title: **Oli** (bottom-tab label remains Home)
-- Home first section: **My Health & Performance** with seven category cards in order:
-  Body Composition · Strength · Cardio Fitness · Nutrition · Sleep · Recovery · Health
-- Today / Daily Monitor remains **below** the category grid
+- Home visible title: **Oli** (compact centered header; hamburger drawer; avatar)
+- Home first section: **My Health & Performance** with seven **full-width** category cards
+- Today is a **separate primary tab** owning Daily Monitor content (not embedded on Home)
 - Movement / Activity data remains preserved; **not** a top-level Home card
 - No category scores / ratings / recommendations / What Oli Sees in Stage 2
 - Apple Health sync requires explicit **current-account** connection (device permission alone is not enough)

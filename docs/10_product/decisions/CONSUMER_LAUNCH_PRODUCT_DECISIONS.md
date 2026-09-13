@@ -53,11 +53,15 @@ Oli does not autonomously prescribe goals, priorities, workouts, nutrition plans
 
 Bottom-tab label remains **Home**.
 
-Visible Home screen title:
+Visible Home screen title (compact centered header):
 
 ```text
 Oli
 ```
+
+Home header also includes:
+- left: hamburger → secondary app navigation drawer
+- right: existing profile/avatar action
 
 First substantive Home section:
 
@@ -65,7 +69,7 @@ First substantive Home section:
 My Health & Performance
 ```
 
-Approved consumer-facing category cards (exact order):
+Approved consumer-facing category cards (exact order, **full-width vertical stack**):
 
 1. Body Composition
 2. Strength
@@ -75,11 +79,23 @@ Approved consumer-facing category cards (exact order):
 6. Recovery
 7. Health
 
-Today / Daily Monitor remains **beneath** the category grid.
+Home is the whole-person health-and-performance **domain map**.
+
+Home **does not** embed Daily Monitor / Today content.
 
 Movement / Activity remains a preserved technical and history surface; it is **not** a top-level Home category card in Stage 2.
 
 Do not show overall scores, domain ratings, standards thresholds, What Oli Sees, or recommendations on these cards in Stage 2.
+
+## Today (Stage 2 primary destination)
+
+Today is a separate primary-tab destination.
+
+Visible title: **Today**
+
+Today owns the existing Daily Monitor / daily-state content previously embedded beneath Home category cards.
+
+Honest empty copy when no daily data exists. Do not claim Oli is building or analyzing when no source/data exists.
 
 ## Onboarding (Stage 2)
 
@@ -95,24 +111,29 @@ Apple Health, Oura, and other supported tracking methods are introduced from cat
 
 Apple Health query / ingest / backfill requires an explicit connection for the **current** Oli account. Device HealthKit permission alone does not authorize sync.
 
+Auth and onboarding completion land on **Home**, not Today.
+
 ---
 
 ## Primary navigation
 
-Approved first-release information architecture:
+Approved Stage 2 information architecture:
 
 ```text
-Home · Plan · Progress · You
+Home · Today · Plan · Progress · You
 ```
 
-| Destination | Question |
-|-------------|----------|
-| Home | What does Oli help me understand? (category entry) + today’s available data |
-| Plan | What am I doing? |
-| Progress | How am I changing? |
-| You | What does Oli know about me? |
+| Destination | Role |
+|-------------|------|
+| Home | Whole-person health & performance domain map |
+| Today | Daily health & performance state (Daily Monitor) |
+| Plan | Human- or professional-provided plan representation |
+| Progress | Longitudinal progress and history |
+| You | Profile, account, sources, assessments, data, privacy, ownership |
 
-This IA is **approved direction**. Draft PR #210’s Today / five-domain dock is **superseded** and must not be treated as current product law.
+The Home hamburger drawer is **secondary** navigation, not a sixth primary destination.
+
+This IA **supersedes** the prior four-destination dock (**Home · Plan · Progress · You**) for Stage 2 on the consumer branch. R1 historical merge evidence remains historical.
 
 ---
 

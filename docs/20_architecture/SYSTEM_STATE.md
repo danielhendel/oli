@@ -1,7 +1,7 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-09-13 (Stage 2 **active** — profile-only onboarding + Home category entry; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
+**Last updated:** 2026-09-13 (Stage 2 **active** — Home domain map + Today primary tab; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
 **Merged `main` SHA:** `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`
 **Stage 2 branch:** `feat/consumer-stage2-minimal-onboarding-readiness`
 **Staging (historical Stage 1C):** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep ACTIVE; Firestore TTL `accountDeletions.expireAt` ACTIVE; Gateway `oli-api-config-20260830-082245`; project `oli-staging-fdbba`
@@ -54,7 +54,7 @@ The analytics-first product direction **strengthens** this pipeline; it does not
 
 | Surface | Merged `main` reality |
 |---------|----------------------|
-| Primary dock | **Home · Plan · Progress · You** — no FAB fifth destination |
+| Primary dock | **Home · Today · Plan · Progress · You** — no FAB sixth destination |
 | Auth / session landing | Authenticated routes resolve to Home (`CONSUMER_HOME_HREF`; filesystem `/(app)/(tabs)/dash`) |
 | Command Center | Compatibility **Redirect to Home** (grid not rendered) |
 | Daily Recap | Compatibility **Redirect to Home** |
@@ -107,7 +107,8 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 | Hosted Privacy / Terms / Support pages | Not published — **RG-LEGAL-01 OPEN** |
 | Durable consent persistence | Missing — RFC/ADR approved for future implementation; **not implemented** |
 | Minimal onboarding | Stage 2 **active** — Opening → About You → Home (source connection contextual; not mandatory onboarding) |
-| Home category entry | Stage 2 **active** — My Health & Performance seven-card grid; Today beneath |
+| Home category entry | Stage 2 **active** — My Health & Performance full-width seven-card stack; drawer secondary nav |
+| Today primary tab | Stage 2 **active** — Daily Monitor owned by Today; not embedded on Home |
 | Export coverage closure | Gaps disclosed — **OPEN** |
 | Export scalability (streaming/pagination) | Buffered ZIP worker — Gate **OPEN** — `docs/90_audits/export-scalability-gate.md` |
 | Crash reporting product | Missing — Release hardening |
@@ -144,20 +145,23 @@ See [delta audit](../audits/2026-08-14-analytics-first-product-direction-delta.m
 
 ---
 
-## Approved primary destinations (merged)
+## Approved primary destinations (Stage 2 branch)
 
 ```text
-Home · Plan · Progress · You
+Home · Today · Plan · Progress · You
 ```
 
-| Destination | Intent | Merged shell reality |
+| Destination | Intent | Stage 2 shell reality |
 |-------------|--------|----------------------|
-| Home | Analytics-first Current State, standards, direction, What Oli Sees | Transitional shell; Daily Monitor Today section; no Current State / What Oli Sees |
+| Home | Whole-person health & performance domain map | Compact Oli header + drawer; seven full-width category cards; no Daily Monitor |
+| Today | Daily health & performance state | Owns existing Daily Monitor content |
 | Plan | Human-created or externally sourced plan representation | Honest empty state; no persistence |
 | Progress | Execution, adherence, outcomes, trends, analysis | History + Weekly Progress; no outcome analytics product |
 | You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export UI merged (Stage 1B); delete UI and local lifecycle merged (Stage 1C) |
 
-Next ownership/product work: Stage 2 minimal onboarding (not Stage 3 analytics contracts).
+R1 on `main` remains historically **Home · Plan · Progress · You**. Stage 2 branch supersedes that dock order.
+
+Next ownership/product work: Stage 2 physical verification of Home + Today navigation (not Stage 3 analytics contracts).
 
 ---
 

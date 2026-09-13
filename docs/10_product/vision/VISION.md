@@ -235,7 +235,9 @@ Longer readiness / baseline / Current State analysis remains a later-stage produ
 
 Home’s visible title is **Oli** (bottom-tab label remains Home).
 
-Stage 2 first product section: **My Health & Performance**, with seven category cards in order:
+Stage 2 Home header: hamburger (app navigation drawer) · centered **Oli** · profile avatar.
+
+Stage 2 first product section: **My Health & Performance**, with seven **full-width** category cards in order:
 
 1. Body Composition
 2. Strength
@@ -245,9 +247,17 @@ Stage 2 first product section: **My Health & Performance**, with seven category 
 6. Recovery
 7. Health
 
-**Today** (Daily Monitor) remains beneath the category grid.
+Home is the whole-person domain map. It does **not** embed Daily Monitor.
 
-Movement / Activity data remains preserved outside this top-level Home grid.
+**Today** is a separate primary destination owning daily-state / Daily Monitor content.
+
+Primary navigation (Stage 2):
+
+```text
+Home · Today · Plan · Progress · You
+```
+
+Movement / Activity data remains preserved outside this top-level Home list.
 
 Stage 2 Home must not show fabricated scores, ratings, standards, trends, confidence, recommendations, or What Oli Sees. Prefer honest missing-data / setup states.
 
