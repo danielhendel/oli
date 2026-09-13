@@ -62,6 +62,16 @@ function TabsLayoutInner() {
             }}
           />
           <Tabs.Screen
+            name="today"
+            options={{
+              title: "Today",
+              tabBarAccessibilityLabel: "Today",
+              tabBarIcon: ({ color, size, focused }) => (
+                <Ionicons name={focused ? "sunny" : "sunny-outline"} size={size ?? 24} color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
             name="program"
             options={{
               title: "Plan",

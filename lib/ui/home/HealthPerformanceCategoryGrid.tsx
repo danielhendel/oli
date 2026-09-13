@@ -1,6 +1,6 @@
 // lib/ui/home/HealthPerformanceCategoryGrid.tsx
 import React, { useMemo } from "react";
-import { StyleSheet, useWindowDimensions, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import {
@@ -15,54 +15,36 @@ export type HealthPerformanceCategoryGridProps = {
 };
 
 /**
- * Compact two-column category grid. Adapts to one column when text scale / width
- * would make two columns unusable.
+ * Full-width vertically stacked category cards (Stage 2 Home).
  */
 export function HealthPerformanceCategoryGrid({
   cards: cardsProp,
 }: HealthPerformanceCategoryGridProps): React.ReactElement {
   const router = useRouter();
-  const { width, fontScale } = useWindowDimensions();
   const cards = useMemo(
     () => cardsProp ?? buildHealthPerformanceCategoryCards(),
     [cardsProp],
   );
 
-  const singleColumn = width < 360 || fontScale >= 1.3;
-  const lastIndex = cards.length - 1;
-
   return (
-    <View
-      style={[styles.grid, singleColumn ? styles.gridColumn : styles.gridRow]}
-      testID="home-health-performance-grid"
-    >
-      {cards.map((card, index) => {
-        const fullWidth = singleColumn || (!singleColumn && index === lastIndex);
-        return (
-          <HealthPerformanceCategoryCard
-            key={card.id}
-            model={card}
-            fullWidth={fullWidth}
-            onPress={() => {
-              router.push(card.href);
-            }}
-          />
-        );
-      })}
+    <View style={styles.stack} testID="home-health-performance-grid">
+      {cards.map((card) => (
+        <HealthPerformanceCategoryCard
+          key={card.id}
+          model={card}
+          variant="fullWidth"
+          onPress={() => {
+            router.push(card.href);
+          }}
+        />
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  grid: {
+  stack: {
     gap: 10,
-  },
-  gridRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  gridColumn: {
-    flexDirection: "column",
+    width: "100%",
   },
 });

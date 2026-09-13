@@ -1,6 +1,7 @@
 // lib/ui/home/HealthPerformanceCategoryCard.tsx
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import type { HealthPerformanceCategoryCardModel } from "@/lib/home/healthPerformanceCategories";
 import {
@@ -14,14 +15,14 @@ import {
 export type HealthPerformanceCategoryCardProps = {
   model: HealthPerformanceCategoryCardModel;
   onPress: () => void;
-  /** Last card may span full width in a two-column grid. */
-  fullWidth?: boolean;
+  /** Always full-width stacked rows on Home. */
+  variant?: "fullWidth";
 };
 
 export function HealthPerformanceCategoryCard({
   model,
   onPress,
-  fullWidth = false,
+  variant = "fullWidth",
 }: HealthPerformanceCategoryCardProps): React.ReactElement {
   return (
     <Pressable
@@ -31,28 +32,35 @@ export function HealthPerformanceCategoryCard({
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        fullWidth ? styles.cardFull : styles.cardHalf,
+        variant === "fullWidth" ? styles.cardFull : null,
         pressed ? styles.cardPressed : null,
       ]}
       testID={`home-category-card-${model.id}`}
     >
-      <View style={styles.iconWell} accessible={false} importantForAccessibility="no">
-        <Text style={styles.iconGlyph} accessible={false}>
-          {glyphFor(model.id)}
-        </Text>
+      <View style={styles.row}>
+        <View style={styles.iconWell} accessible={false} importantForAccessibility="no">
+          <Text style={styles.iconGlyph} accessible={false}>
+            {glyphFor(model.id)}
+          </Text>
+        </View>
+        <View style={styles.copy}>
+          <Text style={styles.label} numberOfLines={2}>
+            {model.label}
+          </Text>
+          {model.statusLabel ? (
+            <Text style={styles.status} numberOfLines={1}>
+              {model.statusLabel}
+            </Text>
+          ) : null}
+        </View>
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color={UI_TEXT_MUTED}
+          accessible={false}
+          importantForAccessibility="no"
+        />
       </View>
-      <Text style={styles.label} numberOfLines={2}>
-        {model.label}
-      </Text>
-      {model.statusLabel ? (
-        <Text style={styles.status} numberOfLines={1}>
-          {model.statusLabel}
-        </Text>
-      ) : (
-        <Text style={styles.chevron} accessible={false}>
-          View
-        </Text>
-      )}
     </Pressable>
   );
 }
@@ -80,19 +88,14 @@ function glyphFor(id: HealthPerformanceCategoryCardModel["id"]): string {
 
 const styles = StyleSheet.create({
   card: {
-    minHeight: 96,
+    minHeight: 64,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: UI_BORDER_HAIRLINE,
     backgroundColor: UI_CARD_SURFACE,
     paddingHorizontal: 14,
-    paddingVertical: 14,
-    justifyContent: "space-between",
-  },
-  cardHalf: {
-    flexGrow: 1,
-    flexBasis: "47%",
-    maxWidth: "48.5%",
+    paddingVertical: 12,
+    justifyContent: "center",
   },
   cardFull: {
     width: "100%",
@@ -100,37 +103,39 @@ const styles = StyleSheet.create({
   cardPressed: {
     opacity: 0.88,
   },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   iconWell: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
-    marginBottom: 10,
   },
   iconGlyph: {
     color: UI_TEXT_SECONDARY,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
+  },
+  copy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   label: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
     letterSpacing: -0.1,
-    lineHeight: 20,
+    lineHeight: 21,
   },
   status: {
-    marginTop: 8,
     color: UI_TEXT_MUTED,
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  chevron: {
-    marginTop: 8,
-    color: UI_TEXT_MUTED,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "500",
   },
 });

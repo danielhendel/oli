@@ -2,18 +2,15 @@
  * Daily Monitor host — presence-driven current-day cards only (Phase 2C).
  */
 
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
-import { DashScreenHeader } from "@/components/dashboard/DashScreenHeader";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
-  CONSUMER_HOME_A11Y_LABEL,
-  CONSUMER_HOME_SCREEN_TITLE,
+  CONSUMER_TODAY_LABEL,
   HOME_TODAY_EMPTY_BODY,
   HOME_TODAY_EMPTY_TITLE,
-  HOME_TODAY_SECTION_TITLE,
 } from "@/lib/navigation/consumerHome";
 import { buildDailyMonitorViewModel } from "@/lib/data/dash/buildDailyMonitorViewModel";
 import { useBodyCompositionDashCard } from "@/lib/data/dash/useBodyCompositionDashCard";
@@ -45,7 +42,8 @@ import {
   DailyMonitorStressCard,
   DailyMonitorWorkoutCard,
 } from "@/lib/ui/dash/DailyMonitorDomainCards";
-import { MyHealthPerformanceSection } from "@/lib/ui/home/MyHealthPerformanceSection";
+import { AppHeader } from "@/lib/ui/navigation/AppHeader";
+import { AppNavigationDrawer } from "@/lib/ui/navigation/AppNavigationDrawer";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { EmptyState, ErrorState } from "@/lib/ui/ScreenStates";
 import {
@@ -62,6 +60,7 @@ export function DailyMonitorHost(): React.ReactElement {
   const router = useRouter();
   const scrollPaddingBottom = useFloatingTabBarScrollPadding(40);
   const { user, getIdToken } = useAuth();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const refreshQuietRef = React.useRef<(reason: "focus" | "foreground") => void>(() => undefined);
 
@@ -200,10 +199,10 @@ export function DailyMonitorHost(): React.ReactElement {
 
   return (
     <View style={styles.root} testID="daily-monitor-host">
-      <DashScreenHeader
-        title={CONSUMER_HOME_SCREEN_TITLE}
-        titlePlacement="start"
-        accessibilityLabel={CONSUMER_HOME_A11Y_LABEL}
+      <AppHeader
+        title={CONSUMER_TODAY_LABEL}
+        accessibilityLabel={CONSUMER_TODAY_LABEL}
+        onMenuPress={() => setDrawerOpen(true)}
       />
       <ScrollView
         style={styles.scrollView}
@@ -213,19 +212,11 @@ export function DailyMonitorHost(): React.ReactElement {
         refreshControl={refreshControl}
         testID="daily-monitor-scroll"
       >
-        <MyHealthPerformanceSection />
         <View
           style={styles.pageIntro}
           accessible
-          accessibilityLabel={`${HOME_TODAY_SECTION_TITLE}. ${dateLabel}`}
+          accessibilityLabel={`${CONSUMER_TODAY_LABEL}. ${dateLabel}`}
         >
-          <Text
-            style={styles.pageTitle}
-            accessibilityRole="header"
-            testID="daily-monitor-page-title"
-          >
-            {HOME_TODAY_SECTION_TITLE}
-          </Text>
           <Text style={styles.pageDate} accessibilityRole="text" testID="daily-monitor-page-date">
             {dateLabel}
           </Text>
@@ -352,6 +343,7 @@ export function DailyMonitorHost(): React.ReactElement {
           </View>
         ))}
       </ScrollView>
+      <AppNavigationDrawer visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </View>
   );
 }
@@ -375,14 +367,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 8,
   },
-  pageTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: 0.1,
-  },
   pageDate: {
-    marginTop: 4,
+    marginTop: 0,
     fontSize: 15,
     fontWeight: "500",
     color: UI_TEXT_SECONDARY,

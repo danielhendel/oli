@@ -17,6 +17,8 @@ function destinationMatchesPathname(
   switch (id) {
     case "home":
       return p === "/dash";
+    case "today":
+      return p === "/today";
     case "plan":
       return p === "/program";
     case "progress":
