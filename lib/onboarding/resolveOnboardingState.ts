@@ -1,5 +1,7 @@
 // lib/onboarding/resolveOnboardingState.ts
 import { CURRENT_ONBOARDING_VERSION, type UserProfileMain } from "@oli/contracts";
+
+import { hasRequiredAboutYouProfile } from "./aboutYouProfileCompleteness";
 import type { OnboardingRouteState } from "./types";
 
 export type ResolveOnboardingStateInput = {
@@ -13,8 +15,12 @@ export type ResolveOnboardingStateInput = {
 
 /**
  * Pure resolver for first-use routing.
- * Server `app.onboarding` is authoritative when profile is ready.
+ * Server profile fields are authoritative for About You completeness.
  * Deletion pending always outranks onboarding.
+ *
+ * Stage 2 (v2): Opening → About You → Home.
+ * Persisted connect/understand steps with a complete About You profile
+ * route Home (compatibility screens stamp completion).
  */
 export function resolveOnboardingState(input: ResolveOnboardingStateInput): OnboardingRouteState {
   if (input.auth === "initializing") {
@@ -44,21 +50,11 @@ export function resolveOnboardingState(input: ResolveOnboardingStateInput): Onbo
     };
   }
 
-  const onboarding = input.profile?.app.onboarding;
-  if (!onboarding) {
+  if (!hasRequiredAboutYouProfile(input.profile)) {
     return { kind: "about_you" };
   }
 
-  if (onboarding.status === "completed" && onboarding.version >= CURRENT_ONBOARDING_VERSION) {
-    return { kind: "completed" };
-  }
-
-  if (onboarding.step === "connect") return { kind: "connect" };
-  if (onboarding.step === "understand") return { kind: "understand" };
-  if (onboarding.step === "about_you") return { kind: "about_you" };
-
-  // not_started / null step / older incomplete → start at About You
-  return { kind: "about_you" };
+  return { kind: "completed" };
 }
 
 export function onboardingHrefForState(state: OnboardingRouteState): string | null {
@@ -74,4 +70,14 @@ export function onboardingHrefForState(state: OnboardingRouteState): string | nu
     default:
       return null;
   }
+}
+
+/** True when server onboarding should be stamped completed at the current version. */
+export function needsOnboardingCompletionStamp(profile: UserProfileMain | null): boolean {
+  if (!hasRequiredAboutYouProfile(profile)) return false;
+  const onboarding = profile?.app.onboarding;
+  if (!onboarding) return true;
+  if (onboarding.status !== "completed") return true;
+  if (onboarding.version < CURRENT_ONBOARDING_VERSION) return true;
+  return false;
 }

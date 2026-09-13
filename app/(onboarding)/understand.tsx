@@ -1,20 +1,21 @@
 // app/(onboarding)/understand.tsx
 import React from "react";
+import { ActivityIndicator, View } from "react-native";
 
-import { useUnderstandReadiness } from "@/lib/onboarding/useUnderstandReadiness";
-import { UnderstandScreenContent } from "@/lib/ui/onboarding/UnderstandScreenContent";
+import { useConnectUnderstandCompatibilityRedirect } from "@/lib/onboarding/useConnectUnderstandCompatibilityRedirect";
+import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 
-export default function UnderstandRoute() {
-  const readiness = useUnderstandReadiness();
+/**
+ * Compatibility route only — not part of mandatory Stage 2 onboarding.
+ * Incomplete About You → About You. Complete profile → Home.
+ * Starts no readiness / processing work.
+ */
+export default function UnderstandCompatibilityRoute() {
+  useConnectUnderstandCompatibilityRedirect();
 
   return (
-    <UnderstandScreenContent
-      viewModel={readiness.viewModel}
-      completing={readiness.completing}
-      bannerError={readiness.bannerError}
-      onComplete={() => {
-        void readiness.complete();
-      }}
-    />
+    <View style={{ flex: 1, backgroundColor: UI_APP_SCREEN_BG, justifyContent: "center" }}>
+      <ActivityIndicator accessibilityLabel="Continuing" />
+    </View>
   );
 }

@@ -55,4 +55,13 @@ describe("Stage 2 RouteGuard onboarding routing", () => {
       expect(src).not.toMatch(/getFirestore|collection\(/);
     }
   });
+
+  it("Connect and Understand routes are compatibility redirects only", () => {
+    const connect = readRepoFile("app/(onboarding)/connect.tsx");
+    const understand = readRepoFile("app/(onboarding)/understand.tsx");
+    expect(connect).toContain("useConnectUnderstandCompatibilityRedirect");
+    expect(understand).toContain("useConnectUnderstandCompatibilityRedirect");
+    expect(connect).not.toContain("useConnectSources");
+    expect(understand).not.toContain("useUnderstandReadiness");
+  });
 });

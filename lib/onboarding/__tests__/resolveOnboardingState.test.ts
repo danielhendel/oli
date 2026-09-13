@@ -1,9 +1,19 @@
 import { defaultUserProfileMain } from "@oli/contracts";
 
 import {
+  needsOnboardingCompletionStamp,
   onboardingHrefForState,
   resolveOnboardingState,
 } from "../resolveOnboardingState";
+
+function completeAboutYouProfile() {
+  const profile = defaultUserProfileMain();
+  profile.identity.firstName = "Sam";
+  profile.identity.dateOfBirth = "1990-05-15";
+  profile.identity.sexAtBirth = "female";
+  profile.body.heightCm = 170;
+  return profile;
+}
 
 describe("resolveOnboardingState", () => {
   it("returns opening when signed out", () => {
@@ -37,7 +47,7 @@ describe("resolveOnboardingState", () => {
   });
 
   it("deletion pending outranks onboarding", () => {
-    const profile = defaultUserProfileMain();
+    const profile = completeAboutYouProfile();
     profile.app.onboarding = {
       version: 1,
       status: "in_progress",
@@ -55,18 +65,9 @@ describe("resolveOnboardingState", () => {
     ).toBe("deletion_pending");
   });
 
-  it("maps incomplete steps", () => {
-    const base = defaultUserProfileMain();
-    expect(
-      resolveOnboardingState({
-        auth: "signed_in",
-        deletionPending: false,
-        profileStatus: "ready",
-        profile: base,
-      }).kind,
-    ).toBe("about_you");
-
-    base.app.onboarding = {
+  it("incomplete About You resumes About You even with stale connect state", () => {
+    const profile = defaultUserProfileMain();
+    profile.app.onboarding = {
       version: 1,
       status: "in_progress",
       step: "connect",
@@ -78,23 +79,42 @@ describe("resolveOnboardingState", () => {
         auth: "signed_in",
         deletionPending: false,
         profileStatus: "ready",
-        profile: base,
+        profile,
       }).kind,
-    ).toBe("connect");
+    ).toBe("about_you");
+  });
 
-    base.app.onboarding.step = "understand";
+  it("complete About You with stale connect or understand routes Home", () => {
+    const profile = completeAboutYouProfile();
+    profile.app.onboarding = {
+      version: 1,
+      status: "in_progress",
+      step: "connect",
+      completedAt: null,
+      updatedAt: "2026-09-11T00:00:00.000Z",
+    };
     expect(
       resolveOnboardingState({
         auth: "signed_in",
         deletionPending: false,
         profileStatus: "ready",
-        profile: base,
+        profile,
       }).kind,
-    ).toBe("understand");
+    ).toBe("completed");
+
+    profile.app.onboarding.step = "understand";
+    expect(
+      resolveOnboardingState({
+        auth: "signed_in",
+        deletionPending: false,
+        profileStatus: "ready",
+        profile,
+      }).kind,
+    ).toBe("completed");
   });
 
-  it("returns completed when status completed at current version", () => {
-    const profile = defaultUserProfileMain();
+  it("returns completed when status completed at any stamped version with About You complete", () => {
+    const profile = completeAboutYouProfile();
     profile.app.onboarding = {
       version: 1,
       status: "completed",
@@ -110,6 +130,27 @@ describe("resolveOnboardingState", () => {
         profile,
       }).kind,
     ).toBe("completed");
+  });
+
+  it("needs completion stamp for stale connect/understand or older version", () => {
+    const profile = completeAboutYouProfile();
+    profile.app.onboarding = {
+      version: 1,
+      status: "in_progress",
+      step: "connect",
+      completedAt: null,
+      updatedAt: null,
+    };
+    expect(needsOnboardingCompletionStamp(profile)).toBe(true);
+
+    profile.app.onboarding = {
+      version: 2,
+      status: "completed",
+      step: "about_you",
+      completedAt: "2026-09-13T00:00:00.000Z",
+      updatedAt: "2026-09-13T00:00:00.000Z",
+    };
+    expect(needsOnboardingCompletionStamp(profile)).toBe(false);
   });
 
   it("maps hrefs for route states", () => {

@@ -41,7 +41,7 @@ describe("onboarding screen copy and DOB structure", () => {
     expect(text).not.toContain("Understand where you are.");
   });
 
-  it("About You has Month/Day/Year and no old subtitle", () => {
+  it("About You has Month/Day/Year, no step indicator, and no ambient progress chrome", () => {
     let tree: ReturnType<typeof create> | undefined;
     act(() => {
       tree = create(
@@ -65,6 +65,8 @@ describe("onboarding screen copy and DOB structure", () => {
       "Only information required to interpret health and performance data correctly.",
     );
     expect(text).not.toContain("YYYY-MM-DD");
+    expect(text).not.toMatch(/Step \d of \d/);
+    expect(text).not.toContain("one of");
   });
 
   it("Connect shows Continue and I’ll do this later", () => {

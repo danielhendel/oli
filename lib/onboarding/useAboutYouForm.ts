@@ -7,7 +7,8 @@ import { useUserProfileMain } from "@/lib/data/profile/useUserProfileMain";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { cmToFeetInches } from "@/lib/profile/heightConvert";
 
-import { ONBOARDING_ROUTES } from "./constants";
+import { CONSUMER_HOME_HREF } from "@/lib/navigation/consumerHome";
+
 import { splitCanonicalDateOfBirth } from "./dateOfBirthParts";
 import { mapOnboardingError } from "./mapOnboardingError";
 import {
@@ -148,7 +149,7 @@ export function useAboutYouForm() {
         return;
       }
       await refreshProfile();
-      router.replace(ONBOARDING_ROUTES.connect);
+      router.replace(CONSUMER_HOME_HREF);
     } catch (e) {
       setBannerError(mapOnboardingError(e).message);
     } finally {

@@ -13,6 +13,8 @@ export type OnboardingScreenShellProps = {
   subtitle?: string;
   stepIndex?: number;
   stepCount?: number;
+  /** When false, uses a calm solid canvas with no ambient shapes (About You). */
+  ambient?: boolean;
   showOwnershipMenu?: boolean;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -23,13 +25,14 @@ export function OnboardingScreenShell({
   subtitle,
   stepIndex,
   stepCount = 3,
+  ambient = true,
   showOwnershipMenu = true,
   children,
   footer,
 }: OnboardingScreenShellProps) {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <OnboardingAmbientBackground />
+      {ambient ? <OnboardingAmbientBackground /> : null}
       <View style={styles.topRow}>
         {typeof stepIndex === "number" ? (
           <OnboardingStepIndicator stepIndex={stepIndex} stepCount={stepCount} />

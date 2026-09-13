@@ -64,6 +64,7 @@ export async function markOnboardingCompleted(idToken: string): Promise<ApiResul
   return advanceOnboardingStep({
     idToken,
     status: "completed",
-    step: "understand",
+    step: "about_you",
+    version: CURRENT_ONBOARDING_VERSION,
   });
 }

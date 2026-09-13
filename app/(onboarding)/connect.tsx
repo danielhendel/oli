@@ -1,30 +1,21 @@
 // app/(onboarding)/connect.tsx
 import React from "react";
+import { ActivityIndicator, View } from "react-native";
 
-import { useConnectSources } from "@/lib/onboarding/useConnectSources";
-import { ConnectSourcesScreenContent } from "@/lib/ui/onboarding/ConnectSourcesScreenContent";
+import { useConnectUnderstandCompatibilityRedirect } from "@/lib/onboarding/useConnectUnderstandCompatibilityRedirect";
+import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 
-export default function ConnectSourcesRoute() {
-  const connect = useConnectSources();
+/**
+ * Compatibility route only — not part of mandatory Stage 2 onboarding.
+ * Incomplete About You → About You. Complete profile → Home.
+ * Starts no source connection work.
+ */
+export default function ConnectSourcesCompatibilityRoute() {
+  useConnectUnderstandCompatibilityRedirect();
 
   return (
-    <ConnectSourcesScreenContent
-      apple={connect.apple}
-      oura={connect.oura}
-      advancing={connect.advancing}
-      bannerError={connect.bannerError}
-      onConnectApple={() => {
-        void connect.connectAppleHealth();
-      }}
-      onConnectOura={() => {
-        void connect.connectOura();
-      }}
-      onContinue={() => {
-        void connect.continueNext();
-      }}
-      onLater={() => {
-        void connect.skipForLater();
-      }}
-    />
+    <View style={{ flex: 1, backgroundColor: UI_APP_SCREEN_BG, justifyContent: "center" }}>
+      <ActivityIndicator accessibilityLabel="Continuing" />
+    </View>
   );
 }

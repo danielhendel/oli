@@ -40,7 +40,7 @@ export function AboutYouScreenContent({
   return (
     <OnboardingScreenShell
       title={ABOUT_YOU_COPY.title}
-      stepIndex={1}
+      ambient={false}
       footer={
         <>
           {bannerError ? <Text style={onboardingCtaStyles.error}>{bannerError}</Text> : null}

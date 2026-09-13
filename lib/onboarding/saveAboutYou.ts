@@ -1,11 +1,14 @@
 // lib/onboarding/saveAboutYou.ts
-import type { UserProfileMain, UserProfileMainPatch } from "@oli/contracts";
+import {
+  CURRENT_ONBOARDING_VERSION,
+  type UserProfileMain,
+  type UserProfileMainPatch,
+} from "@oli/contracts";
 
 import { putUserProfileMain } from "@/lib/api/profileMain";
 import { logWeight } from "@/lib/api/usersMe";
 import type { ApiResult } from "@/lib/api/http";
 
-import { markOnboardingConnect } from "./advanceOnboardingStep";
 import { validateAboutYouDraft, type AboutYouValidated } from "./aboutYouValidation";
 import { clearAboutYouDraft } from "./onboardingDraftStorage";
 import type { AboutYouDraft, AboutYouFieldErrors } from "./types";
@@ -24,6 +27,7 @@ function deviceTimezone(): string {
   }
 }
 
+/** Profile patch that completes Stage 2 profile-only onboarding in one write. */
 export function buildAboutYouProfilePatch(value: AboutYouValidated): UserProfileMainPatch {
   return {
     identity: {
@@ -36,9 +40,9 @@ export function buildAboutYouProfilePatch(value: AboutYouValidated): UserProfile
     },
     app: {
       onboarding: {
-        status: "in_progress",
+        status: "completed",
         step: "about_you",
-        version: 1,
+        version: CURRENT_ONBOARDING_VERSION,
       },
     },
   };
@@ -82,17 +86,8 @@ export async function saveAboutYou(args: {
     }
   }
 
-  const advanceRes = await markOnboardingConnect(args.idToken);
-  if (!advanceRes.ok) {
-    return {
-      ok: false,
-      kind: "api",
-      message: advanceRes.error || "Could not continue onboarding.",
-    };
-  }
-
   await clearAboutYouDraft(args.uid).catch(() => undefined);
-  return { ok: true, profile: advanceRes.json };
+  return { ok: true, profile: profileRes.json };
 }
 
 /** Test helper type export */

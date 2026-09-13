@@ -42,8 +42,12 @@ export const profileWeighInPreferenceSchema = z.enum([
 ]);
 export type ProfileWeighInPreference = z.infer<typeof profileWeighInPreferenceSchema>;
 
-/** Stage 2 minimal onboarding version stamped on `app.onboarding`. */
-export const CURRENT_ONBOARDING_VERSION = 1 as const;
+/**
+ * Stage 2 onboarding version stamped on `app.onboarding`.
+ * v1 = Opening → About You → Connect → Understand
+ * v2 = Opening → About You → Home (profile-only; sources contextual)
+ */
+export const CURRENT_ONBOARDING_VERSION = 2 as const;
 
 export const onboardingStatusSchema = z.enum(["not_started", "in_progress", "completed"]);
 export type OnboardingStatus = z.infer<typeof onboardingStatusSchema>;

@@ -22,15 +22,10 @@ function signal(
   return { id, label, state, detail };
 }
 
+import { hasRequiredAboutYouProfile } from "./aboutYouProfileCompleteness";
+
 function profileReady(profile: UserProfileMain | null): boolean {
-  if (!profile) return false;
-  return (
-    typeof profile.identity.firstName === "string" &&
-    profile.identity.firstName.trim().length > 0 &&
-    profile.identity.dateOfBirth != null &&
-    profile.identity.sexAtBirth != null &&
-    profile.body.heightCm != null
-  );
+  return hasRequiredAboutYouProfile(profile);
 }
 
 function buildSummary(signals: DataReadinessViewModel["signals"], input: DataReadinessInput): string {

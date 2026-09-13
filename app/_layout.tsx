@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "../lib/auth/AuthProvider";
 import { AccountDeletionRecoveryRunner } from "../lib/auth/AccountDeletionRecoveryRunner";
 import { CONSUMER_HOME_HREF } from "../lib/navigation/consumerHome";
+import { useEnsureOnboardingCompletionStamp } from "../lib/onboarding/useEnsureOnboardingCompletionStamp";
 import { useOnboardingGate } from "../lib/onboarding/useOnboardingGate";
 import { OliThemeProvider } from "../lib/ui/theme/OliThemeContext";
 import { useNutritionOutboxSync } from "../lib/hooks/useNutritionOutboxSync";
@@ -99,15 +100,18 @@ function RouteGuard() {
     if (!target) return;
 
     const onCorrectStep =
-      (gate.state.kind === "about_you" && inOnboardingGroup && segs[1] === "about-you") ||
-      (gate.state.kind === "connect" && inOnboardingGroup && segs[1] === "connect") ||
-      (gate.state.kind === "understand" && inOnboardingGroup && segs[1] === "understand");
+      gate.state.kind === "about_you" && inOnboardingGroup && segs[1] === "about-you";
 
     if (onCorrectStep) return;
 
     router.replace(target as never);
   }, [gate.resolving, gate.state, gate.targetHref, initializing, router, segments, user]);
 
+  return null;
+}
+
+function OnboardingCompletionStampRunner() {
+  useEnsureOnboardingCompletionStamp();
   return null;
 }
 
@@ -123,6 +127,7 @@ export default function RootLayout() {
               <AppleHealthForcedYesterdayFinalizeRunner />
               <NutritionOutboxSyncRunner />
               <AccountDeletionRecoveryRunner />
+              <OnboardingCompletionStampRunner />
               <RouteGuard />
               <Stack screenOptions={{ headerShown: false }}>
                 {/* Auth flow */}
