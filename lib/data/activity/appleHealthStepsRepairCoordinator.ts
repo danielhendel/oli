@@ -84,6 +84,8 @@ async function isOutsideAutoCooldown(bypass: boolean): Promise<boolean> {
  */
 export async function executeAppleHealthStepsRepair(opts: ScheduleAppleHealthStepsRepairOpts): Promise<void> {
   if (Platform.OS !== "ios") return;
+  const connected = await getAppleHealthConnected().catch(() => false);
+  if (!connected) return;
   await runAppleHealthStepsBackfillSerialized(async () => {
     await runForcedLocalTodayAppleHealthStepsIngest({
       getIdToken: opts.getIdToken,

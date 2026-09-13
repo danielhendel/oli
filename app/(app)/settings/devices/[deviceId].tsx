@@ -117,7 +117,7 @@ function DeviceDetailScreen() {
         }
         return;
       }
-      const connected = await getAppleHealthConnected().catch(() => true);
+      const connected = await getAppleHealthConnected().catch(() => false);
       setAppleStatus(connected ? "connected" : "not_connected");
     } catch (e) {
       const message = e instanceof Error ? e.message : "Something went wrong";
