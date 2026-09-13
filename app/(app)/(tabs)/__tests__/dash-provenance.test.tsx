@@ -182,15 +182,16 @@ describe("Dash provenance", () => {
     setDashDailyMonitorFoundationEnabledForTests(null);
   });
 
-  it("shows Home tab title and Body Composition + Daily Energy sections", () => {
+  it("shows Oli screen title and Body Composition + Daily Energy sections", () => {
     let test!: renderer.ReactTestRenderer;
     act(() => {
       test = renderer.create(<DashScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("Home");
+    expect(text).toContain("Oli");
     expect(text).toContain("Body Composition");
     expect(text).toContain("Daily Energy");
+    expect(text).not.toContain("Where am I?");
     expect(text).not.toContain("Track, understand, and improve every part of your health.");
   });
 
