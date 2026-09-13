@@ -49,6 +49,54 @@ Oli does not autonomously prescribe goals, priorities, workouts, nutrition plans
 
 ---
 
+## Home (Stage 2 consumer presentation)
+
+Bottom-tab label remains **Home**.
+
+Visible Home screen title:
+
+```text
+Oli
+```
+
+First substantive Home section:
+
+```text
+My Health & Performance
+```
+
+Approved consumer-facing category cards (exact order):
+
+1. Body Composition
+2. Strength
+3. Cardio Fitness
+4. Nutrition
+5. Sleep
+6. Recovery
+7. Health
+
+Today / Daily Monitor remains **beneath** the category grid.
+
+Movement / Activity remains a preserved technical and history surface; it is **not** a top-level Home category card in Stage 2.
+
+Do not show overall scores, domain ratings, standards thresholds, What Oli Sees, or recommendations on these cards in Stage 2.
+
+## Onboarding (Stage 2)
+
+Mandatory first-use flow:
+
+```text
+Opening → About You → Home
+```
+
+Source / device connection is **not** part of mandatory onboarding.
+
+Apple Health, Oura, and other supported tracking methods are introduced from category context or You → Connected Devices.
+
+Apple Health query / ingest / backfill requires an explicit connection for the **current** Oli account. Device HealthKit permission alone does not authorize sync.
+
+---
+
 ## Primary navigation
 
 Approved first-release information architecture:
@@ -59,16 +107,18 @@ Home · Plan · Progress · You
 
 | Destination | Question |
 |-------------|----------|
-| Home | Where am I? |
+| Home | What does Oli help me understand? (category entry) + today’s available data |
 | Plan | What am I doing? |
 | Progress | How am I changing? |
 | You | What does Oli know about me? |
 
-This IA is **approved direction**, not claimed as merged implementation. Draft PR #210’s Today / five-domain dock is **superseded** and must not be treated as current product law.
+This IA is **approved direction**. Draft PR #210’s Today / five-domain dock is **superseded** and must not be treated as current product law.
 
 ---
 
 ## Seven domains
+
+Analytical domains remain:
 
 1. Body
 2. Recovery
@@ -78,7 +128,7 @@ This IA is **approved direction**, not claimed as merged implementation. Draft P
 6. Nutrition
 7. Health
 
-Domains describe state. They are not seven simultaneous optimization mandates.
+Stage 2 Home **consumer labels** for category entry are listed under Home above and are not a rename of contracts.
 
 ---
 

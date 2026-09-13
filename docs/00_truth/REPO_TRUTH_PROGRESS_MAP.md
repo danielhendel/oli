@@ -188,13 +188,19 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Ordinary API builds no longer mutate tracked workout-summary checksum truth
 - Local `main` synchronized to `origin/main` at the SHA above
 
-## Stage 2 (ACTIVE — onboarding not yet implemented)
+## Stage 2 (ACTIVE — profile-only onboarding + Home categories)
 
 - Branch: `feat/consumer-stage2-minimal-onboarding-readiness`
 - Baseline `main`: `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`
-- Objective: Opening → About You → Connect → Understand
-- Product constraints: no subjective-goals questionnaire; no overall score; no domain ratings; no What Oli Sees; no recommendations; primary IA remains **Home · Plan · Progress · You**
-- **Onboarding runtime:** **not yet implemented** (this operational-truth sync only)
+- Product direction (**supersedes Connect → Understand**):
+  - Opening → About You → Home
+  - Source connection not part of mandatory onboarding
+  - Home title **Oli**; first section **My Health & Performance** with seven category cards
+  - Today beneath the category grid
+  - Movement/Activity preserved outside the Home grid
+  - No scores / ratings / recommendations / What Oli Sees
+  - Apple Health requires explicit current-account connection
+- Staging: Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`
 - **Consent persistence:** **not implemented**
 - **Legal assent:** **inactive**
 - **RG-LEGAL-01:** **OPEN**

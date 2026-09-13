@@ -59,7 +59,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **1A** | Account recovery, Account routing, legal/support foundation | Password-reset request; You → Account; public-link contract; honest absent-config behavior (**RG-LEGAL-01** for hosted pages) |
 | **1B** | Consent and consumer data export | Consent architecture + export UI; **durable legal assent inactive until RG-LEGAL-01** |
 | **1C** | Account deletion and local data lifecycle | Delete UI; reauthentication; local purge; coverage closure |
-| **2** | Minimal onboarding & data readiness | Opening → About You → Connect → Understand; honest partial data; no subjective goals questionnaire |
+| **2** | Profile-only onboarding & Home category entry | Opening → About You → Home; source connection contextual in categories / Connected Devices; Home presents seven health & performance category cards; no subjective goals questionnaire |
 | **3** | Analytics truth contracts | Baseline, standards registry, trend, confidence, completeness, evidence, association/causation language, versioning — **RFC/ADR before schema**. Includes unfinished-day activity presentation (do not label an in-progress day **Sedentary** from a stored zero / empty HealthKit aggregate; R1 only omitted measured-zero on Home Movement). |
 | **4** | Seven-domain Current State | Body, Recovery, Movement, Strength, Cardio, Nutrition, Health; honest missing; no fabricated overall score |
 | **5** | Home & What Oli Sees | Current State, direction, meaningful analysis, progressive disclosure; no recommendations |
@@ -73,7 +73,21 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **Stage 2 — Minimal Onboarding and Data Readiness** (**active** on `feat/consumer-stage2-minimal-onboarding-readiness`; Opening → About You → Connect → Understand; onboarding runtime **not yet implemented** on first truth sync).
+**Current stage:** **Stage 2 — Minimal Onboarding and Data Readiness** (**active** on `feat/consumer-stage2-minimal-onboarding-readiness`).
+
+**Stage 2 product direction (supersedes Connect → Understand):**
+- Onboarding: **Opening → About You → Home**
+- Source / device connection is **not** part of mandatory onboarding
+- Source connection occurs contextually from category pages or You → Connected Devices
+- Home visible title: **Oli** (bottom-tab label remains Home)
+- Home first section: **My Health & Performance** with seven category cards in order:
+  Body Composition · Strength · Cardio Fitness · Nutrition · Sleep · Recovery · Health
+- Today / Daily Monitor remains **below** the category grid
+- Movement / Activity data remains preserved; **not** a top-level Home card
+- No category scores / ratings / recommendations / What Oli Sees in Stage 2
+- Apple Health sync requires explicit **current-account** connection (device permission alone is not enough)
+- Stage 3 **not begun**
+
 **Stage 1C:** **MERGED** (PR #215) at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`; physical-iPhone deletion E2E **PASS** (2026-09-04).
 **Stage 1B:** **MERGED** (PR #214) at `3d4859e45d537813b6846ecaf4cb49222519ef80`; physical-iPhone export E2E **PASS** (2026-08-29).
 **Stage 1A:** Merged (PR #213) at `10f85ee3d377d25075353c152b27611b6b572c84`; physical-iPhone password-recovery smoke **PASS** (2026-08-22).
@@ -81,11 +95,9 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`.
 **Build hygiene:** **MERGED** (PR #216) at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`.
 **Release gate:** **RG-LEGAL-01 OPEN** (hosted Privacy / Terms / Support not published).
-**Staging Stage 1C runtime (historical):** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep `onaccountdeletionledgerexpiresweep-00001-pec`; Firestore TTL on `accountDeletions.expireAt` **ACTIVE**; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`.
-**Staging export runtime (physical PASS 2026-08-29):** prior E2E Cloud Run `oli-api-00273-rg2`; Function 4 GiB / 540 s.
-**Export:** Physical E2E **PASS**. Coverage closure **OPEN** (15 classified gaps). Scalability gate **OPEN** (`docs/90_audits/export-scalability-gate.md`).
+**Staging runtime:** Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`.
+**Export:** Physical E2E **PASS**. Coverage closure **OPEN**. Scalability gate **OPEN**.
 **Consent:** Architecture approved for future implementation; **persistence not implemented**; legal assent **inactive**.
-**Stage 3:** **not begun**.
 
 Durable Terms/Privacy assent remains **inactive** until RG-LEGAL-01 passes. Stage 2 must not add legal assent checkboxes or fake hosted URLs.
 
@@ -133,7 +145,7 @@ R0 Product authority reset (docs) — MERGED (PR #211)
  → 1A Account recovery + legal/support foundation — **MERGED** (PR #213; RG-LEGAL-01 OPEN)
  → 1B Consent + data export — **MERGED** (PR #214)
  → 1C Account deletion + local data lifecycle — **MERGED** (PR #215)
- → 2 Minimal onboarding / data readiness — **ACTIVE** (not yet implemented)
+ → 2 Profile-only onboarding + Home category entry — **ACTIVE**
  → 3 Analytics truth contracts (RFC/ADR) — **NOT BEGUN**
  → 4 Seven-domain Current State
  → 5 Home + What Oli Sees

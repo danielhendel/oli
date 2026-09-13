@@ -1,7 +1,7 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-09-11 (Stage 2 **active** — operational truth sync; onboarding **not yet implemented**; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
+**Last updated:** 2026-09-13 (Stage 2 **active** — profile-only onboarding + Home category entry; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
 **Merged `main` SHA:** `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`
 **Stage 2 branch:** `feat/consumer-stage2-minimal-onboarding-readiness`
 **Staging (historical Stage 1C):** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep ACTIVE; Firestore TTL `accountDeletions.expireAt` ACTIVE; Gateway `oli-api-config-20260830-082245`; project `oli-staging-fdbba`
@@ -106,7 +106,8 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 | Public-link contract / external open | Merged (Stage 1A) |
 | Hosted Privacy / Terms / Support pages | Not published — **RG-LEGAL-01 OPEN** |
 | Durable consent persistence | Missing — RFC/ADR approved for future implementation; **not implemented** |
-| Minimal onboarding | **Not implemented** — Stage 2 **active** (Opening → About You → Connect → Understand) |
+| Minimal onboarding | Stage 2 **active** — Opening → About You → Home (source connection contextual; not mandatory onboarding) |
+| Home category entry | Stage 2 **active** — My Health & Performance seven-card grid; Today beneath |
 | Export coverage closure | Gaps disclosed — **OPEN** |
 | Export scalability (streaming/pagination) | Buffered ZIP worker — Gate **OPEN** — `docs/90_audits/export-scalability-gate.md` |
 | Crash reporting product | Missing — Release hardening |
