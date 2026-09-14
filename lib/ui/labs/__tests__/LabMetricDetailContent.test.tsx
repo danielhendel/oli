@@ -179,5 +179,264 @@ describe("LabMetricDetailContent", () => {
       .join(" ");
     expect(text).toContain("Non-Reactive");
     expect(text).toContain("Shown in history table only");
+    expect(tree!.root.findByProps({ testID: "lab-metric-trend-timeline-note" })).toBeTruthy();
+    expect(() => tree!.root.findByProps({ testID: "lab-metric-trend" })).toThrow();
+  });
+
+  it("renders numeric trend chart above history and keeps source", () => {
+    const acceptedHistory: LabHistoryPointDto[] = [
+      {
+        id: "hp2",
+        canonicalMetricId: "ldl_c",
+        collectedAt: "2025-06-01T00:00:00.000Z",
+        result: { kind: "numeric", value: 92, comparator: "eq" },
+        displayValue: "92",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: null,
+        normalizedFlag: "normal",
+        sourceDocumentId: "doc2",
+        sourcePage: 2,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+      {
+        id: "hp1",
+        canonicalMetricId: "ldl_c",
+        collectedAt: "2024-06-01T00:00:00.000Z",
+        result: { kind: "numeric", value: 88, comparator: "eq" },
+        displayValue: "88",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: null,
+        normalizedFlag: "normal",
+        sourceDocumentId: "doc1",
+        sourcePage: 1,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+    ];
+
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabMetricDetailContent status="ready" data={baseDetail} acceptedHistory={acceptedHistory} />,
+      );
+    });
+    expect(tree!.root.findByProps({ testID: "lab-metric-trend" })).toBeTruthy();
+    expect(tree!.root.findByProps({ testID: "lab-trend-chart" })).toBeTruthy();
+    expect(tree!.root.findByProps({ testID: "lab-metric-accepted-history" })).toBeTruthy();
+    expect(tree!.root.findByProps({ testID: "lab-metric-source-label" })).toBeTruthy();
+  });
+
+  it("renders single-point trend state", () => {
+    const acceptedHistory: LabHistoryPointDto[] = [
+      {
+        id: "hp1",
+        canonicalMetricId: "ldl_c",
+        collectedAt: "2025-06-01T00:00:00.000Z",
+        result: { kind: "numeric", value: 92, comparator: "eq" },
+        displayValue: "92 mg/dL",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: null,
+        normalizedFlag: null,
+        sourceDocumentId: "doc1",
+        sourcePage: 1,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+    ];
+
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabMetricDetailContent status="ready" data={baseDetail} acceptedHistory={acceptedHistory} />,
+      );
+    });
+    expect(tree!.root.findByProps({ testID: "lab-trend-chart-single" })).toBeTruthy();
+  });
+
+  it("renders source reference status in Source section for numeric latest", () => {
+    const acceptedHistory: LabHistoryPointDto[] = [
+      {
+        id: "hp2",
+        canonicalMetricId: "ldl_c",
+        collectedAt: "2025-06-01T00:00:00.000Z",
+        result: { kind: "numeric", value: 92, comparator: "eq" },
+        displayValue: "92",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: "<100",
+        normalizedFlag: "normal",
+        laboratoryName: "Quest Diagnostics",
+        sourceDocumentId: "doc2",
+        sourcePage: 2,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+    ];
+
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabMetricDetailContent status="ready" data={baseDetail} acceptedHistory={acceptedHistory} />,
+      );
+    });
+    expect(String(tree!.root.findByProps({ testID: "lab-metric-source-reference-status" }).props.children)).toMatch(
+      /Within Quest reference range/,
+    );
+    expect(String(tree!.root.findByProps({ testID: "lab-metric-source-reference-raw" }).props.children)).toMatch(
+      /Quest reference:/i,
+    );
+    // Primary latest card must not use Quest as the metric standard framing.
+    expect(tree!.root.findAllByProps({ testID: "lab-metric-standard-status" })).toHaveLength(0);
+  });
+
+  it("renders metric standard framing for Total Cholesterol latest", () => {
+    const detail: LabMetricDetailResponseDto = {
+      ...baseDetail,
+      metricKey: "total_cholesterol",
+      displayName: "Total Cholesterol",
+      latest: {
+        ...baseDetail.latest!,
+        metricKey: "total_cholesterol",
+        displayName: "Total Cholesterol",
+        value: 179,
+        rawName: "Cholesterol, Total",
+      },
+    };
+    const acceptedHistory: LabHistoryPointDto[] = [
+      {
+        id: "tc1",
+        canonicalMetricId: "total_cholesterol",
+        collectedAt: "2024-10-15T00:00:00.000Z",
+        result: { kind: "numeric", value: 179, comparator: "eq" },
+        displayValue: "179",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: "<200",
+        normalizedFlag: "normal",
+        laboratoryName: "Quest Diagnostics",
+        sourceDocumentId: "d4",
+        sourcePage: 1,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+    ];
+
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabMetricDetailContent status="ready" data={detail} acceptedHistory={acceptedHistory} />,
+      );
+    });
+    expect(String(tree!.root.findByProps({ testID: "lab-metric-standard-status" }).props.children)).toBe(
+      "Within standard",
+    );
+    expect(String(tree!.root.findByProps({ testID: "lab-metric-standard-label" }).props.children)).toBe(
+      "Standard: Under 200 mg/dL",
+    );
+    const heroTexts = tree!.root
+      .findByProps({ testID: "lab-metric-detail" })
+      .findAllByType(require("react-native").Text)
+      .map((t) => String(t.props.children))
+      .join(" | ");
+    // Quest framing may still appear under Source, but primary status uses standard language.
+    expect(String(tree!.root.findByProps({ testID: "lab-metric-standard-status" }).props.children)).not.toMatch(
+      /Quest/i,
+    );
+    expect(heroTexts).toMatch(/Within standard/);
+  });
+
+  it("shows Standard once in Trend and once in Latest for Total Cholesterol history", () => {
+    const detail: LabMetricDetailResponseDto = {
+      ...baseDetail,
+      metricKey: "total_cholesterol",
+      displayName: "Total Cholesterol",
+      latest: {
+        ...baseDetail.latest!,
+        metricKey: "total_cholesterol",
+        displayName: "Total Cholesterol",
+        value: 179,
+        rawName: "Cholesterol, Total",
+        collectedAt: "2024-10-15T00:00:00.000Z",
+      },
+    };
+    const acceptedHistory: LabHistoryPointDto[] = [
+      {
+        id: "tc-latest",
+        canonicalMetricId: "total_cholesterol",
+        collectedAt: "2024-10-15T00:00:00.000Z",
+        result: { kind: "numeric", value: 179, comparator: "eq" },
+        displayValue: "179 mg/dL",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: "<200",
+        normalizedFlag: "normal",
+        laboratoryName: "Quest Diagnostics",
+        sourceDocumentId: "d4",
+        sourcePage: 1,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+      {
+        id: "tc-prior",
+        canonicalMetricId: "total_cholesterol",
+        collectedAt: "2022-07-07T00:00:00.000Z",
+        result: { kind: "numeric", value: 208, comparator: "eq" },
+        displayValue: "208 mg/dL",
+        rawUnit: "mg/dL",
+        normalizedUnit: "mg/dL",
+        rawReferenceRange: "<200",
+        normalizedFlag: "high",
+        laboratoryName: "Quest Diagnostics",
+        sourceDocumentId: "d3",
+        sourcePage: 1,
+        methodCompatibility: "compatible",
+        trendEligible: true,
+        trendEligibility: "numeric_compatible",
+        measuredOrCalculated: "measured",
+      },
+    ];
+
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LabMetricDetailContent status="ready" data={detail} acceptedHistory={acceptedHistory} />,
+      );
+    });
+
+    expect(tree!.root.findByProps({ testID: "lab-metric-standard-label" }).props.children).toBe(
+      "Standard: Under 200 mg/dL",
+    );
+    const latestCardTexts = tree!.root
+      .findByProps({ testID: "lab-metric-latest-value" })
+      .parent!.findAllByType(require("react-native").Text)
+      .map((n) => String(n.props.children));
+    expect(latestCardTexts.filter((t) => t === "Standard: Under 200 mg/dL")).toHaveLength(1);
+
+    const trend = tree!.root.findByProps({ testID: "lab-metric-trend" });
+    const trendTexts = trend
+      .findAllByType(require("react-native").Text)
+      .map((n) => String(n.props.children));
+    expect(trendTexts.filter((l) => l === "Standard: Under 200 mg/dL")).toHaveLength(1);
+    expect(trendTexts.filter((l) => l === "Within standard")).toHaveLength(1);
+    expect(trend.findAllByProps({ testID: "lab-trend-chart-ref-caption" })).toHaveLength(0);
+    expect(trend.findAllByProps({ testID: "lab-trend-chart-ref-key" })).toHaveLength(0);
+
+    expect(tree!.root.findByProps({ testID: "lab-metric-source-reference-raw" })).toBeTruthy();
   });
 });

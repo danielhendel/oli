@@ -9,7 +9,21 @@ import {
   calculateLabMetricChange,
   formatLabMetricChangeCopy,
 } from "@/lib/labs/history/calculateLabMetricChange";
+import { buildLabTrendSeries } from "@/lib/labs/history/buildLabTrendSeries";
+import { evaluateLabSourceReferenceContext } from "@/lib/labs/sourceContext/evaluateLabSourceReferenceContext";
+import {
+  formatLabSourceReferenceRawCopy,
+  formatLabSourceReferenceStatusCopy,
+} from "@/lib/labs/sourceContext/formatLabSourceReferenceCopy";
+import { buildLabMetricStandardOverlay } from "@/lib/labs/standard/buildLabMetricStandardOverlay";
+import {
+  formatLabMetricStandardLabelCopy,
+  formatLabMetricStandardStatusCopy,
+} from "@/lib/labs/standard/formatLabMetricStandardCopy";
+import { evaluateLabMetricStandardStatus } from "@/lib/labs/standard/evaluateLabMetricStandard";
+import { getLabMetricStandard } from "@/lib/labs/standard/labMetricStandardCatalog";
 import { formatLabUploadDate } from "@/lib/ui/labs/labUploadStatusLabel";
+import { LabTrendChart } from "@/lib/ui/labs/LabTrendChart";
 import {
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
@@ -134,6 +148,64 @@ export function LabMetricDetailContent({
       : data?.referenceRangeText ?? null;
   const labDate = latest?.collectedAt ?? null;
 
+  const latestSourceContext = useMemo(() => {
+    const acceptedLatest = acceptedHistory[0] ?? null;
+    if (acceptedLatest) {
+      return evaluateLabSourceReferenceContext({
+        result: acceptedLatest.result,
+        rawReferenceRange: acceptedLatest.rawReferenceRange,
+        normalizedFlag: acceptedLatest.normalizedFlag,
+        laboratoryName:
+          acceptedLatest.laboratoryName ?? latest?.laboratoryName ?? "Quest Diagnostics",
+      });
+    }
+    if (latest && latest.value != null) {
+      return evaluateLabSourceReferenceContext({
+        result: { kind: "numeric", value: latest.value, comparator: "eq" },
+        rawReferenceRange: refRange,
+        normalizedFlag: latest.flag ?? null,
+        laboratoryName: latest.laboratoryName ?? "Quest Diagnostics",
+      });
+    }
+    return null;
+  }, [acceptedHistory, latest, refRange]);
+
+  const metricKey =
+    data?.metricKey ?? acceptedHistory[0]?.canonicalMetricId ?? latest?.metricKey ?? null;
+  const metricStandard = useMemo(() => getLabMetricStandard(metricKey), [metricKey]);
+
+  const latestNumericValue = useMemo(() => {
+    const acceptedLatest = acceptedHistory[0] ?? null;
+    if (
+      acceptedLatest?.result.kind === "numeric" &&
+      acceptedLatest.result.comparator === "eq" &&
+      Number.isFinite(acceptedLatest.result.value)
+    ) {
+      return acceptedLatest.result.value;
+    }
+    if (latest?.value != null && Number.isFinite(latest.value)) return latest.value;
+    return null;
+  }, [acceptedHistory, latest]);
+
+  const latestStandardStatusCopy =
+    metricStandard && latestNumericValue != null
+      ? formatLabMetricStandardStatusCopy(
+          evaluateLabMetricStandardStatus(latestNumericValue, metricStandard),
+        )
+      : null;
+  const latestStandardLabelCopy = metricStandard
+    ? formatLabMetricStandardLabelCopy(metricStandard)
+    : null;
+
+  const latestSourceStatusCopy = latestSourceContext
+    ? formatLabSourceReferenceStatusCopy(latestSourceContext)
+    : null;
+  const latestSourceRawCopy = latestSourceContext
+    ? formatLabSourceReferenceRawCopy(latestSourceContext, {
+        unit: acceptedHistory[0]?.normalizedUnit ?? acceptedHistory[0]?.rawUnit ?? latest?.unit ?? null,
+      })
+    : null;
+
   const useAcceptedHistory = acceptedHistory.length > 0;
   const acceptedPair = useMemo(
     () => (useAcceptedHistory ? findCompatiblePriorFromAccepted(acceptedHistory) : null),
@@ -209,6 +281,34 @@ export function LabMetricDetailContent({
   const showAcceptedHistory = useAcceptedHistory;
   const showProjectionHistory = !showAcceptedHistory && projectionHistory.length > 0;
 
+  const trendSeries = useMemo(() => {
+    if (!useAcceptedHistory) return null;
+    return buildLabTrendSeries({
+      metricKey: data?.metricKey ?? acceptedHistory[0]?.canonicalMetricId ?? "metric",
+      displayName: data?.displayName ?? null,
+      historyPoints: acceptedHistory,
+    });
+  }, [acceptedHistory, data?.displayName, data?.metricKey, useAcceptedHistory]);
+
+  const standardOverlay = useMemo(
+    () => buildLabMetricStandardOverlay(metricStandard),
+    [metricStandard],
+  );
+
+  const showTrendSection =
+    trendSeries != null &&
+    (trendSeries.graphEligibility === "numeric_graph" ||
+      trendSeries.graphEligibility === "single_numeric_point");
+
+  const timelineNote =
+    trendSeries?.graphEligibility === "qualitative_timeline"
+      ? "Qualitative results are shown in the history table below."
+      : trendSeries?.graphEligibility === "pattern_timeline"
+        ? "Pattern results are shown in the history table below."
+        : trendSeries?.graphEligibility === "inequality_timeline"
+          ? "Inequality results (such as less-than thresholds) are shown in the history table below."
+          : null;
+
   return (
     <View style={styles.root} testID="lab-metric-detail">
       <View style={styles.heroCard}>
@@ -216,11 +316,16 @@ export function LabMetricDetailContent({
         <Text style={styles.heroValue} testID="lab-metric-latest-value">
           {latestValue}
         </Text>
-        {refRange ? (
-          <Text style={styles.meta}>Reference range: {refRange}</Text>
-        ) : (
-          <Text style={styles.meta}>Reference range not available</Text>
-        )}
+        {latestStandardStatusCopy ? (
+          <Text style={styles.meta} testID="lab-metric-standard-status">
+            {latestStandardStatusCopy}
+          </Text>
+        ) : null}
+        {latestStandardLabelCopy ? (
+          <Text style={styles.meta} testID="lab-metric-standard-label">
+            {latestStandardLabelCopy}
+          </Text>
+        ) : null}
         <Text style={styles.meta} testID="lab-metric-collected-at">
           {labDate
             ? `Collected ${formatLabUploadDate(labDate)}`
@@ -233,10 +338,28 @@ export function LabMetricDetailContent({
         ) : null}
       </View>
 
+      {showTrendSection && trendSeries ? (
+        <View style={styles.section} testID="lab-metric-trend">
+          <Text style={styles.sectionTitle}>Trend</Text>
+          <LabTrendChart
+            series={trendSeries}
+            standardOverlay={standardOverlay}
+            metricStandard={metricStandard}
+          />
+        </View>
+      ) : null}
+
+      {timelineNote ? (
+        <View style={styles.section} testID="lab-metric-trend-timeline-note">
+          <Text style={styles.sectionTitle}>Trend</Text>
+          <Text style={styles.bodyCopy}>{timelineNote}</Text>
+        </View>
+      ) : null}
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>What this means</Text>
         <Text style={styles.bodyCopy}>
-          This biomarker is one data point from your lab work. Oli shows the value and reference range when
+          This biomarker is one data point from your lab work. Oli shows the value and metric standard when
           available. It does not diagnose conditions or recommend treatment — talk with your clinician about what
           this result means for you.
         </Text>
@@ -332,9 +455,24 @@ export function LabMetricDetailContent({
         {typeof latest?.sourcePage === "number" ? (
           <Text style={styles.meta}>Page {latest.sourcePage}</Text>
         ) : null}
-        {refRange ? (
-          <Text style={styles.meta}>Reference range from this report</Text>
+        {latestSourceStatusCopy ? (
+          <Text style={styles.meta} testID="lab-metric-source-reference-status">
+            {latestSourceStatusCopy}
+          </Text>
         ) : null}
+        {latestSourceRawCopy ? (
+          <Text style={styles.meta} testID="lab-metric-source-reference-raw">
+            {latestSourceRawCopy}
+          </Text>
+        ) : refRange ? (
+          <Text style={styles.meta} testID="lab-metric-source-reference-raw">
+            Report reference: {refRange}
+          </Text>
+        ) : (
+          <Text style={styles.meta} testID="lab-metric-source-reference-unavailable">
+            Report reference range not available
+          </Text>
+        )}
         {latest?.rawName ? (
           <Text style={styles.meta}>Original label: {latest.rawName}</Text>
         ) : null}

@@ -1,0 +1,29 @@
+Quest Diagnostics
+DirectLabs Laboratory Report
+Report Status: FINAL
+DOB: 01/01/1990 | Sex: M | Specimen: SERUM | Collected Date: 06/05/2020
+Received: 06/05/2020 02:00 PM
+Reported: 06/06/2020 09:00 AM
+Fasting: Yes
+
+BASIC HEALTH PROFILE
+
+LIPID PANEL
+Cholesterol, Total
+Desired Range: <200 mg/dL
+173
+HDL Cholesterol
+Desired Range: > OR = 40 mg/dL
+49
+Triglycerides
+Desired Range: <150 mg/dL
+110
+LDL Cholesterol
+Desired Range: <100 mg/dL
+104 HIGH
+Cholesterol Total/Cholesterol HDL Ratio
+Desired Range: <5.0 (calc)
+3.5
+Non HDL Cholesterol
+Desired Range: <130 mg/dL
+120

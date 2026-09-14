@@ -36,7 +36,13 @@ export function LabMetricRow({ row, onPress, testID }: LabMetricRowProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${row.label}, ${row.valueText}`}
+      accessibilityLabel={`${row.label}, ${row.valueText}${
+        row.flag === "high" || row.flag === "critical"
+          ? ", Lab flagged high"
+          : row.flag === "low"
+            ? ", Lab flagged low"
+            : ""
+      }`}
       onPress={() => onPress(row.metricKey)}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       testID={testID ?? `lab-metric-row-${row.metricKey}`}
