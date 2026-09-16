@@ -11,6 +11,7 @@ import {
 import {
   getAppleHealthBodyBackfillState,
   setAppleHealthBodyBackfillState,
+  getAppleHealthConnected,
   type AppleHealthBodyBackfillState,
 } from "@/lib/integrations/appleHealth/storage";
 import { nowIso } from "@/lib/sync/throttle";
@@ -65,6 +66,15 @@ export function useAppleHealthBodyBackfill(onSynced?: () => void): {
   const start = useCallback(async () => {
     if (!user) {
       setState((prev) => ({ ...prev, status: "failed", message: "Sign in required." }));
+      return;
+    }
+    const connected = await getAppleHealthConnected().catch(() => false);
+    if (!connected) {
+      setState((prev) => ({
+        ...prev,
+        status: "failed",
+        message: "Connect Apple Health for this account before importing body history.",
+      }));
       return;
     }
     setState((prev) => ({ ...prev, status: "running", message: null }));

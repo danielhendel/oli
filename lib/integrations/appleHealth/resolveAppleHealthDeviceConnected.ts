@@ -1,21 +1,15 @@
 /**
- * Apple Health row status: connected if the server has ingested apple_health raw events,
- * or (iOS) HealthKit body-composition read access is authorized — aligns list + detail with
- * real permission when the API query lags or only non-body apple_health rows exist.
+ * Apple Health "connected" for this Oli account.
+ *
+ * Server ingest presence OR the explicit local account connection flag.
+ * iOS HealthKit permission alone must NEVER imply account connection —
+ * a new account on a device with prior HealthKit grant starts not connected
+ * until the user taps Connect.
  */
 
-import { Platform } from "react-native";
-import { getBodyCompositionReadAuthStatus } from "@/lib/integrations/appleHealth";
-import { mapReadStatusesToSnapshot } from "@/lib/data/body/appleHealthBodyUxPhase";
+import { getAppleHealthConnected } from "@/lib/integrations/appleHealth/storage";
 
 export async function resolveAppleHealthDeviceConnected(apiConnected: boolean): Promise<boolean> {
   if (apiConnected) return true;
-  if (Platform.OS !== "ios") return false;
-  try {
-    const r = await getBodyCompositionReadAuthStatus();
-    if (!r.ok) return false;
-    return mapReadStatusesToSnapshot(r.readStatuses).kind === "authorized";
-  } catch {
-    return false;
-  }
+  return getAppleHealthConnected().catch(() => false);
 }

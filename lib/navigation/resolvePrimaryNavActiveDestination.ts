@@ -5,6 +5,10 @@ function isHomePath(pathname: string): boolean {
   return pathname === "/dash" || pathname.startsWith("/dash/");
 }
 
+function isTodayPath(pathname: string): boolean {
+  return pathname === "/today" || pathname.startsWith("/today/");
+}
+
 function isPlanPath(pathname: string): boolean {
   return pathname === "/program" || pathname.startsWith("/program/");
 }
@@ -91,11 +95,13 @@ export function resolvePrimaryNavActiveDestination(
   // Prefer the mounted tab navigator’s focused route; pathname can lag during
   // tab switches and is mocked independently in unit tests.
   if (focused === "dash") return "home";
+  if (focused === "today") return "today";
   if (focused === "program") return "plan";
   if (focused === "progress" || focused === "timeline") return "progress";
   if (focused === "you" || focused === "profile" || focused === "library") return "you";
 
   if (isHomePath(pathname)) return "home";
+  if (isTodayPath(pathname)) return "today";
   if (isPlanPath(pathname)) return "plan";
   if (isProgressPath(pathname)) return "progress";
   if (isYouFamilyPath(pathname)) return "you";

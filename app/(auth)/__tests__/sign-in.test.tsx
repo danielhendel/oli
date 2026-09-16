@@ -32,7 +32,6 @@ jest.mock("react-native", () => ({
 
 import SignInScreen from "../sign-in";
 import { UI_APP_SCREEN_BG, UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
-import { CONSUMER_HOME_HREF } from "@/lib/navigation/consumerHome";
 
 describe("Sign in screen", () => {
   beforeEach(() => {
@@ -105,7 +104,7 @@ describe("Sign in screen", () => {
     expect(alertPayload).not.toMatch(/Firebase|auth\/invalid-credential|auth\/wrong-password/i);
   });
 
-  it("routes successful sign-in to Home", async () => {
+  it("leaves post-auth routing to RouteGuard after successful sign-in", async () => {
     mockSignInWithEmail.mockResolvedValue({ ok: true });
     let test!: renderer.ReactTestRenderer;
     act(() => {
@@ -118,7 +117,7 @@ describe("Sign in screen", () => {
     await act(async () => {
       test.root.findByProps({ testID: "sign-in-submit" }).props.onPress();
     });
-    expect(mockReplace).toHaveBeenCalledWith(CONSUMER_HOME_HREF);
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it("prevents duplicate submission while sign-in is in flight", async () => {

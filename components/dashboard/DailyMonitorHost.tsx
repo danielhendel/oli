@@ -6,16 +6,11 @@ import React, { useCallback, useMemo } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
-import { DashScreenHeader } from "@/components/dashboard/DashScreenHeader";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
-  CONSUMER_HOME_A11Y_LABEL,
-  CONSUMER_HOME_LABEL,
-  CONSUMER_HOME_QUESTION,
-  HOME_BASELINE_BODY,
-  HOME_BASELINE_HEADING,
-  HOME_HEALTH_PERFORMANCE_TITLE,
-  HOME_TODAY_SECTION_TITLE,
+  CONSUMER_TODAY_LABEL,
+  HOME_TODAY_EMPTY_BODY,
+  HOME_TODAY_EMPTY_TITLE,
 } from "@/lib/navigation/consumerHome";
 import { buildDailyMonitorViewModel } from "@/lib/data/dash/buildDailyMonitorViewModel";
 import { useBodyCompositionDashCard } from "@/lib/data/dash/useBodyCompositionDashCard";
@@ -47,6 +42,7 @@ import {
   DailyMonitorStressCard,
   DailyMonitorWorkoutCard,
 } from "@/lib/ui/dash/DailyMonitorDomainCards";
+import { TabRootScreenHeader } from "@/lib/ui/TabRootScreenHeader";
 import { useFloatingTabBarScrollPadding } from "@/lib/ui/navigation/useFloatingTabBarScrollPadding";
 import { EmptyState, ErrorState } from "@/lib/ui/ScreenStates";
 import {
@@ -201,10 +197,10 @@ export function DailyMonitorHost(): React.ReactElement {
 
   return (
     <View style={styles.root} testID="daily-monitor-host">
-      <DashScreenHeader
-        title={CONSUMER_HOME_LABEL}
-        dateLabel={CONSUMER_HOME_QUESTION}
-        accessibilityLabel={CONSUMER_HOME_A11Y_LABEL}
+      <TabRootScreenHeader
+        title={CONSUMER_TODAY_LABEL}
+        subtitle={dateLabel}
+        subtitleTestID="daily-monitor-page-date"
       />
       <ScrollView
         style={styles.scrollView}
@@ -214,37 +210,6 @@ export function DailyMonitorHost(): React.ReactElement {
         refreshControl={refreshControl}
         testID="daily-monitor-scroll"
       >
-        <View
-          style={styles.healthPicture}
-          testID="home-health-performance"
-          accessible
-          accessibilityLabel={`${HOME_HEALTH_PERFORMANCE_TITLE}. ${HOME_BASELINE_HEADING}. ${HOME_BASELINE_BODY}`}
-        >
-          <Text style={styles.healthPictureTitle} accessibilityRole="header">
-            {HOME_HEALTH_PERFORMANCE_TITLE}
-          </Text>
-          <Text style={styles.baselineHeading} testID="home-baseline-heading">
-            {HOME_BASELINE_HEADING}
-          </Text>
-          <Text style={styles.baselineBody}>{HOME_BASELINE_BODY}</Text>
-        </View>
-        <View
-          style={styles.pageIntro}
-          accessible
-          accessibilityLabel={`${HOME_TODAY_SECTION_TITLE}. ${dateLabel}`}
-        >
-          <Text
-            style={styles.pageTitle}
-            accessibilityRole="header"
-            testID="daily-monitor-page-title"
-          >
-            {HOME_TODAY_SECTION_TITLE}
-          </Text>
-          <Text style={styles.pageDate} accessibilityRole="text" testID="daily-monitor-page-date">
-            {dateLabel}
-          </Text>
-        </View>
-
         {monitorVm.showPartialRefreshBanner ? (
           <View
             style={styles.banner}
@@ -281,11 +246,8 @@ export function DailyMonitorHost(): React.ReactElement {
 
         {monitorVm.screenStatus === "empty" ? (
           <EmptyState
-            title={monitorVm.emptyTitle ?? "No health data is available for today yet."}
-            description={
-              monitorVm.emptySubtitle ??
-              "Data will appear as devices sync or you add entries."
-            }
+            title={monitorVm.emptyTitle ?? HOME_TODAY_EMPTY_TITLE}
+            description={monitorVm.emptySubtitle ?? HOME_TODAY_EMPTY_BODY}
           />
         ) : null}
 
@@ -384,46 +346,9 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: UI_TAB_ROOT_INSET,
-    paddingTop: 0,
+    paddingTop: 4,
     flexGrow: 1,
     backgroundColor: UI_APP_SCREEN_BG,
-  },
-  healthPicture: {
-    marginTop: 4,
-    marginBottom: 12,
-    gap: 6,
-  },
-  healthPictureTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: UI_TEXT_SECONDARY,
-    letterSpacing: 0.2,
-  },
-  baselineHeading: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: UI_TEXT_PRIMARY,
-  },
-  baselineBody: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: UI_TEXT_SECONDARY,
-  },
-  pageIntro: {
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: UI_TEXT_PRIMARY,
-    letterSpacing: 0.1,
-  },
-  pageDate: {
-    marginTop: 4,
-    fontSize: 15,
-    fontWeight: "500",
-    color: UI_TEXT_SECONDARY,
   },
   section: {
     marginTop: 8,

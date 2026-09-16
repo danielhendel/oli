@@ -15,6 +15,8 @@ function tabNameToDestination(name: string): PrimaryNavigationDestination | null
   switch (name) {
     case "dash":
       return "home";
+    case "today":
+      return "today";
     case "program":
       return "plan";
     case "progress":
@@ -28,7 +30,7 @@ function tabNameToDestination(name: string): PrimaryNavigationDestination | null
 
 /**
  * BottomTabBarProps for stack routes where the real tab navigator is not mounted.
- * Always the four analytics-first destinations.
+ * Always the five Stage 2 primary destinations.
  */
 export function buildOverlayTabBarProps(
   router: Router,

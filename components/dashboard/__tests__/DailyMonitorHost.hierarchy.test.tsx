@@ -1,15 +1,15 @@
 /**
- * Mode A header hierarchy: fixed header is Home; Today title/date live in scroll content.
+ * Today host: Plan-style page title + date + Daily Monitor (no compact app header).
+ * Home host: Oli header + My Health & Performance cards (no Daily Monitor).
  */
 
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
 import {
-  HOME_BASELINE_HEADING,
-  HOME_HEALTH_PERFORMANCE_TITLE,
-  HOME_TODAY_SECTION_TITLE,
-  CONSUMER_HOME_LABEL,
+  CONSUMER_HOME_SCREEN_TITLE,
+  CONSUMER_TODAY_LABEL,
+  HOME_MY_HEALTH_PERFORMANCE_TITLE,
 } from "@/lib/navigation/consumerHome";
 import { allowConsoleForThisTest } from "../../../scripts/test/consoleGuard";
 
@@ -100,58 +100,68 @@ jest.mock("@/lib/data/dash/useDailyMonitorStressCard", () => ({
   useDailyMonitorStressCard: (...args: unknown[]) => mockStressHook(...args),
 }));
 
-jest.mock("@/lib/ui/navigation/useFloatingTabBarScrollPadding", () => ({
-  useFloatingTabBarScrollPadding: () => 120,
-}));
-
-jest.mock("@/components/navigation/ManageNavigationContext", () => ({
-  useManageNavigation: () => ({
-    manageVisible: false,
-    menuAnchor: null,
-    openManage: jest.fn(),
-    closeManage: jest.fn(),
+jest.mock("@/lib/data/dash/useDailyMonitorRefresh", () => ({
+  useDailyMonitorRefresh: () => ({
+    refreshing: false,
+    onRefresh: jest.fn(),
+    refreshQuiet: jest.fn(),
   }),
 }));
 
-jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
-  useUserProfileMain: () => ({ state: { status: "missing" } }),
+jest.mock("@/lib/ui/navigation/useFloatingTabBarScrollPadding", () => ({
+  useFloatingTabBarScrollPadding: () => 80,
 }));
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: jest.fn() }),
-  useFocusEffect: (cb: () => void | (() => void)) => {
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  useFocusEffect: (cb: () => void) => {
     cb();
   },
+  usePathname: () => "/today",
 }));
 
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
+  useUserProfileMain: () => ({
+    state: {
+      status: "ready",
+      profile: {
+        identity: { firstName: "Sam", lastName: null, dateOfBirth: null, sexAtBirth: null },
+      },
+    },
+  }),
 }));
+
+function collectText(node: renderer.ReactTestInstance): string {
+  const parts: string[] = [];
+  const walk = (n: renderer.ReactTestInstance) => {
+    if (typeof n === "string" || typeof n === "number") {
+      parts.push(String(n));
+      return;
+    }
+    if (n.children) {
+      for (const c of n.children) {
+        if (typeof c === "string" || typeof c === "number") parts.push(String(c));
+        else if (c && typeof c === "object") walk(c as renderer.ReactTestInstance);
+      }
+    }
+  };
+  walk(node);
+  return parts.join(" ");
+}
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { DailyMonitorHost } = require("../DailyMonitorHost");
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { LegacyDashHost } = require("../LegacyDashHost");
+const { HomeScreenContent } = require("@/lib/ui/home/HomeScreenContent");
 
-function collectText(root: renderer.ReactTestInstance): string {
-  return root
-    .findAllByType("Text")
-    .map((n) =>
-      (n.children as (string | number)[])
-        .filter((c) => typeof c === "string" || typeof c === "number")
-        .join(""),
-    )
-    .join(" | ");
-}
-
-describe("Daily Monitor header hierarchy", () => {
+describe("Home / Today separation", () => {
   beforeEach(() => {
     mockActivityHook.mockClear();
     mockSessionHook.mockClear();
     mockStressHook.mockClear();
   });
 
-  it("uses Home in the fixed header and Today + health-picture copy in page content", async () => {
+  it("Today host shows Plan-style page title, date, and no compact app header", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
@@ -159,82 +169,69 @@ describe("Daily Monitor header hierarchy", () => {
       await Promise.resolve();
     });
 
-    const header = tree.root.findByProps({ testID: "dash-screen-header" });
-    expect(header.props.accessibilityLabel).toBe(CONSUMER_HOME_LABEL);
+    expect(tree.root.findAllByProps({ testID: "app-header" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "app-header-menu-button" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "app-navigation-drawer" })).toHaveLength(0);
 
-    const pageTitle = tree.root.findByProps({ testID: "daily-monitor-page-title" });
-    expect(pageTitle.props.children).toBe(HOME_TODAY_SECTION_TITLE);
-    expect(pageTitle.props.accessibilityRole).toBe("header");
+    const titleNodes = tree.root.findAll(
+      (n) =>
+        n.type === "Text" &&
+        (n.props as { accessibilityRole?: string }).accessibilityRole === "header" &&
+        String((n.children ?? []).join("")) === CONSUMER_TODAY_LABEL,
+    );
+    expect(titleNodes).toHaveLength(1);
+    expect(titleNodes[0]!.props.style).toEqual(
+      expect.objectContaining({
+        fontSize: 22,
+        fontWeight: "600",
+      }),
+    );
+
     const pageDate = tree.root.findByProps({ testID: "daily-monitor-page-date" });
     expect(pageDate.props.children).toBe("Mon Jul 20, 2026");
     expect(pageDate.props.accessibilityRole).toBe("text");
 
+    expect(tree.root.findAllByProps({ testID: "home-my-health-performance" })).toHaveLength(0);
     const text = collectText(tree.root);
-    expect(text).toContain("Home");
-    expect(text).toContain(HOME_HEALTH_PERFORMANCE_TITLE);
-    expect(text).toContain(HOME_BASELINE_HEADING);
-    expect(text).toContain("Today");
-    expect(text).not.toContain("What Oli Sees");
-    expect(text).not.toMatch(/overall score/i);
-    expect(text).toContain("Mon Jul 20, 2026");
-
-    const headerTitle = header.findAll(
-      (n) =>
-        n.type === "Text" &&
-        (n.props as { accessibilityRole?: string }).accessibilityRole === "header",
-    );
-    expect(headerTitle).toHaveLength(1);
-    expect(
-      (headerTitle[0]!.children as (string | number)[])
-        .filter((c) => typeof c === "string" || typeof c === "number")
-        .join(""),
-    ).toBe("Home");
-    expect(header.findAllByProps({ testID: "daily-monitor-page-title" })).toHaveLength(0);
-    expect(header.findAllByProps({ testID: "daily-monitor-page-date" })).toHaveLength(0);
-    const headerJoined = header
-      .findAllByType("Text")
-      .map((n) =>
-        (n.children as (string | number)[])
-          .filter((c) => typeof c === "string" || typeof c === "number")
-          .join(""),
-      )
-      .join(" ");
-    expect(headerJoined).not.toContain("Today");
-    expect(headerJoined).toContain("Where am I?");
-    expect(headerJoined).not.toContain("Mon Jul 20");
+    expect(text).not.toContain(HOME_MY_HEALTH_PERFORMANCE_TITLE);
+    expect(text).not.toContain("Where am I?");
+    expect(text).not.toContain("Building your health picture");
+    expect((text.match(/\bToday\b/g) ?? []).length).toBe(1);
 
     expect(mockActivityHook).toHaveBeenCalled();
-    expect(mockSessionHook).toHaveBeenCalled();
-    expect(mockStressHook).toHaveBeenCalled();
     tree.unmount();
   });
 
-  it("preserves Home header on the legacy host and does not mount Monitor-only domain hooks", async () => {
+  it("Home shows compact Oli header, stacked categories, and no Daily Monitor host", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
-    mockActivityHook.mockClear();
-    mockSessionHook.mockClear();
-    mockStressHook.mockClear();
-
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
-      tree = renderer.create(React.createElement(LegacyDashHost));
+      tree = renderer.create(React.createElement(HomeScreenContent));
       await Promise.resolve();
     });
 
-    const header = tree.root.findByProps({ testID: "dash-screen-header" });
-    const headerTexts = header
-      .findAllByType("Text")
-      .map((n) =>
-        (n.children as (string | number)[])
-          .filter((c) => typeof c === "string" || typeof c === "number")
-          .join(""),
-      );
-    expect(headerTexts).toContain(CONSUMER_HOME_LABEL);
-    expect(headerTexts.join(" ")).not.toContain("Daily Monitor");
-    expect(tree.root.findAllByProps({ testID: "daily-monitor-page-title" })).toHaveLength(0);
+    const header = tree.root.findByProps({ testID: "app-header" });
+    expect(header.props.accessibilityLabel).toBe(CONSUMER_HOME_SCREEN_TITLE);
+    tree.root.findByProps({ testID: "app-header-menu-button" });
+
+    const sectionTitle = tree.root.findByProps({ testID: "home-my-health-performance-title" });
+    expect(sectionTitle.props.children).toBe(HOME_MY_HEALTH_PERFORMANCE_TITLE);
+
+    for (const id of [
+      "body_composition",
+      "strength",
+      "cardio_fitness",
+      "nutrition",
+      "sleep",
+      "recovery",
+      "health",
+    ]) {
+      tree.root.findByProps({ testID: `home-category-card-${id}` });
+    }
+
+    expect(tree.root.findAllByProps({ testID: "daily-monitor-host" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "daily-monitor-page-date" })).toHaveLength(0);
     expect(mockActivityHook).not.toHaveBeenCalled();
-    expect(mockSessionHook).not.toHaveBeenCalled();
-    expect(mockStressHook).not.toHaveBeenCalled();
     tree.unmount();
   });
 });

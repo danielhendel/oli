@@ -4,6 +4,7 @@ import {
   getBodyCompositionReadAuthStatus,
   requestPermissions,
 } from "@/lib/integrations/appleHealth";
+import { getAppleHealthConnected } from "@/lib/integrations/appleHealth/storage";
 import type { WeightSeriesViewModel } from "@/lib/data/useWeightSeries";
 import type { BodyMetricTrendsState } from "@/lib/data/body/useBodyMetricTrends";
 import {
@@ -55,6 +56,12 @@ export function useAppleHealthBodyAccessState(opts: {
     }
     setAuthLoading(true);
     try {
+      const connected = await getAppleHealthConnected().catch(() => false);
+      if (!connected) {
+        // Not connected for this Oli account — do not query HealthKit.
+        setAuthSnapshot({ kind: "not_determined" });
+        return;
+      }
       const res = await getBodyCompositionReadAuthStatus();
       if (!res.ok) {
         setAuthSnapshot({ kind: "unavailable", error: res.error });
@@ -71,6 +78,12 @@ export function useAppleHealthBodyAccessState(opts: {
   }, [refreshAuth]);
 
   const onAllowAppleHealthBodyAccess = useCallback(async () => {
+    const connected = await getAppleHealthConnected().catch(() => false);
+    if (!connected) {
+      // Account-level connection required before permission prompts or sync.
+      await refreshAuth();
+      return;
+    }
     const perm = await requestPermissions();
     await refreshAuth();
     if (perm.ok) {

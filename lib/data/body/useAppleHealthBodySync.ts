@@ -8,12 +8,10 @@ import {
   requestPermissions,
   runAppleHealthBodySync,
 } from "@/lib/integrations/appleHealth";
-import { scheduleAppleHealthStepsRepair } from "@/lib/data/activity/appleHealthStepsRepairCoordinator";
 import {
   getAppleHealthBodyLastCheckedAt,
   getAppleHealthConnected,
   setAppleHealthBodyLastCheckedAt,
-  setAppleHealthConnected,
   setLastSyncAt,
 } from "@/lib/integrations/appleHealth/storage";
 import { nowIso, shouldRun } from "@/lib/sync/throttle";
@@ -57,6 +55,10 @@ export function useAppleHealthBodySync(onSynced?: () => void): {
   }, [user?.uid]);
 
   const runAppleHealthBodyIngest = useCallback(async () => {
+    // Account connection is explicit (onboarding / devices Connect). Permission alone must not sync.
+    const connected = await getAppleHealthConnected().catch(() => false);
+    if (!connected) return { ok: false as const };
+
     const token = await getIdToken(false);
     if (!token) return { ok: false as const };
 
@@ -82,26 +84,19 @@ export function useAppleHealthBodySync(onSynced?: () => void): {
     await setAppleHealthBodyLastCheckedAt(nowIso()).catch(() => undefined);
 
     if (!result.ok) return { ok: false as const };
-    const wasConnected = await getAppleHealthConnected().catch(() => false);
     setHasSuccessfulBodySync(true);
-    await setAppleHealthConnected(true).catch(() => undefined);
     await setLastSyncAt(nowIso()).catch(() => undefined);
-    if (!wasConnected) {
-      const uid = user?.uid;
-      scheduleAppleHealthStepsRepair({
-        trigger: "connection",
-        bypassCooldown: true,
-        getIdToken,
-        ...(uid ? { userUid: uid } : {}),
-      });
-    }
     onSynced?.();
     return { ok: true as const };
-  }, [getIdToken, onSynced, user?.uid]);
+  }, [getIdToken, onSynced]);
 
   const doSync = useCallback(
     async (opts: { skipThrottle: boolean }) => {
       if (!user || inFlight.current) return;
+
+      const connected = await getAppleHealthConnected().catch(() => false);
+      if (!connected) return;
+
       if (!opts.skipThrottle) {
         const lastChecked = await getAppleHealthBodyLastCheckedAt().catch(() => null);
         if (!shouldRun(lastChecked, BODY_SYNC_MIN_MS)) return;

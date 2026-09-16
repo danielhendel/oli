@@ -34,6 +34,7 @@ async function removeKeysMatchingPrefix(prefix: string): Promise<void> {
 
 async function clearPerUidKeys(uid: string): Promise<void> {
   const prefixes = [
+    `onboarding:draft:v1:u:${uid}`,
     `nutrition:recentLogging:v1:${uid}`,
     `workouts:journal:v1:u:${uid}`,
     `workouts:journalIndex:v1:u:${uid}`,

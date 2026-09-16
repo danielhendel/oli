@@ -146,6 +146,13 @@ export async function setAppleHealthStepsAutoRepairLastCompletedAt(iso: string):
   await AsyncStorage.setItem(APPLE_HEALTH_STEPS_AUTO_REPAIR_LAST_AT, iso);
 }
 
+/**
+ * Local account-connection flag for Apple Health.
+ * Device HealthKit permission ≠ connected. Set only via explicit Connect
+ * (onboarding or devices). Cleared on sign_out / account_switch / account_deletion
+ * via `apple_health_global` registry policy (`appleHealth:` prefix).
+ * Not uid-scoped today — account switch clears the global key.
+ */
 export async function getAppleHealthConnected(): Promise<boolean> {
   const v = await AsyncStorage.getItem(APPLE_HEALTH_CONNECTED);
   return v === "true";

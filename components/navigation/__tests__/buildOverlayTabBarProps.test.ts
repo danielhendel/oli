@@ -2,23 +2,35 @@ import type { Router } from "expo-router";
 import { buildOverlayTabBarProps } from "@/components/navigation/buildOverlayTabBarProps";
 import { setPrimaryNavHealthV1EnabledForTests } from "@/lib/navigation/primaryNavHealthV1";
 
-describe("buildOverlayTabBarProps (R1 four destinations)", () => {
+describe("buildOverlayTabBarProps (Stage 2 five destinations)", () => {
   afterEach(() => {
     setPrimaryNavHealthV1EnabledForTests(null);
   });
 
-  it("exposes Home, Plan, Progress, You regardless of deprecated flag", () => {
+  it("exposes Home, Today, Plan, Progress, You regardless of deprecated flag", () => {
     setPrimaryNavHealthV1EnabledForTests(false);
     const router = { push: jest.fn() } as Pick<Router, "push"> as Router;
     const props = buildOverlayTabBarProps(router, { top: 0, bottom: 0, left: 0, right: 0 });
-    expect(props.state.routes.map((r) => r.name)).toEqual(["dash", "program", "progress", "you"]);
+    expect(props.state.routes.map((r) => r.name)).toEqual([
+      "dash",
+      "today",
+      "program",
+      "progress",
+      "you",
+    ]);
 
     setPrimaryNavHealthV1EnabledForTests(true);
     const propsOn = buildOverlayTabBarProps(router, { top: 0, bottom: 0, left: 0, right: 0 });
-    expect(propsOn.state.routes.map((r) => r.name)).toEqual(["dash", "program", "progress", "you"]);
+    expect(propsOn.state.routes.map((r) => r.name)).toEqual([
+      "dash",
+      "today",
+      "program",
+      "progress",
+      "you",
+    ]);
   });
 
-  it("dispatches tab NAVIGATE to expo-router Home path", () => {
+  it("dispatches tab NAVIGATE to expo-router Home and Today paths", () => {
     const push = jest.fn();
     const router = { push } as Pick<Router, "push"> as Router;
     const props = buildOverlayTabBarProps(router, { top: 0, bottom: 0, left: 0, right: 0 });
@@ -27,6 +39,11 @@ describe("buildOverlayTabBarProps (R1 four destinations)", () => {
       payload: { name: "dash", merge: true },
     });
     expect(push).toHaveBeenCalledWith("/(app)/(tabs)/dash");
+    props.navigation.dispatch({
+      type: "NAVIGATE",
+      payload: { name: "today", merge: true },
+    });
+    expect(push).toHaveBeenCalledWith("/(app)/(tabs)/today");
     props.navigation.dispatch({
       type: "NAVIGATE",
       payload: { name: "program", merge: true },

@@ -1,12 +1,14 @@
 // app/(app)/(tabs)/__tests__/dash-recap.test.tsx
-// Dash Daily Energy hero card.
+// Stage 2 Today: Daily Energy / Daily Monitor content (moved off Home).
 
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
-import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
-import { setDashDailyMonitorFoundationEnabledForTests } from "@/lib/data/dash/dashDailyMonitorFoundation";
-
+jest.mock("@react-navigation/native", () => ({
+  CommonActions: {
+    navigate: jest.fn((opts: object) => ({ type: "NAVIGATE", payload: opts })),
+  },
+}));
 
 jest.mock("react-native", () => ({
   View: "View",
@@ -14,8 +16,11 @@ jest.mock("react-native", () => ({
   Pressable: "Pressable",
   Modal: "Modal",
   ScrollView: "ScrollView",
-  StyleSheet: { create: (s: unknown) => s },
+  RefreshControl: "RefreshControl",
+  StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },
   ActivityIndicator: "ActivityIndicator",
+  useWindowDimensions: () => ({ width: 390, height: 844 }),
+  Platform: { OS: "ios", select: (v: { ios?: unknown; default?: unknown }) => v.ios ?? v.default },
   Easing: {
     out: (e: (t: number) => number) => e,
     cubic: (t: number) => t * t * t,
@@ -45,7 +50,8 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  usePathname: () => "/today",
   useFocusEffect: (cb: () => void) => cb(),
 }));
 
@@ -59,29 +65,37 @@ jest.mock("react-native-svg", () => ({
   Circle: "Circle",
 }));
 
+jest.mock("@/lib/hooks/useCurrentLocalDayKey", () => ({
+  useCurrentLocalDayKey: () => ({ dayKey: "2026-05-05", refreshDayKey: jest.fn() }),
+}));
+
+jest.mock("@/lib/ui/calendar/dayKeyDisplayFormat", () => ({
+  formatDayKeyStackNavTitle: () => "Mon May 5, 2026",
+}));
+
 const mockUseTodayHealthHero = jest.fn();
 jest.mock("@/lib/hooks/useTodayHealthHero", () => ({
   useTodayHealthHero: (...args: unknown[]) => mockUseTodayHealthHero(...args),
 }));
 
+const mockUseDailyReadinessCard = jest.fn(() => ({
+  vm: {
+    status: "ready",
+    day: "2026-05-05",
+    model: {
+      hasAnySignal: true,
+      headlineValueText: "72",
+      metricRows: [{ id: "rhr", label: "RHR", value: "49", isAvailable: true }],
+    },
+  },
+  refetch: jest.fn(),
+}));
 jest.mock("@/lib/hooks/useDailyReadinessCard", () => ({
-  useDailyReadinessCard: () => ({
-    vm: { status: "missing", day: "2026-05-11", message: "Waiting for Oura readiness data." },
-    refetch: jest.fn(),
-  }),
+  useDailyReadinessCard: () => mockUseDailyReadinessCard(),
 }));
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({ user: { uid: "t1" }, initializing: false, getIdToken: jest.fn() }),
-}));
-
-jest.mock("@/components/navigation/ManageNavigationContext", () => ({
-  useManageNavigation: () => ({
-    manageVisible: false,
-    menuAnchor: null,
-    openManage: jest.fn(),
-    closeManage: jest.fn(),
-  }),
 }));
 
 jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
@@ -93,7 +107,7 @@ const mockUseBodyCompositionDashCard = jest.fn(() => ({
   error: null,
   hasUser: true,
   goalsHref: "/(app)/body/settings",
-    overviewDay: "2026-05-11",
+  overviewDay: "2026-05-05",
   built: {
     tag: "ready" as const,
     weightPrimaryLabel: "159.3 lb",
@@ -128,21 +142,6 @@ jest.mock("@/lib/data/dash/useBodyCompositionDashCard", () => ({
   useBodyCompositionDashCard: (...args: unknown[]) => mockUseBodyCompositionDashCard(...args),
 }));
 
-jest.mock("@/lib/data/dash/useWeeklyFitnessCard", () => ({
-  useWeeklyFitnessCard: () => ({
-    loading: false,
-    error: null,
-    model: null,
-    goals: {
-      activityStepsPerDayGoal: 10000,
-      strengthWorkoutsPerWeekGoal: 5,
-      cardioMilesPerWeekGoal: 10,
-      isDefault: true,
-    },
-    goalsHref: "/(app)/fitness-goals",
-  }),
-}));
-
 const mockUseDailyNutritionCard = jest.fn(() => ({
   model: {
     calorieLabel: "1,850 kcal",
@@ -160,8 +159,46 @@ jest.mock("@/lib/data/dash/useDailyNutritionCard", () => ({
   useDailyNutritionCard: (...args: unknown[]) => mockUseDailyNutritionCard(...args),
 }));
 
+jest.mock("@/lib/data/dash/useDailyMonitorActivityCard", () => ({
+  useDailyMonitorActivityCard: () => ({
+    presence: "absent_no_day_evidence",
+    model: null,
+    href: "/(app)/activity",
+    refetch: jest.fn(),
+  }),
+}));
+jest.mock("@/lib/data/dash/useDailyMonitorSessionCards", () => ({
+  useDailyMonitorSessionCards: () => ({
+    workoutPresence: "absent_no_day_evidence",
+    workoutModel: null,
+    workoutHref: "/(app)/workouts",
+    cardioPresence: "absent_no_day_evidence",
+    cardioModel: null,
+    cardioHref: "/(app)/cardio",
+  }),
+}));
+jest.mock("@/lib/data/dash/useDailyMonitorStressCard", () => ({
+  useDailyMonitorStressCard: () => ({
+    presence: "absent_no_day_evidence",
+    model: null,
+    href: "/(app)/recovery/stress",
+    refetch: jest.fn(),
+  }),
+}));
+jest.mock("@/lib/data/dash/useDailyMonitorRefresh", () => ({
+  useDailyMonitorRefresh: () => ({
+    refreshing: false,
+    onRefresh: jest.fn(),
+    refreshQuiet: jest.fn(),
+  }),
+}));
+
+jest.mock("@/lib/ui/navigation/useFloatingTabBarScrollPadding", () => ({
+  useFloatingTabBarScrollPadding: () => 80,
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const DashScreen = require("../dash").default;
+const TodayScreen = require("../today").default;
 
 function collectAllText(test: renderer.ReactTestRenderer): string {
   const nodes = test.root.findAllByType("Text");
@@ -174,23 +211,30 @@ function collectAllText(test: renderer.ReactTestRenderer): string {
   return parts.join(" ");
 }
 
-describe("Dash Daily Energy card", () => {
+describe("Today Daily Monitor cards", () => {
   beforeEach(() => {
-    setDashDailyMonitorFoundationEnabledForTests(false);
-    setDashWeeklyProgressRelocationEnabledForTests(true);
     mockUseTodayHealthHero.mockReset();
+    mockUseDailyReadinessCard.mockReset();
+    mockUseDailyReadinessCard.mockReturnValue({
+      vm: {
+        status: "ready",
+        day: "2026-05-05",
+        model: {
+          hasAnySignal: true,
+          headlineValueText: "72",
+          metricRows: [{ id: "rhr", label: "RHR", value: "49", isAvailable: true }],
+        },
+      },
+      refetch: jest.fn(),
+    });
   });
 
-  afterEach(() => {
-    setDashWeeklyProgressRelocationEnabledForTests(null);
-    setDashDailyMonitorFoundationEnabledForTests(null);
-  });
-
-  it("renders Body Composition first (relocation) and removes Sleep/Recovery summary", () => {
+  it("renders ready daily cards on Today (not Home)", () => {
     mockUseTodayHealthHero.mockReturnValue({
       energyLoading: false,
       energyError: null,
       refetch: jest.fn(),
+      refetchSleep: jest.fn(),
       energy: {
         modelVersion: "daily_energy_v3",
         computedAt: "2026-05-05T12:00:00.000Z",
@@ -207,91 +251,123 @@ describe("Dash Daily Energy card", () => {
         missingRequiredInputs: [],
       },
       sleepCardVm: {
-        status: "missing",
+        status: "ready",
         day: "2026-05-05",
-        message: "No sleep data logged for this day.",
+        isRefreshing: false,
+        model: {
+          day: "2026-05-05",
+          headlineValueText: "88",
+          scoreUnavailable: false,
+          scoreUnavailableLabel: null,
+          scoreValueText: "88",
+          durationValueText: "8h",
+          ratingLabel: "Optimal",
+          ratingTone: "optimal",
+          summarySentence: "Strong overall sleep quality for this day.",
+          metricRows: [
+            {
+              id: "sleep_duration",
+              label: "Duration",
+              value: "8h",
+              accessibilityValue: "8h",
+              isAvailable: true,
+              detail: { title: "Duration", value: "8h", body: "x" },
+            },
+          ],
+          hasAnySignal: true,
+          emptyStateTitle: null,
+          emptyStateSubtitle: null,
+          lastNightSubtitle: "Last night’s sleep",
+        },
       },
+      exactDayRestingHeartRateBpm: 49,
+      attributedSleepNight: null,
+      attributedSleepResolution: null,
     });
 
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<DashScreen />);
+      test = renderer.create(<TodayScreen />);
     });
     const text = collectAllText(test);
-    /** Legacy title + tagline must be gone (audit-driven removal). */
-    expect(text).not.toContain("Track, understand, and improve every part of your health.");
-    expect(text).not.toContain("Good afternoon");
-    expect(text).not.toContain("Today's Progress");
-    /** Weekly Fitness relocated off Dash by default. */
-    expect(text).not.toContain("Weekly Fitness");
+    expect(text).toContain("Today");
     expect(text).toContain("Body Composition");
     expect(text).toContain("159.3 lb");
-    expect(text).toContain("BMI");
-    expect(text).toContain("Lean Mass");
-    expect(text).toContain("Daily Energy");
-    expect(text).toContain("Daily Nutrition");
+    expect(text).toContain("Energy Expenditure");
+    expect(text).toContain("Nutrition");
     expect(text).toContain("1,850 kcal");
-    expect(text).toContain("Protein");
-    expect(text).toContain("142 g");
     expect(text).toContain("2,120–2,480 kcal");
-    expect(text).toContain("BMR");
-    expect(text).toContain("NEAT");
-    expect(text).not.toContain("Estimated");
-    expect(text).not.toContain("Estimated burn today");
-    expect(text).not.toContain("Confidence");
-    expect(text).toContain("Daily Sleep");
-    expect(text).toContain("Oura Readiness");
-
-    /** Body first; then Energy, Sleep, Readiness, Nutrition. */
-    const idxBody = text.indexOf("Body Composition");
-    const idxEnergy = text.indexOf("Daily Energy");
-    const idxSleep = text.indexOf("Daily Sleep");
-    const idxReadiness = text.indexOf("Oura Readiness");
-    const idxNutrition = text.indexOf("Daily Nutrition");
-    expect(idxBody).toBeGreaterThan(-1);
-    expect(idxEnergy).toBeGreaterThan(idxBody);
-    expect(idxSleep).toBeGreaterThan(idxEnergy);
-    expect(idxReadiness).toBeGreaterThan(idxSleep);
-    expect(idxNutrition).toBeGreaterThan(idxReadiness);
+    expect(text).toContain("Sleep");
+    expect(text).not.toContain("My Health & Performance");
+    expect(text).not.toContain("Weekly Fitness");
+    expect(text).not.toContain("Today's Progress");
+    expect(test.root.findAllByProps({ testID: "home-my-health-performance" })).toHaveLength(0);
   });
 
-  it("shows loading copy while Daily Energy is hydrating", () => {
+  it("shows loading presence while Daily Energy is hydrating", () => {
     mockUseTodayHealthHero.mockReturnValue({
       energyLoading: true,
       energyError: null,
       refetch: jest.fn(),
+      refetchSleep: jest.fn(),
       energy: undefined,
       sleepCardVm: { status: "partial", day: "2026-05-05" },
+      exactDayRestingHeartRateBpm: null,
+      attributedSleepNight: null,
+      attributedSleepResolution: null,
     });
 
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<DashScreen />);
+      test = renderer.create(<TodayScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("Loading daily energy");
-    expect(text).toContain("Daily Sleep");
-    expect(text).toContain("Loading daily sleep");
+    expect(text).toContain("Today");
+    expect(text).toContain("Mon May 5, 2026");
+    expect(text).not.toMatch(/Building your health picture/i);
+    expect(text).not.toContain("Open navigation menu");
   });
 
-  it("shows empty-state copy when energy is missing", () => {
+  it("shows honest empty copy when no current-day evidence", () => {
     mockUseTodayHealthHero.mockReturnValue({
       energyLoading: false,
       energyError: null,
       refetch: jest.fn(),
+      refetchSleep: jest.fn(),
       energy: undefined,
       sleepCardVm: {
         status: "missing",
         day: "2026-05-05",
         message: "No sleep data logged for this day.",
       },
+      exactDayRestingHeartRateBpm: null,
+      attributedSleepNight: null,
+      attributedSleepResolution: null,
+    });
+    mockUseBodyCompositionDashCard.mockReturnValue({
+      loading: false,
+      error: null,
+      hasUser: true,
+      goalsHref: "/(app)/body/settings",
+      overviewDay: null,
+      built: { tag: "empty" as const },
+    });
+    mockUseDailyNutritionCard.mockReturnValue({
+      model: { calorieLabel: "—", hasAnyNutrition: false, rows: [] },
+      loading: false,
+      error: null,
+    });
+    mockUseDailyReadinessCard.mockReturnValue({
+      vm: { status: "missing", day: "2026-05-05", message: "No readiness" },
+      refetch: jest.fn(),
     });
 
     let test!: renderer.ReactTestRenderer;
     act(() => {
-      test = renderer.create(<DashScreen />);
+      test = renderer.create(<TodayScreen />);
     });
     const text = collectAllText(test);
-    expect(text).toContain("Not enough data yet to estimate energy.");
+    expect(text).toMatch(/No health data is available for today yet/i);
+    expect(text).not.toMatch(/Building your health picture/i);
   });
 });

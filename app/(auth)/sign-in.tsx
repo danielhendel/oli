@@ -5,7 +5,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 import { signInWithEmail } from "@/lib/auth/actions";
-import { CONSUMER_HOME_HREF } from "@/lib/navigation/consumerHome";
 import {
   UI_APP_SCREEN_BG,
   UI_BORDER_HAIRLINE,
@@ -39,7 +38,7 @@ export default function SignInScreen() {
         return;
       }
 
-      router.replace(CONSUMER_HOME_HREF);
+      // RouteGuard sends incomplete users to onboarding; completed users to Home.
     } finally {
       setSubmitting(false);
     }

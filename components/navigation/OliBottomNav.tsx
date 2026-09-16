@@ -38,7 +38,7 @@ export type OliBottomNavProps = {
 };
 
 /**
- * Primary dock pill: Home · Plan · Progress · You.
+ * Primary dock pill: Home · Today · Plan · Progress · You.
  */
 export function OliBottomNav({ tabBarProps, style }: OliBottomNavProps) {
   const router = useRouter();

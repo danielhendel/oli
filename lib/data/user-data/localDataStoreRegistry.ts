@@ -18,6 +18,16 @@ export type LocalStorePolicy = {
 
 export const LOCAL_DATA_STORE_REGISTRY: readonly LocalStorePolicy[] = [
   {
+    storeId: "onboarding_draft",
+    keyPattern: "onboarding:draft:v1:u:",
+    userScoped: true,
+    containsHealthData: true,
+    containsCredentials: false,
+    signOut: "clear_per_uid",
+    accountSwitch: "clear_per_uid",
+    accountDeletion: "clear_per_uid",
+  },
+  {
     storeId: "nutrition_queue",
     keyPattern: "oli_nutrition_ingest_queue_v1",
     userScoped: false,

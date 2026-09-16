@@ -198,59 +198,70 @@ Do not state causation without sufficient evidence and an approved analytical me
 
 No feature tour. No long subjective questionnaire. No vague prompts such as “How do you want to feel?” or “What does wellness mean to you?”
 
+### Stage 2 launch flow (product law)
+
+```text
+Opening → About You → Home
+```
+
+Source / device connection is **not** part of mandatory onboarding. Connections are introduced contextually from category pages or You → Connected Devices.
+
 ### Opening
 
 ```text
-Pursue Excellence.
+Pursue Health Excellence.
 
-Understand where you are.
-See how you’re progressing.
-Discover how good you can become.
+Know where you are.
+Know what to do.
+Discover how great you can become.
 
 Get Started
+Sign In
 ```
 
 ### About You
 
-Collect only the minimum information necessary for interpretation: name, date of birth, sex, height, weight.
+Collect only the minimum information necessary for interpretation: preferred name, date of birth (Month / Day / Year), sex used for health interpretation, height, optional weight.
 
-### Connect
+### Connect / Understand (not mandatory onboarding)
 
-```text
-Bring your health together.
-Connect what you already use.
-```
+Account-level source connection (Apple Health, Oura, and other **repo-supported** methods) remains available from category context and Connected Devices. Stale `/connect` and `/understand` routes migrate safely to About You or Home.
 
-Possible initial sources (vision only — **repo truth governs** what may be shown as supported): Apple Health, Oura, MyFitnessPal, Withings.
-
-Secondary action: `I’ll do this later`.
-
-### Understand
-
-```text
-Building your health picture…
-```
-
-Possible states: connecting data, establishing baselines, measuring current state, comparing against standards, analyzing progress — then `This is you. See My Health →`.
-
-**Not implemented in the R0 documentation stage.**
+Longer readiness / baseline / Current State analysis remains a later-stage product surface — not a Stage 2 launch gate.
 
 ---
 
 ## 12. Home Experience
 
-Home answers: **Where am I?**
+Home’s visible title is **Oli** (bottom-tab label remains Home).
 
-Initial hierarchy:
+Stage 2 Home header: hamburger (app navigation drawer) · centered **Oli** · profile avatar.
 
-1. Current State
-2. Domain ratings or honest data-readiness states
-3. Direction of travel
-4. What Oli Sees
+Stage 2 first product section: **My Health & Performance**, with seven **full-width** category cards in order:
 
-Home must not initially overwhelm with dozens of cards, tasks, prescriptions, raw charts, notifications, recommendations, or deep event dumps.
+1. Body Composition
+2. Strength
+3. Cardio Fitness
+4. Nutrition
+5. Sleep
+6. Recovery
+7. Health
 
-An overall score such as `82 · Great` is **not automatically approved**. Default when an overall score is not defensible: `Building your complete baseline`.
+Home is the whole-person domain map. It does **not** embed Daily Monitor.
+
+**Today** is a separate primary destination owning daily-state / Daily Monitor content.
+
+Primary navigation (Stage 2):
+
+```text
+Home · Today · Plan · Progress · You
+```
+
+Movement / Activity data remains preserved outside this top-level Home list.
+
+Stage 2 Home must not show fabricated scores, ratings, standards, trends, confidence, recommendations, or What Oli Sees. Prefer honest missing-data / setup states.
+
+Later analytics hierarchy (Current State, domain ratings, direction of travel, What Oli Sees) remains vision for approved later stages — not Stage 2 launch.
 
 ---
 

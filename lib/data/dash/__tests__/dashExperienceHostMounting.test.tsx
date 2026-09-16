@@ -1,5 +1,5 @@
 /**
- * Proves only one Dash experience host mounts for each flag combination.
+ * Home mounts domain map only; Today owns Daily Monitor.
  */
 
 import fs from "node:fs";
@@ -8,19 +8,17 @@ import path from "node:path";
 import React, { act } from "react";
 import renderer from "react-test-renderer";
 
-import { setDashDailyMonitorFoundationEnabledForTests } from "@/lib/data/dash/dashDailyMonitorFoundation";
-import { setDashWeeklyProgressRelocationEnabledForTests } from "@/lib/data/dash/dashWeeklyProgressRelocation";
 import { allowConsoleForThisTest } from "../../../../scripts/test/consoleGuard";
 
+const mockHomeScreenContent = jest.fn(() => null);
 const mockDailyMonitorHost = jest.fn(() => null);
-const mockLegacyDashHost = jest.fn(() => null);
+
+jest.mock("@/lib/ui/home/HomeScreenContent", () => ({
+  HomeScreenContent: () => mockHomeScreenContent(),
+}));
 
 jest.mock("@/components/dashboard/DailyMonitorHost", () => ({
   DailyMonitorHost: () => mockDailyMonitorHost(),
-}));
-
-jest.mock("@/components/dashboard/LegacyDashHost", () => ({
-  LegacyDashHost: () => mockLegacyDashHost(),
 }));
 
 jest.mock("@/lib/ui/ScreenStates", () => {
@@ -34,60 +32,47 @@ jest.mock("@/lib/ui/ScreenStates", () => {
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const DashScreen = require("../../../../app/(app)/(tabs)/dash").default;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const TodayScreen = require("../../../../app/(app)/(tabs)/today").default;
 
-describe("Dash experience host mounting", () => {
-  afterEach(() => {
-    setDashDailyMonitorFoundationEnabledForTests(null);
-    setDashWeeklyProgressRelocationEnabledForTests(null);
+describe("Home and Today host mounting", () => {
+  beforeEach(() => {
+    mockHomeScreenContent.mockClear();
     mockDailyMonitorHost.mockClear();
-    mockLegacyDashHost.mockClear();
   });
 
-  async function mountDash(): Promise<renderer.ReactTestRenderer> {
-    // React may emit act() warnings for synchronous host mount bookkeeping; allow and flush.
+  it("Home mounts HomeScreenContent and not DailyMonitorHost", async () => {
     allowConsoleForThisTest({ error: [/not wrapped in act/] });
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(React.createElement(DashScreen));
       await Promise.resolve();
     });
-    return tree;
-  }
+    expect(mockHomeScreenContent).toHaveBeenCalledTimes(1);
+    expect(mockDailyMonitorHost).not.toHaveBeenCalled();
+    tree.unmount();
+  });
 
-  it("mounts Daily Monitor when both flags are enabled", async () => {
-    setDashDailyMonitorFoundationEnabledForTests(true);
-    setDashWeeklyProgressRelocationEnabledForTests(true);
-    const tree = await mountDash();
+  it("Today mounts DailyMonitorHost once", async () => {
+    allowConsoleForThisTest({ error: [/not wrapped in act/] });
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(React.createElement(TodayScreen));
+      await Promise.resolve();
+    });
     expect(mockDailyMonitorHost).toHaveBeenCalledTimes(1);
-    expect(mockLegacyDashHost).not.toHaveBeenCalled();
+    expect(mockHomeScreenContent).not.toHaveBeenCalled();
     tree.unmount();
   });
 
-  it("mounts legacy Dash when Daily Monitor is disabled", async () => {
-    setDashDailyMonitorFoundationEnabledForTests(false);
-    setDashWeeklyProgressRelocationEnabledForTests(true);
-    const tree = await mountDash();
-    expect(mockLegacyDashHost).toHaveBeenCalledTimes(1);
-    expect(mockDailyMonitorHost).not.toHaveBeenCalled();
-    tree.unmount();
-  });
-
-  it("falls back to legacy when Daily Monitor is on but relocation is off", async () => {
-    setDashDailyMonitorFoundationEnabledForTests(true);
-    setDashWeeklyProgressRelocationEnabledForTests(false);
-    const tree = await mountDash();
-    expect(mockLegacyDashHost).toHaveBeenCalledTimes(1);
-    expect(mockDailyMonitorHost).not.toHaveBeenCalled();
-    tree.unmount();
-  });
-
-  it("mounts legacy Dash when both flags are disabled", async () => {
-    setDashDailyMonitorFoundationEnabledForTests(false);
-    setDashWeeklyProgressRelocationEnabledForTests(false);
-    const tree = await mountDash();
-    expect(mockLegacyDashHost).toHaveBeenCalledTimes(1);
-    expect(mockDailyMonitorHost).not.toHaveBeenCalled();
-    tree.unmount();
+  it("Home source does not import DailyMonitorHost", () => {
+    const homeSrc = fs.readFileSync(
+      path.join(__dirname, "../../../../lib/ui/home/HomeScreenContent.tsx"),
+      "utf8",
+    );
+    expect(homeSrc).not.toMatch(/DailyMonitorHost/);
+    expect(homeSrc).not.toMatch(/useTodayHealthHero/);
+    expect(homeSrc).not.toMatch(/useDailyReadinessCard/);
   });
 
   it("keeps Monitor-only domain hooks out of LegacyDashHost source", () => {

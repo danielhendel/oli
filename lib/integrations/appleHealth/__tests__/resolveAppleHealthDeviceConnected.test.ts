@@ -1,40 +1,30 @@
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
-import { HK_AUTH_SHARING_AUTHORIZED } from "@/lib/data/body/appleHealthBodyUxPhase";
 import { resolveAppleHealthDeviceConnected } from "../resolveAppleHealthDeviceConnected";
 
-const mockGetBodyCompositionReadAuthStatus = jest.fn();
+const mockGetAppleHealthConnected = jest.fn(async () => false);
 
-jest.mock("react-native", () => ({
-  Platform: { OS: "ios" },
-}));
-
-jest.mock("@/lib/integrations/appleHealth", () => ({
-  getBodyCompositionReadAuthStatus: (...args: unknown[]) =>
-    mockGetBodyCompositionReadAuthStatus(...args),
+jest.mock("@/lib/integrations/appleHealth/storage", () => ({
+  getAppleHealthConnected: () => mockGetAppleHealthConnected(),
 }));
 
 describe("resolveAppleHealthDeviceConnected", () => {
   beforeEach(() => {
-    mockGetBodyCompositionReadAuthStatus.mockReset();
+    mockGetAppleHealthConnected.mockReset();
+    mockGetAppleHealthConnected.mockResolvedValue(false);
   });
 
-  it("returns true when API already reports connected (no HealthKit probe)", async () => {
+  it("returns true when API already reports connected (no local flag probe needed for truth)", async () => {
     await expect(resolveAppleHealthDeviceConnected(true)).resolves.toBe(true);
-    expect(mockGetBodyCompositionReadAuthStatus).not.toHaveBeenCalled();
   });
 
-  it("returns true when API not connected but HealthKit body read is authorized", async () => {
-    mockGetBodyCompositionReadAuthStatus.mockResolvedValue({
-      ok: true,
-      bodyMassStatus: HK_AUTH_SHARING_AUTHORIZED,
-      readStatuses: [HK_AUTH_SHARING_AUTHORIZED],
-    });
+  it("returns true when API not connected but this account explicitly connected locally", async () => {
+    mockGetAppleHealthConnected.mockResolvedValue(true);
     await expect(resolveAppleHealthDeviceConnected(false)).resolves.toBe(true);
-    expect(mockGetBodyCompositionReadAuthStatus).toHaveBeenCalled();
+    expect(mockGetAppleHealthConnected).toHaveBeenCalled();
   });
 
-  it("returns false when API not connected and HealthKit probe fails", async () => {
-    mockGetBodyCompositionReadAuthStatus.mockResolvedValue({ ok: false, error: "unavailable" });
+  it("returns false when API not connected and local account flag is false (HK grant alone does not connect)", async () => {
+    mockGetAppleHealthConnected.mockResolvedValue(false);
     await expect(resolveAppleHealthDeviceConnected(false)).resolves.toBe(false);
   });
 });
