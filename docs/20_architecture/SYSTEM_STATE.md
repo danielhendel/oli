@@ -1,10 +1,12 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-09-13 (Stage 2 **active** — Home domain map + Today primary tab; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
+**Last updated:** 2026-09-16 (Stage 2 **complete on branch** at physical PASS `255f710…`; pending PR merge; **RG-SOURCE-PRIVACY-01 OPEN**; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
 **Merged `main` SHA:** `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`
 **Stage 2 branch:** `feat/consumer-stage2-minimal-onboarding-readiness`
-**Staging (historical Stage 1C):** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep ACTIVE; Firestore TTL `accountDeletions.expireAt` ACTIVE; Gateway `oli-api-config-20260830-082245`; project `oli-staging-fdbba`
+**Stage 2 physical runtime SHA:** `255f7101db7a111471ca38b92813cb426e762007` (**PASS**; not yet on `main`)
+**Staging (Stage 2):** Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`
+**Staging (historical Stage 1C):** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep ACTIVE; Firestore TTL `accountDeletions.expireAt` ACTIVE
 **Staging export (historical E2E):** Function `onAccountExportRequested` 4 GiB / 540 s
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
 **Progress map:** [REPO_TRUTH_PROGRESS_MAP.md](../00_truth/REPO_TRUTH_PROGRESS_MAP.md)
@@ -106,16 +108,19 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 | Public-link contract / external open | Merged (Stage 1A) |
 | Hosted Privacy / Terms / Support pages | Not published — **RG-LEGAL-01 OPEN** |
 | Durable consent persistence | Missing — RFC/ADR approved for future implementation; **not implemented** |
-| Minimal onboarding | Stage 2 **active** — Opening → About You → Home (source connection contextual; not mandatory onboarding) |
-| Home category entry | Stage 2 **active** — My Health & Performance full-width seven-card stack; drawer secondary nav |
-| Today primary tab | Stage 2 **active** — Daily Monitor owned by Today; not embedded on Home |
+| Minimal onboarding | Stage 2 **complete on branch** — Opening → About You → Home (source connection contextual; not mandatory onboarding); physical PASS `255f710…`; pending merge |
+| Home category entry | Stage 2 **complete on branch** — My Health & Performance full-width seven-card stack; drawer secondary nav |
+| Today primary tab | Stage 2 **complete on branch** — Daily Monitor owned by Today; not embedded on Home |
+| Source-privacy E2E (two-account server matrix) | Deferred — leadership-accepted residual risk; **RG-SOURCE-PRIVACY-01 OPEN** |
 | Export coverage closure | Gaps disclosed — **OPEN** |
 | Export scalability (streaming/pagination) | Buffered ZIP worker — Gate **OPEN** — `docs/90_audits/export-scalability-gate.md` |
 | Crash reporting product | Missing — Release hardening |
 | Production Firebase project config | Release-hardening gap |
 | Current State / What Oli Sees / Plan persistence / Progress analytics | **Not** implemented |
 | Body salvage (PR #178) | CLOSED unmerged; deferred |
+| Body Composition (Stage 3A) | **Not begun** |
 | Build checksum hygiene | Merged (PR #216) — ordinary API builds do not mutate tracked checksum truth |
+| Production deploy | **none** |
 
 ---
 
@@ -145,7 +150,7 @@ See [delta audit](../audits/2026-08-14-analytics-first-product-direction-delta.m
 
 ---
 
-## Approved primary destinations (Stage 2 branch)
+## Approved primary destinations (Stage 2 branch — complete, pending merge)
 
 ```text
 Home · Today · Plan · Progress · You
@@ -159,9 +164,9 @@ Home · Today · Plan · Progress · You
 | Progress | Execution, adherence, outcomes, trends, analysis | History + Weekly Progress; no outcome analytics product |
 | You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export UI merged (Stage 1B); delete UI and local lifecycle merged (Stage 1C) |
 
-R1 on `main` remains historically **Home · Plan · Progress · You**. Stage 2 branch supersedes that dock order.
+R1 on `main` remains historically **Home · Plan · Progress · You**. Stage 2 branch supersedes that dock order once merged.
 
-Next ownership/product work: Stage 2 physical verification of Home + Today navigation (not Stage 3 analytics contracts).
+Next ownership/product work after Stage 2 merge: Stage 3A Body Composition definition and repository audit (not begun). **RG-SOURCE-PRIVACY-01** remains OPEN and blocks external TestFlight / production / public release.
 
 ---
 

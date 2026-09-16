@@ -3,10 +3,11 @@
 **Status:** Current execution roadmap
 **Version:** 2.0
 **Effective date:** 2026-08-14
-**Last operational refresh:** 2026-09-11
+**Last operational refresh:** 2026-09-16
 **Authority level:** T2 execution roadmap (subordinate to Constitution and code/CI)
 **Supersedes:** 2026-08-10 Today / coordinated My Plan / adaptation roadmap
 **Merged baseline:** `8027c1c1d3b1a97a408c237d9a6655174a05aa0e` (PR #216 build hygiene; Stage 1C / PR #215 merged)
+**Stage 2 physical runtime SHA:** `255f7101db7a111471ca38b92813cb426e762007` (physical-iPhone **PASS**; pending merge)
 **R0 baseline:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb` (PR #211)
 **Prior Stage 1A truth freeze:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (PR #209)
 **Product decisions:** [CONSUMER_LAUNCH_PRODUCT_DECISIONS.md](../decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md)
@@ -43,7 +44,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Unified Current State / What Oli Sees / confidence contracts as one product system
 - Human-authored Plan representation with provenance (no Oli authorship)
 - Execution, adherence, and outcome Progress analytics as a first-class surface
-- Durable consent architecture (RFC/ADR approved; persistence deferred); export UI **merged** (Stage 1B); delete UI **merged** (Stage 1C); minimal onboarding (Stage 2 — **active**, not yet implemented)
+- Durable consent architecture (RFC/ADR approved; persistence deferred); export UI **merged** (Stage 1B); delete UI **merged** (Stage 1C); minimal onboarding (Stage 2 — **complete on branch**, pending merge)
 - Crash reporting product; production Firebase project config
 - Defensible overall score methodology (gated; not a P0 assumption)
 - Body salvage (deferred)
@@ -73,7 +74,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **Stage 2 — Minimal Onboarding and Data Readiness** (**active** on `feat/consumer-stage2-minimal-onboarding-readiness`).
+**Current stage:** **Stage 2 — Minimal Onboarding and Data Readiness** (**implementation complete** on `feat/consumer-stage2-minimal-onboarding-readiness` at `255f7101db7a111471ca38b92813cb426e762007`; **pending independent PR review/merge** — not yet on `main`).
 
 **Stage 2 product direction (supersedes Connect → Understand; supersedes Today-on-Home):**
 - Onboarding: **Opening → About You → Home**
@@ -86,7 +87,9 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Movement / Activity data remains preserved; **not** a top-level Home card
 - No category scores / ratings / recommendations / What Oli Sees in Stage 2
 - Apple Health sync requires explicit **current-account** connection (device permission alone is not enough)
-- Stage 3 **not begun**
+- Physical-iPhone functional verification: **PASS** at `255f7101db7a111471ca38b92813cb426e762007`
+- Source-privacy: focused static/automated gate tests **PASS**; complete two-account server evidence **deferred** by product leadership — **RG-SOURCE-PRIVACY-01 OPEN**
+- Stage 3 **not begun**; Body Composition work **not begun**
 
 **Stage 1C:** **MERGED** (PR #215) at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`; physical-iPhone deletion E2E **PASS** (2026-09-04).
 **Stage 1B:** **MERGED** (PR #214) at `3d4859e45d537813b6846ecaf4cb49222519ef80`; physical-iPhone export E2E **PASS** (2026-08-29).
@@ -95,9 +98,11 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`.
 **Build hygiene:** **MERGED** (PR #216) at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`.
 **Release gate:** **RG-LEGAL-01 OPEN** (hosted Privacy / Terms / Support not published).
+**Release gate:** **RG-SOURCE-PRIVACY-01 OPEN** (unconnected source-isolation E2E deferred; leadership-accepted residual risk for Stage 2 merge — see `docs/90_audits/2026-09-16-stage2-source-privacy-risk-acceptance.md`).
 **Staging runtime:** Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`.
 **Export:** Physical E2E **PASS**. Coverage closure **OPEN**. Scalability gate **OPEN**.
 **Consent:** Architecture approved for future implementation; **persistence not implemented**; legal assent **inactive**.
+**Production deploy:** **none**.
 
 Durable Terms/Privacy assent remains **inactive** until RG-LEGAL-01 passes. Stage 2 must not add legal assent checkboxes or fake hosted URLs.
 
@@ -145,7 +150,7 @@ R0 Product authority reset (docs) — MERGED (PR #211)
  → 1A Account recovery + legal/support foundation — **MERGED** (PR #213; RG-LEGAL-01 OPEN)
  → 1B Consent + data export — **MERGED** (PR #214)
  → 1C Account deletion + local data lifecycle — **MERGED** (PR #215)
- → 2 Profile-only onboarding + Home category entry — **ACTIVE**
+ → 2 Profile-only onboarding + Home category entry — **COMPLETE ON BRANCH** (pending merge; physical PASS `255f710…`; RG-SOURCE-PRIVACY-01 OPEN)
  → 3 Analytics truth contracts (RFC/ADR) — **NOT BEGUN**
  → 4 Seven-domain Current State
  → 5 Home + What Oli Sees
