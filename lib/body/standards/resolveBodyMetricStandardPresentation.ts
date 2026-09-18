@@ -182,8 +182,9 @@ export function resolveWeightBmiScreeningPresentation(
 
 /** Body Fat — always fail closed until proposed standard is approved. */
 export function resolveBodyFatStandardPresentation(
-  _input: BodyMetricStandardResolveInput,
+  input: BodyMetricStandardResolveInput,
 ): BodyMetricStandardPresentationModel | null {
+  void input;
   if (BODY_FAT_PERCENT_PROPOSED_STANDARD_STUB.runtimeAuthorization !== "approved_for_body_consumer_ui") {
     return null;
   }
@@ -192,8 +193,9 @@ export function resolveBodyFatStandardPresentation(
 
 /** Lean Tissue — always fail closed until construct + standard are approved. */
 export function resolveLeanTissueStandardPresentation(
-  _input: BodyMetricStandardResolveInput,
+  input: BodyMetricStandardResolveInput,
 ): BodyMetricStandardPresentationModel | null {
+  void input;
   if (LEAN_TISSUE_PROPOSED_STANDARD_STUB.runtimeAuthorization !== "approved_for_body_consumer_ui") {
     return null;
   }
