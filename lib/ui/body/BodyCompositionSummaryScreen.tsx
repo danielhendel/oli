@@ -16,7 +16,6 @@ import {
   UI_CARD_SURFACE,
   UI_GROUPED_CARD_RADIUS,
   UI_TEXT_PRIMARY,
-  UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 
 export type BodyCompositionConnectionAction = {
@@ -32,24 +31,23 @@ export type BodyCompositionSummaryScreenProps = {
   onPressAddWeight: () => void;
   onPressConnectionAction: () => void;
   onPressHref: (href: string) => void;
-  /** Optional inline measurement error (education/cards remain visible). */
+  /** Optional inline measurement error (cards remain visible). */
   measurementErrorSlot?: React.ReactNode;
+  /** When false, hide the secondary Add/connect block (e.g. already connected). */
+  showActionsSection?: boolean;
 };
 
 /**
- * Stage 3B landing: purpose + three metric cards + compact actions.
- * Weight may include BMI screening graph; Body Fat and Lean Tissue do not.
+ * Stage 3B landing: three metric cards first; compact actions when still useful.
+ * Weight may include BMI screening chart; Body Fat and Lean Tissue do not.
  */
 export function BodyCompositionSummaryScreen(props: BodyCompositionSummaryScreenProps) {
   const copy = BODY_COMPOSITION_SUMMARY_COPY;
   const ordered = props.cards;
+  const showActions = props.showActionsSection !== false;
 
   return (
     <View style={styles.root} testID="body-composition-summary-screen">
-      <Text style={styles.purpose} accessibilityRole="header" testID="body-composition-purpose">
-        {copy.purpose}
-      </Text>
-
       {props.measurementErrorSlot}
 
       <View style={styles.cards} testID="body-composition-metric-cards">
@@ -65,45 +63,47 @@ export function BodyCompositionSummaryScreen(props: BodyCompositionSummaryScreen
         ))}
       </View>
 
-      <View style={styles.actions} testID="body-composition-actions">
-        <Text style={styles.actionsTitle} accessibilityRole="header">
-          {copy.actionsTitle}
-        </Text>
+      {showActions ? (
+        <View style={styles.actions} testID="body-composition-actions">
+          <Text style={styles.actionsTitle} accessibilityRole="header">
+            {copy.actionsTitle}
+          </Text>
 
-        <View style={styles.appleHealthSlot} testID="body-composition-baseline-apple-health">
-          {props.appleHealthSlot}
+          <View style={styles.appleHealthSlot} testID="body-composition-baseline-apple-health">
+            {props.appleHealthSlot}
+          </View>
+
+          <Pressable
+            style={styles.linkRow}
+            onPress={() => props.onPressHref(copy.historyHref)}
+            accessibilityRole="button"
+            accessibilityLabel={copy.historyLabel}
+            testID="body-composition-view-history"
+          >
+            <Text style={styles.linkText}>{copy.historyLabel}</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.linkRow}
+            onPress={() => props.onPressHref(copy.settingsHref)}
+            accessibilityRole="button"
+            accessibilityLabel={copy.settingsLabel}
+            testID="body-composition-view-settings"
+          >
+            <Text style={styles.linkText}>{copy.settingsLabel}</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.linkRow}
+            onPress={() => props.onPressHref(BODY_METRIC_RANGES_EXPLAINER_HREF)}
+            accessibilityRole="button"
+            accessibilityLabel={copy.rangesExplainerLabel}
+            testID="body-composition-ranges-explainer"
+          >
+            <Text style={styles.linkText}>{copy.rangesExplainerLabel}</Text>
+          </Pressable>
         </View>
-
-        <Pressable
-          style={styles.linkRow}
-          onPress={() => props.onPressHref(copy.historyHref)}
-          accessibilityRole="button"
-          accessibilityLabel={copy.historyLabel}
-          testID="body-composition-view-history"
-        >
-          <Text style={styles.linkText}>{copy.historyLabel}</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.linkRow}
-          onPress={() => props.onPressHref(copy.settingsHref)}
-          accessibilityRole="button"
-          accessibilityLabel={copy.settingsLabel}
-          testID="body-composition-view-settings"
-        >
-          <Text style={styles.linkText}>{copy.settingsLabel}</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.linkRow}
-          onPress={() => props.onPressHref(BODY_METRIC_RANGES_EXPLAINER_HREF)}
-          accessibilityRole="button"
-          accessibilityLabel={copy.rangesExplainerLabel}
-          testID="body-composition-ranges-explainer"
-        >
-          <Text style={styles.linkText}>{copy.rangesExplainerLabel}</Text>
-        </Pressable>
-      </View>
+      ) : null}
     </View>
   );
 }
@@ -111,11 +111,6 @@ export function BodyCompositionSummaryScreen(props: BodyCompositionSummaryScreen
 const styles = StyleSheet.create({
   root: {
     gap: 16,
-  },
-  purpose: {
-    color: UI_TEXT_SECONDARY,
-    fontSize: 16,
-    lineHeight: 22,
   },
   cards: {
     gap: 12,

@@ -87,12 +87,21 @@ export default function BodyOverviewScreen() {
       ? ({ kind: "syncing" as const, label: "Syncing…" })
       : access.phase === "ready" || access.phase === "granted_no_data"
         ? ({ kind: "connected" as const, label: "Connected" })
-        : ({ kind: "sync_now" as const, label: "Sync now" });
+        : access.phase === "denied"
+          ? ({ kind: "review_access" as const, label: "Review access" })
+          : access.phase === "unavailable"
+            ? ({ kind: "try_again" as const, label: "Try again" })
+            : ({ kind: "sync_now" as const, label: "Sync now" });
 
   const onPressConnectionAction = () => {
     if (access.phase === "syncing") return;
     if (access.phase === "ready" || access.phase === "granted_no_data") {
-      void body.syncAppleHealthBodyNow();
+      // Connected → manage/review access; do not start sync on render or status tap.
+      router.push("/(app)/settings/devices/apple_health");
+      return;
+    }
+    if (access.phase === "denied") {
+      access.onOpenAppSettings();
       return;
     }
     void access.onAllowAppleHealthBodyAccess();

@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricCardModel } from "@/lib/body/presentation/bodyMetricCardTypes";
-import { BodyMetricReferenceBar } from "@/lib/ui/body/BodyMetricReferenceBar";
+import { BodyMetricClassificationChart } from "@/lib/ui/body/BodyMetricClassificationChart";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import {
   UI_CARD_ELEVATED_BORDER,
@@ -13,7 +13,12 @@ import {
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 
-export type BodyMetricConnectionActionKind = "sync_now" | "connected" | "syncing";
+export type BodyMetricConnectionActionKind =
+  | "sync_now"
+  | "connected"
+  | "syncing"
+  | "review_access"
+  | "try_again";
 
 export type BodyMetricSummaryCardProps = {
   model: BodyMetricCardModel;
@@ -43,14 +48,26 @@ function provenanceLine(model: BodyMetricCardModel): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
+/**
+ * Shared Body metric card shell.
+ * Weight may include an approved classification chart; Body Fat / Lean do not invent one.
+ */
 export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const { model } = props;
   const provenance = provenanceLine(model);
-  const showGraph = model.referenceBar != null && model.referenceBar.segments.length > 0;
+  const chart = model.classificationChart;
+  const showChart = chart != null && chart.segments.length > 0;
+  const valueText = model.formattedValue ?? "—";
+  const valueA11y =
+    model.formattedValue != null ? model.formattedValue : "No current measurement";
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.card,
+        model.featured && styles.cardFeatured,
+        pressed && styles.pressed,
+      ]}
       onPress={props.onPress}
       accessibilityRole="button"
       accessibilityLabel={model.accessibilityLabel}
@@ -59,41 +76,32 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
     >
       <View style={styles.headerRow}>
         <Text style={styles.title}>{model.title}</Text>
-        <Text style={styles.chevron} accessibilityElementsHidden>
-          ›
-        </Text>
+        <View style={styles.valueCluster}>
+          <Text
+            style={[styles.value, model.formattedValue == null && styles.missingValue]}
+            testID={`body-metric-value-${model.metric}`}
+            accessibilityLabel={valueA11y}
+          >
+            {valueText}
+          </Text>
+          <Text style={styles.chevron} accessibilityElementsHidden>
+            ›
+          </Text>
+        </View>
       </View>
 
-      {model.formattedValue != null ? (
-        <Text style={styles.value} testID={`body-metric-value-${model.metric}`}>
-          {model.formattedValue}
+      {provenance ? (
+        <Text style={styles.provenance} testID={`body-metric-provenance-${model.metric}`}>
+          {provenance}
         </Text>
-      ) : (
-        <Text style={styles.missingValue} testID={`body-metric-value-${model.metric}`}>
-          —
-        </Text>
-      )}
-
-      {model.statusLabel ? <Text style={styles.status}>{model.statusLabel}</Text> : null}
-
-      {model.referenceContextLabel ? (
-        <Text style={styles.context}>{model.referenceContextLabel}</Text>
       ) : null}
 
-      {model.referenceLabel ? <Text style={styles.reference}>{model.referenceLabel}</Text> : null}
-
-      {model.heightSpecificRangeLabel ? (
-        <Text style={styles.heightRange}>{model.heightSpecificRangeLabel}</Text>
-      ) : null}
-
-      {showGraph ? (
-        <BodyMetricReferenceBar
-          model={model.referenceBar!}
-          testID={`body-metric-bar-${model.metric}`}
+      {showChart ? (
+        <BodyMetricClassificationChart
+          model={chart!}
+          testID={`body-metric-chart-${model.metric}`}
         />
       ) : null}
-
-      {provenance ? <Text style={styles.provenance}>{provenance}</Text> : null}
 
       <View style={styles.actionRow} testID={`body-metric-actions-${model.metric}`}>
         <Pressable
@@ -104,7 +112,7 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
           }}
           accessibilityRole="button"
           accessibilityLabel="Add measurement"
-          accessibilityHint="Opens manual weight entry"
+          accessibilityHint="Opens manual measurement entry"
           testID={`body-metric-add-${model.metric}`}
         >
           <Text style={styles.addBtnText}>Add measurement</Text>
@@ -122,7 +130,9 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
           <Text
             style={[
               styles.connectionBtnText,
-              props.connectionAction.kind === "connected" && styles.connectionConnected,
+              (props.connectionAction.kind === "connected" ||
+                props.connectionAction.kind === "syncing") &&
+                styles.connectionMuted,
             ]}
           >
             {props.connectionAction.label}
@@ -139,9 +149,14 @@ const styles = StyleSheet.create({
     borderRadius: UI_GROUPED_CARD_RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: UI_CARD_ELEVATED_BORDER,
-    padding: 16,
-    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
     minHeight: 44,
+  },
+  cardFeatured: {
+    paddingVertical: 18,
+    gap: 10,
   },
   pressed: {
     opacity: 0.92,
@@ -150,59 +165,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 8,
+    gap: 12,
   },
   title: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
+    flexShrink: 1,
+  },
+  valueCluster: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  value: {
+    color: UI_TEXT_PRIMARY,
+    fontSize: 22,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  missingValue: {
+    color: UI_TEXT_MUTED,
+    fontWeight: "600",
   },
   chevron: {
     color: BODY_INDIGO,
     fontSize: 22,
     fontWeight: "300",
-  },
-  value: {
-    color: UI_TEXT_PRIMARY,
-    fontSize: 28,
-    fontWeight: "700",
-    letterSpacing: -0.4,
-  },
-  missingValue: {
-    color: UI_TEXT_MUTED,
-    fontSize: 28,
-    fontWeight: "600",
-  },
-  status: {
-    color: UI_TEXT_SECONDARY,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  context: {
-    color: UI_TEXT_MUTED,
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-    textTransform: "uppercase",
-  },
-  reference: {
-    color: UI_TEXT_SECONDARY,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  heightRange: {
-    color: UI_TEXT_MUTED,
-    fontSize: 12,
-    lineHeight: 16,
+    marginTop: -1,
   },
   provenance: {
-    marginTop: 2,
     color: UI_TEXT_MUTED,
     fontSize: 12,
     lineHeight: 16,
+    marginTop: -2,
   },
   actionRow: {
-    marginTop: 8,
+    marginTop: 4,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -229,7 +228,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "right",
   },
-  connectionConnected: {
+  connectionMuted: {
     color: UI_TEXT_SECONDARY,
   },
 });
