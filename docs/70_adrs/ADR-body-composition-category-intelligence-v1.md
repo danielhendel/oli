@@ -1,52 +1,87 @@
 # ADR — Body Composition Category Intelligence v1
 
-**Status:** Proposed
+**Status:** Accepted (architecture and standards direction; Stage 3B shell authorized; classification runtime not implemented)
 **Date:** 2026-09-18
+**Accepted:** 2026-09-18 — human approval with guardrails
 **Canonical location:** `docs/70_adrs/`
 **RFC:** [RFC-body-composition-category-intelligence-v1.md](../80_rfc/RFC-body-composition-category-intelligence-v1.md)
 **Product spec:** [BODY_COMPOSITION_PRODUCT_AND_STANDARDS_V1.md](../10_product/specs/BODY_COMPOSITION_PRODUCT_AND_STANDARDS_V1.md)
 
-Do **not** self-accept. Human approval required.
-
 **Runtime implemented:** No
 **Schema/persistence authorized:** No
-**Stage 3B authorized:** No (until human approval of this ADR + RFC + spec)
+**Official classification authorized:** No
+**Stage 3B shell authorized:** Yes (value-first educational shell only; separate implementation stage)
+**Stage 3B runtime begun:** No
+
+---
+
+## Human approval (2026-09-18)
+
+```text
+APPROVED WITH GUARDRAILS — accept the Body Composition Category Intelligence
+v1 architecture and standards direction for future staged implementation.
+```
+
+Decisions 1–20 in the companion RFC are binding product/architecture law for subsequent Body Composition stages.
 
 ---
 
 ## Context
 
-Stage 2 (PR #217) merged profile-only onboarding and Home category navigation including Body Composition. The existing Body module is operational but architecturally and scientifically insufficient for Category Intelligence: permission-first UX, RawEvent-derived consumer trends, weak method provenance, weight/BMI-centric framing, empty DEXA surface, and unsafe historical salvage candidates from PR #178 (physique estimate; Apple Health→BIA inference; unvalidated uncertainty margins).
+Stage 2 (PR #217) merged profile-only onboarding and Home category navigation including Body Composition. The existing Body module is operational but architecturally and scientifically insufficient for Category Intelligence: permission-first UX, RawEvent-derived consumer trends, weak method provenance, weight/BMI-centric framing, empty DEXA surface, and unsafe historical salvage candidates from PR #178.
 
-Vision allows standards of excellence where defensible; Consumer Product Decisions forbid unsupported scores and require analytics — not prescription. Stage 3A must decide architecture before runtime.
+Stage 3A documented repository truth, evidence, and a proposed architecture. Leadership accepted that direction **with guardrails** on 2026-09-18.
 
 ---
 
-## Proposed decision
+## Decision
 
-1. **Facts-first Category Intelligence.** Official Body Current State and classifications derive through approved summary facts (today: fact-only Raw → DailyFacts selection; target: RawEvent → CanonicalEvent → DailyFacts/approved summaries where Canonical is authorized) → Insights/HealthState/IntelligenceContext → typed presentation DTO → UI. RawEvents are not official consumer truth. Whether Body remains explicitly fact-only or gains Canonical events requires a follow-on decision before Stage 3D.
+1. **Facts-first Category Intelligence (future official classification).** Official Body Current State and classifications must derive through the approved Oli facts-and-insights pipeline — evidence-based, versioned, provenance-aware, and recomputable. RawEvents are not official consumer truth. Today Body is fact-only without a complete CanonicalEvent path; closing that gap (or explicitly approving a versioned fact-only summary path) is required before official classification and facts-first trend claims.
 
-2. **Value-first Body experience.** Educational purpose and reference spectrum precede permission requests and source connection CTAs.
+2. **Value-first Body experience.** Educational purpose and reference model precede permission/source CTAs. Stage **3B** is authorized as a static value-first shell only.
 
-3. **Two independent interpretive rails (conceptual).** Health Protection and Performance Support remain separate. Do not average. Do not ship a combined Body score.
+3. **Two independent conceptual dimensions.** Health Protection and Performance Support remain separate. Do not average. Do not ship a combined Body Composition score.
 
-4. **Marker-level first.** Early implementation stages show marker status with provenance; withhold aggregate user placement until approved evidence tiers and leadership decisions (especially Performance Excellence).
+4. **Marker-first.** Individual evidence-backed markers may be interpreted before any aggregate category position is authorized.
 
-5. **Health aggregate only via conservative bottleneck of validated core risk markers** — and only after Stage 3E authorization. Strong lean mass must not hide central-adiposity risk.
+5. **No aggregate Performance Support position** is currently approved.
 
-6. **Performance aggregate / “Excellence” not authorized** without sport/goal context and approved methodology. Prefer marker-level performance context.
+6. **“Optimized” and “Excellence”** are not approved as personal user classifications. Conceptual product language only until separate approval.
 
-7. **Apple Health is transport, not method.** Unknown method stays unknown. Reject AH→BIA inference.
+7. **Evidence tiers:**
+   - Screening: height, weight, waist, WHtR
+   - Composition: method-labeled BF%, fat mass, lean mass, date, provenance
+   - Advanced: DEXA/DXA, VAT, ALM, regional — only when available and supported
 
-8. **Like-with-like trends are mandatory** for official Progress.
+8. **Weight and BMI** are supporting screening context only — not direct Body Composition; cannot establish excellence.
 
-9. **BMI and weight are supporting/screening context**, not composition excellence targets.
+9. **Apple Health is transport, not method.** Unknown-method AH values may display with honest provenance; may not drive official classification. Reject AH→BIA inference.
 
-10. **Standards are versioned, cited, and reprocessable.** Personal targets remain separate from evidence standards. Plan owns individualized actions.
+10. **Like-with-like trends are mandatory** for official longitudinal interpretation.
 
-11. **PR #178 Body salvage:** reject physique estimate, AH→BIA, unvalidated margins, and BMI healthy-weight-as-composition-target overlay; salvage presentation patterns only after facts authority.
+11. **Readiness states required:** missing, partial, ready, stale, conflicting, error. Confidence and completeness remain distinct.
 
-12. **Release gates unchanged.** RG-LEGAL-01 and RG-SOURCE-PRIVACY-01 remain OPEN; no production/TestFlight authorization from this ADR.
+12. **Plan boundary.** Category analyzes and explains. Plan owns individualized targets, prescriptions, and actions.
+
+13. **Repository gaps block classification/trend stages, not 3B shell:** incomplete CanonicalEvent path; AH and manual lack one complete DailyFacts authority; manual can remain outside overview truth; RMR incomplete (Basal Energy ≠ expected authoritative fact); RawEvent-derived user-facing trends.
+
+14. **Durable standards-registry location** must be resolved before official marker classifications are persisted.
+
+15. **PR #178 Body salvage:** reject physique estimate, AH→BIA, unvalidated margins, BMI-as-composition-target overlay; salvage presentation patterns only after facts authority.
+
+16. **Release gates unchanged.** RG-LEGAL-01 and RG-SOURCE-PRIVACY-01 remain OPEN; export coverage and scalability remain OPEN; no production/TestFlight authorization from this ADR.
+
+### Explicitly not authorized
+
+- Universal Body Composition score
+- Universal body-fat excellence range
+- BMI target band
+- Mixed-method trend
+- Apple Health-to-BIA inference
+- RawEvent-derived consumer classification
+- Unvalidated physique-estimation margins
+- Personalized rail marker / aggregate health or performance classification in Stage 3B
+- New schema, persistence, DailyFacts fields, Insights, backend classification, or DEXA parsing in Stage 3B
 
 ---
 
@@ -54,9 +89,10 @@ Vision allows standards of excellence where defensible; Consumer Product Decisio
 
 | Alternative | Why rejected / deferred |
 |-------------|-------------------------|
-| Implement two-rail graph immediately | False precision; standards unapproved |
-| Keep RawEvent trends as official UI truth | Violates canonical pipeline; performance/privacy risk |
-| Universal BF% Excellence from legacy classifications | Insufficient citation governance; method-blind |
+| Implement two-rail personal placement immediately | False precision; repository blockers; standards unapproved |
+| Keep RawEvent trends as official UI truth | Violates approved pipeline |
+| Universal BF% Excellence from legacy classifications | Insufficient citation governance; method-blind; not approved |
+| Aggregate Performance Support in v1 | Not approved |
 | DEXA-only Body product | Excludes valid screening anthropometrics (WHtR) |
 | Merge PR #178 | Scientific and architecture defects |
 
@@ -66,47 +102,57 @@ Vision allows standards of excellence where defensible; Consumer Product Decisio
 
 ### Positive
 
-- Honest missing/partial/stale/conflict states
-- Scientifically separable health vs performance
-- Recomputable, auditable classifications
+- Honest missing/partial states in Stage 3B without false classification
+- Scientifically separable health vs performance dimensions
+- Clear blockers for later facts/classification stages
 - Clear Plan boundary
 
 ### Negative / costs
 
-- Slower path to “place me on the spectrum” visuals
-- Requires summary APIs and provenance model work in later stages
-- Some leadership questions remain open (labels, ethnicity cutoffs, BF% tables)
+- No personal rail placement until later authorized stages and repository gaps close
+- Requires summary APIs, standards-registry location, and dual-truth remediation before official markers/trends
 
 ### Security / privacy
 
 - Reinforces account-scoped source connection
 - Avoids fabricating method labels that misrepresent HealthKit data
+- Does not close RG-SOURCE-PRIVACY-01
 
 ---
 
-## Unresolved scientific decisions
+## Unresolved scientific / architecture decisions (preserved)
 
-- Exact health-rail label set (“Optimized”?)
-- Whether health aggregate ships in first classified release
-- Ethnicity-specific waist cutoff model (WHO/IDF 94/80 vs US ATP III 102/88 — do not average; Alberti 2009 documents the split)
-- Which BF% tables (if any) are accepted for method-labeled markers
-- Performance Excellence methodology
+- Exact educational Health Protection band wording; whether “Optimized” is ever defined as a personal classification
+- Whether a Health Protection **aggregate** position is ever authorized (and bottleneck rules)
+- Ethnicity-specific waist cutoff model (WHO/IDF 94/80 vs US ATP III 102/88 — do not average)
+- Which method-labeled BF% reference tables (if any) are accepted
+- Performance Support aggregate / “Excellence” methodology (not currently approved)
 - Exact confidence scoring rules
-- Durable standards registry storage/code location
+- Durable standards-registry location
 - Fact-only vs Canonical body events
-- Manual weight inclusion in DailyFacts / overview vs AH-only selection
+- Manual vs AH DailyFacts authority unification
+- RMR authoritative fact source
 
 ---
 
 ## Implementation prerequisites
 
-1. Human acceptance of this ADR + RFC + product/standards spec.
-2. Explicit authorization of Stage **3B** (or revised first runtime gate).
-3. No schema/API invention until the authorized implementation stage’s RFC deltas (if required) are accepted.
-4. Local `npm run check` gates on any future runtime PR.
+### For Stage 3B (authorized; not begun here)
+
+- Separate runtime implementation stage/PR
+- Docs-only acceptance of this ADR/RFC is insufficient to claim 3B complete
+- No schema/persistence/Insights/classification
+- Local `npm run check` on the future 3B PR
+
+### For official marker aggregation / rail placement / facts-first trends
+
+- Close repository gaps in RFC §Accepted decisions item 18
+- Resolve durable standards-registry location
+- Separate human authorization for any aggregate health position
+- Performance aggregate remains unapproved
 
 ---
 
 ## Status note
 
-This ADR records a **proposed** architectural decision for Stage 3A. It does not authorize runtime Body Composition Category Intelligence implementation.
+This ADR is **Accepted** for architecture, standards direction, and Stage 3B shell authorization as of **2026-09-18**. It does **not** implement Stage 3B runtime and does **not** authorize official Body Composition classification persistence.

@@ -7,7 +7,7 @@
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
 **Prior Stage 1A truth freeze (historical):** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `Stage 3A — Body Composition Definition, Evidence, and Repository-Truth Audit` (**documentation only**; runtime Body redesign **not begun**)
+**Current execution-stage label:** `Stage 3A — Body Composition Definition` (**COMPLETE** docs; RFC/ADR **Accepted** 2026-09-18 with guardrails). Stage 3B shell **AUTHORIZED — NOT STARTED**.
 **Stage 1B:** **MERGED** (PR #214 at `3d4859e45d537813b6846ecaf4cb49222519ef80`)
 **Stage 1C:** **MERGED** (PR #215 at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`)
 **Build hygiene:** **MERGED** (PR #216 at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`)
@@ -32,7 +32,7 @@
 >
 > **Stage 2 status:** **MERGED** (PR [#217](https://github.com/danielhendel/oli/pull/217) at `c92ca0518366f0ef7b5e3af08e127fb623506622`). Profile-only onboarding **Opening → About You → Home**. Primary IA on `main`: **Home · Today · Plan · Progress · You**. Home is domain map (full-width category cards + drawer); Today is a separate destination owning Daily Monitor. Source connection contextual. Focused static/automated source-gate tests PASS; complete two-disposable-account server-side evidence **deferred by product leadership** — **LEADERSHIP-ACCEPTED RESIDUAL RISK**; **RG-SOURCE-PRIVACY-01 OPEN**. Consent persistence **not implemented**. Legal assent **inactive**. **RG-LEGAL-01 OPEN**. Export coverage closure **OPEN**. Export scalability gate **OPEN**. Infrastructure CI validation truth gap **OPEN**. Production deploy **none**.
 >
-> **Stage 3A status:** **BEGINNING** on `docs/body-composition-definition-evidence-audit-v1` — repository-truth audit, evidence matrix, product/standards specification, proposed RFC/ADR only. Body Composition runtime redesign **not implemented**. Stage 3B **not begun**.
+> **Stage 3A status:** **COMPLETE** (docs) on `docs/body-composition-definition-evidence-audit-v1`. Human approval **2026-09-18 APPROVED WITH GUARDRAILS**. RFC/ADR **Accepted**. Product/standards spec accepted with guardrails. Body Composition runtime redesign **not implemented**. Stage 3B value-first shell **AUTHORIZED — NOT STARTED**. Official classification / personal rail placement / facts-first trends **blocked** by repository gaps (fact-only Body path, AH vs manual DailyFacts dual truth, hollow RMR, RawEvent trends, unresolved standards-registry location).
 
 ---
 
@@ -225,16 +225,23 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - **Infrastructure CI validation truth gap:** **OPEN**
 - **Production deploy:** **none**
 
-## Stage 3A (BEGINNING — documentation only)
+## Stage 3A (COMPLETE — docs; Accepted 2026-09-18 with guardrails)
 
 - Branch: `docs/body-composition-definition-evidence-audit-v1`
 - Baseline `main`: `c92ca0518366f0ef7b5e3af08e127fb623506622`
-- Scope: repository-truth audit; scientific evidence matrix; product/standards specification; proposed RFC/ADR; text wireframes; accessibility; fixtures; roadmap; leadership decisions
+- Delivered: repository-truth audit; evidence matrix; product/standards specification; RFC/ADR
+- Human approval: **2026-09-18 APPROVED WITH GUARDRAILS**
+- RFC: `docs/80_rfc/RFC-body-composition-category-intelligence-v1.md` — **Accepted**
+- ADR: `docs/70_adrs/ADR-body-composition-category-intelligence-v1.md` — **Accepted**
+- Spec: `docs/10_product/specs/BODY_COMPOSITION_PRODUCT_AND_STANDARDS_V1.md` — Accepted with guardrails
+- Gate: `docs/90_audits/2026-09-18-body-composition-definition-gate.md`
 - **Body Composition runtime redesign:** **not implemented**
-- **Stage 3B:** **not begun**
-- **PR #178 Body salvage:** remains CLOSED unmerged; disposition only in Stage 3A docs
+- **Stage 3B:** **AUTHORIZED** as value-first educational shell only — **NOT STARTED**
+- **Not authorized:** personalized rails, Body score, aggregate health/performance classification, “Optimized”/“Excellence” personal placement, new schema/persistence/DailyFacts/Insights, DEXA parsing, RawEvent classification, AH→BIA inference
+- **Repository blockers for classification/trends:** incomplete CanonicalEvent path; AH/manual DailyFacts dual truth; manual outside overview truth; hollow RMR; RawEvent-derived trends; standards-registry location unresolved
 - Does **not** close RG-LEGAL-01, RG-SOURCE-PRIVACY-01, export coverage, export scalability, or infra validation truth gap
 - Does **not** authorize external TestFlight, production deployment, public release, or App Store submission
+- **Production deploy:** **none**
 
 ### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
 
@@ -286,13 +293,13 @@ RG-SOURCE-PRIVACY-01 remaining OPEN does **not** block Stage 2 engineering merge
 - Defensible overall score (gated — not a P0 assumption)
 - Body salvage (PR #178 deferred)
 - Minimal onboarding / data readiness (Stage 2 **MERGED** via PR #217)
-- Body Composition Category Intelligence (Stage 3A definition in progress; runtime not begun)
+- Body Composition Category Intelligence (Stage 3A **complete**; Stage 3B shell **authorized — not started**)
 
-**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-authored Plan persistence, Progress outcome analytics, consent persistence; Body Composition runtime redesign / Stage 3B+.
+**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-authored Plan persistence, Progress outcome analytics, consent persistence; Body Composition Stage 3B+ runtime; official Body classification.
 
 ## In progress (not complete)
 
-- **Stage 3A Body Composition definition** — docs-only audit/spec/RFC/ADR on `docs/body-composition-definition-evidence-audit-v1`
+- **Stage 3B Body Composition value-first shell** — **authorized, not started**
 - **RG-SOURCE-PRIVACY-01 OPEN** (complete two-account server evidence deferred; leadership-accepted residual risk; Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN)
 - **RG-LEGAL-01 OPEN** (hosted legal/support pages not published)
 - PR #178 remains CLOSED unmerged; Body salvage disposition in Stage 3A docs only

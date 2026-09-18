@@ -1,14 +1,15 @@
 # Body Composition Product and Standards Specification v1
 
-**Status:** Proposed — human approval required
+**Status:** Accepted with guardrails (architecture/standards direction; Stage 3B shell authorized)
 **Date:** 2026-09-18
-**Stage:** 3A (definition only; no runtime implementation)
-**Authority level:** T2 product proposal (subordinate to Constitution, code/CI, and accepted RFCs/ADRs)
+**Accepted:** 2026-09-18 — human approval with guardrails
+**Stage:** 3A definition complete; Stage 3B shell authorized — **runtime not begun**
+**Authority level:** T2 product authority (subordinate to Constitution and code/CI; binding via accepted RFC/ADR)
 **Companions:**
 - Audit: `docs/90_audits/2026-09-18-body-composition-repo-truth-audit.md`
 - Evidence: `docs/90_audits/2026-09-18-body-composition-evidence-matrix.md`
-- RFC: `docs/80_rfc/RFC-body-composition-category-intelligence-v1.md`
-- ADR: `docs/70_adrs/ADR-body-composition-category-intelligence-v1.md`
+- RFC: `docs/80_rfc/RFC-body-composition-category-intelligence-v1.md` (**Accepted** 2026-09-18)
+- ADR: `docs/70_adrs/ADR-body-composition-category-intelligence-v1.md` (**Accepted** 2026-09-18)
 
 ---
 
@@ -71,57 +72,45 @@ Scientific honesty overrides visual desire for Excellence placement.
 
 ---
 
-## 4. Two-rail recommendation
+## 4. Two-dimension model (ACCEPTED 2026-09-18)
 
-### Recommendation (PROPOSAL — leadership must decide)
+1. **Two independent conceptual dimensions:** Health Protection and Performance Support.
+2. **Do not average, combine, or convert** them into one universal Body Composition score.
+3. **V1 is marker-first.** Evidence-backed markers may be interpreted before any aggregate category position is authorized.
+4. **No aggregate Performance Support position** is currently approved.
+5. **“Optimized” and “Excellence”** are not approved as personal user classifications. Conceptual product language only until separate approval of definitions, evidence, populations, and minimum-data rules.
+6. Stage 3B may show an **educational** reference model without personalized rail markers.
 
-1. **Keep two independent conceptual rails** in the educational reference model: Health Protection and Performance Support.
-2. **Do not average them.**
-3. **v1 consumer aggregate:**
-   - Health Protection aggregate band: **optional later (3E)** via conservative bottleneck of validated core risk markers — **not Stage 3B**.
-   - Performance Support aggregate / Excellence: **defer**; show **marker-level** performance context only until sport/goal methodology approved (**3F if ever**).
-4. Prefer **marker-level status** for early runtime stages (3B–3D).
-5. Labels: avoid “Optimized” and “Excellence” until defined; prefer risk-oriented health language and descriptive performance language.
+### Educational reference labels (not personal classifications)
 
-### Proposed interim educational labels (not approved classifications)
+| Dimension | Educational bands (conceptual only) |
+|-----------|-------------------------------------|
+| Health Protection | Higher risk · Elevated risk · Lower risk · (withhold “Optimized” as personal classification) |
+| Performance Support | Limited · Capable · Strong · (withhold “Excellence” as personal classification) |
 
-| Rail | Educational bands (PROPOSAL) |
-|------|------------------------------|
-| Health Protection | Higher risk · Elevated risk · Lower risk · (withhold “Optimized”) |
-| Performance Support | Limited · Capable · Strong · (withhold “Excellence”) |
-
-Final labels require leadership decision (Section 17).
+Exact band wording for education remains refineable; personal placement of “Optimized” / “Excellence” remains UNRESOLVED / not approved.
 
 ---
 
 ## 5. Marker taxonomy
 
-### Health-protection candidates
+### Screening-level (ACCEPTED)
 
-| Marker | v1 status |
-|--------|-----------|
-| Waist circumference | CORE V1 (if capture approved) |
-| Waist-to-height ratio | CORE V1 |
-| Central adiposity (derived from above) | CORE V1 |
-| Visceral adipose tissue | ADVANCED V1 (DEXA/clinical) |
-| Total fat mass / BF% | ADVANCED V1 method-labeled |
-| Low lean mass / ALM / ALMI | FUTURE / ADVANCED when method-valid |
-| Weight / waist / fat / lean trajectories | SUPPORTING / method-specific |
+Height, weight, waist circumference, waist-to-height ratio.
 
-### Performance-support candidates
+Weight and BMI are **supporting screening context only** — not direct Body Composition; cannot establish excellence.
 
-| Marker | v1 status |
-|--------|-----------|
-| Total lean mass | ADVANCED V1 method-labeled |
-| ALM | FUTURE/ADVANCED |
-| Fat mass / BF% context | ADVANCED V1 method-labeled |
-| Regional composition | FUTURE |
-| Sport-specific composition | FUTURE (required for Excellence) |
-| LEA warning context | FUTURE / ADVANCED concern flag |
+### Composition-level (ACCEPTED when method-labeled)
 
-### Supporting context
+Body-fat percentage, fat mass, lean mass, measurement date, measurement provenance.
 
-Height, age, sex used for interpretation, weight, BMI (screening only), sport/goal (future), method, source, device, date, recency, confidence, completeness.
+### Advanced (ACCEPTED only when available and methodologically supported)
+
+DEXA/DXA, visceral adipose tissue, appendicular lean mass, regional composition.
+
+### Performance-support markers
+
+Method-labeled lean / fat context may educate; **no aggregate Performance Support position**. Sport-specific Excellence remains FUTURE / not approved.
 
 ### Rejected uses
 
@@ -130,17 +119,19 @@ Height, age, sex used for interpretation, weight, BMI (screening only), sport/go
 | BMI as composition measurement | DO NOT USE |
 | Weight as complete composition | DO NOT USE |
 | Universal excellent BF% | DO NOT USE |
-| Unknown-method AH driving rails | DO NOT USE |
+| Unknown-method AH driving official classification | DO NOT USE |
+| Mixed-method silent trends | DO NOT USE |
+| AH→BIA inference | DO NOT USE |
+| RawEvent-derived consumer classification | DO NOT USE |
+| Unvalidated physique-estimation margins | DO NOT USE |
 
 ---
 
-## 6. Data tiers
+## 6. Data tiers (ACCEPTED)
 
-See evidence matrix. Adopted structure:
-
-1. **Screening-level** — height, weight, waist → BMI + WHtR context only
-2. **Composition-level** — method-known FM/BF% + lean + date
-3. **Advanced** — DEXA (+ VAT/ALM/regional)
+1. **Screening-level** — height, weight, waist, WHtR (+ BMI as screening context only)
+2. **Composition-level** — method-labeled BF% / fat mass / lean mass + date + provenance
+3. **Advanced** — DEXA (+ VAT/ALM/regional when available and supported)
 
 ---
 
@@ -378,25 +369,36 @@ BodyCompositionState {
 
 ---
 
-## 17. Leadership decisions required
+## 17. Leadership decisions — disposition (2026-09-18)
 
-1. Approve two independent rails?
-2. Health aggregate position in v1?
-3. Performance aggregate position in v1?
-4. “Optimized” health label?
-5. “Excellence” performance label?
-6. Marker-level only for early stages?
-7. Core v1 markers set?
-8. Advanced markers set?
-9. WHtR in v1?
-10. General BF% ranges in v1?
-11. Performance interpretation requires sport/goal?
-12. DEXA required for advanced placement?
-13. Unknown-method AH may drive classification? (**Recommend no**)
-14. Like-with-like trends mandatory? (**Recommend yes**)
-15. How personal targets separate from evidence standards?
-16. Standards versioning/governance model?
-17. Which implementation gate begins after approval (recommend **3B** value-first shell)?
+| # | Question | Disposition |
+|---|----------|-------------|
+| 1 | Two independent dimensions? | **Accepted** |
+| 2 | Health aggregate position in v1? | **Unresolved** — not authorized for 3B; later stage only if separately approved |
+| 3 | Performance aggregate position in v1? | **Not approved** |
+| 4 | “Optimized” as personal classification? | **Not approved** (conceptual language only) |
+| 5 | “Excellence” as personal classification? | **Not approved** (conceptual language only) |
+| 6 | Marker-first early stages? | **Accepted** |
+| 7–9 | Screening markers / WHtR | **Accepted** (height, weight, waist, WHtR) |
+| 8 / advanced | Advanced markers | **Accepted** when available and supported |
+| 10 | General BF% excellence ranges | **Not approved**; method-labeled composition evidence may display |
+| 11 | Performance requires sport/goal for aggregate | Aggregate not approved; remains unresolved for any future aggregate |
+| 12 | DEXA for advanced | Advanced only when available and supported |
+| 13 | Unknown-method AH drives classification? | **No** — display with provenance only |
+| 14 | Like-with-like mandatory? | **Yes** |
+| 15 | Personal targets vs standards | Plan owns targets; category analyzes |
+| 16 | Standards versioning / registry location | Versioning required; **durable location UNRESOLVED** before persistence |
+| 17 | Next gate | **Stage 3B** value-first shell authorized |
+
+### Repository blockers (accepted as recorded)
+
+- Incomplete CanonicalEvent path for Body
+- AH and manual lack one complete DailyFacts authority
+- Manual Body values can remain outside overview truth
+- RMR incomplete (Basal Energy ≠ expected authoritative fact)
+- User-facing trends still include RawEvent-derived paths
+
+These **do not block** Stage 3B shell; they **do block** official marker aggregation, personal rail placement, and facts-first trend claims.
 
 ---
 
@@ -404,35 +406,38 @@ BodyCompositionState {
 
 | Gate | Intent | Status |
 |------|--------|--------|
-| **3A** | Definition, evidence, audit, RFC/ADR | **In progress (this PR)** |
-| **3B** | Value-first Body shell + reference model; no user classification | NOT STARTED |
+| **3A** | Definition, evidence, audit, RFC/ADR | **Complete (docs)** — RFC/ADR Accepted 2026-09-18 |
+| **3B** | Value-first Body shell + educational reference model; no user classification | **Authorized — NOT STARTED** |
 | **3C** | Baseline-building inputs + provenance | NOT STARTED |
-| **3D** | Facts-first marker summaries | NOT STARTED |
-| **3E** | Approved health-protection classification (if authorized) | NOT STARTED |
-| **3F** | Performance-support classification **only if defensible** | NOT STARTED |
-| **3G** | Method-specific longitudinal trends | NOT STARTED |
+| **3D** | Facts-first marker summaries | NOT STARTED — blocked until repository gaps addressed |
+| **3E** | Approved health-protection classification (if separately authorized) | NOT STARTED — blocked |
+| **3F** | Performance-support aggregate | **Not currently approved** |
+| **3G** | Method-specific longitudinal trends | NOT STARTED — blocked until facts authority + like-with-like |
 | **3H** | Reusable Category Intelligence framework | NOT STARTED |
 
 Feeds roadmap Stage **3** analytics truth contracts and Stage **4** seven-domain Current State.
 
 ---
 
-## 19. Approval block (proposed for human sign-off)
+## 19. Approval record (2026-09-18)
 
 ```text
-APPROVED — accept the Body Composition Category Intelligence v1 architecture
-and standards direction for future staged implementation.
+APPROVED WITH GUARDRAILS — accept the Body Composition Category Intelligence
+v1 architecture and standards direction for future staged implementation.
 
-Authorize a value-first Body Composition experience using versioned,
-evidence-based standards, explicit measurement provenance, honest missing /
-partial / stale / conflicting states, and facts-first user-facing
-classification.
+Authorize Stage 3B only as a value-first Body Composition shell
+(purpose, educational reference model, marker explanations, evidence tiers,
+baseline education, honest missing/partial states, source/method education,
+links to existing real measurement actions).
 
 Do not authorize a universal Body score, universal body-fat excellence target,
 BMI target band, mixed-method trend, Apple Health-as-measurement-method
-assumption, or RawEvent-derived consumer classification.
+assumption, Apple Health-to-BIA inference, RawEvent-derived consumer
+classification, unvalidated physique-estimation margins, personalized rail
+markers, aggregate health/performance classification, “Optimized”/“Excellence”
+personal placement, or new schema/persistence/Insights in Stage 3B.
 
 Keep unresolved scientific decisions and release gates in force.
 
-Do not begin runtime implementation until the approved implementation stage.
+Do not begin Stage 3B runtime implementation in the Stage 3A documentation Agent.
 ```

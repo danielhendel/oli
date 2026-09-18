@@ -1,12 +1,12 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-09-18 (Stage 2 **MERGED** PR #217; Stage 3A Body Composition definition **beginning** docs-only; **RG-SOURCE-PRIVACY-01 OPEN**; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
+**Last updated:** 2026-09-18 (Stage 2 **MERGED** PR #217; Stage 3A Body Composition **Accepted** with guardrails; Stage 3B shell **AUTHORIZED — NOT STARTED**; **RG-SOURCE-PRIVACY-01 OPEN**; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
 **Merged `main` SHA:** `c92ca0518366f0ef7b5e3af08e127fb623506622`
 **Stage 2 merge commit:** `c92ca0518366f0ef7b5e3af08e127fb623506622`
 **Stage 2 final implementation head:** `2e8cbb7b83b7c2b311e5dccc2bcfda23b5ce6ffc` (ancestor of `main`)
 **Stage 2 physical runtime SHA:** `255f7101db7a111471ca38b92813cb426e762007` (**PASS**; ancestor of `main`)
-**Stage 3A branch:** `docs/body-composition-definition-evidence-audit-v1` (documentation only; no Body runtime redesign)
+**Stage 3A branch:** `docs/body-composition-definition-evidence-audit-v1` (docs; RFC/ADR Accepted 2026-09-18; no Body runtime redesign)
 **Staging (historical Stage 2):** Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`
 **Staging (historical Stage 1C):** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep ACTIVE; Firestore TTL `accountDeletions.expireAt` ACTIVE
 **Staging export (historical E2E):** Function `onAccountExportRequested` 4 GiB / 540 s
@@ -120,7 +120,7 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 | Production Firebase project config | Release-hardening gap |
 | Current State / What Oli Sees / Plan persistence / Progress analytics | **Not** implemented |
 | Body salvage (PR #178) | CLOSED unmerged; disposition only in Stage 3A docs |
-| Body Composition Category Intelligence | Stage 3A **definition in progress** (docs); runtime redesign **not begun**; Stage 3B **not begun** |
+| Body Composition Category Intelligence | Stage 3A **Accepted** 2026-09-18 with guardrails; Stage 3B shell **AUTHORIZED — NOT STARTED**; official classification/trends **blocked** by repository gaps |
 | Build checksum hygiene | Merged (PR #216) — ordinary API builds do not mutate tracked checksum truth |
 | Production deploy | **none** |
 
@@ -166,7 +166,7 @@ Home · Today · Plan · Progress · You
 | Progress | Execution, adherence, outcomes, trends, analysis | History + Weekly Progress; no outcome analytics product |
 | You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export UI merged (Stage 1B); delete UI and local lifecycle merged (Stage 1C) |
 
-**Next ownership/product work:** Stage 3A Body Composition definition and repository audit (docs only; beginning). Body runtime redesign and Stage 3B **not begun**. **RG-SOURCE-PRIVACY-01** remains OPEN and blocks external TestFlight / production / public release.
+**Next ownership/product work:** Stage **3B** Body Composition value-first educational shell (authorized; not started). Official Body classification and facts-first trends remain blocked. **RG-SOURCE-PRIVACY-01** remains OPEN and blocks external TestFlight / production / public release.
 
 ---
 
