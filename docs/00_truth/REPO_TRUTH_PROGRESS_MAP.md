@@ -244,19 +244,19 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Does **not** authorize external TestFlight, production deployment, public release, or App Store submission
 - **Production deploy:** **none**
 
-## Stage 3B (ACTIVE — simplified three-card educational shell)
+## Stage 3B (ACTIVE — visual Weight classification cards)
 
 - Branch: `feat/body-composition-stage3b-value-first-shell`
 - Baseline `main`: `b366744007bf771a0796f8499e9be224d226e6b6`
-- Product correction (2026-09-18): primary landing is **Weight / Body Fat / Lean Tissue** cards + compact add/connect actions; dense educational article landing superseded
-- Scope: three metric summary cards; progressive disclosure for education; honest missing/partial/reference-unavailable; Apple Health explicit under actions; no personal marker without approved method-compatible classification
-- **Must not include:** personal Health Protection / Performance Support rails, Body score, aggregates, Optimized/Excellence placement, new schema/persistence/DailyFacts/Insights, DEXA parsing, RawEvent-derived classification, autonomous prescriptions, Stage 3C provenance
-- Classification stages remain **blocked**
+- Product direction (2026-09-18): landing is **Weight / Body Fat / Lean Tissue** cards; Weight led by CDC/WHO adult BMI screening **categorical chart**; Body Fat and Lean Tissue value/provenance/actions only (no unapproved graphs)
+- Scope: premium visual classification chart for approved Weight standard; height-specific ranges; marker only when adult applicability holds; subtitle/clutter removed from primary cards; Apple Health Sync now / Connected explicit
+- **Must not include:** personal Health Protection / Performance Support rails, Body score, aggregates, Optimized/Excellence placement, Body Fat/Lean runtime classification, new schema/persistence/DailyFacts/Insights, DEXA parsing, RawEvent-derived classification, autonomous prescriptions, Stage 3C provenance
+- Body Fat / Lean Tissue standards remain **PROPOSED / UNRESOLVED**
 - Issue [#218](https://github.com/danielhendel/oli/issues/218) remains **OPEN**; **RG-SOURCE-PRIVACY-01 OPEN**; **RG-LEGAL-01 OPEN**
 - Export coverage/scalability remain **OPEN**
 - No staging or production deployment from Stage 3B
 - Stage 3C: **NOT BEGUN**
-- Stage 3B complete claim: **not yet** (branch in progress; physical retest required after simplification)
+- Stage 3B complete claim: **not yet** (physical retest required for visual classification cards)
 
 ### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
 
