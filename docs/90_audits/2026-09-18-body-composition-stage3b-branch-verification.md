@@ -27,4 +27,20 @@ Dense educational hero, dual rails, four marker cards, Evidence Levels, influenc
 
 ## Local verification
 
-Recorded after simplification gate (see commit message / agent run).
+| Gate | Result |
+|------|--------|
+| `npm ci` | PASS |
+| `npm run typecheck` | PASS |
+| `npm run lint` | PASS |
+| `npm run check:invariants` | PASS |
+| `npm run check:client-trust-boundary` | PASS |
+| Focused Body Stage 3B tests | PASS |
+| `npm test -- --ci` | PASS — **1035** suites / **6376** tests / **0** skipped |
+| `npm run check` | PASS |
+| Runtime / canonical workout-summary checksums | PASS |
+| `npm run -w api build` | PASS — tracked checksum unchanged |
+| Functions build | PASS |
+| `git diff --check` | PASS |
+| `npx expo-doctor` | exit 1; exactly **five** known findings; no sixth |
+
+**Retest head:** `06145bc443641dad2794c68f08af0cb500ca24ea`
