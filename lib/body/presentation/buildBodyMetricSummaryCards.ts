@@ -9,6 +9,7 @@ import type {
   BodyMetricClassificationChartModel,
   BodyMetricReferenceBarModel,
 } from "@/lib/body/presentation/bodyMetricCardTypes";
+import { LB_PER_KG } from "@/lib/body/bodyCompositionShared";
 import {
   resolveBodyMetricStandardPresentation,
   type BodyMetricStandardResolveInput,
@@ -35,8 +36,6 @@ export type BodyMetricSummaryProfileSlice = {
   sex: "female" | "male" | "unspecified" | null;
 };
 
-const LBS_PER_KG = 2.2046226218;
-
 function formatMeasuredAtLabel(input: {
   overviewDay: string | null;
   latestObservedAtIso: string | null | undefined;
@@ -58,11 +57,11 @@ function formatBodyFatPercent(percent: number): string {
 }
 
 function numericWeightDisplay(kg: number, unit: "kg" | "lb"): number {
-  return unit === "lb" ? kg * LBS_PER_KG : kg;
+  return unit === "lb" ? kg * LB_PER_KG : kg;
 }
 
 function formatMassFaceValue(kg: number, unit: "kg" | "lb"): string {
-  const v = unit === "lb" ? kg * LBS_PER_KG : kg;
+  const v = unit === "lb" ? kg * LB_PER_KG : kg;
   const oneDecimal = v.toFixed(1);
   return oneDecimal.endsWith(".0") ? oneDecimal.slice(0, -2) : oneDecimal;
 }

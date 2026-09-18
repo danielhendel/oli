@@ -10,6 +10,8 @@ const mockRequestPermissions = jest.fn();
 const mockRunBodySync = jest.fn();
 const mockRunBodyBackfill = jest.fn();
 const mockIngest = jest.fn();
+const mockPush = jest.fn();
+const mockSetMassUnit = jest.fn();
 
 jest.mock("react-native", () => ({
   View: "View",
@@ -48,13 +50,14 @@ jest.mock("@expo/vector-icons", () => ({
 }));
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockPush }),
   useNavigation: () => ({ setOptions: jest.fn(), goBack: jest.fn() }),
 }));
 
 jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   usePreferences: () => ({
     state: { preferences: { units: { mass: "lb" } } },
+    setMassUnit: (...args: unknown[]) => mockSetMassUnit(...args),
   }),
 }));
 
@@ -149,6 +152,8 @@ describe("Body Composition Stage 3B source privacy", () => {
     mockRunBodyBackfill.mockClear();
     mockIngest.mockClear();
     mockOnAllow.mockClear();
+    mockPush.mockClear();
+    mockSetMassUnit.mockClear();
   });
 
   it("does not request HealthKit, sync, ingest, or backfill on mount", () => {
@@ -159,9 +164,10 @@ describe("Body Composition Stage 3B source privacy", () => {
     expect(mockRunBodySync).not.toHaveBeenCalled();
     expect(mockRunBodyBackfill).not.toHaveBeenCalled();
     expect(mockIngest).not.toHaveBeenCalled();
+    expect(mockOnAllow).not.toHaveBeenCalled();
   });
 
-  it("invokes only the explicit Apple Health access path when the user taps Connect", () => {
+  it("opens the Apple Health connection entry on Connect without HealthKit/sync yet", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(React.createElement(Screen));
@@ -173,7 +179,43 @@ describe("Body Composition Stage 3B source privacy", () => {
     act(() => {
       primary!.props.onPress();
     });
-    expect(mockOnAllow).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
+    expect(mockOnAllow).not.toHaveBeenCalled();
+    expect(mockRequestPermissions).not.toHaveBeenCalled();
+    expect(mockRunBodySync).not.toHaveBeenCalled();
+    expect(mockRunBodyBackfill).not.toHaveBeenCalled();
+    expect(mockIngest).not.toHaveBeenCalled();
+  });
+
+  it("opens the Apple Health connection entry on Sync now without HealthKit/sync yet", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    act(() => {
+      tree.root
+        .findByProps({ testID: "body-metric-connection-weight" })
+        .props.onPress({ stopPropagation: jest.fn() });
+    });
+    expect(mockPush).toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
+    expect(mockOnAllow).not.toHaveBeenCalled();
+    expect(mockRequestPermissions).not.toHaveBeenCalled();
+    expect(mockRunBodySync).not.toHaveBeenCalled();
+  });
+
+  it("does not trigger HealthKit or sync when toggling lb/kg", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    act(() => {
+      tree.root
+        .findAllByProps({ testID: "body-metric-unit-kg" })[0]
+        .props.onPress({ stopPropagation: jest.fn() });
+    });
+    expect(mockSetMassUnit).toHaveBeenCalledWith("kg");
+    expect(mockRequestPermissions).not.toHaveBeenCalled();
+    expect(mockRunBodySync).not.toHaveBeenCalled();
     expect(mockRunBodyBackfill).not.toHaveBeenCalled();
     expect(mockIngest).not.toHaveBeenCalled();
   });

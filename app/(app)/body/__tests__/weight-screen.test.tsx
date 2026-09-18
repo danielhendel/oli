@@ -35,6 +35,8 @@ jest.mock("react-native-svg", () => {
 });
 
 const mockPush = jest.fn();
+const mockSetMassUnit = jest.fn();
+let mockMassUnit: "lb" | "kg" = "lb";
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
@@ -43,7 +45,8 @@ jest.mock("expo-router", () => ({
 
 jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   usePreferences: () => ({
-    state: { preferences: { units: { mass: "lb" } } },
+    state: { preferences: { units: { mass: mockMassUnit } } },
+    setMassUnit: (...args: unknown[]) => mockSetMassUnit(...args),
   }),
 }));
 
@@ -153,6 +156,8 @@ function buildPopulatedBody() {
 describe("Body Composition simplified main screen", () => {
   beforeEach(() => {
     mockPush.mockClear();
+    mockSetMassUnit.mockClear();
+    mockMassUnit = "lb";
     mockAccess.mockReturnValue({
       phase: "ready",
       authLoading: false,
@@ -251,7 +256,33 @@ describe("Body Composition simplified main screen", () => {
       tree = renderer.create(React.createElement(Screen));
     });
     expect(collectText(tree)).toContain("Sync now");
-    expect(tree.root.findByProps({ testID: "body-metric-connection-weight" })).toBeDefined();
+    expect(collectText(tree)).not.toContain("Connected");
+    const connection = tree.root.findByProps({ testID: "body-metric-connection-weight" });
+    expect(connection.props.accessibilityLabel).toMatch(/Apple Health/i);
+  });
+
+  it("routes Sync now to the Apple Health connection flow", () => {
+    const onAllow = jest.fn();
+    mockHook.mockReturnValue(buildBody());
+    mockAccess.mockReturnValue({
+      phase: "not_determined",
+      authLoading: false,
+      authSnapshot: { kind: "not_determined" },
+      refreshAuth: jest.fn(),
+      onAllowAppleHealthBodyAccess: onAllow,
+      onOpenAppSettings: jest.fn(),
+    });
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    act(() => {
+      tree.root
+        .findByProps({ testID: "body-metric-connection-weight" })
+        .props.onPress({ stopPropagation: jest.fn() });
+    });
+    expect(mockPush).toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
+    expect(onAllow).not.toHaveBeenCalled();
   });
 
   it("routes Weight card to weight metric detail", () => {
@@ -286,7 +317,7 @@ describe("Body Composition simplified main screen", () => {
     expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("Connect Apple Health"));
   });
 
-  it("invokes onAllowAppleHealthBodyAccess only after explicit tap", () => {
+  it("opens Apple Health connection from Connect card without requesting permissions on that tap", () => {
     const onAllow = jest.fn();
     mockHook.mockReturnValue(buildBody());
     mockAccess.mockReturnValue({
@@ -308,7 +339,26 @@ describe("Body Composition simplified main screen", () => {
     act(() => {
       primary!.props.onPress();
     });
-    expect(onAllow).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
+    expect(onAllow).not.toHaveBeenCalled();
+  });
+
+  it("toggles mass unit via shared preference without opening detail", () => {
+    mockHook.mockReturnValue(buildPopulatedBody());
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    const onCard = jest.fn();
+    // Toggle kg — stopPropagation prevents card drill-down
+    act(() => {
+      tree.root
+        .findAllByProps({ testID: "body-metric-unit-kg" })[0]
+        .props.onPress({ stopPropagation: jest.fn() });
+    });
+    expect(mockSetMassUnit).toHaveBeenCalledWith("kg");
+    expect(mockPush).not.toHaveBeenCalledWith(BODY_METRIC_DETAIL_HREFS.weight);
+    void onCard;
   });
 
   it("keeps cards visible when measurement series errors", () => {

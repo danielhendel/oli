@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricCardModel } from "@/lib/body/presentation/bodyMetricCardTypes";
+import { BodyAppleHealthSourceIcon } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
 import { BodyMetricClassificationChart } from "@/lib/ui/body/BodyMetricClassificationChart";
 import { BodyMetricUnclassifiedScaffold } from "@/lib/ui/body/BodyMetricUnclassifiedScaffold";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
@@ -23,6 +24,8 @@ export type BodyMetricConnectionActionKind =
   | "review_access"
   | "try_again";
 
+export type BodyMassDisplayUnit = "lb" | "kg";
+
 export type BodyMetricSummaryCardProps = {
   model: BodyMetricCardModel;
   onPress: () => void;
@@ -32,45 +35,87 @@ export type BodyMetricSummaryCardProps = {
     label: string;
   };
   onPressConnectionAction: () => void;
+  /** Shared Body mass display unit (Weight + Lean Tissue). */
+  massDisplayUnit: BodyMassDisplayUnit;
+  onChangeMassDisplayUnit: (unit: BodyMassDisplayUnit) => void;
 };
 
-function UnitPill(props: { unit: string }) {
-  const massToggle = props.unit === "lb" || props.unit === "kg";
-  if (massToggle) {
-    return (
-      <View
-        style={styles.unitToggle}
-        accessibilityElementsHidden
-        testID="body-metric-unit-pill"
-      >
-        <View style={[styles.unitToggleSeg, props.unit === "lb" && styles.unitToggleSegActive]}>
-          <Text
-            style={[
-              styles.unitToggleText,
-              props.unit === "lb" && styles.unitToggleTextActive,
-            ]}
-          >
-            lb
-          </Text>
-        </View>
-        <View style={[styles.unitToggleSeg, props.unit === "kg" && styles.unitToggleSegActive]}>
-          <Text
-            style={[
-              styles.unitToggleText,
-              props.unit === "kg" && styles.unitToggleTextActive,
-            ]}
-          >
-            kg
-          </Text>
-        </View>
-      </View>
-    );
-  }
+function MassUnitSegmentedControl(props: {
+  unit: BodyMassDisplayUnit;
+  onChange: (unit: BodyMassDisplayUnit) => void;
+}) {
   return (
-    <View style={styles.unitPill} accessibilityElementsHidden testID="body-metric-unit-pill">
-      <Text style={styles.unitPillText}>{props.unit}</Text>
+    <View
+      style={styles.unitToggle}
+      testID="body-metric-unit-pill"
+      accessibilityRole="tablist"
+    >
+      {(["lb", "kg"] as const).map((option) => {
+        const selected = props.unit === option;
+        const label = option === "lb" ? "Pounds" : "Kilograms";
+        return (
+          <Pressable
+            key={option}
+            style={[styles.unitToggleSeg, selected && styles.unitToggleSegActive]}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              if (!selected) props.onChange(option);
+            }}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            accessibilityLabel={label}
+            accessibilityHint={
+              selected
+                ? `Selected. Body mass values are shown in ${option}.`
+                : `Double tap to display Body mass values in ${option}.`
+            }
+            testID={`body-metric-unit-${option}`}
+          >
+            <Text
+              style={[styles.unitToggleText, selected && styles.unitToggleTextActive]}
+            >
+              {option}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
+}
+
+function connectionAccessibility(kind: BodyMetricConnectionActionKind): {
+  label: string;
+  hint: string;
+} {
+  switch (kind) {
+    case "connected":
+      return {
+        label: "Apple Health connected for Body measurements",
+        hint: "Double tap to review access",
+      };
+    case "review_access":
+      return {
+        label: "Apple Health access needs attention",
+        hint: "Double tap to review permissions",
+      };
+    case "syncing":
+      return {
+        label: "Syncing Body measurements with Apple Health",
+        hint: "Please wait",
+      };
+    case "try_again":
+      return {
+        label: "Try again to connect Apple Health for Body measurements",
+        hint: "Double tap to retry",
+      };
+    case "sync_now":
+    default:
+      return {
+        label: "Sync Body measurements with Apple Health",
+        hint: "Opens Apple Health connection setup",
+      };
+  }
 }
 
 /**
@@ -86,8 +131,18 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const valueA11y =
     model.formattedValue != null ? model.formattedValue : "No current measurement";
   const connected = props.connectionAction.kind === "connected";
-  const showMassUnitInValue = false;
+  const isMassMetric = model.metric === "weight" || model.metric === "leanTissue";
   const showPercentInValue = model.displayUnit === "%";
+  const connectionA11y = connectionAccessibility(props.connectionAction.kind);
+  const connectionColor =
+    connected
+      ? UI_DURATION_STATUS_RECOMMENDED_TEXT
+      : props.connectionAction.kind === "syncing"
+        ? UI_TEXT_SECONDARY
+        : props.connectionAction.kind === "review_access" ||
+            props.connectionAction.kind === "try_again"
+          ? "#F5C26B"
+          : BODY_INDIGO;
 
   return (
     <Pressable
@@ -108,7 +163,16 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
           ) : null}
         </View>
         <View style={styles.topTrailing}>
-          {model.displayUnit ? <UnitPill unit={model.displayUnit} /> : null}
+          {isMassMetric ? (
+            <MassUnitSegmentedControl
+              unit={props.massDisplayUnit}
+              onChange={props.onChangeMassDisplayUnit}
+            />
+          ) : model.displayUnit === "%" ? (
+            <View style={styles.unitPill} accessibilityElementsHidden testID="body-metric-unit-pill">
+              <Text style={styles.unitPillText}>%</Text>
+            </View>
+          ) : null}
           <Text
             style={styles.chevron}
             accessibilityElementsHidden
@@ -131,11 +195,6 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
               <Text style={styles.valuePercent}>%</Text>
             ) : null}
           </Text>
-          {showMassUnitInValue && model.displayUnit && model.displayValue != null ? (
-            <Text style={styles.valueUnit} accessibilityElementsHidden>
-              {model.displayUnit}
-            </Text>
-          ) : null}
         </View>
       </View>
 
@@ -178,21 +237,27 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
             style={[styles.connectionBtn, connected && styles.connectionBtnConnected]}
             onPress={(e) => {
               e.stopPropagation?.();
+              if (props.connectionAction.kind === "syncing") return;
               props.onPressConnectionAction();
             }}
+            disabled={props.connectionAction.kind === "syncing"}
             accessibilityRole="button"
-            accessibilityLabel={props.connectionAction.label}
+            accessibilityLabel={connectionA11y.label}
+            accessibilityHint={connectionA11y.hint}
             testID={`body-metric-connection-${model.metric}`}
           >
-            <Text
-              style={[
-                styles.connectionBtnText,
-                connected && styles.connectionConnectedText,
-                props.connectionAction.kind === "syncing" && styles.connectionMuted,
-              ]}
-            >
-              {connected ? "Connected" : props.connectionAction.label}
-            </Text>
+            <View style={styles.connectionInner}>
+              <BodyAppleHealthSourceIcon color={connectionColor} decorative />
+              <Text
+                style={[
+                  styles.connectionBtnText,
+                  { color: connectionColor },
+                  props.connectionAction.kind === "syncing" && styles.connectionMuted,
+                ]}
+              >
+                {props.connectionAction.label}
+              </Text>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -248,32 +313,32 @@ const styles = StyleSheet.create({
   topTrailing: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
   unitToggle: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.16)",
-    backgroundColor: "rgba(0,0,0,0.28)",
-    padding: 2,
-    minHeight: 30,
+    borderColor: "rgba(255,255,255,0.22)",
+    backgroundColor: "rgba(0,0,0,0.35)",
+    padding: 3,
+    minHeight: 44,
   },
   unitToggleSeg: {
-    minWidth: 30,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    minWidth: 36,
+    minHeight: 38,
+    paddingHorizontal: 12,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },
   unitToggleSegActive: {
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.18)",
   },
   unitToggleText: {
-    color: UI_TEXT_MUTED,
-    fontSize: 11,
+    color: UI_TEXT_SECONDARY,
+    fontSize: 13,
     fontWeight: "700",
     letterSpacing: 0.2,
   },
@@ -329,12 +394,6 @@ const styles = StyleSheet.create({
     color: UI_TEXT_MUTED,
     fontWeight: "600",
   },
-  valueUnit: {
-    color: UI_TEXT_SECONDARY,
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
   chartRegion: {
     marginBottom: 16,
   },
@@ -373,14 +432,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "rgba(52, 211, 153, 0.12)",
   },
+  connectionInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   connectionBtnText: {
-    color: BODY_INDIGO,
     fontSize: 15,
     fontWeight: "600",
     textAlign: "right",
-  },
-  connectionConnectedText: {
-    color: UI_DURATION_STATUS_RECOMMENDED_TEXT,
   },
   connectionMuted: {
     color: UI_TEXT_SECONDARY,

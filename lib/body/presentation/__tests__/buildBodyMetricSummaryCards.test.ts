@@ -200,6 +200,44 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     expect(serialized).not.toMatch(/Body score|Health Protection|Performance Support|You are here/i);
     expect(cards[0].detailHref).toBe(BODY_COMPOSITION_METRIC_DETAIL_ROUTES.weight);
   });
+  it("converts Weight and Lean display values together when unit changes; Body Fat stays percent", () => {
+    const overview = {
+      overviewDay: "2026-09-18",
+      weightKg: 80,
+      bodyFatPercent: 18,
+      leanBodyMassKg: 60,
+      bmi: 24.2,
+      hasAnyMetric: true,
+    };
+    const lb = buildBodyMetricSummaryCards({
+      overview,
+      profile: adultProfile,
+      unit: "lb",
+    });
+    const kg = buildBodyMetricSummaryCards({
+      overview,
+      profile: adultProfile,
+      unit: "kg",
+    });
+    expect(lb[0].displayUnit).toBe("lb");
+    expect(kg[0].displayUnit).toBe("kg");
+    expect(lb[0].displayValue).not.toBe(kg[0].displayValue);
+    expect(lb[2].displayValue).not.toBe(kg[2].displayValue);
+    expect(lb[1].displayUnit).toBe("%");
+    expect(kg[1].displayUnit).toBe("%");
+    expect(lb[1].displayValue).toBe(kg[1].displayValue);
+    // Ranges convert with the same unit policy
+    const lbRanges = lb[0].classificationChart!.segments.map((s) => s.formattedRange);
+    const kgRanges = kg[0].classificationChart!.segments.map((s) => s.formattedRange);
+    expect(lbRanges.every((r) => r && r.includes("lb"))).toBe(true);
+    expect(kgRanges.every((r) => r && r.includes("kg"))).toBe(true);
+    expect(lb[0].classificationChart!.marker!.formattedValue).toMatch(/lb/);
+    expect(kg[0].classificationChart!.marker!.formattedValue).toMatch(/kg/);
+    // Display value changes with unit; underlying overview kg is not rewritten by the builder
+    expect(Number(lb[0].value)).toBeCloseTo(80 * 2.2046226218, 5);
+    expect(Number(kg[0].value)).toBe(80);
+    expect(lb[0].formattedValue).not.toBe(kg[0].formattedValue);
+  });
 });
 
 describe("CDC/WHO height-specific range ticks", () => {

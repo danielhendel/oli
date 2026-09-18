@@ -6,6 +6,7 @@ import type { BodyMetricCardModel } from "@/lib/body/presentation/bodyMetricCard
 import { BODY_METRIC_RANGES_EXPLAINER_HREF } from "@/lib/data/body/bodyCompositionMetricRoutes";
 import {
   BodyMetricSummaryCard,
+  type BodyMassDisplayUnit,
   type BodyMetricConnectionActionKind,
 } from "@/lib/ui/body/BodyMetricSummaryCard";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
@@ -29,6 +30,9 @@ export type BodyCompositionSummaryScreenProps = {
   onPressAddWeight: () => void;
   onPressConnectionAction: () => void;
   onPressHref: (href: string) => void;
+  /** Shared Body mass display unit (Weight + Lean Tissue). */
+  massDisplayUnit: BodyMassDisplayUnit;
+  onChangeMassDisplayUnit: (unit: BodyMassDisplayUnit) => void;
   /** Optional inline measurement error (cards remain visible). */
   measurementErrorSlot?: React.ReactNode;
   /** When false, hide the secondary Add/connect block (e.g. already connected). */
@@ -57,6 +61,8 @@ export function BodyCompositionSummaryScreen(props: BodyCompositionSummaryScreen
             onPressAddMeasurement={props.onPressAddWeight}
             connectionAction={props.connectionAction}
             onPressConnectionAction={props.onPressConnectionAction}
+            massDisplayUnit={props.massDisplayUnit}
+            onChangeMassDisplayUnit={props.onChangeMassDisplayUnit}
           />
         ))}
       </View>

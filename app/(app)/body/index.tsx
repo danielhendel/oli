@@ -40,7 +40,7 @@ export const BODY_SHOW_WEEKLY_CALENDAR_STRIP = false;
 export default function BodyOverviewScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { state: prefState } = usePreferences();
+  const { state: prefState, setMassUnit } = usePreferences();
   const unit = prefState.preferences?.units?.mass ?? "lb";
   const { state: profileState } = useUserProfileMain();
   const profileMain = useMemo(
@@ -93,18 +93,20 @@ export default function BodyOverviewScreen() {
             ? ({ kind: "try_again" as const, label: "Try again" })
             : ({ kind: "sync_now" as const, label: "Sync now" });
 
+  /**
+   * Card footer source action — always explicit user intent.
+   * Disconnected / incomplete: open the existing Apple Health device connection flow
+   * (pre-permission + Connect Apple Health). Do not call HealthKit from a dead Sync tap.
+   * Connected: open the same device page for manage/review (no duplicate connect).
+   * Denied: OS Settings recovery. Syncing: no-op.
+   */
   const onPressConnectionAction = () => {
     if (access.phase === "syncing") return;
-    if (access.phase === "ready" || access.phase === "granted_no_data") {
-      // Connected → manage/review access; do not start sync on render or status tap.
-      router.push("/(app)/settings/devices/apple_health");
-      return;
-    }
     if (access.phase === "denied") {
       access.onOpenAppSettings();
       return;
     }
-    void access.onAllowAppleHealthBodyAccess();
+    router.push("/(app)/settings/devices/apple_health");
   };
 
   useEffect(() => {
@@ -175,7 +177,8 @@ export default function BodyOverviewScreen() {
         variant={permissionCardVariant}
         {...(typeof unavailableMsg === "string" ? { unavailableMessage: unavailableMsg } : {})}
         onAllowAccess={() => {
-          void access.onAllowAppleHealthBodyAccess();
+          // Explicit connect entry — same account-scoped device flow as Sync now.
+          router.push("/(app)/settings/devices/apple_health");
         }}
         onOpenSettings={access.onOpenAppSettings}
       />
@@ -247,6 +250,10 @@ export default function BodyOverviewScreen() {
             onPressAddWeight={() => setWeightLogVisible(true)}
             onPressConnectionAction={onPressConnectionAction}
             onPressHref={(href) => router.push(href as never)}
+            massDisplayUnit={unit}
+            onChangeMassDisplayUnit={(next) => {
+              void setMassUnit(next);
+            }}
             measurementErrorSlot={measurementErrorSlot}
           />
         </View>

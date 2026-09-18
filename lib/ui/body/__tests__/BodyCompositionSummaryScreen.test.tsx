@@ -3,12 +3,18 @@ import renderer, { act } from "react-test-renderer";
 
 import { buildBodyMetricSummaryCards } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import { BodyCompositionSummaryScreen } from "@/lib/ui/body/BodyCompositionSummaryScreen";
+import { resolveBodyMetricClassificationBandChrome } from "@/lib/ui/theme/bodyMetricClassificationChrome";
+import { UI_TEXT_MUTED } from "@/lib/ui/theme/uiTokens";
 
 jest.mock("react-native", () => ({
   View: "View",
   Text: "Text",
   Pressable: "Pressable",
   StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },
+}));
+
+jest.mock("@expo/vector-icons", () => ({
+  Ionicons: "Ionicons",
 }));
 
 jest.mock("@/lib/ui/body/BodyMetricClassificationChart", () => {
@@ -56,6 +62,17 @@ function collectText(test: renderer.ReactTestRenderer): string {
 
 const connectionAction = { kind: "sync_now" as const, label: "Sync now" };
 
+const baseScreenProps = {
+  appleHealthSlot: React.createElement("Text", null, "AH_SLOT"),
+  connectionAction,
+  onPressCard: jest.fn(),
+  onPressAddWeight: jest.fn(),
+  onPressConnectionAction: jest.fn(),
+  onPressHref: jest.fn(),
+  massDisplayUnit: "lb" as const,
+  onChangeMassDisplayUnit: jest.fn(),
+};
+
 describe("BodyCompositionSummaryScreen — visual cards", () => {
   const cards = buildBodyMetricSummaryCards({
     overview: {
@@ -76,12 +93,7 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
       tree = renderer.create(
         React.createElement(BodyCompositionSummaryScreen, {
           cards,
-          appleHealthSlot: React.createElement("Text", null, "AH_SLOT"),
-          connectionAction,
-          onPressCard: jest.fn(),
-          onPressAddWeight: jest.fn(),
-          onPressConnectionAction: jest.fn(),
-          onPressHref: jest.fn(),
+          ...baseScreenProps,
         }),
       );
     });
@@ -101,12 +113,8 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
       tree = renderer.create(
         React.createElement(BodyCompositionSummaryScreen, {
           cards,
+          ...baseScreenProps,
           appleHealthSlot: null,
-          connectionAction,
-          onPressCard: jest.fn(),
-          onPressAddWeight: jest.fn(),
-          onPressConnectionAction: jest.fn(),
-          onPressHref: jest.fn(),
         }),
       );
     });
@@ -129,7 +137,7 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     expect(text).not.toMatch(/Optimal|Ideal|Target|Excellence|Body score/i);
   });
 
-  it("keeps Add measurement left and Sync now right", () => {
+  it("keeps Add measurement left and Sync now right with Apple Health a11y", () => {
     const onPressAddWeight = jest.fn();
     const onPressConnectionAction = jest.fn();
     let tree!: renderer.ReactTestRenderer;
@@ -137,12 +145,10 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
       tree = renderer.create(
         React.createElement(BodyCompositionSummaryScreen, {
           cards,
+          ...baseScreenProps,
           appleHealthSlot: React.createElement("Text", null, "CONNECT_AH"),
-          connectionAction,
-          onPressCard: jest.fn(),
           onPressAddWeight,
           onPressConnectionAction,
-          onPressHref: jest.fn(),
         }),
       );
     });
@@ -150,13 +156,51 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
       tree.root.findByProps({ testID: "body-metric-add-weight" }).props.onPress({ stopPropagation: jest.fn() });
     });
     expect(onPressAddWeight).toHaveBeenCalledTimes(1);
+    const connection = tree.root.findByProps({ testID: "body-metric-connection-weight" });
+    expect(connection.props.accessibilityLabel).toMatch(/Apple Health/i);
     act(() => {
-      tree.root
-        .findByProps({ testID: "body-metric-connection-weight" })
-        .props.onPress({ stopPropagation: jest.fn() });
+      connection.props.onPress({ stopPropagation: jest.fn() });
     });
     expect(onPressConnectionAction).toHaveBeenCalledTimes(1);
     expect(collectText(tree)).toContain("Sync now");
     expect(collectText(tree)).toContain("Add measurement");
+  });
+
+  it("exposes interactive lb/kg segments that call onChangeMassDisplayUnit", () => {
+    const onChangeMassDisplayUnit = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        React.createElement(BodyCompositionSummaryScreen, {
+          cards,
+          ...baseScreenProps,
+          onChangeMassDisplayUnit,
+        }),
+      );
+    });
+    const lbButtons = tree.root.findAllByProps({ testID: "body-metric-unit-lb" });
+    const kgButtons = tree.root.findAllByProps({ testID: "body-metric-unit-kg" });
+    expect(lbButtons.length).toBeGreaterThanOrEqual(2); // Weight + Lean Tissue
+    expect(kgButtons.length).toBeGreaterThanOrEqual(2);
+    expect(lbButtons[0].props.accessibilityState.selected).toBe(true);
+    expect(kgButtons[0].props.accessibilityState.selected).toBe(false);
+    act(() => {
+      kgButtons[0].props.onPress({ stopPropagation: jest.fn() });
+    });
+    expect(onChangeMassDisplayUnit).toHaveBeenCalledWith("kg");
+    // Body Fat keeps a non-interactive % pill (no unit-lb/kg on that card alone as fake toggle)
+    expect(collectText(tree)).toContain("%");
+  });
+
+  it("keeps classification chrome labels brighter than muted tertiary tokens", () => {
+    for (const tone of ["cool", "reference", "caution", "elevated"] as const) {
+      const chrome = resolveBodyMetricClassificationBandChrome(tone);
+      expect(chrome.label).not.toBe(UI_TEXT_MUTED);
+      expect(chrome.range).not.toBe(UI_TEXT_MUTED);
+      // Near-white / bright semantic hex — not translucent opacity strings
+      expect(chrome.label.startsWith("#")).toBe(true);
+      expect(chrome.range.startsWith("#")).toBe(true);
+      expect(chrome.label.length).toBeGreaterThanOrEqual(7);
+    }
   });
 });

@@ -217,4 +217,25 @@ describe("BodyMetricClassificationChart", () => {
     );
     expect(hidden.length).toBeGreaterThan(0);
   });
+
+  it("uses high-contrast semantic label tokens (not muted/disabled)", () => {
+    const { resolveBodyMetricClassificationBandChrome } = require("@/lib/ui/theme/bodyMetricClassificationChrome");
+    const { UI_TEXT_MUTED } = require("@/lib/ui/theme/uiTokens");
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        React.createElement(BodyMetricClassificationChart, { model: baseModel() }),
+      );
+    });
+    const text = collectText(tree);
+    expect(text).toContain("Underweight");
+    expect(text).toContain("<122 lb");
+    for (const tone of ["cool", "reference", "caution", "elevated"] as const) {
+      const chrome = resolveBodyMetricClassificationBandChrome(tone);
+      expect(chrome.label).not.toEqual(UI_TEXT_MUTED);
+      expect(chrome.range).not.toEqual(UI_TEXT_MUTED);
+      expect(chrome.label.startsWith("#")).toBe(true);
+      expect(chrome.range.startsWith("#")).toBe(true);
+    }
+  });
 });
