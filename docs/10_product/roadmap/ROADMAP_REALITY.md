@@ -3,11 +3,14 @@
 **Status:** Current execution roadmap
 **Version:** 2.0
 **Effective date:** 2026-08-14
-**Last operational refresh:** 2026-09-16
+**Last operational refresh:** 2026-09-18
 **Authority level:** T2 execution roadmap (subordinate to Constitution and code/CI)
 **Supersedes:** 2026-08-10 Today / coordinated My Plan / adaptation roadmap
-**Merged baseline:** `8027c1c1d3b1a97a408c237d9a6655174a05aa0e` (PR #216 build hygiene; Stage 1C / PR #215 merged)
-**Stage 2 physical runtime SHA:** `255f7101db7a111471ca38b92813cb426e762007` (physical-iPhone **PASS**; pending merge)
+**Merged baseline:** `c92ca0518366f0ef7b5e3af08e127fb623506622` (PR #217 Stage 2; includes PR #216 build hygiene)
+**Stage 2 merge commit:** `c92ca0518366f0ef7b5e3af08e127fb623506622`
+**Stage 2 final implementation head:** `2e8cbb7b83b7c2b311e5dccc2bcfda23b5ce6ffc`
+**Stage 2 physical runtime SHA:** `255f7101db7a111471ca38b92813cb426e762007` (physical-iPhone **PASS**; ancestor of `main`)
+**Stage 3A branch:** `docs/body-composition-definition-evidence-audit-v1` (documentation only)
 **R0 baseline:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb` (PR #211)
 **Prior Stage 1A truth freeze:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (PR #209)
 **Product decisions:** [CONSUMER_LAUNCH_PRODUCT_DECISIONS.md](../decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md)
@@ -32,22 +35,25 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Labs document import / review OS merged
 - Account export/delete **backend** exists; mobile export UI **merged** (Stage 1B); delete UI and local-data lifecycle **merged** (Stage 1C / PR #215)
 - Withings live sync remains orphaned (honest refusal helpers)
-- Primary dock on `main`: **Home · Plan · Progress · You** (R1 / PR #212 merged)
+- Primary dock on `main`: **Home · Today · Plan · Progress · You** (Stage 2 / PR #217 merged)
+- Home category navigation and profile-only onboarding **merged** (Stage 2 / PR #217)
 - PR #210 (Today IA) is **CLOSED**, **unmerged**, and based on a superseded navigation doctrine
-- PR #178 (Profile floating shortcut / Body salvage candidate) is **CLOSED**, **unmerged**; Body salvage deferred
+- PR #178 (Profile floating shortcut / Body salvage candidate) is **CLOSED**, **unmerged**; Body salvage disposition in Stage 3A docs only
 - Password reset, public-link infrastructure, You → Account routing, and safe auth error mapping are **merged** (Stage 1A / PR #213)
 - Hosted Privacy / Terms / Support pages are **not published** (**RG-LEGAL-01 OPEN**)
 - Ordinary API builds no longer mutate tracked checksum truth (**PR #216 merged**)
+- Stage 3A Body Composition definition audit **beginning** (docs only; no runtime Body redesign)
 
 ## What does not exist yet (launch-critical under analytics-first)
 
 - Unified Current State / What Oli Sees / confidence contracts as one product system
 - Human-authored Plan representation with provenance (no Oli authorship)
 - Execution, adherence, and outcome Progress analytics as a first-class surface
-- Durable consent architecture (RFC/ADR approved; persistence deferred); export UI **merged** (Stage 1B); delete UI **merged** (Stage 1C); minimal onboarding (Stage 2 — **complete on branch**, pending merge)
+- Durable consent architecture (RFC/ADR approved; persistence deferred); export UI **merged** (Stage 1B); delete UI **merged** (Stage 1C); minimal onboarding **merged** (Stage 2 / PR #217)
 - Crash reporting product; production Firebase project config
 - Defensible overall score methodology (gated; not a P0 assumption)
-- Body salvage (deferred)
+- Body Composition Category Intelligence runtime (Stage 3B+; Stage 3A definition only)
+- Body salvage from PR #178 (deferred; do not cherry-pick)
 
 ---
 
@@ -61,7 +67,9 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **1B** | Consent and consumer data export | Consent architecture + export UI; **durable legal assent inactive until RG-LEGAL-01** |
 | **1C** | Account deletion and local data lifecycle | Delete UI; reauthentication; local purge; coverage closure |
 | **2** | Profile-only onboarding & Home category entry | Opening → About You → Home; source connection contextual in categories / Connected Devices; Home presents seven health & performance category cards; no subjective goals questionnaire |
-| **3** | Analytics truth contracts | Baseline, standards registry, trend, confidence, completeness, evidence, association/causation language, versioning — **RFC/ADR before schema**. Includes unfinished-day activity presentation (do not label an in-progress day **Sedentary** from a stored zero / empty HealthKit aggregate; R1 only omitted measured-zero on Home Movement). |
+| **3A** | Body Composition definition & evidence audit | Repository-truth audit; scientific evidence matrix; product/standards specification; proposed RFC/ADR; no runtime Body redesign — **in progress (docs)** |
+| **3B+** | Body Composition Category Intelligence (staged) | Value-first shell → baseline inputs → facts-first markers → approved classifications → method-specific trends → reusable Category Intelligence (only after 3A human approval) |
+| **3** | Analytics truth contracts | Baseline, standards registry, trend, confidence, completeness, evidence, association/causation language, versioning — **RFC/ADR before schema**. Includes unfinished-day activity presentation (do not label an in-progress day **Sedentary** from a stored zero / empty HealthKit aggregate; R1 only omitted measured-zero on Home Movement). Body Composition standards feed this stage. |
 | **4** | Seven-domain Current State | Body, Recovery, Movement, Strength, Cardio, Nutrition, Health; honest missing; no fabricated overall score |
 | **5** | Home & What Oli Sees | Current State, direction, meaningful analysis, progressive disclosure; no recommendations |
 | **6** | Domain detail experiences | Answer → Context → Analysis → Deep Data |
@@ -74,9 +82,9 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **Stage 2 — Minimal Onboarding and Data Readiness** (**implementation complete** on `feat/consumer-stage2-minimal-onboarding-readiness` at `255f7101db7a111471ca38b92813cb426e762007`; **pending independent PR review/merge** — not yet on `main`).
+**Current stage:** **Stage 3A — Body Composition Definition, Evidence, and Repository-Truth Audit** (documentation only on `docs/body-composition-definition-evidence-audit-v1`). Stage 2 is **MERGED**.
 
-**Stage 2 product direction (supersedes Connect → Understand; supersedes Today-on-Home):**
+**Stage 2 (MERGED — product direction now on `main`):**
 - Onboarding: **Opening → About You → Home**
 - Primary navigation: **Home · Today · Plan · Progress · You**
 - Source / device connection is **not** part of mandatory onboarding
@@ -89,8 +97,14 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Apple Health sync requires explicit **current-account** connection (device permission alone is not enough)
 - Physical-iPhone functional verification: **PASS** at `255f7101db7a111471ca38b92813cb426e762007`
 - Source-privacy: focused static/automated gate tests **PASS**; complete two-account server evidence **deferred** by product leadership — **RG-SOURCE-PRIVACY-01 OPEN**
-- Stage 3 **not begun**; Body Composition work **not begun**
 
+**Stage 3A (in progress — docs only):**
+- Define Body Composition scientifically and architecturally before runtime
+- Repository-truth audit; evidence matrix; product/standards specification; proposed RFC/ADR
+- Body Composition runtime redesign **not implemented**
+- Stage 3B **not begun**
+
+**Stage 2:** **MERGED** (PR #217) at `c92ca0518366f0ef7b5e3af08e127fb623506622`.
 **Stage 1C:** **MERGED** (PR #215) at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`; physical-iPhone deletion E2E **PASS** (2026-09-04).
 **Stage 1B:** **MERGED** (PR #214) at `3d4859e45d537813b6846ecaf4cb49222519ef80`; physical-iPhone export E2E **PASS** (2026-08-29).
 **Stage 1A:** Merged (PR #213) at `10f85ee3d377d25075353c152b27611b6b572c84`; physical-iPhone password-recovery smoke **PASS** (2026-08-22).
@@ -98,13 +112,13 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`.
 **Build hygiene:** **MERGED** (PR #216) at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`.
 **Release gate:** **RG-LEGAL-01 OPEN** (hosted Privacy / Terms / Support not published).
-**Release gate:** **RG-SOURCE-PRIVACY-01 OPEN** (unconnected source-isolation E2E deferred; leadership-accepted residual risk for Stage 2 merge — see `docs/90_audits/2026-09-16-stage2-source-privacy-risk-acceptance.md`).
-**Staging runtime:** Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`.
+**Release gate:** **RG-SOURCE-PRIVACY-01 OPEN** (unconnected source-isolation E2E deferred; leadership-accepted residual risk — see `docs/90_audits/2026-09-16-stage2-source-privacy-risk-acceptance.md`; Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN).
+**Staging runtime (historical Stage 2):** Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`.
 **Export:** Physical E2E **PASS**. Coverage closure **OPEN**. Scalability gate **OPEN**.
 **Consent:** Architecture approved for future implementation; **persistence not implemented**; legal assent **inactive**.
 **Production deploy:** **none**.
 
-Durable Terms/Privacy assent remains **inactive** until RG-LEGAL-01 passes. Stage 2 must not add legal assent checkboxes or fake hosted URLs.
+Durable Terms/Privacy assent remains **inactive** until RG-LEGAL-01 passes. Stage 3A must not weaken release gates or begin Body runtime implementation.
 
 ### Stage 1A acceptance split
 
@@ -150,8 +164,10 @@ R0 Product authority reset (docs) — MERGED (PR #211)
  → 1A Account recovery + legal/support foundation — **MERGED** (PR #213; RG-LEGAL-01 OPEN)
  → 1B Consent + data export — **MERGED** (PR #214)
  → 1C Account deletion + local data lifecycle — **MERGED** (PR #215)
- → 2 Profile-only onboarding + Home category entry — **COMPLETE ON BRANCH** (pending merge; physical PASS `255f710…`; RG-SOURCE-PRIVACY-01 OPEN)
- → 3 Analytics truth contracts (RFC/ADR) — **NOT BEGUN**
+ → 2 Profile-only onboarding + Home category entry — **MERGED** (PR #217; physical PASS `255f710…`; RG-SOURCE-PRIVACY-01 OPEN)
+ → 3A Body Composition definition & evidence audit — **IN PROGRESS** (docs only)
+ → 3 Analytics truth contracts (RFC/ADR) — **NOT BEGUN** (Body standards from 3A feed this)
+ → 3B+ Body Category Intelligence runtime — **NOT BEGUN** (requires 3A human approval)
  → 4 Seven-domain Current State
  → 5 Home + What Oli Sees
  → 6 Domain detail

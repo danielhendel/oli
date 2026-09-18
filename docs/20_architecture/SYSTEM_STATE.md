@@ -1,11 +1,13 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-09-16 (Stage 2 **complete on branch** at physical PASS `255f710…`; pending PR merge; **RG-SOURCE-PRIVACY-01 OPEN**; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
-**Merged `main` SHA:** `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`
-**Stage 2 branch:** `feat/consumer-stage2-minimal-onboarding-readiness`
-**Stage 2 physical runtime SHA:** `255f7101db7a111471ca38b92813cb426e762007` (**PASS**; not yet on `main`)
-**Staging (Stage 2):** Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`
+**Last updated:** 2026-09-18 (Stage 2 **MERGED** PR #217; Stage 3A Body Composition definition **beginning** docs-only; **RG-SOURCE-PRIVACY-01 OPEN**; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
+**Merged `main` SHA:** `c92ca0518366f0ef7b5e3af08e127fb623506622`
+**Stage 2 merge commit:** `c92ca0518366f0ef7b5e3af08e127fb623506622`
+**Stage 2 final implementation head:** `2e8cbb7b83b7c2b311e5dccc2bcfda23b5ce6ffc` (ancestor of `main`)
+**Stage 2 physical runtime SHA:** `255f7101db7a111471ca38b92813cb426e762007` (**PASS**; ancestor of `main`)
+**Stage 3A branch:** `docs/body-composition-definition-evidence-audit-v1` (documentation only; no Body runtime redesign)
+**Staging (historical Stage 2):** Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`
 **Staging (historical Stage 1C):** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep ACTIVE; Firestore TTL `accountDeletions.expireAt` ACTIVE
 **Staging export (historical E2E):** Function `onAccountExportRequested` 4 GiB / 540 s
 **Authority level:** T2 architecture interpretation — **describes what exists**; subordinate to code/CI
@@ -50,7 +52,7 @@ The analytics-first product direction **strengthens** this pipeline; it does not
 
 ---
 
-## Merged state (`main` @ `10f85ee`)
+## Merged state (`main` @ `c92ca05`)
 
 ### Navigation and homes
 
@@ -62,15 +64,15 @@ The analytics-first product direction **strengthens** this pipeline; it does not
 | Daily Recap | Compatibility **Redirect to Home** |
 | Domain routes | Strength/workouts, cardio, nutrition, activity, body, recovery/sleep, labs, etc. exist as modules; consumer label **Movement** for Activity |
 | Program / Plan | Tab label **Plan**; honest empty state; placeholder builders not launch-facing |
-| Daily Monitor | Retained as **Today** section under Home |
+| Daily Monitor | Owned by **Today** primary tab (Stage 2) |
 | Progress | Dedicated Progress tab; Weekly Progress once when relocation ON; Timeline + domain histories |
 | You | Hub: profile, devices, assessments, labs, privacy, Your Data, settings, Account, failures, Health & Performance Data |
 | Timeline / Library / Failures | Timeline under Progress; Library (data lineage) and Failures under You |
 | Flags | Health-v1 **deprecated no-op** for chrome; Daily Monitor + Weekly Progress flags still govern those real components |
 
-**Approved four-destination IA is merged.** Current State / What Oli Sees / overall score remain **not implemented**.
+**Stage 2 IA is merged.** Current State / What Oli Sees / overall score remain **not implemented**.
 
-Home: no fabricated Current State; copy “Building your health picture” is not an analytical result. Today Movement omits stored zero so empty aggregates are not “0 Steps · Sedentary”. Unfinished-day sedentary classification is deferred to Stage 3.
+Home: compact **Oli** header + drawer; **My Health & Performance** seven full-width category cards; no Daily Monitor embedded; no fabricated Current State; no scores/ratings/recommendations/What Oli Sees. Today Movement omits stored zero so empty aggregates are not “0 Steps · Sedentary”. Unfinished-day sedentary classification is deferred to Stage 3 analytics contracts.
 
 Plan: `currentPrograms = []`; no persistence; no Oli-authored plan language; not called My Plan.
 
@@ -78,7 +80,7 @@ Progress: no adherence/outcome/causal claims.
 
 You: DNA / Medical History / Scans / Medication placeholders are hidden from launch navigation. Account screen title is **Account**; Firebase UID absent from consumer UI. You → Account routes to `/(app)/settings/account` (Stage 1A merged).
 
-Auth: dark Sign In / Create account; light iOS status bar. Password-reset request flow merged (Stage 1A).
+Auth: dark Sign In / Create account; light iOS status bar. Password-reset request flow merged (Stage 1A). Profile-only onboarding Opening → About You → Home merged (Stage 2).
 
 ### Integrations and pipeline
 
@@ -108,17 +110,17 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 | Public-link contract / external open | Merged (Stage 1A) |
 | Hosted Privacy / Terms / Support pages | Not published — **RG-LEGAL-01 OPEN** |
 | Durable consent persistence | Missing — RFC/ADR approved for future implementation; **not implemented** |
-| Minimal onboarding | Stage 2 **complete on branch** — Opening → About You → Home (source connection contextual; not mandatory onboarding); physical PASS `255f710…`; pending merge |
-| Home category entry | Stage 2 **complete on branch** — My Health & Performance full-width seven-card stack; drawer secondary nav |
-| Today primary tab | Stage 2 **complete on branch** — Daily Monitor owned by Today; not embedded on Home |
-| Source-privacy E2E (two-account server matrix) | Deferred — leadership-accepted residual risk; **RG-SOURCE-PRIVACY-01 OPEN** |
+| Minimal onboarding | **Merged** (Stage 2 / PR #217) — Opening → About You → Home (source connection contextual; not mandatory onboarding); physical PASS `255f710…` |
+| Home category entry | **Merged** (Stage 2 / PR #217) — My Health & Performance full-width seven-card stack; drawer secondary nav |
+| Today primary tab | **Merged** (Stage 2 / PR #217) — Daily Monitor owned by Today; not embedded on Home |
+| Source-privacy E2E (two-account server matrix) | Deferred — leadership-accepted residual risk; **RG-SOURCE-PRIVACY-01 OPEN**; Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN |
 | Export coverage closure | Gaps disclosed — **OPEN** |
 | Export scalability (streaming/pagination) | Buffered ZIP worker — Gate **OPEN** — `docs/90_audits/export-scalability-gate.md` |
 | Crash reporting product | Missing — Release hardening |
 | Production Firebase project config | Release-hardening gap |
 | Current State / What Oli Sees / Plan persistence / Progress analytics | **Not** implemented |
-| Body salvage (PR #178) | CLOSED unmerged; deferred |
-| Body Composition (Stage 3A) | **Not begun** |
+| Body salvage (PR #178) | CLOSED unmerged; disposition only in Stage 3A docs |
+| Body Composition Category Intelligence | Stage 3A **definition in progress** (docs); runtime redesign **not begun**; Stage 3B **not begun** |
 | Build checksum hygiene | Merged (PR #216) — ordinary API builds do not mutate tracked checksum truth |
 | Production deploy | **none** |
 
@@ -150,13 +152,13 @@ See [delta audit](../audits/2026-08-14-analytics-first-product-direction-delta.m
 
 ---
 
-## Approved primary destinations (Stage 2 branch — complete, pending merge)
+## Approved primary destinations (Stage 2 — MERGED on `main`)
 
 ```text
 Home · Today · Plan · Progress · You
 ```
 
-| Destination | Intent | Stage 2 shell reality |
+| Destination | Intent | Merged `main` reality |
 |-------------|--------|----------------------|
 | Home | Whole-person health & performance domain map | Compact Oli header + drawer; seven full-width category cards; no Daily Monitor |
 | Today | Daily health & performance state | Owns existing Daily Monitor content |
@@ -164,9 +166,7 @@ Home · Today · Plan · Progress · You
 | Progress | Execution, adherence, outcomes, trends, analysis | History + Weekly Progress; no outcome analytics product |
 | You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export UI merged (Stage 1B); delete UI and local lifecycle merged (Stage 1C) |
 
-R1 on `main` remains historically **Home · Plan · Progress · You**. Stage 2 branch supersedes that dock order once merged.
-
-Next ownership/product work after Stage 2 merge: Stage 3A Body Composition definition and repository audit (not begun). **RG-SOURCE-PRIVACY-01** remains OPEN and blocks external TestFlight / production / public release.
+**Next ownership/product work:** Stage 3A Body Composition definition and repository audit (docs only; beginning). Body runtime redesign and Stage 3B **not begun**. **RG-SOURCE-PRIVACY-01** remains OPEN and blocks external TestFlight / production / public release.
 
 ---
 
