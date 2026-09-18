@@ -53,4 +53,4 @@ Dense educational hero, dual rails, four marker cards, Evidence Levels, influenc
 | `npx expo-doctor` | exit 1; exactly **five** known findings; no sixth |
 
 **Prior polish head:** `dd63c5e83c970476074f8dd68ebc8a4b4250d603`
-**Retest head:** `8a862e6d0719117ce28b29a1cf2bfa7afe727fe1`
+**Retest head:** `cf1477a3503bdaea685f92cd3671f8921b58749e`
