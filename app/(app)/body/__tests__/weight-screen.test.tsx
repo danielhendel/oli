@@ -83,10 +83,6 @@ function collectText(test: renderer.ReactTestRenderer): string {
     .join(" ");
 }
 
-function sample(dayKey: string, weightKg: number) {
-  return { dayKey, observedAt: `${dayKey}T08:00:00.000Z`, weightKg };
-}
-
 function buildBody(overrides: Record<string, unknown> = {}) {
   return {
     today: "2026-03-31",
@@ -119,6 +115,7 @@ function buildBody(overrides: Record<string, unknown> = {}) {
       leanBodyMassKg: null as number | null,
       restingMetabolicRateKcal: null as number | null,
       hasAnyMetric: false,
+      latestObservedAtIso: null as string | null,
     },
     ...overrides,
   };
@@ -134,17 +131,12 @@ function buildPopulatedBody() {
       leanBodyMassKg: 60,
       restingMetabolicRateKcal: 1700,
       hasAnyMetric: true,
+      latestObservedAtIso: "2026-03-31T08:00:00.000Z",
     },
-    weightSamples: [
-      sample("2026-01-15", 79),
-      sample("2026-02-10", 80),
-      sample("2026-03-29", 78),
-      sample("2026-03-31", 80),
-    ],
   });
 }
 
-describe("Body Composition main screen", () => {
+describe("Body Composition simplified main screen", () => {
   beforeEach(() => {
     mockPush.mockClear();
     mockAccess.mockReturnValue({
@@ -157,44 +149,39 @@ describe("Body Composition main screen", () => {
     });
   });
 
-  it("hides the horizontal weekday/date calendar strip", () => {
-    mockHook.mockReturnValue(buildPopulatedBody());
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    // No calendar day ring cells, no "has body measurement" day pressables.
-    expect(tree.root.findAllByProps({ testID: "body-weekly-ring-2026-03-31" })).toHaveLength(0);
-    const stripDay = tree.root
-      .findAllByType("Pressable")
-      .find(
-        (p) =>
-          typeof p.props.accessibilityLabel === "string" &&
-          p.props.accessibilityLabel.includes("body measurement"),
-      );
-    expect(stripDay).toBeUndefined();
-  });
-
-  it("renders educational shell before existing measurement cards", () => {
+  it("renders three primary metric cards before Apple Health actions", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(React.createElement(Screen));
     });
     const text = collectText(tree);
-    expect(text).toContain("Educational reference");
-    expect(text).toContain("Today");
-    expect(text).toContain("This Week's Weight");
-    expect(text).toContain("Weight Baseline");
-    expect(text).toContain("2026 Weight");
-    expect(text.indexOf("Educational reference")).toBeLessThan(text.indexOf("Your measurements"));
-    expect(text.indexOf("Your measurements")).toBeLessThan(text.indexOf("Today"));
-    expect(text.indexOf("Today")).toBeLessThan(text.indexOf("This Week's Weight"));
-    expect(text.indexOf("This Week's Weight")).toBeLessThan(text.indexOf("Weight Baseline"));
-    expect(text.indexOf("Weight Baseline")).toBeLessThan(text.indexOf("2026 Weight"));
+    expect(text).toContain("Track weight, body fat, and lean tissue.");
+    expect(tree.root.findByProps({ testID: "body-metric-card-weight" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-card-bodyFat" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-card-leanTissue" })).toBeDefined();
+    expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("Body Fat"));
+    expect(text.indexOf("Body Fat")).toBeLessThan(text.indexOf("Lean Tissue"));
+    expect(text.indexOf("Lean Tissue")).toBeLessThan(text.indexOf("Add or connect measurements"));
   });
 
-  it("renders Today card weight, BMI, body fat, and lean mass when available", () => {
+  it("does not render the previous dense educational landing", () => {
+    mockHook.mockReturnValue(buildPopulatedBody());
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    const text = collectText(tree);
+    expect(text).not.toContain("Educational reference");
+    expect(text).not.toContain("Health Protection");
+    expect(text).not.toContain("Performance Support");
+    expect(text).not.toContain("Evidence levels");
+    expect(text).not.toContain("Central Adiposity");
+    expect(text).not.toMatch(/Body score|Optimized|Excellence/i);
+    expect(tree.root.findAllByProps({ testID: "body-metric-reference-marker" })).toHaveLength(0);
+  });
+
+  it("shows populated values without placing personal markers", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -202,94 +189,26 @@ describe("Body Composition main screen", () => {
     });
     const text = collectText(tree);
     expect(text).toContain("176.4 lb");
-    expect(text).toContain("BMI");
-    expect(text).toContain("24.2");
-    expect(text).toContain("Body Fat");
     expect(text).toContain("18.0%");
-    expect(text).toContain("Lean Mass");
     expect(text).toContain("132.3 lb");
+    expect(text).toContain("Weight-for-height screening");
+    expect(text).toContain("Reference unavailable");
+    expect(text).toContain("Method-specific reference unavailable");
   });
 
-  it("renders the This Week's Weight line chart with a date range label", () => {
+  it("routes Weight card to weight metric detail", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(React.createElement(Screen));
     });
-    expect(tree.root.findByProps({ testID: "body-this-week-line-chart" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-this-week-range-label" })).toBeDefined();
-  });
-
-  it("renders all five Weight Baseline periods", () => {
-    mockHook.mockReturnValue(buildPopulatedBody());
-    let tree!: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    for (const key of ["7d", "30d", "90d", "ytd", "12m"]) {
-      expect(tree.root.findByProps({ testID: `body-weight-baseline-row-${key}` })).toBeDefined();
-    }
-  });
-
-  it("renders the 2026 Weight card with year navigation", () => {
-    mockHook.mockReturnValue(buildPopulatedBody());
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    expect(tree.root.findByProps({ testID: "body-yearly-nav" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-yearly-nav-next" }).props.disabled).toBe(true);
-  });
-
-  it("does not render any range/status (Optimal) pills on the updated cards", () => {
-    mockHook.mockReturnValue(buildPopulatedBody());
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    const text = collectText(tree);
-    expect(text).not.toMatch(/Optimal|Out of range/);
-    expect(text).not.toMatch(/Maintaining|Gaining|Losing/);
-  });
-
-  it("routes to the weight metric detail when the Today weight row is pressed", () => {
-    mockHook.mockReturnValue(buildPopulatedBody());
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    const weightRow = tree.root.findByProps({ testID: "body-today-weight-row" });
-    act(() => {
-      weightRow.props.onPress();
+      tree.root.findByProps({ testID: "body-metric-card-weight" }).props.onPress();
     });
     expect(mockPush).toHaveBeenCalledWith(BODY_METRIC_DETAIL_HREFS.weight);
   });
 
-  it("routes to BMI detail from the Today BMI row", () => {
-    mockHook.mockReturnValue(buildPopulatedBody());
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    const bmiRow = tree.root.findByProps({ testID: "body-today-row-bmi" });
-    act(() => {
-      bmiRow.props.onPress();
-    });
-    expect(mockPush).toHaveBeenLastCalledWith(BODY_METRIC_DETAIL_HREFS.bmi);
-  });
-
-  it("renders the Today empty state when all metrics are absent", () => {
-    mockHook.mockReturnValue(buildBody());
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    expect(tree.root.findByProps({ testID: "body-today-empty-state" })).toBeDefined();
-    // Yearly card is gated off until the current year has data.
-    expect(tree.root.findAllByProps({ testID: "body-yearly-card" })).toHaveLength(0);
-  });
-
-  it("shows Apple Health connect after education when access is not determined", () => {
+  it("shows Apple Health connect after metric cards when access is not determined", () => {
     mockHook.mockReturnValue(buildBody());
     mockAccess.mockReturnValue({
       phase: "not_determined",
@@ -304,14 +223,12 @@ describe("Body Composition main screen", () => {
       tree = renderer.create(React.createElement(Screen));
     });
     const text = collectText(tree);
-    expect(text).toContain("Educational reference");
     expect(text).toContain("Connect Apple Health");
     expect(text).toContain("transport");
-    expect(text.indexOf("Educational reference")).toBeLessThan(text.indexOf("Connect Apple Health"));
-    expect(tree.root.findByProps({ testID: "body-composition-education-screen" })).toBeDefined();
+    expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("Connect Apple Health"));
   });
 
-  it("invokes onAllowAppleHealthBodyAccess when Connect Apple Health is pressed", () => {
+  it("invokes onAllowAppleHealthBodyAccess only after explicit tap", () => {
     const onAllow = jest.fn();
     mockHook.mockReturnValue(buildBody());
     mockAccess.mockReturnValue({
@@ -336,26 +253,7 @@ describe("Body Composition main screen", () => {
     expect(onAllow).toHaveBeenCalledTimes(1);
   });
 
-  it("shows denied-state guidance when Apple Health body access is denied", () => {
-    mockHook.mockReturnValue(buildBody());
-    mockAccess.mockReturnValue({
-      phase: "denied",
-      authLoading: false,
-      authSnapshot: { kind: "denied" },
-      refreshAuth: jest.fn(),
-      onAllowAppleHealthBodyAccess: jest.fn(),
-      onOpenAppSettings: jest.fn(),
-    });
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    const text = collectText(tree);
-    expect(text).toContain("Review Apple Health access");
-    expect(text).toContain("Educational reference");
-  });
-
-  it("keeps education visible when measurement series errors", () => {
+  it("keeps cards visible when measurement series errors", () => {
     mockHook.mockReturnValue(
       buildBody({
         series: {
@@ -371,56 +269,17 @@ describe("Body Composition main screen", () => {
     act(() => {
       tree = renderer.create(React.createElement(Screen));
     });
-    const text = collectText(tree);
-    expect(text).toContain("Educational reference");
+    expect(tree.root.findByProps({ testID: "body-composition-summary-screen" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-composition-measurement-error" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-card-weight" })).toBeDefined();
   });
 
-  it("routes Open Plan to the canonical Plan destination", () => {
-    mockHook.mockReturnValue(buildBody());
+  it("hides the horizontal weekday/date calendar strip", () => {
+    mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(React.createElement(Screen));
     });
-    act(() => {
-      tree.root.findByProps({ testID: "body-composition-open-plan" }).props.onPress();
-    });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/(tabs)/program");
-  });
-
-  it("shows granted-no-data copy on the Today card when permission is granted but no samples exist", () => {
-    mockHook.mockReturnValue(buildBody());
-    mockAccess.mockReturnValue({
-      phase: "granted_no_data",
-      authLoading: false,
-      authSnapshot: { kind: "authorized" },
-      refreshAuth: jest.fn(),
-      onAllowAppleHealthBodyAccess: jest.fn(),
-      onOpenAppSettings: jest.fn(),
-    });
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    const text = collectText(tree);
-    expect(text).toContain("No body measurements yet");
-  });
-
-  it("shows the syncing banner when Apple Health body sync is in progress", () => {
-    mockHook.mockReturnValue(buildBody({ isBodySyncing: true }));
-    mockAccess.mockReturnValue({
-      phase: "syncing",
-      authLoading: false,
-      authSnapshot: { kind: "authorized" },
-      refreshAuth: jest.fn(),
-      onAllowAppleHealthBodyAccess: jest.fn(),
-      onOpenAppSettings: jest.fn(),
-    });
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    const text = collectText(tree);
-    expect(text).toContain("Syncing Apple Health");
+    expect(tree.root.findAllByProps({ testID: "body-weekly-ring-2026-03-31" })).toHaveLength(0);
   });
 });

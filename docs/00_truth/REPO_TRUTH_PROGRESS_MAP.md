@@ -244,18 +244,19 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Does **not** authorize external TestFlight, production deployment, public release, or App Store submission
 - **Production deploy:** **none**
 
-## Stage 3B (ACTIVE — value-first educational shell only)
+## Stage 3B (ACTIVE — simplified three-card educational shell)
 
 - Branch: `feat/body-composition-stage3b-value-first-shell`
 - Baseline `main`: `b366744007bf771a0796f8499e9be224d226e6b6`
-- Scope: purpose, educational reference model (no personal marker), marker explanations, evidence tiers, baseline education, honest missing/partial, source/method education, links to existing real measurement actions, influences, Plan boundary
-- **Must not include:** personal rail marker, Body score, category rating, aggregate Health Protection / Performance Support classification, Optimized/Excellence personal placement, new schema/persistence/DailyFacts/Insights, DEXA parsing, RawEvent-derived classification, autonomous prescriptions, Stage 3C provenance
+- Product correction (2026-09-18): primary landing is **Weight / Body Fat / Lean Tissue** cards + compact add/connect actions; dense educational article landing superseded
+- Scope: three metric summary cards; progressive disclosure for education; honest missing/partial/reference-unavailable; Apple Health explicit under actions; no personal marker without approved method-compatible classification
+- **Must not include:** personal Health Protection / Performance Support rails, Body score, aggregates, Optimized/Excellence placement, new schema/persistence/DailyFacts/Insights, DEXA parsing, RawEvent-derived classification, autonomous prescriptions, Stage 3C provenance
 - Classification stages remain **blocked**
 - Issue [#218](https://github.com/danielhendel/oli/issues/218) remains **OPEN**; **RG-SOURCE-PRIVACY-01 OPEN**; **RG-LEGAL-01 OPEN**
 - Export coverage/scalability remain **OPEN**
 - No staging or production deployment from Stage 3B
 - Stage 3C: **NOT BEGUN**
-- Stage 3B complete claim: **not yet** (branch in progress; physical retest required)
+- Stage 3B complete claim: **not yet** (branch in progress; physical retest required after simplification)
 
 ### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
 

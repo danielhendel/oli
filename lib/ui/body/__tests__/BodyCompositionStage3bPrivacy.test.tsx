@@ -164,7 +164,7 @@ describe("Body Composition Stage 3B source privacy", () => {
     expect(mockIngest).not.toHaveBeenCalled();
   });
 
-  it("does not present Oura as a Body Composition measurement source in education", () => {
+  it("does not present Oura as a Body Composition measurement source", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(React.createElement(Screen));
@@ -175,5 +175,6 @@ describe("Body Composition Stage 3B source privacy", () => {
       .filter((x) => typeof x === "string")
       .join(" ");
     expect(text).not.toMatch(/Oura/);
+    expect(text).toContain("Track weight, body fat, and lean tissue.");
   });
 });

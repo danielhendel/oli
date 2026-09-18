@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
@@ -8,20 +8,17 @@ import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHe
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { BodyWeeklyStrip } from "@/lib/ui/body/BodyWeeklyStrip";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
-import { SYSTEM_ACCENT_OVERLAY_10 } from "@/lib/ui/theme/systemAccent";
 import { BodyAppleHealthPermissionCard } from "@/lib/ui/body/BodyAppleHealthPermissionCard";
-import { BodyCompositionEducationScreen } from "@/lib/ui/body/BodyCompositionEducationScreen";
-import { BodyTodayCard } from "@/lib/ui/body/BodyTodayCard";
-import { BodyWeeklyWeightCard } from "@/lib/ui/body/BodyWeeklyWeightCard";
-import { BodyWeightBaselineDeltaCard } from "@/lib/ui/body/BodyWeightBaselineDeltaCard";
-import { BodyYearlyWeightCard } from "@/lib/ui/body/BodyYearlyWeightCard";
+import { BodyCompositionSummaryScreen } from "@/lib/ui/body/BodyCompositionSummaryScreen";
 import { WeightLogModal } from "@/lib/ui/WeightLogModal";
 import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
 import { useAppleHealthBodyAccessState } from "@/lib/data/body/useAppleHealthBodyAccessState";
 import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBackfill";
-import { useBodyWeightTrendCards } from "@/lib/data/body/useBodyWeightTrendCards";
 import { BODY_COMPOSITION_METRIC_DETAIL_ROUTES } from "@/lib/data/body/bodyCompositionMetricRoutes";
-import { BODY_COMPOSITION_EDUCATION_MODEL } from "@/lib/body/education/bodyCompositionEducationModel";
+import {
+  BODY_COMPOSITION_SUMMARY_COPY,
+  buildBodyMetricSummaryCards,
+} from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { UI_SCREEN_BG, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
@@ -77,7 +74,7 @@ export default function BodyOverviewScreen() {
   useEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("module"),
-      title: BODY_COMPOSITION_EDUCATION_MODEL.pageTitle,
+      title: BODY_COMPOSITION_SUMMARY_COPY.pageTitle,
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
       headerRight: () => (
         <HeaderControls
@@ -99,36 +96,24 @@ export default function BodyOverviewScreen() {
     />
   ) : undefined;
 
-  const seriesLoading = body.series.status === "partial";
-  const overviewLoading = seriesLoading || body.peek.status === "partial";
-  const overviewError =
-    body.series.status === "error"
-      ? {
-          message: body.series.error,
-          requestId: body.series.requestId,
-          onRetry: () => body.series.refetch(),
-        }
-      : body.peek.status === "error"
-        ? { message: body.peek.error, requestId: body.peek.requestId, onRetry: () => body.peek.refetch() }
-        : null;
-
-  const trend = useBodyWeightTrendCards({
-    today: body.today,
-    unit,
-    samples: body.weightSamples ?? [],
-    overview: body.overview,
-  });
-
-  const hasAnyExistingBodyMeasurement =
-    body.overview.hasAnyMetric === true ||
-    (Array.isArray(body.weightSamples) && body.weightSamples.length > 0);
-
-  const todayEmptyTitle =
-    access.phase === "granted_no_data" ? "No body measurements yet" : "No body data yet";
-  const todayEmptyDescription =
-    access.phase === "granted_no_data"
-      ? "Add a measurement in Apple Health or sync a connected source. Open Body again after your data updates."
-      : "When Apple Health has body data, your latest snapshot will appear here.";
+  const seriesError = body.series.status === "error";
+  const cards = useMemo(
+    () =>
+      buildBodyMetricSummaryCards({
+        overview: {
+          overviewDay: body.overview.overviewDay,
+          weightKg: body.overview.weightKg,
+          bodyFatPercent: body.overview.bodyFatPercent,
+          leanBodyMassKg: body.overview.leanBodyMassKg,
+          bmi: body.overview.bmi,
+          hasAnyMetric: body.overview.hasAnyMetric,
+          latestObservedAtIso: body.overview.latestObservedAtIso ?? null,
+        },
+        unit,
+        seriesError,
+      }),
+    [body.overview, unit, seriesError],
+  );
 
   const unavailableMsg =
     access.authSnapshot?.kind === "unavailable" ? access.authSnapshot.error : undefined;
@@ -172,85 +157,44 @@ export default function BodyOverviewScreen() {
     </View>
   );
 
-  const measurementsSlot = (
-    <View style={styles.measurementsStack} testID="body-composition-existing-measurements">
-      {access.phase === "syncing" ? (
-        <View style={styles.syncBanner}>
-          <Text style={styles.syncBannerText}>Syncing Apple Health…</Text>
-        </View>
-      ) : null}
-
-      {body.series.status === "error" ? (
-        <View style={styles.measurementError} testID="body-composition-measurement-error">
-          <Text style={styles.measurementErrorTitle}>Couldn’t load Body measurements</Text>
-          <Text style={styles.measurementErrorBody}>
-            Educational guidance stays available. Try again when your connection is ready.
-          </Text>
-          <Pressable
-            style={styles.retryBtn}
-            onPress={() => body.series.refetch()}
-            accessibilityRole="button"
-            accessibilityLabel="Retry loading Body measurements"
-            testID="body-composition-measurement-retry"
-          >
-            <Text style={styles.retryBtnText}>Retry</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <>
-          <BodyTodayCard
-            loading={overviewLoading}
-            error={overviewError}
-            model={trend.todayCardModel}
-            emptyTitle={todayEmptyTitle}
-            emptyDescription={todayEmptyDescription}
-            onPressRow={(href) => router.push(href as never)}
-          />
-
-          <BodyWeeklyWeightCard
-            loading={seriesLoading}
-            unit={unit}
-            model={trend.weekly.model}
-            weekRangeLabel={trend.weekly.weekRangeLabel}
-            canGoPrevious={trend.weekly.canGoPrevious}
-            canGoNext={trend.weekly.canGoNext}
-            onPressPrevious={trend.weekly.onPressPrevious}
-            onPressNext={trend.weekly.onPressNext}
-          />
-
-          <BodyWeightBaselineDeltaCard loading={seriesLoading} model={trend.baselineModel} />
-
-          {trend.yearly.visible ? (
-            <BodyYearlyWeightCard
-              loading={seriesLoading}
-              model={trend.yearly.model}
-              canGoPrevious={trend.yearly.canGoPrevious}
-              canGoNext={trend.yearly.canGoNext}
-              onPressPrevious={trend.yearly.onPressPrevious}
-              onPressNext={trend.yearly.onPressNext}
-            />
-          ) : null}
-        </>
-      )}
+  const measurementErrorSlot = seriesError ? (
+    <View style={styles.measurementError} testID="body-composition-measurement-error">
+      <Text style={styles.measurementErrorTitle}>Couldn’t load Body measurements</Text>
+      <Text style={styles.measurementErrorBody}>
+        Your metric cards stay visible. Try again when your connection is ready.
+      </Text>
+      <Pressable
+        style={styles.retryBtn}
+        onPress={() => body.series.refetch()}
+        accessibilityRole="button"
+        accessibilityLabel="Retry loading Body measurements"
+        testID="body-composition-measurement-retry"
+      >
+        <Text style={styles.retryBtnText}>Retry</Text>
+      </Pressable>
     </View>
-  );
+  ) : access.phase === "syncing" ? (
+    <View style={styles.syncBanner} testID="body-composition-sync-banner">
+      <Text style={styles.syncBannerText}>Syncing Apple Health…</Text>
+    </View>
+  ) : null;
 
   return (
     <View style={styles.root}>
       <ModuleScreenShell
-        title={BODY_COMPOSITION_EDUCATION_MODEL.pageTitle}
+        title={BODY_COMPOSITION_SUMMARY_COPY.pageTitle}
         hideTitleChrome
         compactHeader={BODY_SHOW_WEEKLY_CALENDAR_STRIP}
         {...(headerContent != null ? { headerContent } : {})}
       >
         <View style={styles.pageBody}>
-          <BodyCompositionEducationScreen
-            hasAnyExistingBodyMeasurement={hasAnyExistingBodyMeasurement}
+          <BodyCompositionSummaryScreen
+            cards={cards}
             appleHealthSlot={appleHealthSlot}
+            onPressCard={(href) => router.push(href as never)}
             onPressAddWeight={() => setWeightLogVisible(true)}
             onPressHref={(href) => router.push(href as never)}
-            onPressOpenPlan={() => router.push(BODY_COMPOSITION_EDUCATION_MODEL.planHref as never)}
-            measurementsSlot={measurementsSlot}
+            measurementErrorSlot={measurementErrorSlot}
           />
         </View>
       </ModuleScreenShell>
@@ -275,7 +219,7 @@ const styles = StyleSheet.create({
     backgroundColor: UI_SCREEN_BG,
     marginHorizontal: -16,
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 32,
     gap: 16,
   },
@@ -290,17 +234,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  measurementsStack: {
-    gap: 16,
+  secondaryLinkWrap: {
+    alignSelf: "flex-start",
+    minHeight: 44,
+    justifyContent: "center",
+    paddingVertical: 4,
   },
-  syncBanner: {
-    backgroundColor: SYSTEM_ACCENT_OVERLAY_10,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  syncBannerText: { fontSize: 14, fontWeight: "600", color: BODY_INDIGO },
-  secondaryLinkWrap: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", paddingVertical: 4 },
   secondaryLink: { fontSize: 15, fontWeight: "600", color: BODY_INDIGO },
   measurementError: {
     gap: 8,
@@ -329,4 +268,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
+  syncBanner: {
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(58,91,219,0.1)",
+  },
+  syncBannerText: { fontSize: 14, fontWeight: "600", color: BODY_INDIGO },
 });
