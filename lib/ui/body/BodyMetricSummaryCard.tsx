@@ -34,6 +34,45 @@ export type BodyMetricSummaryCardProps = {
   onPressConnectionAction: () => void;
 };
 
+function UnitPill(props: { unit: string }) {
+  const massToggle = props.unit === "lb" || props.unit === "kg";
+  if (massToggle) {
+    return (
+      <View
+        style={styles.unitToggle}
+        accessibilityElementsHidden
+        testID="body-metric-unit-pill"
+      >
+        <View style={[styles.unitToggleSeg, props.unit === "lb" && styles.unitToggleSegActive]}>
+          <Text
+            style={[
+              styles.unitToggleText,
+              props.unit === "lb" && styles.unitToggleTextActive,
+            ]}
+          >
+            lb
+          </Text>
+        </View>
+        <View style={[styles.unitToggleSeg, props.unit === "kg" && styles.unitToggleSegActive]}>
+          <Text
+            style={[
+              styles.unitToggleText,
+              props.unit === "kg" && styles.unitToggleTextActive,
+            ]}
+          >
+            kg
+          </Text>
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View style={styles.unitPill} accessibilityElementsHidden testID="body-metric-unit-pill">
+      <Text style={styles.unitPillText}>{props.unit}</Text>
+    </View>
+  );
+}
+
 /**
  * Premium Body metric card shell — value-first hierarchy with integrated chart region.
  * Weight may include an approved classification chart; Body Fat / Lean use unclassified scaffolds.
@@ -47,6 +86,8 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const valueA11y =
     model.formattedValue != null ? model.formattedValue : "No current measurement";
   const connected = props.connectionAction.kind === "connected";
+  const showMassUnitInValue = false;
+  const showPercentInValue = model.displayUnit === "%";
 
   return (
     <Pressable
@@ -66,85 +107,94 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
             </Text>
           ) : null}
         </View>
-        {model.displayUnit ? (
-          <View style={styles.unitChip} accessibilityElementsHidden>
-            <Text style={styles.unitChipText}>{model.displayUnit}</Text>
-          </View>
-        ) : (
-          <Text style={styles.chevron} accessibilityElementsHidden>
+        <View style={styles.topTrailing}>
+          {model.displayUnit ? <UnitPill unit={model.displayUnit} /> : null}
+          <Text
+            style={styles.chevron}
+            accessibilityElementsHidden
+            testID={`body-metric-chevron-${model.metric}`}
+          >
             ›
           </Text>
-        )}
+        </View>
       </View>
 
-      <View style={styles.valueRow}>
-        <Text
-          style={[styles.value, model.displayValue == null && styles.missingValue]}
-          testID={`body-metric-value-${model.metric}`}
-          accessibilityLabel={valueA11y}
-        >
-          {valueText}
-        </Text>
-        {model.displayUnit && model.displayValue != null ? (
-          <Text style={styles.valueUnit} accessibilityElementsHidden>
-            {model.displayUnit}
+      <View style={styles.valueBlock}>
+        <View style={styles.valueRow}>
+          <Text
+            style={[styles.value, model.displayValue == null && styles.missingValue]}
+            testID={`body-metric-value-${model.metric}`}
+            accessibilityLabel={valueA11y}
+          >
+            {valueText}
+            {showPercentInValue && model.displayValue != null ? (
+              <Text style={styles.valuePercent}>%</Text>
+            ) : null}
           </Text>
+          {showMassUnitInValue && model.displayUnit && model.displayValue != null ? (
+            <Text style={styles.valueUnit} accessibilityElementsHidden>
+              {model.displayUnit}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+
+      <View style={styles.chartRegion}>
+        {showChart ? (
+          <BodyMetricClassificationChart
+            model={chart!}
+            testID={`body-metric-chart-${model.metric}`}
+          />
+        ) : null}
+
+        {showScaffold ? (
+          <BodyMetricUnclassifiedScaffold
+            accessibilityLabel={
+              model.unclassifiedScaffoldAccessibilityLabel ??
+              `${model.title}. No approved classification.`
+            }
+            testID={`body-metric-scaffold-${model.metric}`}
+          />
         ) : null}
       </View>
 
-      {showChart ? (
-        <BodyMetricClassificationChart
-          model={chart!}
-          testID={`body-metric-chart-${model.metric}`}
-        />
-      ) : null}
-
-      {showScaffold ? (
-        <BodyMetricUnclassifiedScaffold
-          accessibilityLabel={
-            model.unclassifiedScaffoldAccessibilityLabel ??
-            `${model.title}. No approved classification.`
-          }
-          testID={`body-metric-scaffold-${model.metric}`}
-        />
-      ) : null}
-
-      <View style={styles.actionDivider} />
-
-      <View style={styles.actionRow} testID={`body-metric-actions-${model.metric}`}>
-        <Pressable
-          style={styles.addBtn}
-          onPress={(e) => {
-            e.stopPropagation?.();
-            props.onPressAddMeasurement();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Add measurement"
-          accessibilityHint="Opens manual measurement entry"
-          testID={`body-metric-add-${model.metric}`}
-        >
-          <Text style={styles.addBtnText}>＋  Add measurement</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.connectionBtn, connected && styles.connectionBtnConnected]}
-          onPress={(e) => {
-            e.stopPropagation?.();
-            props.onPressConnectionAction();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={props.connectionAction.label}
-          testID={`body-metric-connection-${model.metric}`}
-        >
-          <Text
-            style={[
-              styles.connectionBtnText,
-              connected && styles.connectionConnectedText,
-              props.connectionAction.kind === "syncing" && styles.connectionMuted,
-            ]}
+      <View style={styles.actionBlock}>
+        <View style={styles.actionDivider} />
+        <View style={styles.actionRow} testID={`body-metric-actions-${model.metric}`}>
+          <Pressable
+            style={styles.addBtn}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              props.onPressAddMeasurement();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Add measurement"
+            accessibilityHint="Opens manual measurement entry"
+            testID={`body-metric-add-${model.metric}`}
           >
-            {connected ? "●  Connected" : props.connectionAction.label}
-          </Text>
-        </Pressable>
+            <Text style={styles.addBtnText}>Add measurement</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.connectionBtn, connected && styles.connectionBtnConnected]}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              props.onPressConnectionAction();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={props.connectionAction.label}
+            testID={`body-metric-connection-${model.metric}`}
+          >
+            <Text
+              style={[
+                styles.connectionBtnText,
+                connected && styles.connectionConnectedText,
+                props.connectionAction.kind === "syncing" && styles.connectionMuted,
+              ]}
+            >
+              {connected ? "Connected" : props.connectionAction.label}
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </Pressable>
   );
@@ -156,16 +206,16 @@ const styles = StyleSheet.create({
     borderRadius: UI_DASH_CATEGORY_CARD_RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: UI_CARD_ELEVATED_BORDER,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingTop: 18,
-    paddingBottom: 10,
-    gap: 12,
+    paddingBottom: 8,
+    gap: 0,
     minHeight: 44,
     shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
   },
   pressed: {
     opacity: 0.94,
@@ -175,58 +225,105 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 12,
+    marginBottom: 10,
   },
   titleBlock: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
+    gap: 3,
+    paddingTop: 1,
   },
   title: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
-    letterSpacing: 0.2,
+    letterSpacing: 0.25,
   },
   recency: {
     color: UI_TEXT_MUTED,
     fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 15,
     fontWeight: "500",
   },
-  unitChip: {
-    minHeight: 28,
-    paddingHorizontal: 10,
+  topTrailing: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  unitToggle: {
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: UI_BORDER_HAIRLINE,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(0,0,0,0.28)",
+    padding: 2,
+    minHeight: 30,
+  },
+  unitToggleSeg: {
+    minWidth: 30,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },
-  unitChipText: {
-    color: UI_TEXT_SECONDARY,
-    fontSize: 12,
+  unitToggleSegActive: {
+    backgroundColor: "rgba(255,255,255,0.14)",
+  },
+  unitToggleText: {
+    color: UI_TEXT_MUTED,
+    fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
+    letterSpacing: 0.2,
+  },
+  unitToggleTextActive: {
+    color: UI_TEXT_PRIMARY,
+  },
+  unitPill: {
+    minHeight: 30,
+    minWidth: 34,
+    paddingHorizontal: 11,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(0,0,0,0.28)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unitPillText: {
+    color: UI_TEXT_PRIMARY,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.25,
   },
   chevron: {
-    color: BODY_INDIGO,
-    fontSize: 22,
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 26,
     fontWeight: "300",
+    lineHeight: 28,
+    marginTop: -1,
+  },
+  valueBlock: {
+    marginBottom: 18,
   },
   valueRow: {
     flexDirection: "row",
     alignItems: "baseline",
     gap: 6,
-    marginTop: -2,
   },
   value: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 40,
+    fontSize: 44,
     fontWeight: "800",
-    letterSpacing: -1.2,
+    letterSpacing: -1.4,
     fontVariant: ["tabular-nums"],
+  },
+  valuePercent: {
+    fontSize: 28,
+    fontWeight: "700",
+    letterSpacing: -0.6,
+    color: UI_TEXT_SECONDARY,
   },
   missingValue: {
     color: UI_TEXT_MUTED,
@@ -238,10 +335,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 4,
   },
+  chartRegion: {
+    marginBottom: 16,
+  },
+  actionBlock: {
+    marginTop: 2,
+  },
   actionDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: UI_BORDER_HAIRLINE,
-    marginTop: 2,
+    marginBottom: 2,
   },
   actionRow: {
     flexDirection: "row",
@@ -266,7 +369,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   connectionBtnConnected: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     borderRadius: 999,
     backgroundColor: "rgba(52, 211, 153, 0.12)",
   },

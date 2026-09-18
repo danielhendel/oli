@@ -3,14 +3,17 @@ import { StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricClassificationChartModel } from "@/lib/body/presentation/bodyMetricCardTypes";
 import {
+  BODY_METRIC_CHART_MARKER_BORDER,
   BODY_METRIC_CHART_MARKER_FILL,
   BODY_METRIC_CHART_MARKER_GLOW,
   BODY_METRIC_CHART_MARKER_TEXT,
   BODY_METRIC_CHART_TRACK_BORDER,
-  BODY_METRIC_CHART_TRACK_INNER,
+  BODY_METRIC_CHART_TRACK_SHADOW,
+  BODY_METRIC_CHART_TRACK_SHEEN,
+  BODY_METRIC_SPECTRUM_HEIGHT,
+  BODY_METRIC_SPECTRUM_RADIUS,
   resolveBodyMetricClassificationBandChrome,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
-import { UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 export type BodyMetricClassificationChartProps = {
   model: BodyMetricClassificationChartModel;
@@ -42,7 +45,7 @@ function validateChartModel(model: BodyMetricClassificationChartModel): string |
 
 /**
  * Presentation-only categorical classification chart.
- * Spectrum bar teaches visually; labels + ranges sit beneath (not color-only).
+ * Thin luminous spectrum + labels beneath — not color-only.
  * Does not calculate BMI, classify, convert units, or access profile/sources.
  */
 export function BodyMetricClassificationChart(props: BodyMetricClassificationChartProps) {
@@ -89,7 +92,7 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
             style={[styles.markerColumn, { left: `${markerLeftPct}%` }]}
             testID="body-metric-classification-marker"
           >
-            <View style={styles.valueCapsuleGlow}>
+            <View style={styles.valueCapsuleOuter}>
               <View style={styles.valueCapsule}>
                 <Text style={styles.valueCapsuleText} numberOfLines={1}>
                   {marker.formattedValue}
@@ -97,12 +100,13 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
               </View>
             </View>
             <View style={styles.markerStem} />
+            <View style={styles.markerDot} />
           </View>
         ) : null}
       </View>
 
       <View
-        style={styles.trackShell}
+        style={styles.trackGlow}
         importantForAccessibility="no-hide-descendants"
         accessibilityElementsHidden
       >
@@ -119,16 +123,19 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
                   {
                     backgroundColor: chrome.fillStrong,
                     borderRightColor: chrome.divider,
-                    borderRightWidth: isLast ? 0 : 1,
-                    borderTopLeftRadius: isFirst ? 10 : 0,
-                    borderBottomLeftRadius: isFirst ? 10 : 0,
-                    borderTopRightRadius: isLast ? 10 : 0,
-                    borderBottomRightRadius: isLast ? 10 : 0,
+                    borderRightWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+                    borderTopLeftRadius: isFirst ? BODY_METRIC_SPECTRUM_RADIUS : 0,
+                    borderBottomLeftRadius: isFirst ? BODY_METRIC_SPECTRUM_RADIUS : 0,
+                    borderTopRightRadius: isLast ? BODY_METRIC_SPECTRUM_RADIUS : 0,
+                    borderBottomRightRadius: isLast ? BODY_METRIC_SPECTRUM_RADIUS : 0,
                   },
                 ]}
-              />
+              >
+                <View style={[styles.bandSheen, { backgroundColor: chrome.fillHighlight }]} />
+              </View>
             );
           })}
+          <View pointerEvents="none" style={styles.trackSheen} />
         </View>
       </View>
 
@@ -145,7 +152,7 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
                 {segment.label}
               </Text>
               {segment.formattedRange ? (
-                <Text style={styles.bandRange} numberOfLines={2}>
+                <Text style={[styles.bandRange, { color: chrome.range }]} numberOfLines={1}>
                   {segment.formattedRange}
                 </Text>
               ) : null}
@@ -159,97 +166,129 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: 10,
+    gap: 12,
   },
   failClosed: {
     height: 0,
   },
   markerRail: {
-    height: 44,
+    height: 40,
     position: "relative",
   },
   markerColumn: {
     position: "absolute",
     top: 0,
-    width: 96,
-    marginLeft: -48,
+    bottom: 0,
+    width: 100,
+    marginLeft: -50,
     alignItems: "center",
     zIndex: 3,
   },
-  valueCapsuleGlow: {
+  valueCapsuleOuter: {
     borderRadius: 999,
-    padding: 2,
+    padding: 2.5,
     backgroundColor: BODY_METRIC_CHART_MARKER_GLOW,
   },
   valueCapsule: {
     backgroundColor: BODY_METRIC_CHART_MARKER_FILL,
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    maxWidth: 92,
+    paddingHorizontal: 11,
+    paddingVertical: 4,
+    maxWidth: 96,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BODY_METRIC_CHART_MARKER_BORDER,
     shadowColor: "#000",
-    shadowOpacity: 0.28,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
   valueCapsuleText: {
     color: BODY_METRIC_CHART_MARKER_TEXT,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "800",
-    letterSpacing: -0.2,
+    letterSpacing: -0.15,
     textAlign: "center",
     fontVariant: ["tabular-nums"],
   },
   markerStem: {
-    width: 3,
-    flex: 1,
-    minHeight: 12,
-    borderRadius: 2,
-    backgroundColor: BODY_METRIC_CHART_MARKER_FILL,
+    width: 1.5,
+    flexGrow: 1,
+    minHeight: 8,
+    backgroundColor: "rgba(255,255,255,0.92)",
     marginTop: 2,
   },
-  trackShell: {
-    borderRadius: 12,
-    padding: 3,
-    backgroundColor: BODY_METRIC_CHART_TRACK_INNER,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BODY_METRIC_CHART_TRACK_BORDER,
+  markerDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: BODY_METRIC_CHART_MARKER_FILL,
+    marginTop: -1,
+    shadowColor: "#fff",
+    shadowOpacity: 0.55,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  trackGlow: {
+    borderRadius: BODY_METRIC_SPECTRUM_RADIUS,
+    shadowColor: BODY_METRIC_CHART_TRACK_SHADOW,
+    shadowOpacity: 0.55,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   track: {
     flexDirection: "row",
-    height: 28,
-    borderRadius: 10,
+    height: BODY_METRIC_SPECTRUM_HEIGHT,
+    borderRadius: BODY_METRIC_SPECTRUM_RADIUS,
     overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BODY_METRIC_CHART_TRACK_BORDER,
   },
   band: {
     flex: 1,
     height: "100%",
+    overflow: "hidden",
+  },
+  bandSheen: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    height: "48%",
+    opacity: 0.85,
+  },
+  trackSheen: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: BODY_METRIC_CHART_TRACK_SHEEN,
+    opacity: 0.18,
   },
   labelRow: {
     flexDirection: "row",
-    gap: 4,
-    paddingHorizontal: 2,
+    gap: 2,
+    paddingHorizontal: 0,
+    marginTop: 2,
   },
   labelCell: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
+    gap: 3,
     alignItems: "center",
+    paddingHorizontal: 1,
   },
   bandLabel: {
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: "800",
-    textAlign: "center",
-    letterSpacing: -0.1,
-  },
-  bandRange: {
     fontSize: 10,
     lineHeight: 12,
-    fontWeight: "600",
+    fontWeight: "700",
     textAlign: "center",
-    color: UI_TEXT_SECONDARY,
+    letterSpacing: 0.15,
+  },
+  bandRange: {
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: "500",
+    textAlign: "center",
     fontVariant: ["tabular-nums"],
+    opacity: 0.92,
   },
 });

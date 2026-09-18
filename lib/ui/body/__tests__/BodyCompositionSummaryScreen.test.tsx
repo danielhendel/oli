@@ -112,6 +112,8 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     });
     const text = collectText(tree);
     expect(tree.root.findByProps({ testID: "body-metric-chart-weight" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-chevron-weight" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-unit-pill" }).length).toBeGreaterThan(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-chart-bodyFat" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-chart-leanTissue" })).toHaveLength(0);
     expect(tree.root.findByProps({ testID: "body-metric-scaffold-bodyFat" })).toBeDefined();
