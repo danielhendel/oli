@@ -21,8 +21,10 @@ export type BodyMetricConnectionActionKind =
   | "sync_now"
   | "connected"
   | "syncing"
+  | "importing"
   | "review_access"
-  | "try_again";
+  | "try_again"
+  | "resume";
 
 export type BodyMassDisplayUnit = "lb" | "kg";
 
@@ -92,17 +94,27 @@ function connectionAccessibility(kind: BodyMetricConnectionActionKind): {
     case "connected":
       return {
         label: "Apple Health connected for Body measurements",
-        hint: "Double tap to review access",
+        hint: "Double tap to view sync status",
       };
     case "review_access":
       return {
-        label: "Apple Health access needs attention",
-        hint: "Double tap to review permissions",
+        label: "Apple Health Body access may need attention",
+        hint: "Double tap to review",
       };
     case "syncing":
       return {
-        label: "Syncing Body measurements with Apple Health",
+        label: "Connecting Apple Health for Body measurements",
         hint: "Please wait",
+      };
+    case "importing":
+      return {
+        label: "Importing Apple Health Body history",
+        hint: "Double tap to view progress",
+      };
+    case "resume":
+      return {
+        label: "Resume importing Apple Health Body history",
+        hint: "Double tap to resume",
       };
     case "try_again":
       return {
@@ -137,10 +149,12 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const connectionColor =
     connected
       ? UI_DURATION_STATUS_RECOMMENDED_TEXT
-      : props.connectionAction.kind === "syncing"
+      : props.connectionAction.kind === "syncing" ||
+          props.connectionAction.kind === "importing"
         ? UI_TEXT_SECONDARY
         : props.connectionAction.kind === "review_access" ||
-            props.connectionAction.kind === "try_again"
+            props.connectionAction.kind === "try_again" ||
+            props.connectionAction.kind === "resume"
           ? "#F5C26B"
           : BODY_INDIGO;
 
@@ -252,7 +266,10 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
                 style={[
                   styles.connectionBtnText,
                   { color: connectionColor },
-                  props.connectionAction.kind === "syncing" && styles.connectionMuted,
+                  props.connectionAction.kind === "syncing" ||
+                    props.connectionAction.kind === "importing"
+                    ? styles.connectionMuted
+                    : null,
                 ]}
               >
                 {props.connectionAction.label}

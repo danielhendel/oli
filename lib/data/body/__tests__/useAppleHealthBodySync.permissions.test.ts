@@ -4,7 +4,7 @@ import React from "react";
 import renderer, { act } from "react-test-renderer";
 
 jest.mock("@/lib/integrations/appleHealth", () => ({
-  requestPermissions: jest.fn(async () => ({ ok: true as const })),
+  requestBodyCompositionPermissions: jest.fn(async () => ({ ok: true as const })),
   runAppleHealthBodySync: jest.fn(async () => ({
     ok: true as const,
     ingested: 0,
@@ -37,7 +37,10 @@ jest.mock("@/lib/auth/AuthProvider", () => ({
   }),
 }));
 
-import { requestPermissions, runAppleHealthBodySync } from "@/lib/integrations/appleHealth";
+import {
+  requestBodyCompositionPermissions,
+  runAppleHealthBodySync,
+} from "@/lib/integrations/appleHealth";
 import { useAppleHealthBodySync } from "../useAppleHealthBodySync";
 
 function Host() {
@@ -46,7 +49,7 @@ function Host() {
 }
 
 describe("useAppleHealthBodySync", () => {
-  const perm = jest.mocked(requestPermissions);
+  const perm = jest.mocked(requestBodyCompositionPermissions);
   const sync = jest.mocked(runAppleHealthBodySync);
 
   beforeEach(() => {
@@ -63,7 +66,7 @@ describe("useAppleHealthBodySync", () => {
     });
   });
 
-  it("does not call requestPermissions or sync when Apple Health is not connected", async () => {
+  it("does not call Body permissions or sync when Apple Health is not connected", async () => {
     mockGetConnected.mockResolvedValue(false);
     await act(async () => {
       renderer.create(React.createElement(Host));
@@ -75,7 +78,7 @@ describe("useAppleHealthBodySync", () => {
     expect(sync).not.toHaveBeenCalled();
   });
 
-  it("calls requestPermissions before runAppleHealthBodySync when connected", async () => {
+  it("calls Body-only permissions before runAppleHealthBodySync when connected", async () => {
     mockGetConnected.mockResolvedValue(true);
     await act(async () => {
       renderer.create(React.createElement(Host));

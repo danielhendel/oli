@@ -2,55 +2,57 @@
 
 **Date:** 2026-09-18
 **Branch:** `feat/body-composition-stage3b-value-first-shell`
-**Supersedes physical candidate:** `0695d55ab39eee9c7f25c56a1341f05d1971457b` (dense educational landing — rejected)
-**Status:** Label contrast + lb/kg toggle + Apple Health Sync action — **BLOCKED pending physical-iPhone retest**
+**Status:** Proposal labels + one-tap Body Apple Health sheet — **BLOCKED pending physical-iPhone retest**
 **PR:** Not opened
 
 ## Product direction correction
 
-Landing is now a three-card summary:
+Landing is a three-card summary: Weight → Body Fat → Lean Tissue.
 
-1. Weight
-2. Body Fat
-3. Lean Tissue
+## This candidate
 
-Dense educational hero, dual rails, four marker cards, Evidence Levels, influences, and Plan doctrine were removed from the primary landing. Education remains available via progressive disclosure (metric detail routes + ranges explainer). Static education model files remain in-repo for disclosure / later stages — not mounted on the landing.
+### Weight labels (proposal match)
 
-## Label / unit / Apple Health pass (this candidate)
+- Classification names use bright segment hues (cool blue / green / amber / coral).
+- Numeric ranges use coordinated slightly softer tones.
+- Typography: semibold name + medium range; elegant sizes; meaning not color-only.
 
-- Weight classification names + numeric ranges use high-contrast semantic chrome tokens (OLED-legible).
-- Shared Body mass display unit via existing `preferences.units.mass` / `setMassUnit` (Weight + Lean Tissue; Body Fat remains `%`).
-- Segmented lb/kg control is interactive; presentation-only (no stored measurement rewrite).
-- Card footer Sync now includes Health heart identity icon and opens `/(app)/settings/devices/apple_health` (explicit connection flow). Connected remains fail-closed / current-account scoped.
-- No HealthKit / sync / ingest on mount or on unit toggle.
+### Apple Health Body sheet
 
-## Scientific / architecture limitations (documented)
+- Sync now opens an in-context bottom sheet (not the full Devices page).
+- Primary action: **Connect & import history**
+- Body-only HealthKit read scope: BodyMass, BodyFatPercentage, LeanBodyMass
+- Flow: permission → account connect flag → latest/recent sync → resumable 5Y chunked history import
+- No Steps/Activity/Workout side effects from this Body path
+- Full Apple Health page remains under Settings → Devices (Manage in Settings)
 
-- **Weight:** CDC/WHO adult BMI screening chart only (`cdc-who-adult-bmi-screening` / `2024.1`). No Body score.
-- **Body Fat:** PROPOSED / UNRESOLVED — unclassified scaffold only.
-- **Lean Tissue:** PROPOSED / UNRESOLVED — unclassified scaffold only.
-- **More Body Composition markers** row omitted — no real advanced-markers destination (waist/VAT/DEXA) yet (Stage 3C+).
-- No Body score, aggregate Health Protection / Performance Support classification, Optimized/Excellence placement.
-- No new schema, DailyFacts, Insights, DEXA parsing, or Stage 3C provenance.
-- RG-SOURCE-PRIVACY-01 remains open (privacy tests assert mount/toggle zero-side-effects only).
+### Architecture notes
+
+- Reuses `runAppleHealthBodySync` + `runAppleHealthBodyBackfill` + AsyncStorage checkpoint
+- Checkpoint is device-global under `appleHealth:` keys; cleared on account switch (existing lifecycle)
+- RG-SOURCE-PRIVACY-01 remains OPEN
+
+## Scientific boundary
+
+- Weight: `cdc-who-adult-bmi-screening` / `2024.1` only
+- Body Fat / Lean Tissue: PROPOSED / UNRESOLVED — unclassified scaffolds
+- No Body score / Stage 3C
 
 ## Local verification
 
 | Gate | Result |
 |------|--------|
-| `npm ci` | PASS |
 | `npm run typecheck` | PASS |
 | `npm run lint` | PASS |
 | `npm run check:invariants` | PASS |
 | `npm run check:client-trust-boundary` | PASS |
 | Focused Body Stage 3B tests | PASS |
-| `npm test -- --ci` | PASS — **1038** suites / **6409** tests / **0** skipped (baseline was 1035 / 6376) |
-| `npm run check` | PASS |
+| `npm test -- --ci` | PASS — **1042** suites / **6419** tests / **0** skipped (prior 1038 / 6409) |
 | Runtime / canonical workout-summary checksums | PASS |
 | `npm run -w api build` | PASS — tracked checksum unchanged |
 | Functions build | PASS |
 | `git diff --check` | PASS |
 | `npx expo-doctor` | exit 1; exactly **five** known findings; no sixth |
 
-**Prior polish head:** `dd63c5e83c970476074f8dd68ebc8a4b4250d603`
-**Retest head:** `cf1477a3503bdaea685f92cd3671f8921b58749e`
+**Prior head:** `efb9907915639bbff053b55d5deb65166c5254dc`
+**Retest head:** `PENDING`

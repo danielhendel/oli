@@ -3,7 +3,6 @@ import renderer, { act } from "react-test-renderer";
 
 import { buildBodyMetricSummaryCards } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import { BodyCompositionSummaryScreen } from "@/lib/ui/body/BodyCompositionSummaryScreen";
-import { resolveBodyMetricClassificationBandChrome } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 import { UI_TEXT_MUTED } from "@/lib/ui/theme/uiTokens";
 
 jest.mock("react-native", () => ({
@@ -193,14 +192,18 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
   });
 
   it("keeps classification chrome labels brighter than muted tertiary tokens", () => {
+    const {
+      BODY_METRIC_CLASSIFICATION_LABEL_TOKENS,
+      resolveBodyMetricClassificationBandChrome,
+    } = require("@/lib/ui/theme/bodyMetricClassificationChrome");
+    expect(BODY_METRIC_CLASSIFICATION_LABEL_TOKENS.cool).toBe("#7DD3FC");
+    expect(BODY_METRIC_CLASSIFICATION_LABEL_TOKENS.reference).toBe("#4ADE80");
     for (const tone of ["cool", "reference", "caution", "elevated"] as const) {
       const chrome = resolveBodyMetricClassificationBandChrome(tone);
       expect(chrome.label).not.toBe(UI_TEXT_MUTED);
       expect(chrome.range).not.toBe(UI_TEXT_MUTED);
-      // Near-white / bright semantic hex — not translucent opacity strings
       expect(chrome.label.startsWith("#")).toBe(true);
       expect(chrome.range.startsWith("#")).toBe(true);
-      expect(chrome.label.length).toBeGreaterThanOrEqual(7);
     }
   });
 });

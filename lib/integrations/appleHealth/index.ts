@@ -5,6 +5,8 @@
 
 export {
   requestPermissions,
+  requestBodyCompositionPermissions,
+  BODY_COMPOSITION_CONNECT_READ_PERMISSIONS,
   getBodyCompositionReadAuthStatus,
   pullTodaySnapshot,
   pullAnchoredWorkouts,

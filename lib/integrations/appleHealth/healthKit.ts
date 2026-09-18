@@ -252,6 +252,16 @@ const W1_READ_PERMISSIONS: HealthPermission[] = [
   "BasalEnergyBurned",
 ];
 
+/**
+ * Body Composition card connect scope — Weight, Body Fat %, Lean Body Mass only.
+ * Does not request Steps, Workouts, Sleep, HRV, or other W1 activity domains.
+ */
+export const BODY_COMPOSITION_CONNECT_READ_PERMISSIONS: HealthPermission[] = [
+  "BodyMass",
+  "BodyFatPercentage",
+  "LeanBodyMass",
+];
+
 export type AppleHealthBodyWeightSample = {
   observedAt: string;
   sourceId: string | null;
@@ -557,6 +567,20 @@ export async function getBodyCompositionReadAuthStatus(): Promise<BodyCompositio
  * Call before body sync/backfill so queries are authorized. Write: none.
  */
 export async function requestPermissions(): Promise<HealthKitPermissionResult> {
+  return requestHealthKitReadPermissions(W1_READ_PERMISSIONS);
+}
+
+/**
+ * Body Composition sheet — request only approved Body read types.
+ * Does not prompt for Steps, Workouts, Sleep, or other W1 domains.
+ */
+export async function requestBodyCompositionPermissions(): Promise<HealthKitPermissionResult> {
+  return requestHealthKitReadPermissions(BODY_COMPOSITION_CONNECT_READ_PERMISSIONS);
+}
+
+async function requestHealthKitReadPermissions(
+  read: readonly HealthPermission[],
+): Promise<HealthKitPermissionResult> {
   const HK = await getHealthKit();
   if (!HK) {
     return { ok: false, error: "HealthKit is not available (e.g. not iOS or native module not linked)." };
@@ -564,8 +588,6 @@ export async function requestPermissions(): Promise<HealthKitPermissionResult> {
 
   return promiseFromInit((resolve) => {
     HK.isAvailable((err: unknown, available: boolean) => {
-      if (err) console.log("[AH] isAvailable error", String(err));
-      console.log("[AH] isAvailable available", available);
       if (err || !available) {
         resolve({ ok: false, error: err != null ? String(err) : "HealthKit is not available on this device." });
         return;
@@ -573,7 +595,7 @@ export async function requestPermissions(): Promise<HealthKitPermissionResult> {
       HK.initHealthKit(
         {
           permissions: {
-            read: W1_READ_PERMISSIONS,
+            read: [...read],
             write: [],
           },
         },

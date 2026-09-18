@@ -12,6 +12,9 @@ const mockRunBodyBackfill = jest.fn();
 const mockIngest = jest.fn();
 const mockPush = jest.fn();
 const mockSetMassUnit = jest.fn();
+const mockOnAllow = jest.fn();
+const mockOpenForConnect = jest.fn();
+const mockOnPressCardConnection = jest.fn();
 
 jest.mock("react-native", () => ({
   View: "View",
@@ -79,7 +82,6 @@ jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
   }),
 }));
 
-const mockOnAllow = jest.fn();
 jest.mock("@/lib/data/body/useBodyOverviewData", () => ({
   useBodyOverviewData: () => ({
     today: "2026-09-18",
@@ -127,6 +129,24 @@ jest.mock("@/lib/data/body/useAppleHealthBodyAccessState", () => ({
   }),
 }));
 
+jest.mock("@/lib/data/body/useAppleHealthBodyConnectSheet", () => ({
+  useAppleHealthBodyConnectSheet: () => ({
+    visible: false,
+    phase: "explaining",
+    detailLine: null,
+    cardAction: { kind: "sync_now", label: "Sync now" },
+    openForConnect: mockOpenForConnect,
+    close: jest.fn(),
+    onPrimary: jest.fn(),
+    onSyncLatest: jest.fn(),
+    onPressCardConnection: mockOnPressCardConnection,
+  }),
+}));
+
+jest.mock("@/lib/ui/body/BodyAppleHealthConnectSheet", () => ({
+  BodyAppleHealthConnectSheet: () => null,
+}));
+
 jest.mock("@/lib/data/body/useAppleHealthBodyBackfill", () => ({
   useAppleHealthBodyBackfill: () => ({
     state: { status: "idle", message: null, summary: null },
@@ -154,6 +174,8 @@ describe("Body Composition Stage 3B source privacy", () => {
     mockOnAllow.mockClear();
     mockPush.mockClear();
     mockSetMassUnit.mockClear();
+    mockOpenForConnect.mockClear();
+    mockOnPressCardConnection.mockClear();
   });
 
   it("does not request HealthKit, sync, ingest, or backfill on mount", () => {
@@ -167,7 +189,7 @@ describe("Body Composition Stage 3B source privacy", () => {
     expect(mockOnAllow).not.toHaveBeenCalled();
   });
 
-  it("opens the Apple Health connection entry on Connect without HealthKit/sync yet", () => {
+  it("opens the Body Apple Health sheet on Connect without HealthKit/sync yet", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(React.createElement(Screen));
@@ -179,7 +201,8 @@ describe("Body Composition Stage 3B source privacy", () => {
     act(() => {
       primary!.props.onPress();
     });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
+    expect(mockOpenForConnect).toHaveBeenCalledTimes(1);
+    expect(mockPush).not.toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
     expect(mockOnAllow).not.toHaveBeenCalled();
     expect(mockRequestPermissions).not.toHaveBeenCalled();
     expect(mockRunBodySync).not.toHaveBeenCalled();
@@ -187,7 +210,7 @@ describe("Body Composition Stage 3B source privacy", () => {
     expect(mockIngest).not.toHaveBeenCalled();
   });
 
-  it("opens the Apple Health connection entry on Sync now without HealthKit/sync yet", () => {
+  it("opens the Body sheet from Sync now without HealthKit/sync yet", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(React.createElement(Screen));
@@ -197,7 +220,8 @@ describe("Body Composition Stage 3B source privacy", () => {
         .findByProps({ testID: "body-metric-connection-weight" })
         .props.onPress({ stopPropagation: jest.fn() });
     });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
+    expect(mockOnPressCardConnection).toHaveBeenCalledTimes(1);
+    expect(mockPush).not.toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
     expect(mockOnAllow).not.toHaveBeenCalled();
     expect(mockRequestPermissions).not.toHaveBeenCalled();
     expect(mockRunBodySync).not.toHaveBeenCalled();

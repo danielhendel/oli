@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
@@ -9,11 +9,13 @@ import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { BodyWeeklyStrip } from "@/lib/ui/body/BodyWeeklyStrip";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import { BodyAppleHealthPermissionCard } from "@/lib/ui/body/BodyAppleHealthPermissionCard";
+import { BodyAppleHealthConnectSheet } from "@/lib/ui/body/BodyAppleHealthConnectSheet";
 import { BodyCompositionSummaryScreen } from "@/lib/ui/body/BodyCompositionSummaryScreen";
 import { WeightLogModal } from "@/lib/ui/WeightLogModal";
 import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
 import { useAppleHealthBodyAccessState } from "@/lib/data/body/useAppleHealthBodyAccessState";
 import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBackfill";
+import { useAppleHealthBodyConnectSheet } from "@/lib/data/body/useAppleHealthBodyConnectSheet";
 import { BODY_COMPOSITION_METRIC_DETAIL_ROUTES } from "@/lib/data/body/bodyCompositionMetricRoutes";
 import {
   BODY_COMPOSITION_SUMMARY_COPY,
@@ -67,6 +69,19 @@ export default function BodyOverviewScreen() {
       body.hasSuccessfulBodySync || bodyBackfill.state.status === "completed",
   });
 
+  const refetchBodyAfterImport = useCallback(() => {
+    void body.series.refetch({ cacheBust: `bodyConnect:${Date.now()}` });
+    void body.peek.refetch({ cacheBust: `bodyConnectPeek:${Date.now()}` });
+    void body.snapshotDayPeek.refetch({ cacheBust: `bodyConnectSnapshot:${Date.now()}` });
+    void body.dayFacts.refetch({ cacheBust: `bodyConnect:${Date.now()}` });
+  }, [body.series, body.peek, body.snapshotDayPeek, body.dayFacts]);
+
+  const connectSheet = useAppleHealthBodyConnectSheet({
+    accessPhase: access.phase,
+    onDataMaybeChanged: refetchBodyAfterImport,
+    refreshAccess: access.refreshAuth,
+  });
+
   const showAppleHealthConnectCard =
     access.phase === "not_determined" ||
     access.phase === "denied" ||
@@ -81,33 +96,8 @@ export default function BodyOverviewScreen() {
           ? "checking"
           : "connect";
 
-  /** Account-scoped connection chip on each metric card (Add left / Sync|Connected right). */
-  const connectionAction =
-    access.phase === "syncing"
-      ? ({ kind: "syncing" as const, label: "Syncing…" })
-      : access.phase === "ready" || access.phase === "granted_no_data"
-        ? ({ kind: "connected" as const, label: "Connected" })
-        : access.phase === "denied"
-          ? ({ kind: "review_access" as const, label: "Review access" })
-          : access.phase === "unavailable"
-            ? ({ kind: "try_again" as const, label: "Try again" })
-            : ({ kind: "sync_now" as const, label: "Sync now" });
-
-  /**
-   * Card footer source action — always explicit user intent.
-   * Disconnected / incomplete: open the existing Apple Health device connection flow
-   * (pre-permission + Connect Apple Health). Do not call HealthKit from a dead Sync tap.
-   * Connected: open the same device page for manage/review (no duplicate connect).
-   * Denied: OS Settings recovery. Syncing: no-op.
-   */
-  const onPressConnectionAction = () => {
-    if (access.phase === "syncing") return;
-    if (access.phase === "denied") {
-      access.onOpenAppSettings();
-      return;
-    }
-    router.push("/(app)/settings/devices/apple_health");
-  };
+  /** Account-scoped connection chip — prefer connect-sheet transient states. */
+  const connectionAction = connectSheet.cardAction;
 
   useEffect(() => {
     navigation.setOptions({
@@ -177,8 +167,8 @@ export default function BodyOverviewScreen() {
         variant={permissionCardVariant}
         {...(typeof unavailableMsg === "string" ? { unavailableMessage: unavailableMsg } : {})}
         onAllowAccess={() => {
-          // Explicit connect entry — same account-scoped device flow as Sync now.
-          router.push("/(app)/settings/devices/apple_health");
+          // Explicit connect entry — same in-context Body sheet as Sync now.
+          connectSheet.openForConnect();
         }}
         onOpenSettings={access.onOpenAppSettings}
       />
@@ -248,7 +238,7 @@ export default function BodyOverviewScreen() {
             connectionAction={connectionAction}
             onPressCard={(href) => router.push(href as never)}
             onPressAddWeight={() => setWeightLogVisible(true)}
-            onPressConnectionAction={onPressConnectionAction}
+            onPressConnectionAction={connectSheet.onPressCardConnection}
             onPressHref={(href) => router.push(href as never)}
             massDisplayUnit={unit}
             onChangeMassDisplayUnit={(next) => {
@@ -258,6 +248,21 @@ export default function BodyOverviewScreen() {
           />
         </View>
       </ModuleScreenShell>
+      <BodyAppleHealthConnectSheet
+        visible={connectSheet.visible}
+        phase={connectSheet.phase}
+        detailLine={connectSheet.detailLine}
+        onClose={connectSheet.close}
+        onPrimary={connectSheet.onPrimary}
+        onSyncLatest={() => {
+          void connectSheet.onSyncLatest();
+        }}
+        onReviewAccess={access.onOpenAppSettings}
+        onManageInSettings={() => {
+          connectSheet.close();
+          router.push("/(app)/settings/devices/apple_health");
+        }}
+      />
       <WeightLogModal
         visible={weightLogVisible}
         onClose={() => setWeightLogVisible(false)}

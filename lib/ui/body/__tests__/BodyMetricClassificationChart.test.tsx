@@ -219,7 +219,10 @@ describe("BodyMetricClassificationChart", () => {
   });
 
   it("uses high-contrast semantic label tokens (not muted/disabled)", () => {
-    const { resolveBodyMetricClassificationBandChrome } = require("@/lib/ui/theme/bodyMetricClassificationChrome");
+    const {
+      BODY_METRIC_CLASSIFICATION_LABEL_TOKENS,
+      resolveBodyMetricClassificationBandChrome,
+    } = require("@/lib/ui/theme/bodyMetricClassificationChrome");
     const { UI_TEXT_MUTED } = require("@/lib/ui/theme/uiTokens");
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -230,12 +233,15 @@ describe("BodyMetricClassificationChart", () => {
     const text = collectText(tree);
     expect(text).toContain("Underweight");
     expect(text).toContain("<122 lb");
+    expect(BODY_METRIC_CLASSIFICATION_LABEL_TOKENS.cool).toBe("#7DD3FC");
+    expect(BODY_METRIC_CLASSIFICATION_LABEL_TOKENS.reference).toBe("#4ADE80");
+    expect(BODY_METRIC_CLASSIFICATION_LABEL_TOKENS.caution).toBe("#FBBF24");
+    expect(BODY_METRIC_CLASSIFICATION_LABEL_TOKENS.elevated).toBe("#FB7185");
     for (const tone of ["cool", "reference", "caution", "elevated"] as const) {
       const chrome = resolveBodyMetricClassificationBandChrome(tone);
       expect(chrome.label).not.toEqual(UI_TEXT_MUTED);
       expect(chrome.range).not.toEqual(UI_TEXT_MUTED);
-      expect(chrome.label.startsWith("#")).toBe(true);
-      expect(chrome.range.startsWith("#")).toBe(true);
+      expect(chrome.label).toBe(BODY_METRIC_CLASSIFICATION_LABEL_TOKENS[tone]);
     }
   });
 });

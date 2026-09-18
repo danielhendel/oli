@@ -60,6 +60,25 @@ jest.mock("@/lib/data/body/useAppleHealthBodyAccessState", () => ({
   useAppleHealthBodyAccessState: () => mockAccess(),
 }));
 
+const mockConnectSheet = {
+  visible: false,
+  phase: "explaining" as const,
+  detailLine: null as string | null,
+  cardAction: { kind: "connected" as const, label: "Connected" },
+  openForConnect: jest.fn(),
+  close: jest.fn(),
+  onPrimary: jest.fn(),
+  onSyncLatest: jest.fn(),
+  onPressCardConnection: jest.fn(),
+};
+jest.mock("@/lib/data/body/useAppleHealthBodyConnectSheet", () => ({
+  useAppleHealthBodyConnectSheet: () => mockConnectSheet,
+}));
+
+jest.mock("@/lib/ui/body/BodyAppleHealthConnectSheet", () => ({
+  BodyAppleHealthConnectSheet: () => null,
+}));
+
 jest.mock("@/lib/data/body/useAppleHealthBodyBackfill", () => ({
   useAppleHealthBodyBackfill: () => ({
     state: { status: "idle" as const, message: null, summary: null },
@@ -158,6 +177,15 @@ describe("Body Composition simplified main screen", () => {
     mockPush.mockClear();
     mockSetMassUnit.mockClear();
     mockMassUnit = "lb";
+    mockConnectSheet.visible = false;
+    mockConnectSheet.phase = "explaining";
+    mockConnectSheet.detailLine = null;
+    mockConnectSheet.cardAction = { kind: "connected", label: "Connected" };
+    mockConnectSheet.openForConnect.mockClear();
+    mockConnectSheet.close.mockClear();
+    mockConnectSheet.onPrimary.mockClear();
+    mockConnectSheet.onSyncLatest.mockClear();
+    mockConnectSheet.onPressCardConnection.mockClear();
     mockAccess.mockReturnValue({
       phase: "ready",
       authLoading: false,
@@ -227,7 +255,7 @@ describe("Body Composition simplified main screen", () => {
     expect(text).toContain("Add measurement");
   });
 
-  it("routes Connected to Apple Health management rather than syncing on tap", () => {
+  it("routes Connected to the in-context status sheet rather than full Apple Health page", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -238,10 +266,12 @@ describe("Body Composition simplified main screen", () => {
         .findByProps({ testID: "body-metric-connection-weight" })
         .props.onPress({ stopPropagation: jest.fn() });
     });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
+    expect(mockConnectSheet.onPressCardConnection).toHaveBeenCalledTimes(1);
+    expect(mockPush).not.toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
   });
 
   it("shows Sync now when Apple Health is not yet connected for this account", () => {
+    mockConnectSheet.cardAction = { kind: "sync_now", label: "Sync now" };
     mockHook.mockReturnValue(buildBody());
     mockAccess.mockReturnValue({
       phase: "not_determined",
@@ -261,7 +291,8 @@ describe("Body Composition simplified main screen", () => {
     expect(connection.props.accessibilityLabel).toMatch(/Apple Health/i);
   });
 
-  it("routes Sync now to the Apple Health connection flow", () => {
+  it("opens Body connect sheet from Sync now without pushing full Apple Health route", () => {
+    mockConnectSheet.cardAction = { kind: "sync_now", label: "Sync now" };
     const onAllow = jest.fn();
     mockHook.mockReturnValue(buildBody());
     mockAccess.mockReturnValue({
@@ -281,7 +312,8 @@ describe("Body Composition simplified main screen", () => {
         .findByProps({ testID: "body-metric-connection-weight" })
         .props.onPress({ stopPropagation: jest.fn() });
     });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
+    expect(mockConnectSheet.onPressCardConnection).toHaveBeenCalledTimes(1);
+    expect(mockPush).not.toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
     expect(onAllow).not.toHaveBeenCalled();
   });
 
@@ -317,7 +349,8 @@ describe("Body Composition simplified main screen", () => {
     expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("Connect Apple Health"));
   });
 
-  it("opens Apple Health connection from Connect card without requesting permissions on that tap", () => {
+  it("opens Apple Health Body sheet from Connect card without requesting permissions on that tap", () => {
+    mockConnectSheet.cardAction = { kind: "sync_now", label: "Sync now" };
     const onAllow = jest.fn();
     mockHook.mockReturnValue(buildBody());
     mockAccess.mockReturnValue({
@@ -339,7 +372,8 @@ describe("Body Composition simplified main screen", () => {
     act(() => {
       primary!.props.onPress();
     });
-    expect(mockPush).toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
+    expect(mockConnectSheet.openForConnect).toHaveBeenCalledTimes(1);
+    expect(mockPush).not.toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
     expect(onAllow).not.toHaveBeenCalled();
   });
 

@@ -5,7 +5,7 @@ import {
   appleHealthBodyCompositionIdempotencyKey,
   appleHealthBodyWeightIdempotencyKey,
   pullBodyCompositionSamples,
-  requestPermissions,
+  requestBodyCompositionPermissions,
   runAppleHealthBodySync,
 } from "@/lib/integrations/appleHealth";
 import {
@@ -62,7 +62,7 @@ export function useAppleHealthBodySync(onSynced?: () => void): {
     const token = await getIdToken(false);
     if (!token) return { ok: false as const };
 
-    const perm = await requestPermissions();
+    const perm = await requestBodyCompositionPermissions();
     if (!perm.ok) return { ok: false as const };
 
     const result = await runAppleHealthBodySync(
