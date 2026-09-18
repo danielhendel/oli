@@ -202,9 +202,9 @@ describe("Body Composition simplified main screen", () => {
       tree = renderer.create(React.createElement(Screen));
     });
     const text = collectText(tree);
-    expect(text).toContain("176.4 lb");
-    expect(text).toContain("18.0%");
-    expect(text).toContain("132.3 lb");
+    expect(text).toContain("176.4");
+    expect(text).toContain("18.0");
+    expect(text).toContain("132.3");
     expect(text).toContain("Underweight");
     expect(text).toContain("Healthy Weight");
     expect(text).toContain("Overweight");
@@ -216,6 +216,8 @@ describe("Body Composition simplified main screen", () => {
     expect(tree.root.findByProps({ testID: "body-metric-chart-weight" })).toBeDefined();
     expect(tree.root.findAllByProps({ testID: "body-metric-chart-bodyFat" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-chart-leanTissue" })).toHaveLength(0);
+    expect(tree.root.findByProps({ testID: "body-metric-scaffold-bodyFat" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-scaffold-leanTissue" })).toBeDefined();
     expect(text).toContain("Connected");
     expect(text).toContain("Add measurement");
   });

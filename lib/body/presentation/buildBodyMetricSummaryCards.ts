@@ -61,8 +61,20 @@ function numericWeightDisplay(kg: number, unit: "kg" | "lb"): number {
   return unit === "lb" ? kg * LBS_PER_KG : kg;
 }
 
+function formatMassFaceValue(kg: number, unit: "kg" | "lb"): string {
+  const v = unit === "lb" ? kg * LBS_PER_KG : kg;
+  const oneDecimal = v.toFixed(1);
+  return oneDecimal.endsWith(".0") ? oneDecimal.slice(0, -2) : oneDecimal;
+}
+
 function mapTone(tone: string): BodyMetricClassificationTone {
-  if (tone === "cool" || tone === "reference" || tone === "caution" || tone === "elevated" || tone === "neutral") {
+  if (
+    tone === "cool" ||
+    tone === "reference" ||
+    tone === "caution" ||
+    tone === "elevated" ||
+    tone === "neutral"
+  ) {
     return tone;
   }
   if (tone === "muted") return "neutral";
@@ -104,9 +116,7 @@ function toClassificationChart(
 }
 
 /** Transitional adapter for legacy reference-bar consumers/tests. */
-function toReferenceBar(
-  chart: BodyMetricClassificationChartModel,
-): BodyMetricReferenceBarModel {
+function toReferenceBar(chart: BodyMetricClassificationChartModel): BodyMetricReferenceBarModel {
   const n = chart.segments.length || 1;
   return {
     segments: chart.segments.map((s, i) => ({
@@ -212,6 +222,9 @@ function buildWeightCard(input: {
     ? formatBodyWeight(input.overview.weightKg as number, input.unit)
     : null;
   const value = hasValue ? numericWeightDisplay(input.overview.weightKg as number, input.unit) : null;
+  const displayValue = hasValue
+    ? formatMassFaceValue(input.overview.weightKg as number, input.unit)
+    : null;
 
   const presentation = input.seriesError
     ? null
@@ -226,34 +239,6 @@ function buildWeightCard(input: {
       );
   const classificationChart = presentation ? toClassificationChart(presentation) : null;
   const referenceBar = classificationChart ? toReferenceBar(classificationChart) : null;
-
-  if (input.seriesError) {
-    return {
-      metric: "weight",
-      title: "Weight",
-      value: null,
-      formattedValue: null,
-      unit: input.unit,
-      readiness: "error",
-      statusLabel: "",
-      referenceLabel: null,
-      referenceContextLabel: null,
-      classificationChart: null,
-      referenceBar: null,
-      heightSpecificRangeLabel: null,
-      provenance: {
-        transportLabel: null,
-        sourceApplicationLabel: null,
-        measurementMethodLabel: null,
-        measuredAtLabel: null,
-      },
-      detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.weight,
-      addDataHref: null,
-      accessibilityLabel: "Weight. No current measurement. Couldn’t load this measurement.",
-      featured: true,
-    };
-  }
-
   const hasMarker = classificationChart?.marker != null;
 
   return {
@@ -261,27 +246,39 @@ function buildWeightCard(input: {
     title: "Weight",
     value,
     formattedValue,
+    displayValue,
+    displayUnit: input.unit,
     unit: input.unit,
-    readiness: hasMarker ? "referenceAvailable" : hasValue ? "partial" : "missing",
+    readiness: input.seriesError
+      ? "error"
+      : hasMarker
+        ? "referenceAvailable"
+        : hasValue
+          ? "partial"
+          : "missing",
     statusLabel: "",
     referenceLabel: null,
     referenceContextLabel: presentation?.contextLabel ?? null,
-    classificationChart,
-    referenceBar,
+    classificationChart: input.seriesError ? null : classificationChart,
+    showUnclassifiedScaffold: false,
+    unclassifiedScaffoldAccessibilityLabel: null,
+    referenceBar: input.seriesError ? null : referenceBar,
     heightSpecificRangeLabel: presentation?.heightSpecificWeightRangeLabel ?? null,
     provenance: {
       transportLabel: null,
       sourceApplicationLabel: null,
       measurementMethodLabel: null,
-      measuredAtLabel: input.measuredAtLabel,
+      measuredAtLabel: input.seriesError ? null : input.measuredAtLabel,
     },
+    recencyLabel: input.seriesError ? null : input.measuredAtLabel,
     detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.weight,
     addDataHref: null,
-    accessibilityLabel:
-      classificationChart?.accessibleSummary ??
-      (hasValue
-        ? `Weight ${formattedValue}. Adult BMI screening not applicable. Open weight details.`
-        : "Weight. No current measurement. Open weight details."),
+    accessibilityLabel: input.seriesError
+      ? "Weight. No current measurement. Couldn’t load this measurement."
+      : (classificationChart?.accessibleSummary ??
+        (hasValue
+          ? `Weight ${formattedValue}. Adult BMI screening not applicable. Open weight details.`
+          : "Weight. No current measurement. Open weight details.")),
     featured: true,
   };
 }
@@ -301,86 +298,45 @@ function buildBodyFatCard(input: {
     ? formatBodyFatPercent(input.overview.bodyFatPercent as number)
     : null;
   const value = hasValue ? (input.overview.bodyFatPercent as number) : null;
-
-  if (input.seriesError) {
-    return {
-      metric: "bodyFat",
-      title: "Body Fat",
-      value: null,
-      formattedValue: null,
-      unit: "%",
-      readiness: "error",
-      statusLabel: "",
-      referenceLabel: null,
-      referenceContextLabel: null,
-      classificationChart: null,
-      referenceBar: null,
-      heightSpecificRangeLabel: null,
-      provenance: {
-        transportLabel: null,
-        sourceApplicationLabel: null,
-        measurementMethodLabel: null,
-        measuredAtLabel: null,
-      },
-      detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.bodyFat,
-      addDataHref: null,
-      accessibilityLabel: "Body Fat. No current measurement. Couldn’t load this measurement.",
-      featured: false,
-    };
-  }
-
-  if (!hasValue) {
-    return {
-      metric: "bodyFat",
-      title: "Body Fat",
-      value: null,
-      formattedValue: null,
-      unit: "%",
-      readiness: "missing",
-      statusLabel: "",
-      referenceLabel: null,
-      referenceContextLabel: null,
-      classificationChart: null,
-      referenceBar: null,
-      heightSpecificRangeLabel: null,
-      provenance: {
-        transportLabel: null,
-        sourceApplicationLabel: null,
-        measurementMethodLabel: null,
-        measuredAtLabel: null,
-      },
-      detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.bodyFat,
-      addDataHref: null,
-      accessibilityLabel: "Body Fat. No current measurement. Add measurement.",
-      featured: false,
-    };
-  }
+  const displayValue = hasValue ? (input.overview.bodyFatPercent as number).toFixed(1) : null;
+  const scaffoldA11y =
+    "Body Fat visual reference only. No approved classification standard. No personal marker.";
 
   return {
     metric: "bodyFat",
     title: "Body Fat",
-    value,
-    formattedValue,
+    value: input.seriesError ? null : value,
+    formattedValue: input.seriesError ? null : formattedValue,
+    displayValue: input.seriesError ? null : displayValue,
+    displayUnit: "%",
     unit: "%",
-    readiness: "partial",
+    readiness: input.seriesError ? "error" : hasValue ? "partial" : "missing",
     statusLabel: "",
     referenceLabel: null,
     referenceContextLabel: null,
     classificationChart: null,
+    showUnclassifiedScaffold: !input.seriesError,
+    unclassifiedScaffoldAccessibilityLabel: scaffoldA11y,
     referenceBar: null,
     heightSpecificRangeLabel: null,
     provenance: {
       transportLabel: null,
       sourceApplicationLabel: null,
-      measurementMethodLabel: "Method unknown",
-      measuredAtLabel: input.measuredAtLabel,
+      measurementMethodLabel:
+        !input.seriesError && hasValue ? "Method unknown" : null,
+      measuredAtLabel: input.seriesError || !hasValue ? null : input.measuredAtLabel,
     },
+    recencyLabel: input.seriesError || !hasValue ? null : input.measuredAtLabel,
     detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.bodyFat,
     addDataHref: null,
-    accessibilityLabel: `Body Fat ${formattedValue}. No classification graph. Method unknown.${
-      input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
-    } Open body fat details.`,
-    featured: false,
+    accessibilityLabel: input.seriesError
+      ? "Body Fat. No current measurement. Couldn’t load this measurement."
+      : hasValue
+        ? `Body Fat ${formattedValue}. No approved classification. Method unknown.${
+            input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
+          } Open body fat details.`
+        : "Body Fat. No current measurement. Add measurement.",
+    featured: true,
   };
 }
 
@@ -400,86 +356,47 @@ function buildLeanTissueCard(input: {
   const value = hasValue
     ? numericWeightDisplay(input.overview.leanBodyMassKg as number, input.unit)
     : null;
-
-  if (input.seriesError) {
-    return {
-      metric: "leanTissue",
-      title: "Lean Tissue",
-      value: null,
-      formattedValue: null,
-      unit: input.unit,
-      readiness: "error",
-      statusLabel: "",
-      referenceLabel: null,
-      referenceContextLabel: null,
-      classificationChart: null,
-      referenceBar: null,
-      heightSpecificRangeLabel: null,
-      provenance: {
-        transportLabel: null,
-        sourceApplicationLabel: null,
-        measurementMethodLabel: null,
-        measuredAtLabel: null,
-      },
-      detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.leanMass,
-      addDataHref: null,
-      accessibilityLabel: "Lean Tissue. No current measurement. Couldn’t load this measurement.",
-      featured: false,
-    };
-  }
-
-  if (!hasValue) {
-    return {
-      metric: "leanTissue",
-      title: "Lean Tissue",
-      value: null,
-      formattedValue: null,
-      unit: input.unit,
-      readiness: "missing",
-      statusLabel: "",
-      referenceLabel: null,
-      referenceContextLabel: null,
-      classificationChart: null,
-      referenceBar: null,
-      heightSpecificRangeLabel: null,
-      provenance: {
-        transportLabel: null,
-        sourceApplicationLabel: null,
-        measurementMethodLabel: null,
-        measuredAtLabel: null,
-      },
-      detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.leanMass,
-      addDataHref: null,
-      accessibilityLabel: "Lean Tissue. No current measurement. Add measurement.",
-      featured: false,
-    };
-  }
+  const displayValue = hasValue
+    ? formatMassFaceValue(input.overview.leanBodyMassKg as number, input.unit)
+    : null;
+  const scaffoldA11y =
+    "Lean Tissue visual reference only. Total lean mass. No approved classification standard. No personal marker.";
 
   return {
     metric: "leanTissue",
     title: "Lean Tissue",
-    value,
-    formattedValue,
+    value: input.seriesError ? null : value,
+    formattedValue: input.seriesError ? null : formattedValue,
+    displayValue: input.seriesError ? null : displayValue,
+    displayUnit: input.unit,
     unit: input.unit,
-    readiness: "partial",
+    readiness: input.seriesError ? "error" : hasValue ? "partial" : "missing",
     statusLabel: "",
     referenceLabel: null,
     referenceContextLabel: null,
     classificationChart: null,
+    showUnclassifiedScaffold: !input.seriesError,
+    unclassifiedScaffoldAccessibilityLabel: scaffoldA11y,
     referenceBar: null,
     heightSpecificRangeLabel: null,
     provenance: {
       transportLabel: null,
       sourceApplicationLabel: null,
-      measurementMethodLabel: "Method unknown",
-      measuredAtLabel: input.measuredAtLabel,
+      measurementMethodLabel:
+        !input.seriesError && hasValue ? "Method unknown" : null,
+      measuredAtLabel: input.seriesError || !hasValue ? null : input.measuredAtLabel,
     },
+    recencyLabel: input.seriesError || !hasValue ? null : input.measuredAtLabel,
     detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.leanMass,
     addDataHref: null,
-    accessibilityLabel: `Lean Tissue ${formattedValue}. Total lean mass. No classification graph.${
-      input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
-    } Open lean tissue details.`,
-    featured: false,
+    accessibilityLabel: input.seriesError
+      ? "Lean Tissue. No current measurement. Couldn’t load this measurement."
+      : hasValue
+        ? `Lean Tissue ${formattedValue}. Total lean mass. No approved classification.${
+            input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
+          } Open lean tissue details.`
+        : "Lean Tissue. No current measurement. Add measurement.",
+    featured: true,
   };
 }
 

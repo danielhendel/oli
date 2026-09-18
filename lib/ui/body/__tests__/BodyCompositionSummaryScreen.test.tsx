@@ -35,6 +35,17 @@ jest.mock("@/lib/ui/body/BodyMetricClassificationChart", () => {
   };
 });
 
+jest.mock("@/lib/ui/body/BodyMetricUnclassifiedScaffold", () => {
+  const React = require("react");
+  return {
+    BodyMetricUnclassifiedScaffold: (props: { testID?: string; accessibilityLabel: string }) =>
+      React.createElement("View", {
+        testID: props.testID ?? "body-metric-unclassified-scaffold",
+        accessibilityLabel: props.accessibilityLabel,
+      }),
+  };
+});
+
 function collectText(test: renderer.ReactTestRenderer): string {
   return test.root
     .findAllByType("Text")
@@ -84,7 +95,7 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     expect(text.indexOf("Body Fat")).toBeLessThan(text.indexOf("Lean Tissue"));
   });
 
-  it("shows Weight chart labels and omits BF/Lean charts and clutter copy", () => {
+  it("shows Weight chart labels and omits BF/Lean classification charts", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -103,6 +114,8 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     expect(tree.root.findByProps({ testID: "body-metric-chart-weight" })).toBeDefined();
     expect(tree.root.findAllByProps({ testID: "body-metric-chart-bodyFat" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-chart-leanTissue" })).toHaveLength(0);
+    expect(tree.root.findByProps({ testID: "body-metric-scaffold-bodyFat" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-scaffold-leanTissue" })).toBeDefined();
     expect(text).toContain("Underweight");
     expect(text).toContain("Healthy Weight");
     expect(text).toContain("Overweight");

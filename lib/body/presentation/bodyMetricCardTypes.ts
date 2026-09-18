@@ -85,6 +85,10 @@ export type BodyMetricCardModel = {
   readonly title: string;
   readonly value: number | null;
   readonly formattedValue: string | null;
+  /** Large face value without unit (e.g. "176.4"); null → em dash. */
+  readonly displayValue: string | null;
+  /** Unit chip on the card face (e.g. "lb", "%"); null when not applicable. */
+  readonly displayUnit: string | null;
   readonly unit: string | null;
   readonly readiness: BodyMetricCardReadiness;
   /**
@@ -97,10 +101,19 @@ export type BodyMetricCardModel = {
   readonly referenceContextLabel: string | null;
   /** Visual classification chart when an approved standard applies. */
   readonly classificationChart: BodyMetricClassificationChartModel | null;
+  /**
+   * When true, render a premium unclassified visual scaffold (no labels/marker).
+   * Used for Body Fat / Lean Tissue until standards are approved.
+   */
+  readonly showUnclassifiedScaffold: boolean;
+  /** Accessibility for unclassified scaffold. */
+  readonly unclassifiedScaffoldAccessibilityLabel: string | null;
   /** @deprecated Prefer classificationChart */
   readonly referenceBar: BodyMetricReferenceBarModel | null;
   readonly heightSpecificRangeLabel: string | null;
   readonly provenance: BodyMetricCardProvenance;
+  /** Recency only on the card face (date); method stays in a11y/detail. */
+  readonly recencyLabel: string | null;
   readonly detailHref: string;
   readonly addDataHref: string | null;
   readonly accessibilityLabel: string;

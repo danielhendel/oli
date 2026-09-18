@@ -1,9 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import {
-  BODY_COMPOSITION_SUMMARY_COPY,
-} from "@/lib/body/presentation/buildBodyMetricSummaryCards";
+import { BODY_COMPOSITION_SUMMARY_COPY } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import type { BodyMetricCardModel } from "@/lib/body/presentation/bodyMetricCardTypes";
 import { BODY_METRIC_RANGES_EXPLAINER_HREF } from "@/lib/data/body/bodyCompositionMetricRoutes";
 import {

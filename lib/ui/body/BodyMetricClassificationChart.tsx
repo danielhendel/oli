@@ -4,10 +4,13 @@ import { StyleSheet, Text, View } from "react-native";
 import type { BodyMetricClassificationChartModel } from "@/lib/body/presentation/bodyMetricCardTypes";
 import {
   BODY_METRIC_CHART_MARKER_FILL,
+  BODY_METRIC_CHART_MARKER_GLOW,
   BODY_METRIC_CHART_MARKER_TEXT,
   BODY_METRIC_CHART_TRACK_BORDER,
+  BODY_METRIC_CHART_TRACK_INNER,
   resolveBodyMetricClassificationBandChrome,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
+import { UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 export type BodyMetricClassificationChartProps = {
   model: BodyMetricClassificationChartModel;
@@ -31,14 +34,15 @@ function validateChartModel(model: BodyMetricClassificationChartModel): string |
       return "impossible";
     }
   }
-  if (model.marker != null) {
-    if (!ids.has(model.marker.segmentId)) return "unknown_marker_segment";
+  if (model.marker != null && !ids.has(model.marker.segmentId)) {
+    return "unknown_marker_segment";
   }
   return null;
 }
 
 /**
  * Presentation-only categorical classification chart.
+ * Spectrum bar teaches visually; labels + ranges sit beneath (not color-only).
  * Does not calculate BMI, classify, convert units, or access profile/sources.
  */
 export function BodyMetricClassificationChart(props: BodyMetricClassificationChartProps) {
@@ -59,7 +63,9 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
   const markerSegmentIndex =
     marker != null ? model.segments.findIndex((s) => s.id === marker.segmentId) : -1;
   const within =
-    marker != null && marker.withinSegmentPosition != null && Number.isFinite(marker.withinSegmentPosition)
+    marker != null &&
+    marker.withinSegmentPosition != null &&
+    Number.isFinite(marker.withinSegmentPosition)
       ? Math.max(0, Math.min(1, marker.withinSegmentPosition))
       : 0.42;
   const markerLeftPct =
@@ -75,53 +81,71 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
       testID={props.testID ?? "body-metric-classification-chart"}
       style={styles.wrap}
     >
-      {marker != null && markerLeftPct != null ? (
-        <View
-          pointerEvents="none"
-          importantForAccessibility="no"
-          accessibilityElementsHidden
-          style={[styles.markerColumn, { left: `${markerLeftPct}%` }]}
-          testID="body-metric-classification-marker"
-        >
-          <View style={styles.valueCapsule}>
-            <Text style={styles.valueCapsuleText} numberOfLines={1}>
-              {marker.formattedValue}
-            </Text>
+      <View style={styles.markerRail} importantForAccessibility="no">
+        {marker != null && markerLeftPct != null ? (
+          <View
+            pointerEvents="none"
+            accessibilityElementsHidden
+            style={[styles.markerColumn, { left: `${markerLeftPct}%` }]}
+            testID="body-metric-classification-marker"
+          >
+            <View style={styles.valueCapsuleGlow}>
+              <View style={styles.valueCapsule}>
+                <Text style={styles.valueCapsuleText} numberOfLines={1}>
+                  {marker.formattedValue}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.markerStem} />
           </View>
-          <Text style={styles.markerPointer}>▼</Text>
-        </View>
-      ) : null}
+        ) : null}
+      </View>
 
       <View
-        style={styles.track}
+        style={styles.trackShell}
         importantForAccessibility="no-hide-descendants"
         accessibilityElementsHidden
       >
-        {model.segments.map((segment, index) => {
+        <View style={styles.track}>
+          {model.segments.map((segment, index) => {
+            const chrome = resolveBodyMetricClassificationBandChrome(segment.tone);
+            const isFirst = index === 0;
+            const isLast = index === segmentCount - 1;
+            return (
+              <View
+                key={segment.id}
+                style={[
+                  styles.band,
+                  {
+                    backgroundColor: chrome.fillStrong,
+                    borderRightColor: chrome.divider,
+                    borderRightWidth: isLast ? 0 : 1,
+                    borderTopLeftRadius: isFirst ? 10 : 0,
+                    borderBottomLeftRadius: isFirst ? 10 : 0,
+                    borderTopRightRadius: isLast ? 10 : 0,
+                    borderBottomRightRadius: isLast ? 10 : 0,
+                  },
+                ]}
+              />
+            );
+          })}
+        </View>
+      </View>
+
+      <View
+        style={styles.labelRow}
+        importantForAccessibility="no-hide-descendants"
+        accessibilityElementsHidden
+      >
+        {model.segments.map((segment) => {
           const chrome = resolveBodyMetricClassificationBandChrome(segment.tone);
-          const isFirst = index === 0;
-          const isLast = index === segmentCount - 1;
           return (
-            <View
-              key={segment.id}
-              style={[
-                styles.band,
-                {
-                  backgroundColor: chrome.fill,
-                  borderRightColor: chrome.divider,
-                  borderRightWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-                  borderTopLeftRadius: isFirst ? 12 : 0,
-                  borderBottomLeftRadius: isFirst ? 12 : 0,
-                  borderTopRightRadius: isLast ? 12 : 0,
-                  borderBottomRightRadius: isLast ? 12 : 0,
-                },
-              ]}
-            >
+            <View key={`label-${segment.id}`} style={styles.labelCell}>
               <Text style={[styles.bandLabel, { color: chrome.label }]} numberOfLines={2}>
                 {segment.label}
               </Text>
               {segment.formattedRange ? (
-                <Text style={[styles.bandRange, { color: chrome.range }]} numberOfLines={2}>
+                <Text style={styles.bandRange} numberOfLines={2}>
                   {segment.formattedRange}
                 </Text>
               ) : null}
@@ -135,66 +159,97 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
 
 const styles = StyleSheet.create({
   wrap: {
-    position: "relative",
-    paddingTop: 36,
-    gap: 0,
+    gap: 10,
   },
   failClosed: {
     height: 0,
   },
+  markerRail: {
+    height: 44,
+    position: "relative",
+  },
   markerColumn: {
     position: "absolute",
     top: 0,
-    width: 88,
-    marginLeft: -44,
+    width: 96,
+    marginLeft: -48,
     alignItems: "center",
-    zIndex: 2,
+    zIndex: 3,
+  },
+  valueCapsuleGlow: {
+    borderRadius: 999,
+    padding: 2,
+    backgroundColor: BODY_METRIC_CHART_MARKER_GLOW,
   },
   valueCapsule: {
     backgroundColor: BODY_METRIC_CHART_MARKER_FILL,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    maxWidth: 88,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    maxWidth: 92,
+    shadowColor: "#000",
+    shadowOpacity: 0.28,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   valueCapsuleText: {
     color: BODY_METRIC_CHART_MARKER_TEXT,
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: -0.2,
     textAlign: "center",
+    fontVariant: ["tabular-nums"],
   },
-  markerPointer: {
-    color: BODY_METRIC_CHART_MARKER_FILL,
-    fontSize: 10,
-    lineHeight: 12,
-    marginTop: -1,
+  markerStem: {
+    width: 3,
+    flex: 1,
+    minHeight: 12,
+    borderRadius: 2,
+    backgroundColor: BODY_METRIC_CHART_MARKER_FILL,
+    marginTop: 2,
   },
-  track: {
-    flexDirection: "row",
-    minHeight: 72,
+  trackShell: {
     borderRadius: 12,
-    overflow: "hidden",
+    padding: 3,
+    backgroundColor: BODY_METRIC_CHART_TRACK_INNER,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: BODY_METRIC_CHART_TRACK_BORDER,
   },
+  track: {
+    flexDirection: "row",
+    height: 28,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
   band: {
     flex: 1,
-    paddingHorizontal: 6,
-    paddingVertical: 10,
-    justifyContent: "center",
+    height: "100%",
+  },
+  labelRow: {
+    flexDirection: "row",
     gap: 4,
+    paddingHorizontal: 2,
+  },
+  labelCell: {
+    flex: 1,
     minWidth: 0,
+    gap: 2,
+    alignItems: "center",
   },
   bandLabel: {
     fontSize: 11,
     lineHeight: 13,
-    fontWeight: "700",
+    fontWeight: "800",
     textAlign: "center",
+    letterSpacing: -0.1,
   },
   bandRange: {
     fontSize: 10,
     lineHeight: 12,
-    fontWeight: "500",
+    fontWeight: "600",
     textAlign: "center",
+    color: UI_TEXT_SECONDARY,
+    fontVariant: ["tabular-nums"],
   },
 });

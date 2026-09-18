@@ -12,41 +12,48 @@ export type BodyMetricClassificationTone =
 
 export type BodyMetricClassificationBandChrome = {
   readonly fill: string;
+  readonly fillStrong: string;
   readonly label: string;
   readonly range: string;
   readonly divider: string;
 };
 
+/** Vivid, non-shaming spectrum fills for dark elevated Body cards. */
 const DARK: Record<BodyMetricClassificationTone, BodyMetricClassificationBandChrome> = {
   cool: {
-    fill: "rgba(125, 168, 212, 0.28)",
-    label: "#D7E4F2",
-    range: "#A7AFBC",
-    divider: "rgba(255,255,255,0.10)",
+    fill: "rgba(96, 165, 250, 0.55)",
+    fillStrong: "rgba(59, 130, 246, 0.78)",
+    label: "#E8F1FF",
+    range: "#AFC4E0",
+    divider: "rgba(11,13,16,0.35)",
   },
   reference: {
-    fill: "rgba(58, 91, 219, 0.42)",
-    label: "#F7F8FA",
-    range: "#C8D0DC",
-    divider: "rgba(255,255,255,0.12)",
+    fill: "rgba(52, 211, 153, 0.52)",
+    fillStrong: "rgba(16, 185, 129, 0.72)",
+    label: "#E8FFF5",
+    range: "#A7D9C4",
+    divider: "rgba(11,13,16,0.35)",
   },
   caution: {
-    fill: "rgba(212, 168, 92, 0.34)",
-    label: "#F3E6CF",
-    range: "#B8A88C",
-    divider: "rgba(255,255,255,0.10)",
+    fill: "rgba(251, 191, 36, 0.48)",
+    fillStrong: "rgba(245, 158, 11, 0.68)",
+    label: "#FFF6E0",
+    range: "#D9C49A",
+    divider: "rgba(11,13,16,0.35)",
   },
   elevated: {
-    fill: "rgba(196, 120, 110, 0.38)",
-    label: "#F5D8D4",
-    range: "#C4A09A",
-    divider: "rgba(255,255,255,0.10)",
+    fill: "rgba(248, 113, 113, 0.48)",
+    fillStrong: "rgba(239, 68, 68, 0.62)",
+    label: "#FFE8E8",
+    range: "#D9A8A8",
+    divider: "rgba(11,13,16,0.35)",
   },
   neutral: {
-    fill: "rgba(255,255,255,0.10)",
+    fill: "rgba(148, 163, 184, 0.28)",
+    fillStrong: "rgba(148, 163, 184, 0.42)",
     label: "#F7F8FA",
     range: "#A7AFBC",
-    divider: "rgba(255,255,255,0.08)",
+    divider: "rgba(11,13,16,0.28)",
   },
 };
 
@@ -57,6 +64,16 @@ export function resolveBodyMetricClassificationBandChrome(
 }
 
 /** Marker capsule / pointer on dark elevated cards. */
-export const BODY_METRIC_CHART_MARKER_FILL = "#F7F8FA";
+export const BODY_METRIC_CHART_MARKER_FILL = "#FFFFFF";
 export const BODY_METRIC_CHART_MARKER_TEXT = "#0B0D10";
-export const BODY_METRIC_CHART_TRACK_BORDER = "rgba(255,255,255,0.10)";
+export const BODY_METRIC_CHART_MARKER_GLOW = "rgba(255,255,255,0.22)";
+export const BODY_METRIC_CHART_TRACK_BORDER = "rgba(255,255,255,0.12)";
+export const BODY_METRIC_CHART_TRACK_INNER = "rgba(0,0,0,0.22)";
+
+/** Soft unclassified continuum (visual family only — not a standard). */
+export const BODY_METRIC_UNCLASSIFIED_SPECTRUM = [
+  "rgba(96, 165, 250, 0.35)",
+  "rgba(52, 211, 153, 0.32)",
+  "rgba(251, 191, 36, 0.30)",
+  "rgba(248, 113, 113, 0.28)",
+] as const;

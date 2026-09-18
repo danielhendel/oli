@@ -153,7 +153,9 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
       unit: "lb",
     });
     expect(bodyFat.formattedValue).toBe("18.0%");
+    expect(bodyFat.displayValue).toBe("18.0");
     expect(bodyFat.classificationChart).toBeNull();
+    expect(bodyFat.showUnclassifiedScaffold).toBe(true);
     expect(bodyFat.referenceBar).toBeNull();
     expect(JSON.stringify(bodyFat)).not.toMatch(
       /BIA|Essential|Athlete|Fitness|Average|Excellence|Underfat|Healthy Body Fat|Optimal|Elite/i,
@@ -174,6 +176,7 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
       unit: "lb",
     });
     expect(lean.classificationChart).toBeNull();
+    expect(lean.showUnclassifiedScaffold).toBe(true);
     expect(lean.accessibilityLabel).toMatch(/Total lean mass/i);
     expect(JSON.stringify(lean)).not.toMatch(
       /Elite|Optimal|Excellent|Weak|sarcopenia diagnosis|ALMI|ASM|Performance Rating/i,
