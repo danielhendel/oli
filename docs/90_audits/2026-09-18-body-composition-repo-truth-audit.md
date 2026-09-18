@@ -21,7 +21,10 @@ Establish repository truth for Body Composition before any Category Intelligence
 |---------|----------------|
 | Body page leads with Apple Health permission gate before educational value | UNSAFE AS-IS for Stage 3B value-first shell |
 | Overview trends and snapshot peeks read **RawEvents** on-device | ARCHITECTURAL VIOLATION of facts-first consumer truth |
+| `weight` / `body_composition` are **fact-only** RawEvent kinds — **no CanonicalEvent** | ARCHITECTURAL VIOLATION vs aspirational Raw→Canonical→Facts story |
+| `selectBodyFactsForDay` admits **Apple Health / healthkit only** — manual weight excluded from DailyFacts | DUPLICATE TRUTH; log shows manual, overview/facts do not |
 | Weight is the hero metric; BMI / body fat / lean / RMR are secondary rows | Weight treated as near-complete composition UX |
+| RMR route / DailyFacts field exist; HK BasalEnergyBurned is **intentionally not mapped** to RMR | PLACEHOLDER / HOLLOW — hide from launch until a real RMR source exists |
 | Client interpretation bars use ACE-style / BMI healthy-weight heuristics | REQUIRES EVIDENCE / UNSAFE AS-IS for classification |
 | `lib/classifications/bodyComposition.ts` registers BF%, BMI, WHtR bands | FORMULA ONLY; not wired as official Body UI truth; BMI mislabeled as composition domain |
 | DEXA route is empty placeholder; DEXA document type exists without structured extraction | PLACEHOLDER / PARTIAL |
@@ -155,14 +158,14 @@ Weekly calendar strip: flag BODY_SHOW_WEEKLY_CALENDAR_STRIP = false
 | Profile height | IMPLEMENTED | About You / profile |
 | Profile sex for interpretation | IMPLEMENTED | Profile; used by interpretation helpers |
 | Profile DOB / age | IMPLEMENTED | Profile; age helper exists |
-| Manual weight | IMPLEMENTED | Ingest + log surfaces |
-| Manual body-fat % | PARTIAL | `body_composition` / goal editors; not full provenance method |
+| Manual weight | IMPLEMENTED ingest; PARTIAL / ARCHITECTURAL VIOLATION on read | Log + mutations exist; overview series/trends AH-filter out `manual`; `selectBodyFactsForDay` returns undefined for manual-only days |
+| Manual body-fat % | PARTIAL | Optional on manual weight payload; no dedicated BF log UX on overview |
 | Manual waist | PARTIAL | `userProfileMain.waistCircumferenceCm`; not Body measurement UX |
 | Apple Health weight | IMPLEMENTED | HealthKit → ingest `kind: weight` |
 | Apple Health body-fat % | IMPLEMENTED | Via weight payload or `body_composition` |
 | Apple Health lean body mass | IMPLEMENTED | `leanBodyMassKg` |
 | Apple Health BMI | IMPLEMENTED | Vendor BMI field ingested |
-| Apple Health provenance / source app / device / method | MISSING / PARTIAL | `sourceId` transport only; method not preserved |
+| Apple Health provenance / source app / device / method | MISSING / PARTIAL | HK sample source coalesced then stored as transport `apple_health`; method not preserved |
 | Smart-scale via Apple Health | UNVERIFIED | May arrive as AH samples; method unknown |
 | Direct connected scale (Withings live) | UNSUPPORTED / orphaned | Withings live sync orphaned per SYSTEM_STATE |
 | DEXA document upload type | PARTIAL | `dexa_report` document type |
@@ -172,7 +175,7 @@ Weekly calendar strip: flag BODY_SHOW_WEEKLY_CALENDAR_STRIP = false
 | Appendicular lean mass | MISSING | |
 | Regional lean / android-gynoid | MISSING | |
 | Visceral adipose tissue | MISSING | |
-| RMR | PARTIAL | DailyFacts + AH ingest |
+| RMR | PLACEHOLDER / MISSING at ingest | Contract + metric route exist; HK `BasalEnergyBurned` queried but **intentionally ignored** at canonical boundary (`healthKit.ts`); client Mifflin estimate is separate interpretation — not ingested RMR |
 | Measurement conditions | MISSING | |
 | Device / source application | MISSING (beyond sourceId) | |
 | Observed date | IMPLEMENTED | `observedAt` / dayKey |
@@ -207,32 +210,39 @@ When method unavailable → method = unknown. Do not guess.
 ## 8. Pipeline map
 
 ```text
-HealthKit / manual / (future DEXA)
-  → API ingest RawEvent (weight | body_composition)
-  → Functions normalize → CanonicalEvent
+HealthKit (iOS, account-gated) / manual ingest / (future DEXA)
+  → API ingest RawEvent (kind: weight | body_composition)
+  → FACT-ONLY path: NO CanonicalEvent
+       (FACT_ONLY_RAW_EVENT_KINDS in mapRawEventToCanonical.ts)
+  → recomputeForDay ← loadBodyFactsFromRawForDay
+  → selectBodyFactsForDay (eligible sources = apple_health ∪ healthkit ONLY)
   → DailyFacts.body { weightKg, bodyFatPercent, bmi, leanBodyMassKg, restingMetabolicRateKcal }
-  → Insights / IntelligenceContext (partial body fields)
-  → UI
+  → IntelligenceContext / Energy / HealthScore (partial consumers)
+  → UI (optional DailyFacts overlay on overview snapshot)
 
-EXCEPTIONS (current consumer Body overview):
-  UI ← getRawEvents (useWeightSeries, useBodyOverviewPeek, snapshot day peek, useBodyMetricTrends)
+PARALLEL consumer path (current Body overview / trends / log):
+  UI ← getRawEvents (useWeightSeries, peeks, useBodyMetricTrends, composition log)
   UI ← client interpretation (lib/body/*)
-  UI ← classifications registry (not primary Body page, but present in codebase)
+  UI ← classifications registry (present; not primary Body page truth)
 ```
+
+**Code-truth correction:** Do not describe Body as RawEvent → CanonicalEvent → DailyFacts today. Weight and body_composition skip Canonical by design (`FACT_ONLY_RAW_EVENT_KINDS`). Future Category Intelligence must either (a) keep an explicit approved fact-only summary path with versioned selection rules, or (b) introduce Canonical body events via RFC — **UNRESOLVED** (REQUIRES ADR).
 
 ### DailyFacts / Insight coverage
 
-| Field | DailyFacts | Official Body UI classification |
-|-------|------------|----------------------------------|
-| weightKg | Yes | Snapshot/trends often RawEvent-derived |
-| bodyFatPercent | Yes | Mixed facts/peek |
-| bmi | Yes | Mixed |
-| leanBodyMassKg | Yes | Mixed |
-| restingMetabolicRateKcal | Yes | Mixed |
-| waist / WHtR / VAT / ALM | No | — |
-| Health Protection band | No | — |
-| Performance Support band | No | — |
-| Confidence / readiness | No | — |
+| Field | DailyFacts | Selection rule | Official Body UI classification |
+|-------|------------|----------------|----------------------------------|
+| weightKg | Yes (AH only) | Manual/withings excluded | Snapshot/trends often RawEvent-derived (AH-filtered) |
+| bodyFatPercent | Yes (AH only) | Same | Mixed facts/peek |
+| bmi | Yes (AH only) | Same | Mixed |
+| leanBodyMassKg | Yes (AH only) | Same | Mixed |
+| restingMetabolicRateKcal | Field exists | Rarely populated from ingest | Hollow metric route; Mifflin is client estimate only |
+| waist / WHtR / VAT / ALM | No | — | — |
+| Health Protection band | No | — | — |
+| Performance Support band | No | — | — |
+| Confidence / readiness | No | — | — |
+
+Insights: no dedicated Body insight generators found; IntelligenceContext exposes weight/BF accessors.
 
 ### RawEvent user-facing reads (Body)
 
@@ -240,8 +250,9 @@ EXCEPTIONS (current consumer Body overview):
 2. `lib/data/body/useBodyOverviewPeek.ts`
 3. `lib/data/body/useBodyOverviewSnapshotDayPeek.ts`
 4. `lib/data/body/useBodyMetricTrends.ts`
+5. Composition log via Raw weight list (`list.tsx` / `useBodyCompositionLog`) — may include manual rows the overview filter hides
 
-**Disposition:** REQUIRES ADR — migrate official Current State and trends to facts/summary APIs; keep RawEvents for lineage/replay/debug only.
+**Disposition:** REQUIRES ADR — migrate official Current State and trends to facts/summary APIs; keep RawEvents for lineage/replay/debug only; resolve manual inclusion vs AH-only facts; resolve fact-only vs Canonical policy.
 
 ---
 
@@ -249,12 +260,13 @@ EXCEPTIONS (current consumer Body overview):
 
 | Area | Behavior |
 |------|----------|
-| Manual weight | Supported via ingest + Body log |
+| Manual weight | Ingest + Body log **IMPLEMENTED**; overview/trends/DailyFacts **exclude** manual → DUPLICATE TRUTH |
 | Manual BF% | Partial via body composition payloads / preferences goal editors |
 | Manual waist | Profile field only |
 | DEXA UI | Empty `dexa.tsx` |
 | DEXA docs | Type exists; structured extraction unavailable |
-| Trends | Client weekly/yearly weight from AH-filtered RawEvent series |
+| RMR | Metric detail route exists; no real ingested RMR from HK basal |
+| Trends | Client weekly/yearly weight from AH-filtered RawEvent series; incremental sync ~45d; 5Y backfill is Devices-initiated |
 | Like-with-like | Not enforced |
 
 ---
@@ -329,11 +341,14 @@ No Stage 3A Category Intelligence flag exists (correct — runtime not started).
 
 1. Human approval of Stage 3A RFC/ADR/spec.
 2. Facts-first summary APIs for Body Current State and method-specific series.
-3. Provenance model distinguishing transport vs method.
-4. Versioned standards registry (extend or replace `lib/classifications` pattern via RFC).
-5. Waist capture UX if WHtR approved for v1.
-6. DEXA structured extraction if advanced tier authorized.
-7. Release gates remain OPEN (legal, source privacy, export).
+3. Explicit policy for **fact-only** weight/body_composition vs introducing Canonical body events.
+4. Resolve **manual vs AH-only** DailyFacts selection and overview filtering (duplicate truth).
+5. Provenance model distinguishing transport vs method.
+6. Versioned standards registry (extend or replace `lib/classifications` pattern via RFC).
+7. Waist capture UX if WHtR approved for v1.
+8. Hide or replace hollow RMR surface until a real RMR source exists.
+9. DEXA structured extraction if advanced tier authorized.
+10. Release gates remain OPEN (legal, source privacy, export).
 
 ---
 
@@ -346,6 +361,7 @@ No Stage 3A Category Intelligence flag exists (correct — runtime not started).
 | RawEvent lineage backend | Bounded query patterns | Facts/peek fallback | BMI as composition excellence |
 | Empty DEXA honesty | Metric detail navigation | Classifications domain labeling | Mixed-method silent trends |
 | No fabricated Body score today | Sync/backfill plumbing | Permission-first gate | Universal BF excellence |
+| | | AH-only facts + Raw UI dual path | Hollow RMR as composition truth |
 
 ---
 

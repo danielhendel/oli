@@ -24,7 +24,7 @@ Vision allows standards of excellence where defensible; Consumer Product Decisio
 
 ## Proposed decision
 
-1. **Facts-first Category Intelligence.** Official Body Current State and classifications derive through RawEvent → CanonicalEvent → DailyFacts/approved summaries → Insights/HealthState/IntelligenceContext → typed presentation DTO → UI. RawEvents are not official consumer truth.
+1. **Facts-first Category Intelligence.** Official Body Current State and classifications derive through approved summary facts (today: fact-only Raw → DailyFacts selection; target: RawEvent → CanonicalEvent → DailyFacts/approved summaries where Canonical is authorized) → Insights/HealthState/IntelligenceContext → typed presentation DTO → UI. RawEvents are not official consumer truth. Whether Body remains explicitly fact-only or gains Canonical events requires a follow-on decision before Stage 3D.
 
 2. **Value-first Body experience.** Educational purpose and reference spectrum precede permission requests and source connection CTAs.
 
@@ -88,11 +88,13 @@ Vision allows standards of excellence where defensible; Consumer Product Decisio
 
 - Exact health-rail label set (“Optimized”?)
 - Whether health aggregate ships in first classified release
-- Ethnicity-specific waist cutoff model
+- Ethnicity-specific waist cutoff model (WHO/IDF 94/80 vs US ATP III 102/88 — do not average; Alberti 2009 documents the split)
 - Which BF% tables (if any) are accepted for method-labeled markers
 - Performance Excellence methodology
 - Exact confidence scoring rules
 - Durable standards registry storage/code location
+- Fact-only vs Canonical body events
+- Manual weight inclusion in DailyFacts / overview vs AH-only selection
 
 ---
 

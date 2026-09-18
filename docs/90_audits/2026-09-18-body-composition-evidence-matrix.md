@@ -41,7 +41,7 @@
 | Claim type | EVIDENCE (thresholds exist); PRODUCT DECISION (which cutoff set Oli adopts) |
 | Proposed Oli v1 status | CORE V1 (if waist capture approved) |
 
-**Disagreement:** WHO/IDF Europid vs US ATP III vs Asian-specific cutoffs. Do not silently average. **UNRESOLVED leadership choice** which ethnicity/applicability model v1 uses.
+**Disagreement:** WHO/IDF Europid “increased” 94/80 vs US ATP III 102/88. Alberti et al. 2009 metS harmonization documents unresolved WC threshold disagreement (https://doi.org/10.1161/CIRCULATIONAHA.109.192644). Do not silently average. **UNRESOLVED leadership choice** which ethnicity/applicability model v1 uses.
 
 ### 2.2 Waist-to-height ratio (health risk)
 
@@ -194,7 +194,9 @@
 
 ## 7. Low energy availability / very low BF%
 
-Very low body-fat or rapid lean loss may indicate low-energy-availability concern in athletes (Relative Energy Deficiency contexts). **Do not place Excellence** on very low BF%. Flag as **concern context** requiring human/professional interpretation — PROPOSAL; detailed RED-S protocol is FUTURE.
+Very low body-fat or rapid lean loss may indicate low-energy-availability concern in athletes (Relative Energy Deficiency / REDs contexts). IOC 2023 REDs consensus: no validated BF% diagnostic cutoff across sex/age/ethnicity. **Do not place Excellence** on very low BF%. Flag as **concern context** requiring human/professional interpretation — PROPOSAL; detailed RED-S protocol is FUTURE.
+
+Source: Mountjoy et al. Br J Sports Med 2023 — https://doi.org/10.1136/bjsports-2023-106994
 
 ---
 
@@ -202,11 +204,13 @@ Very low body-fat or rapid lean loss may indicate low-energy-availability concer
 
 1. WHO. *Waist Circumference and Waist–Hip Ratio: Report of a WHO Expert Consultation.* https://www.who.int/publications/i/item/9789241501491
 2. Lean ME, et al. Waist circumference as a measure for indicating need for weight management. *BMJ.* 1995. PMID: 7613427
-3. NICE NG246. Overweight and obesity management — identifying/assessing central adiposity. https://www.nice.org.uk/guidance/ng246
-4. CDC. Adult BMI Categories; BMI FAQ (screening; not direct body fat). https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html
-5. Cruz-Jentoft AJ, et al. Sarcopenia: revised European consensus (EWGSOP2). *Age Ageing.* 2019. https://doi.org/10.1093/ageing/afz046
-6. Achamrah N, et al. DXA vs BIA by BMI. *PLOS One.* 2018. https://doi.org/10.1371/journal.pone.0200465
-7. Clin J Sport Med systematic review/meta-analysis: DXA vs BIA in athletes. https://doi.org/10.1097/jsm.0000000000001136
+3. Alberti KGMM, et al. Harmonizing the metabolic syndrome. *Circulation.* 2009. https://doi.org/10.1161/CIRCULATIONAHA.109.192644
+4. NICE NG246. Overweight and obesity management — identifying/assessing central adiposity. https://www.nice.org.uk/guidance/ng246
+5. CDC. Adult BMI Categories; BMI FAQ (screening; not direct body fat). https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html
+6. Cruz-Jentoft AJ, et al. Sarcopenia: revised European consensus (EWGSOP2). *Age Ageing.* 2019. https://doi.org/10.1093/ageing/afz046
+7. Achamrah N, et al. DXA vs BIA by BMI. *PLOS One.* 2018. https://doi.org/10.1371/journal.pone.0200465
+8. Clin J Sport Med systematic review/meta-analysis: DXA vs BIA in athletes. https://doi.org/10.1097/jsm.0000000000001136
+9. Mountjoy M, et al. IOC REDs consensus. *Br J Sports Med.* 2023. https://doi.org/10.1136/bjsports-2023-106994
 
 ---
 
@@ -218,3 +222,5 @@ Very low body-fat or rapid lean loss may indicate low-energy-availability concer
 - AI-generated unsourced tables
 - Legacy Oli “Optimal” BF% bands without re-citation and human approval
 - PR #178 uncertainty margins
+- ACE body-fat taxonomy charts as primary clinical authority
+- Consumer-scale “visceral fat” scores for Health Protection thresholds

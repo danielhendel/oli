@@ -40,8 +40,10 @@ The merged Body Composition surface is weight-centric, permission-first, and hyd
 ## Repository truth (summary)
 
 - Live overview: `app/(app)/body/index.tsx` — AH permission gate → Today weight card → week/baseline/yearly weight.
-- RawEvent reads: `useWeightSeries`, peeks, `useBodyMetricTrends`.
-- DailyFacts.body supports weight, BF%, BMI, lean, RMR — partially used.
+- RawEvent reads: `useWeightSeries`, peeks, `useBodyMetricTrends`, composition log.
+- `weight` / `body_composition` are **fact-only** (`FACT_ONLY_RAW_EVENT_KINDS`) — **no CanonicalEvent**.
+- DailyFacts.body selection is **Apple Health / healthkit only** — manual ingest is excluded from facts and overview filters (duplicate truth vs log).
+- DailyFacts.body fields: weight, BF%, BMI, lean, RMR — RMR rarely populated; HK BasalEnergyBurned intentionally not mapped.
 - DEXA route empty; DEXA structured extraction unavailable.
 - Waist on profile contract; not Body measurement UX.
 - PR #178 closed unmerged; AH→BIA + physique estimate rejected.
@@ -69,18 +71,27 @@ Page IA: purpose → educational spectrum → markers → baseline building → 
 ## Canonical pipeline
 
 ```text
+RawEvent → (today: fact-only for weight/body_composition; no CanonicalEvent)
+  → DailyFacts / approved summary facts
+  → Insight / HealthState / IntelligenceContext
+  → typed presentation model → UI
+```
+
+Target architecture remains:
+
+```text
 RawEvent → CanonicalEvent → DailyFacts / approved summary facts
   → Insight / HealthState / IntelligenceContext
   → typed presentation model → UI
 ```
 
-RawEvents remain for lineage, replay, debug, reprocessing, provenance inspection.
+Whether Body stays on an **explicit versioned fact-only** path or gains Canonical events is an unresolved ADR decision. Either way, RawEvents remain for lineage, replay, debug, reprocessing, provenance inspection — not official consumer Current State.
 
 **Migration sequence (smallest, later stages):**
 
-1. 3B: Educational shell; hide permission-first; no new classification.
-2. 3C: Provenance-aware inputs (waist, method labels).
-3. 3D: Bounded facts/summary APIs for marker cards (stop RawEvent as official Current State).
+1. 3B: Educational shell; hide permission-first; hide hollow RMR/DEXA placeholders from launch IA; no new classification.
+2. 3C: Provenance-aware inputs (waist, method labels); decide manual inclusion policy.
+3. 3D: Bounded facts/summary APIs for marker cards (stop RawEvent as official Current State); resolve fact-only vs Canonical.
 4. 3E/3F: Server-derived classifications when standards accepted.
 5. 3G: Method-specific compressed series for Progress.
 6. 3H: Generalize Category Intelligence.
