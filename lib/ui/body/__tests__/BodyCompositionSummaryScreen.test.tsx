@@ -19,6 +19,8 @@ function collectText(test: renderer.ReactTestRenderer): string {
     .join(" ");
 }
 
+const connectionAction = { kind: "sync_now" as const, label: "Sync now" };
+
 describe("BodyCompositionSummaryScreen", () => {
   const cards = buildBodyMetricSummaryCards({
     overview: {
@@ -40,8 +42,10 @@ describe("BodyCompositionSummaryScreen", () => {
         React.createElement(BodyCompositionSummaryScreen, {
           cards,
           appleHealthSlot: React.createElement("Text", null, "AH_SLOT"),
+          connectionAction,
           onPressCard: jest.fn(),
           onPressAddWeight: jest.fn(),
+          onPressConnectionAction: jest.fn(),
           onPressHref: jest.fn(),
         }),
       );
@@ -56,45 +60,49 @@ describe("BodyCompositionSummaryScreen", () => {
     expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("AH_SLOT"));
   });
 
-  it("does not render the dense educational hero sections", () => {
+  it("shows Weight CDC/WHO graph and omits Body Fat / Lean Tissue graphs", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         React.createElement(BodyCompositionSummaryScreen, {
           cards,
           appleHealthSlot: null,
+          connectionAction,
           onPressCard: jest.fn(),
           onPressAddWeight: jest.fn(),
+          onPressConnectionAction: jest.fn(),
           onPressHref: jest.fn(),
         }),
       );
     });
     const text = collectText(tree);
+    expect(text).toContain("Underweight");
+    expect(text).toContain("Healthy Weight");
+    expect(text).toContain("Overweight");
+    expect(text).toContain("Obesity");
+    expect(tree.root.findByProps({ testID: "body-metric-bar-weight" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-bar-bodyFat" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "body-metric-bar-leanTissue" })).toHaveLength(0);
     expect(text).not.toContain("Educational reference");
     expect(text).not.toContain("Health Protection");
     expect(text).not.toContain("Performance Support");
-    expect(text).not.toContain("What determines Body Composition");
-    expect(text).not.toContain("Evidence levels");
-    expect(text).not.toContain("Central Adiposity");
-    expect(text).not.toContain("Visceral Adiposity");
-    expect(text).not.toContain("What influences Body Composition");
-    expect(text).not.toContain("Open Plan");
-    expect(text).toContain("Underweight");
-    expect(text).toContain("Healthy Weight");
     expect(text).not.toMatch(/\bBelow\b/);
-    expect(tree.root.findAllByProps({ testID: "body-composition-reference-model" })).toHaveLength(0);
+    expect(text).not.toMatch(/Optimal|Ideal|Target|Excellence/i);
   });
 
-  it("keeps Apple Health below the metric cards and routes Add weight", () => {
+  it("keeps Add measurement left and Sync now right on each card", () => {
     const onPressAddWeight = jest.fn();
+    const onPressConnectionAction = jest.fn();
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         React.createElement(BodyCompositionSummaryScreen, {
           cards,
           appleHealthSlot: React.createElement("Text", null, "CONNECT_AH"),
+          connectionAction,
           onPressCard: jest.fn(),
           onPressAddWeight,
+          onPressConnectionAction,
           onPressHref: jest.fn(),
         }),
       );
@@ -102,9 +110,20 @@ describe("BodyCompositionSummaryScreen", () => {
     const text = collectText(tree);
     expect(text.indexOf("Lean Tissue")).toBeLessThan(text.indexOf("Add or connect measurements"));
     expect(text.indexOf("Add or connect measurements")).toBeLessThan(text.indexOf("CONNECT_AH"));
+
+    const weightActions = tree.root.findByProps({ testID: "body-metric-actions-weight" });
+    expect(weightActions.props.style.justifyContent).toBe("space-between");
     act(() => {
-      tree.root.findByProps({ testID: "body-composition-add-weight" }).props.onPress();
+      tree.root.findByProps({ testID: "body-metric-add-weight" }).props.onPress({ stopPropagation: jest.fn() });
     });
     expect(onPressAddWeight).toHaveBeenCalledTimes(1);
+    act(() => {
+      tree.root
+        .findByProps({ testID: "body-metric-connection-weight" })
+        .props.onPress({ stopPropagation: jest.fn() });
+    });
+    expect(onPressConnectionAction).toHaveBeenCalledTimes(1);
+    expect(collectText(tree)).toContain("Sync now");
+    expect(collectText(tree)).toContain("Add measurement");
   });
 });

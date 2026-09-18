@@ -6,7 +6,10 @@ import {
 } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import type { BodyMetricCardModel } from "@/lib/body/presentation/bodyMetricCardTypes";
 import { BODY_METRIC_RANGES_EXPLAINER_HREF } from "@/lib/data/body/bodyCompositionMetricRoutes";
-import { BodyMetricSummaryCard } from "@/lib/ui/body/BodyMetricSummaryCard";
+import {
+  BodyMetricSummaryCard,
+  type BodyMetricConnectionActionKind,
+} from "@/lib/ui/body/BodyMetricSummaryCard";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import {
   UI_CARD_ELEVATED_BORDER,
@@ -16,19 +19,26 @@ import {
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 
+export type BodyCompositionConnectionAction = {
+  kind: BodyMetricConnectionActionKind;
+  label: string;
+};
+
 export type BodyCompositionSummaryScreenProps = {
   cards: readonly BodyMetricCardModel[];
   appleHealthSlot: React.ReactNode;
+  connectionAction: BodyCompositionConnectionAction;
   onPressCard: (href: string) => void;
   onPressAddWeight: () => void;
+  onPressConnectionAction: () => void;
   onPressHref: (href: string) => void;
   /** Optional inline measurement error (education/cards remain visible). */
   measurementErrorSlot?: React.ReactNode;
 };
 
 /**
- * Simplified Stage 3B landing: purpose + three metric cards + compact actions.
- * Dense education lives behind progressive disclosure (detail routes / ranges explainer).
+ * Stage 3B landing: purpose + three metric cards + compact actions.
+ * Weight may include BMI screening graph; Body Fat and Lean Tissue do not.
  */
 export function BodyCompositionSummaryScreen(props: BodyCompositionSummaryScreenProps) {
   const copy = BODY_COMPOSITION_SUMMARY_COPY;
@@ -48,13 +58,9 @@ export function BodyCompositionSummaryScreen(props: BodyCompositionSummaryScreen
             key={card.metric}
             model={card}
             onPress={() => props.onPressCard(card.detailHref)}
-            onPressAddMeasurement={
-              card.metric === "weight" && card.readiness === "missing"
-                ? props.onPressAddWeight
-                : card.readiness === "missing"
-                  ? props.onPressAddWeight
-                  : undefined
-            }
+            onPressAddMeasurement={props.onPressAddWeight}
+            connectionAction={props.connectionAction}
+            onPressConnectionAction={props.onPressConnectionAction}
           />
         ))}
       </View>
@@ -63,17 +69,6 @@ export function BodyCompositionSummaryScreen(props: BodyCompositionSummaryScreen
         <Text style={styles.actionsTitle} accessibilityRole="header">
           {copy.actionsTitle}
         </Text>
-
-        <Pressable
-          style={styles.actionBtn}
-          onPress={props.onPressAddWeight}
-          accessibilityRole="button"
-          accessibilityLabel={copy.addWeightLabel}
-          accessibilityHint="Opens manual weight entry"
-          testID="body-composition-add-weight"
-        >
-          <Text style={styles.actionBtnText}>{copy.addWeightLabel}</Text>
-        </Pressable>
 
         <View style={styles.appleHealthSlot} testID="body-composition-baseline-apple-health">
           {props.appleHealthSlot}
@@ -138,20 +133,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 2,
-  },
-  actionBtn: {
-    alignSelf: "flex-start",
-    minHeight: 44,
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    backgroundColor: BODY_INDIGO,
-    borderRadius: 10,
-  },
-  actionBtnText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
   },
   appleHealthSlot: {
     gap: 8,

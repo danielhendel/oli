@@ -268,17 +268,7 @@ function buildBodyFatCard(input: {
     : null;
   const value = hasValue ? (input.overview.bodyFatPercent as number) : null;
 
-  // Fail closed — proposed standard is not runtime-authorized.
-  const presentation = resolveBodyMetricStandardPresentation(
-    resolveInput({
-      metric: "bodyFat",
-      overview: input.overview,
-      profile: input.profile,
-      unit: input.unit,
-      measurementMethod: null,
-    }),
-  );
-
+  // Body Fat: no runtime classification graph (standard not approved).
   if (input.seriesError) {
     return {
       metric: "bodyFat",
@@ -313,7 +303,7 @@ function buildBodyFatCard(input: {
       unit: "%",
       readiness: "missing",
       statusLabel: "No measurement yet",
-      referenceLabel: "Classification standard pending approval",
+      referenceLabel: null,
       referenceContextLabel: null,
       referenceBar: null,
       heightSpecificRangeLabel: null,
@@ -325,8 +315,7 @@ function buildBodyFatCard(input: {
       },
       detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.bodyFat,
       addDataHref: null,
-      accessibilityLabel:
-        "Body Fat. No measurement yet. No approved body-fat classification standard is available.",
+      accessibilityLabel: "Body Fat. No measurement yet. Add measurement.",
     };
   }
 
@@ -337,10 +326,10 @@ function buildBodyFatCard(input: {
     formattedValue,
     unit: "%",
     readiness: "partial",
-    statusLabel: "Measurement method is needed for a reliable comparison",
-    referenceLabel: "Classification standard pending approval",
+    statusLabel: "",
+    referenceLabel: null,
     referenceContextLabel: null,
-    referenceBar: presentation ? toReferenceBar(presentation) : null,
+    referenceBar: null,
     heightSpecificRangeLabel: null,
     provenance: {
       transportLabel: null,
@@ -350,7 +339,7 @@ function buildBodyFatCard(input: {
     },
     detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.bodyFat,
     addDataHref: null,
-    accessibilityLabel: `Body Fat ${formattedValue}. No approved body-fat classification standard is available. Method unknown.${
+    accessibilityLabel: `Body Fat ${formattedValue}. No classification graph. Method unknown.${
       input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
     } Open body fat details.`,
   };
@@ -372,16 +361,7 @@ function buildLeanTissueCard(input: {
     ? numericWeightDisplay(input.overview.leanBodyMassKg as number, input.unit)
     : null;
 
-  const presentation = resolveBodyMetricStandardPresentation(
-    resolveInput({
-      metric: "leanTissue",
-      overview: input.overview,
-      profile: input.profile,
-      unit: input.unit,
-      measurementMethod: null,
-    }),
-  );
-
+  // Lean Tissue: total lean mass only — no ASM/ALMI classification graph.
   if (input.seriesError) {
     return {
       metric: "leanTissue",
@@ -416,7 +396,7 @@ function buildLeanTissueCard(input: {
       unit: input.unit,
       readiness: "missing",
       statusLabel: "No measurement yet",
-      referenceLabel: "Classification standard pending approval",
+      referenceLabel: null,
       referenceContextLabel: null,
       referenceBar: null,
       heightSpecificRangeLabel: null,
@@ -428,8 +408,7 @@ function buildLeanTissueCard(input: {
       },
       detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.leanMass,
       addDataHref: null,
-      accessibilityLabel:
-        "Lean Tissue. No measurement yet. No approved lean-tissue classification standard is available.",
+      accessibilityLabel: "Lean Tissue. No measurement yet. Add measurement.",
     };
   }
 
@@ -440,10 +419,10 @@ function buildLeanTissueCard(input: {
     formattedValue,
     unit: input.unit,
     readiness: "partial",
-    statusLabel: "Total lean mass — construct-specific standard pending approval",
-    referenceLabel: "Classification standard pending approval",
+    statusLabel: "",
+    referenceLabel: null,
     referenceContextLabel: null,
-    referenceBar: presentation ? toReferenceBar(presentation) : null,
+    referenceBar: null,
     heightSpecificRangeLabel: null,
     provenance: {
       transportLabel: null,
@@ -453,7 +432,7 @@ function buildLeanTissueCard(input: {
     },
     detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.leanMass,
     addDataHref: null,
-    accessibilityLabel: `Lean Tissue ${formattedValue}. Total lean mass is not classified as appendicular muscle. No approved lean-tissue classification standard is available.${
+    accessibilityLabel: `Lean Tissue ${formattedValue}. Total lean mass. No classification graph.${
       input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
     } Open lean tissue details.`,
   };

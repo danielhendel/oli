@@ -13,10 +13,17 @@ import {
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 
+export type BodyMetricConnectionActionKind = "sync_now" | "connected" | "syncing";
+
 export type BodyMetricSummaryCardProps = {
   model: BodyMetricCardModel;
   onPress: () => void;
-  onPressAddMeasurement?: (() => void) | undefined;
+  onPressAddMeasurement: () => void;
+  connectionAction: {
+    kind: BodyMetricConnectionActionKind;
+    label: string;
+  };
+  onPressConnectionAction: () => void;
 };
 
 function provenanceLine(model: BodyMetricCardModel): string | null {
@@ -39,8 +46,7 @@ function provenanceLine(model: BodyMetricCardModel): string | null {
 export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const { model } = props;
   const provenance = provenanceLine(model);
-  const showAdd =
-    model.readiness === "missing" && typeof props.onPressAddMeasurement === "function";
+  const showGraph = model.referenceBar != null && model.referenceBar.segments.length > 0;
 
   return (
     <Pressable
@@ -64,11 +70,11 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
         </Text>
       ) : (
         <Text style={styles.missingValue} testID={`body-metric-value-${model.metric}`}>
-          {model.statusLabel === "No measurement yet" ? "—" : model.statusLabel}
+          —
         </Text>
       )}
 
-      <Text style={styles.status}>{model.statusLabel}</Text>
+      {model.statusLabel ? <Text style={styles.status}>{model.statusLabel}</Text> : null}
 
       {model.referenceContextLabel ? (
         <Text style={styles.context}>{model.referenceContextLabel}</Text>
@@ -80,29 +86,49 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
         <Text style={styles.heightRange}>{model.heightSpecificRangeLabel}</Text>
       ) : null}
 
-      {model.referenceBar ? (
+      {showGraph ? (
         <BodyMetricReferenceBar
-          model={model.referenceBar}
+          model={model.referenceBar!}
           testID={`body-metric-bar-${model.metric}`}
         />
       ) : null}
 
       {provenance ? <Text style={styles.provenance}>{provenance}</Text> : null}
 
-      {showAdd ? (
+      <View style={styles.actionRow} testID={`body-metric-actions-${model.metric}`}>
         <Pressable
           style={styles.addBtn}
           onPress={(e) => {
             e.stopPropagation?.();
-            props.onPressAddMeasurement?.();
+            props.onPressAddMeasurement();
           }}
           accessibilityRole="button"
-          accessibilityLabel={`Add measurement for ${model.title}`}
+          accessibilityLabel="Add measurement"
+          accessibilityHint="Opens manual weight entry"
           testID={`body-metric-add-${model.metric}`}
         >
           <Text style={styles.addBtnText}>Add measurement</Text>
         </Pressable>
-      ) : null}
+        <Pressable
+          style={styles.connectionBtn}
+          onPress={(e) => {
+            e.stopPropagation?.();
+            props.onPressConnectionAction();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={props.connectionAction.label}
+          testID={`body-metric-connection-${model.metric}`}
+        >
+          <Text
+            style={[
+              styles.connectionBtnText,
+              props.connectionAction.kind === "connected" && styles.connectionConnected,
+            ]}
+          >
+            {props.connectionAction.label}
+          </Text>
+        </Pressable>
+      </View>
     </Pressable>
   );
 }
@@ -175,15 +201,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
+  actionRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
   addBtn: {
-    alignSelf: "flex-start",
     minHeight: 44,
     justifyContent: "center",
-    marginTop: 4,
+    paddingRight: 8,
   },
   addBtnText: {
     color: BODY_INDIGO,
     fontSize: 15,
     fontWeight: "600",
+  },
+  connectionBtn: {
+    minHeight: 44,
+    justifyContent: "center",
+    paddingLeft: 8,
+  },
+  connectionBtnText: {
+    color: BODY_INDIGO,
+    fontSize: 15,
+    fontWeight: "600",
+    textAlign: "right",
+  },
+  connectionConnected: {
+    color: UI_TEXT_SECONDARY,
   },
 });

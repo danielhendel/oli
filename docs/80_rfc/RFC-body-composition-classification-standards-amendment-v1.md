@@ -1,10 +1,21 @@
 # Body Composition Classification Standards Amendment (Proposed)
 
-**Status:** Proposed — human approval required for Body Fat and Lean Tissue runtime classification  
+**Status:** Proposed overall — **section-level:** Weight **APPROVED** for Stage 3B; Body Fat **PROPOSED / UNRESOLVED**; Lean Tissue **PROPOSED / UNRESOLVED**  
 **Date:** 2026-09-18  
+**Leadership decision:** 2026-09-18 — APPROVED IN PART  
 **Branch:** `feat/body-composition-stage3b-value-first-shell`  
 **Does not override Stage 3A Accepted decisions** for unresolved body-fat tables, lean/performance classification, Optimized/Excellence placement, or universal BF% excellence.  
 **Companions:** Stage 3A evidence matrix; ADR/RFC Body Composition Category Intelligence v1.
+
+### Section approval metadata (2026-09-18)
+
+| Section | Status |
+|---------|--------|
+| Weight (CDC/WHO adult BMI screening) | **APPROVED** for Stage 3B Body consumer UI |
+| Body Fat personal classification | **PROPOSED / UNRESOLVED** — not approved for runtime |
+| Lean Tissue personal classification | **PROPOSED / UNRESOLVED** — not approved for runtime |
+
+The overall amendment document remains **Proposed**. Do not mark Body Fat or Lean Tissue methodology Accepted.
 
 ---
 
@@ -90,9 +101,9 @@ Do **not** ship these labels until verified against the primary source and appro
 - Legacy ACSM/NSCA bands in `lib/classifications/bodyComposition.ts` (unverified for consumer v1 per Stage 3A)  
 - Universal BF% excellence / Optimal / Elite  
 
-### Runtime status
+### Runtime status (leadership 2026-09-18)
 
-**PROPOSED — HUMAN APPROVAL REQUIRED.** Fail closed: no segments, no personal marker.
+**NOT APPROVED FOR RUNTIME CLASSIFICATION.** Stage 3B Body Fat card: current value / provenance / actions only — **no** classification graph, **no** personal marker, **no** Gallagher or ACE labels, **no** Apple Health → BIA inference.
 
 ---
 
@@ -111,9 +122,9 @@ Body overview surfaces **total lean mass** (`leanBodyMassKg`). This is **not** i
 1. **If/when ALMI (DXA) is available:** EWGSOP2 muscle-quantity cutoffs as clinical screening for *Low Muscle Quantity* vs *Not Low by This Standard* — **not** a sarcopenia diagnosis from lean mass alone.  
 2. **Population reference (NHANES DXA):** Low / Typical / High for Age and Sex — must be labeled **Population reference**, never Health/Performance/Optimal/Elite.  
 
-### Runtime status
+### Runtime status (leadership 2026-09-18)
 
-**PROPOSED — HUMAN APPROVAL REQUIRED.** Fail closed for total lean mass / unknown method.
+**NOT APPROVED FOR RUNTIME CLASSIFICATION.** Stage 3B Lean Tissue card: current total lean mass / provenance / actions only — **no** classification graph, **no** personal marker, **no** EWGSOP2 ASM/ALMI thresholds on total lean mass, **no** sarcopenia diagnosis, **no** performance rating.
 
 ---
 
@@ -135,10 +146,14 @@ Stage 3C may implement provenance, method labeling, and baseline inputs required
 ## Approval record
 
 ```text
+APPROVED IN PART — 2026-09-18
+
 Weight BMI screening (CDC/WHO adult categories): AUTHORIZED for Body consumer UI
-  as screening presentation only (2026-09-18 product direction).
+  as screening presentation only (Stage 3B).
 
-Body Fat personal classification: PROPOSED — HUMAN APPROVAL REQUIRED.
+Body Fat personal classification: PROPOSED / UNRESOLVED — NOT APPROVED FOR RUNTIME.
+  Do not implement Gallagher-derived personal categories in Stage 3B.
 
-Lean Tissue personal classification: PROPOSED — HUMAN APPROVAL REQUIRED.
+Lean Tissue personal classification: PROPOSED / UNRESOLVED — NOT APPROVED FOR RUNTIME.
+  Do not apply EWGSOP2 ASM/ALMI thresholds to total lean mass.
 ```

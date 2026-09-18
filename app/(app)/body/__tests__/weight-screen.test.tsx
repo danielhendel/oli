@@ -195,7 +195,7 @@ describe("Body Composition simplified main screen", () => {
     // Weight may show a CDC/WHO screening marker; Body Fat / Lean must not invent markers.
   });
 
-  it("shows populated values with CDC/WHO Weight labels and fail-closed BF/Lean", () => {
+  it("shows populated values with CDC/WHO Weight labels and no BF/Lean classification graph", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -211,7 +211,30 @@ describe("Body Composition simplified main screen", () => {
     expect(text).toContain("Obesity");
     expect(text).toContain("BMI screening");
     expect(text).not.toMatch(/\bBelow\b|\bAbove\b/);
-    expect(text).toContain("Classification standard pending approval");
+    expect(text).not.toContain("Classification standard pending approval");
+    expect(tree.root.findByProps({ testID: "body-metric-bar-weight" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-bar-bodyFat" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "body-metric-bar-leanTissue" })).toHaveLength(0);
+    expect(text).toContain("Connected");
+    expect(text).toContain("Add measurement");
+  });
+
+  it("shows Sync now when Apple Health is not yet connected for this account", () => {
+    mockHook.mockReturnValue(buildBody());
+    mockAccess.mockReturnValue({
+      phase: "not_determined",
+      authLoading: false,
+      authSnapshot: { kind: "not_determined" },
+      refreshAuth: jest.fn(),
+      onAllowAppleHealthBodyAccess: jest.fn(),
+      onOpenAppSettings: jest.fn(),
+    });
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    expect(collectText(tree)).toContain("Sync now");
+    expect(tree.root.findByProps({ testID: "body-metric-connection-weight" })).toBeDefined();
   });
 
   it("routes Weight card to weight metric detail", () => {

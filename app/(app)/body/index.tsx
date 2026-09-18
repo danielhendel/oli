@@ -81,6 +81,23 @@ export default function BodyOverviewScreen() {
           ? "checking"
           : "connect";
 
+  /** Account-scoped connection chip on each metric card (Add left / Sync|Connected right). */
+  const connectionAction =
+    access.phase === "syncing"
+      ? ({ kind: "syncing" as const, label: "Syncing…" })
+      : access.phase === "ready" || access.phase === "granted_no_data"
+        ? ({ kind: "connected" as const, label: "Connected" })
+        : ({ kind: "sync_now" as const, label: "Sync now" });
+
+  const onPressConnectionAction = () => {
+    if (access.phase === "syncing") return;
+    if (access.phase === "ready" || access.phase === "granted_no_data") {
+      void body.syncAppleHealthBodyNow();
+      return;
+    }
+    void access.onAllowAppleHealthBodyAccess();
+  };
+
   useEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("module"),
@@ -216,8 +233,10 @@ export default function BodyOverviewScreen() {
           <BodyCompositionSummaryScreen
             cards={cards}
             appleHealthSlot={appleHealthSlot}
+            connectionAction={connectionAction}
             onPressCard={(href) => router.push(href as never)}
             onPressAddWeight={() => setWeightLogVisible(true)}
+            onPressConnectionAction={onPressConnectionAction}
             onPressHref={(href) => router.push(href as never)}
             measurementErrorSlot={measurementErrorSlot}
           />

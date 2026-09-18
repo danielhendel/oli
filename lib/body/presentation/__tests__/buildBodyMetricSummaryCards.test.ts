@@ -71,7 +71,7 @@ describe("buildBodyMetricSummaryCards", () => {
     ]);
     const labels = weight.referenceBar!.segments.map((s) => s.label).join(" ");
     expect(labels).not.toMatch(/\bBelow\b|\bReference\b|\bAbove\b|\bHigh\b/);
-    expect(JSON.stringify(weight)).not.toMatch(/ideal weight|Optimal|Excellence/i);
+    expect(JSON.stringify(weight)).not.toMatch(/ideal weight|Optimal|Excellence|Target|Performance Weight/i);
   });
 
   it("withholds Weight marker without height", () => {
@@ -90,7 +90,24 @@ describe("buildBodyMetricSummaryCards", () => {
     expect(weight.referenceBar?.markerPosition).toBeNull();
   });
 
-  it("withholds Body Fat classification when standard unresolved / method unknown", () => {
+  it("withholds Weight marker for under-20 adult-standard rejection", () => {
+    const [weight] = buildBodyMetricSummaryCards({
+      overview: {
+        overviewDay: "2026-09-18",
+        weightKg: 70,
+        bodyFatPercent: null,
+        leanBodyMassKg: null,
+        bmi: 24.2,
+        hasAnyMetric: true,
+      },
+      profile: { heightCm: 170, ageYears: 19, sex: "female" },
+      unit: "kg",
+    });
+    expect(weight.referenceBar).toBeNull();
+    expect(weight.statusLabel).toMatch(/not applicable/i);
+  });
+
+  it("shows Body Fat value without classification graph or personal marker", () => {
     const [, bodyFat] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -105,11 +122,15 @@ describe("buildBodyMetricSummaryCards", () => {
     });
     expect(bodyFat.formattedValue).toBe("18.0%");
     expect(bodyFat.referenceBar).toBeNull();
-    expect(bodyFat.referenceLabel).toMatch(/pending approval/i);
-    expect(JSON.stringify(bodyFat)).not.toMatch(/BIA|Essential|Athlete|Fitness|Average|Excellence/i);
+    expect(bodyFat.referenceLabel).toBeNull();
+    expect(bodyFat.statusLabel).toBe("");
+    expect(bodyFat.provenance.measurementMethodLabel).toBe("Method unknown");
+    expect(JSON.stringify(bodyFat)).not.toMatch(
+      /BIA|Essential|Athlete|Fitness|Average|Excellence|Underfat|Healthy Body Fat|Optimal|Elite/i,
+    );
   });
 
-  it("withholds Lean Tissue classification for total lean mass", () => {
+  it("shows Lean Tissue total lean mass without classification graph or ASM/ALMI", () => {
     const [, , lean] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -123,8 +144,12 @@ describe("buildBodyMetricSummaryCards", () => {
       unit: "lb",
     });
     expect(lean.referenceBar).toBeNull();
-    expect(lean.statusLabel).toMatch(/Total lean mass/i);
-    expect(JSON.stringify(lean)).not.toMatch(/Elite|Optimal|Excellent|Weak|sarcopenia diagnosis/i);
+    expect(lean.referenceLabel).toBeNull();
+    expect(lean.formattedValue).toBeTruthy();
+    expect(lean.accessibilityLabel).toMatch(/Total lean mass/i);
+    expect(JSON.stringify(lean)).not.toMatch(
+      /Elite|Optimal|Excellent|Weak|sarcopenia diagnosis|ALMI|ASM|Performance Rating/i,
+    );
   });
 
   it("does not invent Body score or aggregate rails", () => {
