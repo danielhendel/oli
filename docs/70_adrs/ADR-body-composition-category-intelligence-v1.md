@@ -1,15 +1,15 @@
 # ADR — Body Composition Category Intelligence v1
 
-**Status:** Proposed  
-**Date:** 2026-09-18  
-**Canonical location:** `docs/70_adrs/`  
-**RFC:** [RFC-body-composition-category-intelligence-v1.md](../80_rfc/RFC-body-composition-category-intelligence-v1.md)  
+**Status:** Proposed
+**Date:** 2026-09-18
+**Canonical location:** `docs/70_adrs/`
+**RFC:** [RFC-body-composition-category-intelligence-v1.md](../80_rfc/RFC-body-composition-category-intelligence-v1.md)
 **Product spec:** [BODY_COMPOSITION_PRODUCT_AND_STANDARDS_V1.md](../10_product/specs/BODY_COMPOSITION_PRODUCT_AND_STANDARDS_V1.md)
 
 Do **not** self-accept. Human approval required.
 
-**Runtime implemented:** No  
-**Schema/persistence authorized:** No  
+**Runtime implemented:** No
+**Schema/persistence authorized:** No
 **Stage 3B authorized:** No (until human approval of this ADR + RFC + spec)
 
 ---
@@ -66,42 +66,42 @@ Vision allows standards of excellence where defensible; Consumer Product Decisio
 
 ### Positive
 
-- Honest missing/partial/stale/conflict states  
-- Scientifically separable health vs performance  
-- Recomputable, auditable classifications  
-- Clear Plan boundary  
+- Honest missing/partial/stale/conflict states
+- Scientifically separable health vs performance
+- Recomputable, auditable classifications
+- Clear Plan boundary
 
 ### Negative / costs
 
-- Slower path to “place me on the spectrum” visuals  
-- Requires summary APIs and provenance model work in later stages  
+- Slower path to “place me on the spectrum” visuals
+- Requires summary APIs and provenance model work in later stages
 - Some leadership questions remain open (labels, ethnicity cutoffs, BF% tables)
 
 ### Security / privacy
 
-- Reinforces account-scoped source connection  
-- Avoids fabricating method labels that misrepresent HealthKit data  
+- Reinforces account-scoped source connection
+- Avoids fabricating method labels that misrepresent HealthKit data
 
 ---
 
 ## Unresolved scientific decisions
 
-- Exact health-rail label set (“Optimized”?)  
-- Whether health aggregate ships in first classified release  
-- Ethnicity-specific waist cutoff model  
-- Which BF% tables (if any) are accepted for method-labeled markers  
-- Performance Excellence methodology  
-- Exact confidence scoring rules  
-- Durable standards registry storage/code location  
+- Exact health-rail label set (“Optimized”?)
+- Whether health aggregate ships in first classified release
+- Ethnicity-specific waist cutoff model
+- Which BF% tables (if any) are accepted for method-labeled markers
+- Performance Excellence methodology
+- Exact confidence scoring rules
+- Durable standards registry storage/code location
 
 ---
 
 ## Implementation prerequisites
 
-1. Human acceptance of this ADR + RFC + product/standards spec.  
-2. Explicit authorization of Stage **3B** (or revised first runtime gate).  
-3. No schema/API invention until the authorized implementation stage’s RFC deltas (if required) are accepted.  
-4. Local `npm run check` gates on any future runtime PR.  
+1. Human acceptance of this ADR + RFC + product/standards spec.
+2. Explicit authorization of Stage **3B** (or revised first runtime gate).
+3. No schema/API invention until the authorized implementation stage’s RFC deltas (if required) are accepted.
+4. Local `npm run check` gates on any future runtime PR.
 
 ---
 

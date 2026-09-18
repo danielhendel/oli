@@ -1,7 +1,7 @@
 # Body Composition Definition Gate — Stage 3A
 
-**Date:** 2026-09-18  
-**Branch:** `docs/body-composition-definition-evidence-audit-v1`  
+**Date:** 2026-09-18
+**Branch:** `docs/body-composition-definition-evidence-audit-v1`
 **Baseline main:** `c92ca0518366f0ef7b5e3af08e127fb623506622`
 
 ## Gate result
@@ -31,14 +31,14 @@ Future classification must be evidence-based, versioned, provenance-aware, recom
 
 ## Release gates (unchanged)
 
-- RG-LEGAL-01 OPEN  
-- RG-SOURCE-PRIVACY-01 OPEN (Issue #218 OPEN)  
-- Export coverage OPEN  
-- Export scalability OPEN  
-- Infrastructure validation truth gap OPEN  
-- Consent persistence NOT IMPLEMENTED  
-- Legal assent INACTIVE  
-- Production deploy NONE  
+- RG-LEGAL-01 OPEN
+- RG-SOURCE-PRIVACY-01 OPEN (Issue #218 OPEN)
+- Export coverage OPEN
+- Export scalability OPEN
+- Infrastructure validation truth gap OPEN
+- Consent persistence NOT IMPLEMENTED
+- Legal assent INACTIVE
+- Production deploy NONE
 
 ## Runtime status
 

@@ -1,13 +1,13 @@
 # Body Composition Product and Standards Specification v1
 
-**Status:** Proposed — human approval required  
-**Date:** 2026-09-18  
-**Stage:** 3A (definition only; no runtime implementation)  
-**Authority level:** T2 product proposal (subordinate to Constitution, code/CI, and accepted RFCs/ADRs)  
-**Companions:**  
-- Audit: `docs/90_audits/2026-09-18-body-composition-repo-truth-audit.md`  
-- Evidence: `docs/90_audits/2026-09-18-body-composition-evidence-matrix.md`  
-- RFC: `docs/80_rfc/RFC-body-composition-category-intelligence-v1.md`  
+**Status:** Proposed — human approval required
+**Date:** 2026-09-18
+**Stage:** 3A (definition only; no runtime implementation)
+**Authority level:** T2 product proposal (subordinate to Constitution, code/CI, and accepted RFCs/ADRs)
+**Companions:**
+- Audit: `docs/90_audits/2026-09-18-body-composition-repo-truth-audit.md`
+- Evidence: `docs/90_audits/2026-09-18-body-composition-evidence-matrix.md`
+- RFC: `docs/80_rfc/RFC-body-composition-category-intelligence-v1.md`
 - ADR: `docs/70_adrs/ADR-body-composition-category-intelligence-v1.md`
 
 ---
@@ -39,17 +39,17 @@ Aligned with Analytics-First Vision and Consumer Product Decisions v2.
 
 ### Prohibited claims (v1)
 
-- Universal Body score  
-- Universal body-fat “Excellence” target  
-- BMI as Body Composition target band  
-- Mixed-method official trends  
-- Apple Health as a measurement method  
-- RawEvent-derived official consumer classification  
-- Autonomous weight/BF%/calorie/macro/training prescription  
-- Physique estimation from incomplete data  
-- DEXA-like claims from non-DEXA data  
-- Averaging Health Protection with Performance Support  
-- Letting strong lean mass hide central-adiposity risk  
+- Universal Body score
+- Universal body-fat “Excellence” target
+- BMI as Body Composition target band
+- Mixed-method official trends
+- Apple Health as a measurement method
+- RawEvent-derived official consumer classification
+- Autonomous weight/BF%/calorie/macro/training prescription
+- Physique estimation from incomplete data
+- DEXA-like claims from non-DEXA data
+- Averaging Health Protection with Performance Support
+- Letting strong lean mass hide central-adiposity risk
 
 ---
 
@@ -75,12 +75,12 @@ Scientific honesty overrides visual desire for Excellence placement.
 
 ### Recommendation (PROPOSAL — leadership must decide)
 
-1. **Keep two independent conceptual rails** in the educational reference model: Health Protection and Performance Support.  
-2. **Do not average them.**  
-3. **v1 consumer aggregate:**  
-   - Health Protection aggregate band: **optional later (3E)** via conservative bottleneck of validated core risk markers — **not Stage 3B**.  
-   - Performance Support aggregate / Excellence: **defer**; show **marker-level** performance context only until sport/goal methodology approved (**3F if ever**).  
-4. Prefer **marker-level status** for early runtime stages (3B–3D).  
+1. **Keep two independent conceptual rails** in the educational reference model: Health Protection and Performance Support.
+2. **Do not average them.**
+3. **v1 consumer aggregate:**
+   - Health Protection aggregate band: **optional later (3E)** via conservative bottleneck of validated core risk markers — **not Stage 3B**.
+   - Performance Support aggregate / Excellence: **defer**; show **marker-level** performance context only until sport/goal methodology approved (**3F if ever**).
+4. Prefer **marker-level status** for early runtime stages (3B–3D).
 5. Labels: avoid “Optimized” and “Excellence” until defined; prefer risk-oriented health language and descriptive performance language.
 
 ### Proposed interim educational labels (not approved classifications)
@@ -138,8 +138,8 @@ Height, age, sex used for interpretation, weight, BMI (screening only), sport/go
 
 See evidence matrix. Adopted structure:
 
-1. **Screening-level** — height, weight, waist → BMI + WHtR context only  
-2. **Composition-level** — method-known FM/BF% + lean + date  
+1. **Screening-level** — height, weight, waist → BMI + WHtR context only
+2. **Composition-level** — method-known FM/BF% + lean + date
 3. **Advanced** — DEXA (+ VAT/ALM/regional)
 
 ---
@@ -155,9 +155,9 @@ When method unavailable: `method = unknown`.
 
 ### Ways to measure (tracking)
 
-- Manual weight, waist, BF entry  
-- Apple Health body measurements (transport)  
-- Supported scale integrations (future; Withings live currently orphaned)  
+- Manual weight, waist, BF entry
+- Apple Health body measurements (transport)
+- Supported scale integrations (future; Withings live currently orphaned)
 - DEXA upload / clinical import (future structured)
 
 ### What influences Body Composition (not measurements)
@@ -181,7 +181,7 @@ Oura may influence behavior/interpretation; it is **not** a direct Body Composit
 
 ### Confidence (separate from state)
 
-Inputs: method, provenance, recency, completeness, consistency, compatibility, repeats, known uncertainty.  
+Inputs: method, provenance, recency, completeness, consistency, compatibility, repeats, known uncertainty.
 Labels **Low / Moderate / High** only with explicit rules in a later standards version — **UNRESOLVED exact scoring**. Completeness = available core / required core.
 
 ---
@@ -190,8 +190,8 @@ Labels **Low / Moderate / High** only with explicit rules in a later standards v
 
 Official trends must preserve metric, method, device/source where relevant, unit, conditions when relevant, date, provenance, confidence, standard version.
 
-Default: compare like with like.  
-On method change: separate series, method-change marker, or withhold classification.  
+Default: compare like with like.
+On method change: separate series, method-change marker, or withhold classification.
 **Mandatory for official Progress** (leadership confirmation required).
 
 ---
@@ -204,7 +204,7 @@ Do not choose the most favorable result. Surface conflict; withhold aggregate ra
 
 ## 11. Plan boundary
 
-Category may explain metrics, references, state, gaps, source, method, confidence, trends, levers.  
+Category may explain metrics, references, state, gaps, source, method, confidence, trends, levers.
 Category must **not** prescribe target weight/BF%, calories, macros, fat-loss rate, training plan, deadline, or medical intervention.
 
 ---
@@ -213,22 +213,22 @@ Category must **not** prescribe target weight/BF%, calories, macros, fat-loss ra
 
 Recommended order after UX review:
 
-1. Header + one-sentence purpose  
-2. Reference spectrum (educational; no user marker without evidence) + confidence/completeness  
-3. What determines your position (marker cards)  
-4. Build your baseline (measure / upload / connect)  
-5. Your evidence (inventory, missing, stale, conflicts)  
-6. Progress (method-specific; separate from Current State)  
-7. What influences Body Composition (cross-category)  
+1. Header + one-sentence purpose
+2. Reference spectrum (educational; no user marker without evidence) + confidence/completeness
+3. What determines your position (marker cards)
+4. Build your baseline (measure / upload / connect)
+5. Your evidence (inventory, missing, stale, conflicts)
+6. Progress (method-specific; separate from Current State)
+7. What influences Body Composition (cross-category)
 8. Plan (human/professional actions when available)
 
 ### Value-first no-data copy (PROPOSAL)
 
-**Title:** Body Composition  
-**Purpose:** Understand the fat and lean tissues that make up your body — and the evidence Oli has so far.  
-**Spectrum:** Educational reference only.  
-**Missing:** “Oli doesn’t have enough measurements yet to place you.”  
-**CTA:** Add waist, weight, or a composition measurement — or connect a supported source when you are ready.  
+**Title:** Body Composition
+**Purpose:** Understand the fat and lean tissues that make up your body — and the evidence Oli has so far.
+**Spectrum:** Educational reference only.
+**Missing:** “Oli doesn’t have enough measurements yet to place you.”
+**CTA:** Add waist, weight, or a composition measurement — or connect a supported source when you are ready.
 **Do not:** auto-request Apple Health before this explanation.
 
 ---
@@ -298,14 +298,14 @@ Couldn’t load Body evidence. [Retry]
 
 ## 14. Accessibility
 
-- Spectrum not color-only; every band text-labeled  
-- Marker position has accessible description; unknown announced as unknown  
-- Marker cards announce metric, value, unit, status, method, source, date  
-- Charts have text alternatives  
-- Confidence in words  
-- Method changes announced  
-- ≥44 pt controls; Dynamic Type; Reduce Motion  
-- Neutral, non-shaming language; no moral judgment of body size/fat  
+- Spectrum not color-only; every band text-labeled
+- Marker position has accessible description; unknown announced as unknown
+- Marker cards announce metric, value, unit, status, method, source, date
+- Charts have text alternatives
+- Confidence in words
+- Method changes announced
+- ≥44 pt controls; Dynamic Type; Reduce Motion
+- Neutral, non-shaming language; no moral judgment of body size/fat
 
 ### VoiceOver strings (PROPOSAL)
 
@@ -324,31 +324,31 @@ Couldn’t load Body evidence. [Retry]
 
 For each fixture: allowed output, forbidden output, marker availability, rail availability, confidence, copy, source display, user action.
 
-1. No Body data — missing; reference only; no marker  
-2. Height + weight only — screening BMI context; no composition Excellence  
-3. Height + weight + waist — WHtR health context possible; no Excellence  
-4. Manual BF% unknown method — show value; no rail  
-5. Consumer BIA series — method-specific trend only  
-6. DEXA fat + lean — composition-level / advanced markers  
-7. DEXA + VAT — advanced risk context  
-8. Low lean + healthy central adiposity — do not hide low lean; no fake healthy aggregate  
-9. High central adiposity + strong lean — health bottleneck to higher risk; lean must not erase risk  
-10. Very low BF% + LEA concern — withhold Excellence; show concern  
-11. Conflicting DEXA vs scale — conflict UI; no favorable pick  
-12. Stale DEXA + recent weight — stale composition; weight ≠ composition refresh  
-13. Unit conversion — display prefs; store canonical  
-14. Sex-specific applicability — withhold sex-specific BF bands if sex missing  
-15. Age-specific applicability — apply when standards require  
-16. Ethnicity-specific waist cutoffs — follow approved applicability model or withhold  
-17. Unsupported population — honest unsupported  
-18. Method change in trend — separate series / marker / withhold  
-19. Missing provenance — method unknown; no rail  
-20. Network error — error state  
-21. Source disconnected + history remains — history retained per ownership rules; no new sync  
-22. Account switch — no cross-user source state  
-23. Deleted source history — missing/partial honestly  
-24. Duplicate same-day measurements — deterministic selection rule (facts layer)  
-25. Measurement correction — lineage-aware replacement  
+1. No Body data — missing; reference only; no marker
+2. Height + weight only — screening BMI context; no composition Excellence
+3. Height + weight + waist — WHtR health context possible; no Excellence
+4. Manual BF% unknown method — show value; no rail
+5. Consumer BIA series — method-specific trend only
+6. DEXA fat + lean — composition-level / advanced markers
+7. DEXA + VAT — advanced risk context
+8. Low lean + healthy central adiposity — do not hide low lean; no fake healthy aggregate
+9. High central adiposity + strong lean — health bottleneck to higher risk; lean must not erase risk
+10. Very low BF% + LEA concern — withhold Excellence; show concern
+11. Conflicting DEXA vs scale — conflict UI; no favorable pick
+12. Stale DEXA + recent weight — stale composition; weight ≠ composition refresh
+13. Unit conversion — display prefs; store canonical
+14. Sex-specific applicability — withhold sex-specific BF bands if sex missing
+15. Age-specific applicability — apply when standards require
+16. Ethnicity-specific waist cutoffs — follow approved applicability model or withhold
+17. Unsupported population — honest unsupported
+18. Method change in trend — separate series / marker / withhold
+19. Missing provenance — method unknown; no rail
+20. Network error — error state
+21. Source disconnected + history remains — history retained per ownership rules; no new sync
+22. Account switch — no cross-user source state
+23. Deleted source history — missing/partial honestly
+24. Duplicate same-day measurements — deterministic selection rule (facts layer)
+25. Measurement correction — lineage-aware replacement
 
 ---
 
@@ -380,23 +380,23 @@ BodyCompositionState {
 
 ## 17. Leadership decisions required
 
-1. Approve two independent rails?  
-2. Health aggregate position in v1?  
-3. Performance aggregate position in v1?  
-4. “Optimized” health label?  
-5. “Excellence” performance label?  
-6. Marker-level only for early stages?  
-7. Core v1 markers set?  
-8. Advanced markers set?  
-9. WHtR in v1?  
-10. General BF% ranges in v1?  
-11. Performance interpretation requires sport/goal?  
-12. DEXA required for advanced placement?  
-13. Unknown-method AH may drive classification? (**Recommend no**)  
-14. Like-with-like trends mandatory? (**Recommend yes**)  
-15. How personal targets separate from evidence standards?  
-16. Standards versioning/governance model?  
-17. Which implementation gate begins after approval (recommend **3B** value-first shell)?  
+1. Approve two independent rails?
+2. Health aggregate position in v1?
+3. Performance aggregate position in v1?
+4. “Optimized” health label?
+5. “Excellence” performance label?
+6. Marker-level only for early stages?
+7. Core v1 markers set?
+8. Advanced markers set?
+9. WHtR in v1?
+10. General BF% ranges in v1?
+11. Performance interpretation requires sport/goal?
+12. DEXA required for advanced placement?
+13. Unknown-method AH may drive classification? (**Recommend no**)
+14. Like-with-like trends mandatory? (**Recommend yes**)
+15. How personal targets separate from evidence standards?
+16. Standards versioning/governance model?
+17. Which implementation gate begins after approval (recommend **3B** value-first shell)?
 
 ---
 

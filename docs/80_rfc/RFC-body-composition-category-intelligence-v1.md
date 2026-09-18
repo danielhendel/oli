@@ -1,12 +1,12 @@
 # RFC — Body Composition Category Intelligence v1
 
-**Status:** Proposed  
-**Date:** 2026-09-18  
-**Stage:** 3A (documentation only)  
-**Canonical location:** `docs/80_rfc/`  
-**ADR:** `docs/70_adrs/ADR-body-composition-category-intelligence-v1.md`  
-**Product spec:** `docs/10_product/specs/BODY_COMPOSITION_PRODUCT_AND_STANDARDS_V1.md`  
-**Audit:** `docs/90_audits/2026-09-18-body-composition-repo-truth-audit.md`  
+**Status:** Proposed
+**Date:** 2026-09-18
+**Stage:** 3A (documentation only)
+**Canonical location:** `docs/80_rfc/`
+**ADR:** `docs/70_adrs/ADR-body-composition-category-intelligence-v1.md`
+**Product spec:** `docs/10_product/specs/BODY_COMPOSITION_PRODUCT_AND_STANDARDS_V1.md`
+**Audit:** `docs/90_audits/2026-09-18-body-composition-repo-truth-audit.md`
 **Evidence:** `docs/90_audits/2026-09-18-body-composition-evidence-matrix.md`
 
 Do **not** mark Accepted / Approved / Implemented / Operational / Merged without human approval.
@@ -21,29 +21,29 @@ The merged Body Composition surface is weight-centric, permission-first, and hyd
 
 ## Goals
 
-1. Define a value-first Body Composition Category Intelligence architecture.  
-2. Separate Health Protection from Performance Support.  
-3. Enforce provenance, readiness, confidence, like-with-like trends, and facts-first derivation.  
-4. Version standards with citations and reprocessing rules.  
+1. Define a value-first Body Composition Category Intelligence architecture.
+2. Separate Health Protection from Performance Support.
+3. Enforce provenance, readiness, confidence, like-with-like trends, and facts-first derivation.
+4. Version standards with citations and reprocessing rules.
 5. Stage runtime work (3B+) only after human approval.
 
 ## Non-goals
 
-- Runtime UI/graph implementation in this RFC  
-- New Firestore paths, APIs, DailyFacts fields, or contracts in this stage  
-- Closing RG-LEGAL-01 / RG-SOURCE-PRIVACY-01 / export gates  
-- Strength/Cardio/Nutrition/Sleep/Recovery/Health category redesign  
-- Cherry-picking PR #178  
+- Runtime UI/graph implementation in this RFC
+- New Firestore paths, APIs, DailyFacts fields, or contracts in this stage
+- Closing RG-LEGAL-01 / RG-SOURCE-PRIVACY-01 / export gates
+- Strength/Cardio/Nutrition/Sleep/Recovery/Health category redesign
+- Cherry-picking PR #178
 
 ---
 
 ## Repository truth (summary)
 
-- Live overview: `app/(app)/body/index.tsx` — AH permission gate → Today weight card → week/baseline/yearly weight.  
-- RawEvent reads: `useWeightSeries`, peeks, `useBodyMetricTrends`.  
-- DailyFacts.body supports weight, BF%, BMI, lean, RMR — partially used.  
-- DEXA route empty; DEXA structured extraction unavailable.  
-- Waist on profile contract; not Body measurement UX.  
+- Live overview: `app/(app)/body/index.tsx` — AH permission gate → Today weight card → week/baseline/yearly weight.
+- RawEvent reads: `useWeightSeries`, peeks, `useBodyMetricTrends`.
+- DailyFacts.body supports weight, BF%, BMI, lean, RMR — partially used.
+- DEXA route empty; DEXA structured extraction unavailable.
+- Waist on profile contract; not Body measurement UX.
 - PR #178 closed unmerged; AH→BIA + physique estimate rejected.
 
 ---
@@ -58,10 +58,10 @@ Page IA: purpose → educational spectrum → markers → baseline building → 
 
 ### Two-rail model
 
-- Conceptual dual rails approved as **direction**.  
-- Early stages: marker-level only.  
-- Health aggregate (bottleneck) only after evidence + leadership (3E).  
-- Performance aggregate / Excellence deferred unless sport/goal methodology approved (3F).  
+- Conceptual dual rails approved as **direction**.
+- Early stages: marker-level only.
+- Health aggregate (bottleneck) only after evidence + leadership (3E).
+- Performance aggregate / Excellence deferred unless sport/goal methodology approved (3F).
 - No combined Body score; no averaging rails.
 
 ---
@@ -78,11 +78,11 @@ RawEvents remain for lineage, replay, debug, reprocessing, provenance inspection
 
 **Migration sequence (smallest, later stages):**
 
-1. 3B: Educational shell; hide permission-first; no new classification.  
-2. 3C: Provenance-aware inputs (waist, method labels).  
-3. 3D: Bounded facts/summary APIs for marker cards (stop RawEvent as official Current State).  
-4. 3E/3F: Server-derived classifications when standards accepted.  
-5. 3G: Method-specific compressed series for Progress.  
+1. 3B: Educational shell; hide permission-first; no new classification.
+2. 3C: Provenance-aware inputs (waist, method labels).
+3. 3D: Bounded facts/summary APIs for marker cards (stop RawEvent as official Current State).
+4. 3E/3F: Server-derived classifications when standards accepted.
+5. 3G: Method-specific compressed series for Progress.
 6. 3H: Generalize Category Intelligence.
 
 ---

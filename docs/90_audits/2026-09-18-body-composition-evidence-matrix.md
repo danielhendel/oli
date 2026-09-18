@@ -1,8 +1,8 @@
 # Body Composition — Scientific Evidence Matrix (Stage 3A)
 
-**Status:** Proposed evidence register (not an accepted standards registry)  
-**Date:** 2026-09-18  
-**Claim discipline:** Every row tags EVIDENCE | PRODUCT DECISION | PROPOSAL | INFERENCE | UNRESOLVED  
+**Status:** Proposed evidence register (not an accepted standards registry)
+**Date:** 2026-09-18
+**Claim discipline:** Every row tags EVIDENCE | PRODUCT DECISION | PROPOSAL | INFERENCE | UNRESOLVED
 **Durable standards placement:** UNRESOLVED — no dedicated accepted consumer standards registry exists beyond legacy `lib/classifications/` and `docs/authoritative/Oli Evidence-Based Classification Framework v1.md` (long-term reference; must not override current consumer authority). Placement feeds Stage 3 analytics-truth contracts after RFC/ADR acceptance.
 
 ---
@@ -200,21 +200,21 @@ Very low body-fat or rapid lean loss may indicate low-energy-availability concer
 
 ## 8. Bibliography (primary)
 
-1. WHO. *Waist Circumference and Waist–Hip Ratio: Report of a WHO Expert Consultation.* https://www.who.int/publications/i/item/9789241501491  
-2. Lean ME, et al. Waist circumference as a measure for indicating need for weight management. *BMJ.* 1995. PMID: 7613427  
-3. NICE NG246. Overweight and obesity management — identifying/assessing central adiposity. https://www.nice.org.uk/guidance/ng246  
-4. CDC. Adult BMI Categories; BMI FAQ (screening; not direct body fat). https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html  
-5. Cruz-Jentoft AJ, et al. Sarcopenia: revised European consensus (EWGSOP2). *Age Ageing.* 2019. https://doi.org/10.1093/ageing/afz046  
-6. Achamrah N, et al. DXA vs BIA by BMI. *PLOS One.* 2018. https://doi.org/10.1371/journal.pone.0200465  
-7. Clin J Sport Med systematic review/meta-analysis: DXA vs BIA in athletes. https://doi.org/10.1097/jsm.0000000000001136  
+1. WHO. *Waist Circumference and Waist–Hip Ratio: Report of a WHO Expert Consultation.* https://www.who.int/publications/i/item/9789241501491
+2. Lean ME, et al. Waist circumference as a measure for indicating need for weight management. *BMJ.* 1995. PMID: 7613427
+3. NICE NG246. Overweight and obesity management — identifying/assessing central adiposity. https://www.nice.org.uk/guidance/ng246
+4. CDC. Adult BMI Categories; BMI FAQ (screening; not direct body fat). https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html
+5. Cruz-Jentoft AJ, et al. Sarcopenia: revised European consensus (EWGSOP2). *Age Ageing.* 2019. https://doi.org/10.1093/ageing/afz046
+6. Achamrah N, et al. DXA vs BIA by BMI. *PLOS One.* 2018. https://doi.org/10.1371/journal.pone.0200465
+7. Clin J Sport Med systematic review/meta-analysis: DXA vs BIA in athletes. https://doi.org/10.1097/jsm.0000000000001136
 
 ---
 
 ## 9. Explicit non-authority for v1
 
-- Fitness blog BF% charts  
-- Contest bodybuilding ranges as health standards  
-- Commercial scale marketing ranges as universal standards  
-- AI-generated unsourced tables  
-- Legacy Oli “Optimal” BF% bands without re-citation and human approval  
-- PR #178 uncertainty margins  
+- Fitness blog BF% charts
+- Contest bodybuilding ranges as health standards
+- Commercial scale marketing ranges as universal standards
+- AI-generated unsourced tables
+- Legacy Oli “Optimal” BF% bands without re-citation and human approval
+- PR #178 uncertainty margins
