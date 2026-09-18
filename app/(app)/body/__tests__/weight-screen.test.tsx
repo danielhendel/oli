@@ -69,6 +69,10 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
 }));
 
+jest.mock("@/lib/ui/WeightLogModal", () => ({
+  WeightLogModal: () => null,
+}));
+
 const Screen = require("../index").default as React.ComponentType;
 
 function collectText(test: renderer.ReactTestRenderer): string {
@@ -171,17 +175,20 @@ describe("Body Composition main screen", () => {
     expect(stripDay).toBeUndefined();
   });
 
-  it("renders Today, This Week's Weight, Weight Baseline, and 2026 Weight in order", () => {
+  it("renders educational shell before existing measurement cards", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(React.createElement(Screen));
     });
     const text = collectText(tree);
+    expect(text).toContain("Educational reference");
     expect(text).toContain("Today");
     expect(text).toContain("This Week's Weight");
     expect(text).toContain("Weight Baseline");
     expect(text).toContain("2026 Weight");
+    expect(text.indexOf("Educational reference")).toBeLessThan(text.indexOf("Your measurements"));
+    expect(text.indexOf("Your measurements")).toBeLessThan(text.indexOf("Today"));
     expect(text.indexOf("Today")).toBeLessThan(text.indexOf("This Week's Weight"));
     expect(text.indexOf("This Week's Weight")).toBeLessThan(text.indexOf("Weight Baseline"));
     expect(text.indexOf("Weight Baseline")).toBeLessThan(text.indexOf("2026 Weight"));
@@ -282,7 +289,7 @@ describe("Body Composition main screen", () => {
     expect(tree.root.findAllByProps({ testID: "body-yearly-card" })).toHaveLength(0);
   });
 
-  it("shows Apple Health permission onboarding when access is not determined", () => {
+  it("shows Apple Health connect after education when access is not determined", () => {
     mockHook.mockReturnValue(buildBody());
     mockAccess.mockReturnValue({
       phase: "not_determined",
@@ -297,11 +304,14 @@ describe("Body Composition main screen", () => {
       tree = renderer.create(React.createElement(Screen));
     });
     const text = collectText(tree);
-    expect(text).toContain("Connect Apple Health for Body data");
-    expect(text).toContain("Allow Apple Health Access");
+    expect(text).toContain("Educational reference");
+    expect(text).toContain("Connect Apple Health");
+    expect(text).toContain("transport");
+    expect(text.indexOf("Educational reference")).toBeLessThan(text.indexOf("Connect Apple Health"));
+    expect(tree.root.findByProps({ testID: "body-composition-education-screen" })).toBeDefined();
   });
 
-  it("invokes onAllowAppleHealthBodyAccess when Allow Apple Health Access is pressed", () => {
+  it("invokes onAllowAppleHealthBodyAccess when Connect Apple Health is pressed", () => {
     const onAllow = jest.fn();
     mockHook.mockReturnValue(buildBody());
     mockAccess.mockReturnValue({
@@ -341,8 +351,41 @@ describe("Body Composition main screen", () => {
       tree = renderer.create(React.createElement(Screen));
     });
     const text = collectText(tree);
-    expect(text).toContain("Apple Health access is off");
-    expect(text).toContain("Open Settings");
+    expect(text).toContain("Review Apple Health access");
+    expect(text).toContain("Educational reference");
+  });
+
+  it("keeps education visible when measurement series errors", () => {
+    mockHook.mockReturnValue(
+      buildBody({
+        series: {
+          status: "error",
+          error: "network",
+          requestId: "req_1",
+          refetch: jest.fn(),
+          data: { points: [], latest: null },
+        },
+      }),
+    );
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    const text = collectText(tree);
+    expect(text).toContain("Educational reference");
+    expect(tree.root.findByProps({ testID: "body-composition-measurement-error" })).toBeDefined();
+  });
+
+  it("routes Open Plan to the canonical Plan destination", () => {
+    mockHook.mockReturnValue(buildBody());
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    act(() => {
+      tree.root.findByProps({ testID: "body-composition-open-plan" }).props.onPress();
+    });
+    expect(mockPush).toHaveBeenCalledWith("/(app)/(tabs)/program");
   });
 
   it("shows granted-no-data copy on the Today card when permission is granted but no samples exist", () => {
