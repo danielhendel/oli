@@ -170,7 +170,7 @@ describe("Body Composition simplified main screen", () => {
       tree = renderer.create(React.createElement(Screen));
     });
     const text = collectText(tree);
-    expect(text).toContain("Track weight, body fat, and lean tissue.");
+    expect(text).not.toContain("Track weight, body fat, and lean tissue.");
     expect(tree.root.findByProps({ testID: "body-metric-card-weight" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-metric-card-bodyFat" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-metric-card-leanTissue" })).toBeDefined();
@@ -195,7 +195,7 @@ describe("Body Composition simplified main screen", () => {
     // Weight may show a CDC/WHO screening marker; Body Fat / Lean must not invent markers.
   });
 
-  it("shows populated values with CDC/WHO Weight labels and no BF/Lean classification graph", () => {
+  it("shows populated values with CDC/WHO Weight chart and no BF/Lean classification graph", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -209,14 +209,29 @@ describe("Body Composition simplified main screen", () => {
     expect(text).toContain("Healthy Weight");
     expect(text).toContain("Overweight");
     expect(text).toContain("Obesity");
-    expect(text).toContain("BMI screening");
+    expect(text).not.toContain("BMI SCREENING");
+    expect(text).not.toContain("cdc-who-adult-bmi-screening");
+    expect(text).not.toContain("No measurement yet");
     expect(text).not.toMatch(/\bBelow\b|\bAbove\b/);
-    expect(text).not.toContain("Classification standard pending approval");
-    expect(tree.root.findByProps({ testID: "body-metric-bar-weight" })).toBeDefined();
-    expect(tree.root.findAllByProps({ testID: "body-metric-bar-bodyFat" })).toHaveLength(0);
-    expect(tree.root.findAllByProps({ testID: "body-metric-bar-leanTissue" })).toHaveLength(0);
+    expect(tree.root.findByProps({ testID: "body-metric-chart-weight" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-chart-bodyFat" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "body-metric-chart-leanTissue" })).toHaveLength(0);
     expect(text).toContain("Connected");
     expect(text).toContain("Add measurement");
+  });
+
+  it("routes Connected to Apple Health management rather than syncing on tap", () => {
+    mockHook.mockReturnValue(buildPopulatedBody());
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(React.createElement(Screen));
+    });
+    act(() => {
+      tree.root
+        .findByProps({ testID: "body-metric-connection-weight" })
+        .props.onPress({ stopPropagation: jest.fn() });
+    });
+    expect(mockPush).toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
   });
 
   it("shows Sync now when Apple Health is not yet connected for this account", () => {

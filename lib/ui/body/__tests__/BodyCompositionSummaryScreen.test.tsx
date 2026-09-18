@@ -11,6 +11,30 @@ jest.mock("react-native", () => ({
   StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },
 }));
 
+jest.mock("@/lib/ui/body/BodyMetricClassificationChart", () => {
+  const React = require("react");
+  return {
+    BodyMetricClassificationChart: (props: {
+      model: { segments: { label: string; formattedRange: string | null }[]; marker: unknown };
+      testID?: string;
+    }) =>
+      React.createElement(
+        "View",
+        { testID: props.testID ?? "body-metric-classification-chart" },
+        props.model.segments.map((s) =>
+          React.createElement(
+            "Text",
+            { key: s.label },
+            `${s.label} ${s.formattedRange ?? ""}`,
+          ),
+        ),
+        props.model.marker
+          ? React.createElement("Text", null, "MARKER")
+          : null,
+      ),
+  };
+});
+
 function collectText(test: renderer.ReactTestRenderer): string {
   return test.root
     .findAllByType("Text")
@@ -21,7 +45,7 @@ function collectText(test: renderer.ReactTestRenderer): string {
 
 const connectionAction = { kind: "sync_now" as const, label: "Sync now" };
 
-describe("BodyCompositionSummaryScreen", () => {
+describe("BodyCompositionSummaryScreen — visual cards", () => {
   const cards = buildBodyMetricSummaryCards({
     overview: {
       overviewDay: "2026-09-18",
@@ -35,7 +59,7 @@ describe("BodyCompositionSummaryScreen", () => {
     unit: "lb",
   });
 
-  it("renders purpose and exactly three primary metric cards in order", () => {
+  it("renders three cards without landing subtitle", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -51,16 +75,16 @@ describe("BodyCompositionSummaryScreen", () => {
       );
     });
     const text = collectText(tree);
-    expect(text).toContain("Track weight, body fat, and lean tissue.");
+    expect(text).not.toContain("Track weight, body fat, and lean tissue.");
+    expect(tree.root.findAllByProps({ testID: "body-composition-purpose" })).toHaveLength(0);
     expect(tree.root.findByProps({ testID: "body-metric-card-weight" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-metric-card-bodyFat" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-metric-card-leanTissue" })).toBeDefined();
     expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("Body Fat"));
     expect(text.indexOf("Body Fat")).toBeLessThan(text.indexOf("Lean Tissue"));
-    expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("AH_SLOT"));
   });
 
-  it("shows Weight CDC/WHO graph and omits Body Fat / Lean Tissue graphs", () => {
+  it("shows Weight chart labels and omits BF/Lean charts and clutter copy", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -76,21 +100,21 @@ describe("BodyCompositionSummaryScreen", () => {
       );
     });
     const text = collectText(tree);
+    expect(tree.root.findByProps({ testID: "body-metric-chart-weight" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-chart-bodyFat" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "body-metric-chart-leanTissue" })).toHaveLength(0);
     expect(text).toContain("Underweight");
     expect(text).toContain("Healthy Weight");
     expect(text).toContain("Overweight");
     expect(text).toContain("Obesity");
-    expect(tree.root.findByProps({ testID: "body-metric-bar-weight" })).toBeDefined();
-    expect(tree.root.findAllByProps({ testID: "body-metric-bar-bodyFat" })).toHaveLength(0);
-    expect(tree.root.findAllByProps({ testID: "body-metric-bar-leanTissue" })).toHaveLength(0);
-    expect(text).not.toContain("Educational reference");
-    expect(text).not.toContain("Health Protection");
-    expect(text).not.toContain("Performance Support");
-    expect(text).not.toMatch(/\bBelow\b/);
-    expect(text).not.toMatch(/Optimal|Ideal|Target|Excellence/i);
+    expect(text).not.toContain("BMI SCREENING");
+    expect(text).not.toContain("cdc-who-adult-bmi-screening");
+    expect(text).not.toContain("No measurement yet");
+    expect(text).not.toContain("Personal screening placement unavailable");
+    expect(text).not.toMatch(/Optimal|Ideal|Target|Excellence|Body score/i);
   });
 
-  it("keeps Add measurement left and Sync now right on each card", () => {
+  it("keeps Add measurement left and Sync now right", () => {
     const onPressAddWeight = jest.fn();
     const onPressConnectionAction = jest.fn();
     let tree!: renderer.ReactTestRenderer;
@@ -107,12 +131,6 @@ describe("BodyCompositionSummaryScreen", () => {
         }),
       );
     });
-    const text = collectText(tree);
-    expect(text.indexOf("Lean Tissue")).toBeLessThan(text.indexOf("Add or connect measurements"));
-    expect(text.indexOf("Add or connect measurements")).toBeLessThan(text.indexOf("CONNECT_AH"));
-
-    const weightActions = tree.root.findByProps({ testID: "body-metric-actions-weight" });
-    expect(weightActions.props.style.justifyContent).toBe("space-between");
     act(() => {
       tree.root.findByProps({ testID: "body-metric-add-weight" }).props.onPress({ stopPropagation: jest.fn() });
     });

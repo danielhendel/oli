@@ -86,8 +86,14 @@ describe("resolveBodyMetricStandardPresentation — Weight", () => {
     ]);
     expect(resolved!.segments.some((s) => s.displayLabel === "Below")).toBe(false);
     expect(resolved!.segments.some((s) => s.displayLabel === "Reference")).toBe(false);
-    expect(resolved!.contextLabel).toMatch(/BMI screening/i);
-    expect(resolved!.standardVersion).toBeTruthy();
+    expect(resolved!.contextLabel).toMatch(/Adult BMI screening/i);
+    expect(resolved!.standardId).toBe("cdc-who-adult-bmi-screening");
+    expect(resolved!.standardVersion).toBe("2024.1");
+    expect(resolved!.markerFormattedValue).toBeTruthy();
+    expect(resolved!.withinSegmentPosition).not.toBeNull();
+    expect(resolved!.segments.every((s) => s.numericRangeLabel != null)).toBe(true);
+    expect(resolved!.accessibleSummary).toMatch(/screening context/i);
+    expect(resolved!.accessibleSummary).not.toMatch(/Optimal|Ideal|Target/i);
   });
 
   it("withholds personal marker when height is missing", () => {
@@ -95,6 +101,18 @@ describe("resolveBodyMetricStandardPresentation — Weight", () => {
     expect(resolved).not.toBeNull();
     expect(resolved!.markerPosition).toBeNull();
     expect(resolved!.markerLabel).toBeNull();
+    expect(resolved!.segments.every((s) => s.numericRangeLabel == null)).toBe(true);
+  });
+
+  it("keeps chart without marker when weight is missing", () => {
+    const resolved = resolveBodyMetricStandardPresentation({
+      ...base,
+      weightKg: null,
+      bmi: null,
+    });
+    expect(resolved).not.toBeNull();
+    expect(resolved!.markerPosition).toBeNull();
+    expect(resolved!.accessibleSummary).toMatch(/No current measurement/i);
   });
 
   it("does not apply adult categories under age 20 or with unknown age", () => {

@@ -3,6 +3,11 @@ import {
   buildBodyMetricSummaryCards,
 } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import { BODY_COMPOSITION_METRIC_DETAIL_ROUTES } from "@/lib/data/body/bodyCompositionMetricRoutes";
+import {
+  assertCdcWhoHeightWeightRangesContiguous,
+  buildCdcWhoHeightWeightDisplayTicks,
+  formatCdcWhoWeightRangeForClass,
+} from "@/lib/body/standards/cdcWhoHeightWeightRangeDisplay";
 
 const adultProfile = {
   heightCm: 170,
@@ -10,7 +15,7 @@ const adultProfile = {
   sex: "female" as const,
 };
 
-describe("buildBodyMetricSummaryCards", () => {
+describe("buildBodyMetricSummaryCards — visual classification", () => {
   it("returns exactly three cards in Weight → Body Fat → Lean Tissue order", () => {
     const cards = buildBodyMetricSummaryCards({
       overview: {
@@ -26,6 +31,7 @@ describe("buildBodyMetricSummaryCards", () => {
     });
     expect(cards).toHaveLength(3);
     expect(cards.map((c) => c.metric)).toEqual(["weight", "bodyFat", "leanTissue"]);
+    expect(BODY_COMPOSITION_SUMMARY_COPY.purpose).toBeNull();
   });
 
   it("never renders missing values as zero", () => {
@@ -47,7 +53,7 @@ describe("buildBodyMetricSummaryCards", () => {
     }
   });
 
-  it("uses CDC/WHO Weight labels and never generic Below/Reference/Above/High", () => {
+  it("builds Weight categorical chart with exact labels and height-specific ranges", () => {
     const [weight] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -60,21 +66,46 @@ describe("buildBodyMetricSummaryCards", () => {
       profile: adultProfile,
       unit: "kg",
     });
-    expect(weight.statusLabel).toBe("Healthy Weight");
-    expect(weight.referenceContextLabel).toMatch(/BMI screening/i);
-    expect(weight.referenceBar?.markerPosition).not.toBeNull();
-    expect(weight.referenceBar?.segments.map((s) => s.label)).toEqual([
+    expect(weight.featured).toBe(true);
+    expect(weight.statusLabel).toBe("");
+    expect(weight.referenceContextLabel).toMatch(/Adult BMI screening/i);
+    expect(weight.classificationChart).not.toBeNull();
+    expect(weight.classificationChart!.segments.map((s) => s.label)).toEqual([
       "Underweight",
       "Healthy Weight",
       "Overweight",
       "Obesity",
     ]);
-    const labels = weight.referenceBar!.segments.map((s) => s.label).join(" ");
-    expect(labels).not.toMatch(/\bBelow\b|\bReference\b|\bAbove\b|\bHigh\b/);
-    expect(JSON.stringify(weight)).not.toMatch(/ideal weight|Optimal|Excellence|Target|Performance Weight/i);
+    expect(weight.classificationChart!.marker).not.toBeNull();
+    expect(weight.classificationChart!.marker!.segmentId).toBe("healthy_weight");
+    const ranges = weight.classificationChart!.segments.map((s) => s.formattedRange);
+    expect(ranges.every((r) => typeof r === "string" && r.length > 0)).toBe(true);
+    expect(JSON.stringify(weight)).not.toMatch(/ideal weight|Optimal|Excellence|Target|Below|Reference unavailable|No measurement yet|Personal screening placement unavailable/i);
+    // standardId lives in the typed model for detail/accessibility — not as visible card chrome copy.
+    expect(weight.statusLabel).toBe("");
+    expect(weight.referenceLabel).toBeNull();
   });
 
-  it("withholds Weight marker without height", () => {
+  it("keeps Weight chart without marker when weight missing but height+age apply", () => {
+    const [weight] = buildBodyMetricSummaryCards({
+      overview: {
+        overviewDay: null,
+        weightKg: null,
+        bodyFatPercent: null,
+        leanBodyMassKg: null,
+        bmi: null,
+        hasAnyMetric: false,
+      },
+      profile: adultProfile,
+      unit: "lb",
+    });
+    expect(weight.classificationChart).not.toBeNull();
+    expect(weight.classificationChart!.marker).toBeNull();
+    expect(weight.formattedValue).toBeNull();
+    expect(weight.accessibilityLabel).toMatch(/No current measurement/i);
+  });
+
+  it("omits personalized ranges and marker without height", () => {
     const [weight] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -87,10 +118,12 @@ describe("buildBodyMetricSummaryCards", () => {
       profile: { heightCm: null, ageYears: 30, sex: "female" },
       unit: "kg",
     });
-    expect(weight.referenceBar?.markerPosition).toBeNull();
+    expect(weight.classificationChart).not.toBeNull();
+    expect(weight.classificationChart!.marker).toBeNull();
+    expect(weight.classificationChart!.segments.every((s) => s.formattedRange == null)).toBe(true);
   });
 
-  it("withholds Weight marker for under-20 adult-standard rejection", () => {
+  it("withholds adult Weight chart under age 20", () => {
     const [weight] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -103,11 +136,10 @@ describe("buildBodyMetricSummaryCards", () => {
       profile: { heightCm: 170, ageYears: 19, sex: "female" },
       unit: "kg",
     });
-    expect(weight.referenceBar).toBeNull();
-    expect(weight.statusLabel).toMatch(/not applicable/i);
+    expect(weight.classificationChart).toBeNull();
   });
 
-  it("shows Body Fat value without classification graph or personal marker", () => {
+  it("shows Body Fat value without classification chart or personal marker", () => {
     const [, bodyFat] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -121,16 +153,14 @@ describe("buildBodyMetricSummaryCards", () => {
       unit: "lb",
     });
     expect(bodyFat.formattedValue).toBe("18.0%");
+    expect(bodyFat.classificationChart).toBeNull();
     expect(bodyFat.referenceBar).toBeNull();
-    expect(bodyFat.referenceLabel).toBeNull();
-    expect(bodyFat.statusLabel).toBe("");
-    expect(bodyFat.provenance.measurementMethodLabel).toBe("Method unknown");
     expect(JSON.stringify(bodyFat)).not.toMatch(
       /BIA|Essential|Athlete|Fitness|Average|Excellence|Underfat|Healthy Body Fat|Optimal|Elite/i,
     );
   });
 
-  it("shows Lean Tissue total lean mass without classification graph or ASM/ALMI", () => {
+  it("shows Lean Tissue without classification chart or ASM/ALMI", () => {
     const [, , lean] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -143,9 +173,7 @@ describe("buildBodyMetricSummaryCards", () => {
       profile: adultProfile,
       unit: "lb",
     });
-    expect(lean.referenceBar).toBeNull();
-    expect(lean.referenceLabel).toBeNull();
-    expect(lean.formattedValue).toBeTruthy();
+    expect(lean.classificationChart).toBeNull();
     expect(lean.accessibilityLabel).toMatch(/Total lean mass/i);
     expect(JSON.stringify(lean)).not.toMatch(
       /Elite|Optimal|Excellent|Weak|sarcopenia diagnosis|ALMI|ASM|Performance Rating/i,
@@ -168,6 +196,25 @@ describe("buildBodyMetricSummaryCards", () => {
     const serialized = JSON.stringify(cards);
     expect(serialized).not.toMatch(/Body score|Health Protection|Performance Support|You are here/i);
     expect(cards[0].detailHref).toBe(BODY_COMPOSITION_METRIC_DETAIL_ROUTES.weight);
-    expect(BODY_COMPOSITION_SUMMARY_COPY.moreMarkersHref).toBeNull();
+  });
+});
+
+describe("CDC/WHO height-specific range ticks", () => {
+  it("produces contiguous gap-free ranges for common heights", () => {
+    for (const heightCm of [160, 170, 180, 190]) {
+      for (const unit of ["lb", "kg"] as const) {
+        const ticks = buildCdcWhoHeightWeightDisplayTicks(heightCm, unit);
+        expect(ticks).not.toBeNull();
+        expect(assertCdcWhoHeightWeightRangesContiguous(ticks!)).toBe(true);
+        const uw = formatCdcWhoWeightRangeForClass("underweight", ticks);
+        const hw = formatCdcWhoWeightRangeForClass("healthy_weight", ticks);
+        const ow = formatCdcWhoWeightRangeForClass("overweight", ticks);
+        const ob = formatCdcWhoWeightRangeForClass("obesity", ticks);
+        expect(uw).toMatch(/^</);
+        expect(hw).toMatch(/–/);
+        expect(ow).toMatch(/–/);
+        expect(ob).toMatch(/^≥/);
+      }
+    }
   });
 });

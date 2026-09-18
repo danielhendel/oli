@@ -189,6 +189,9 @@ describe("Body Composition Stage 3B source privacy", () => {
       .filter((x) => typeof x === "string")
       .join(" ");
     expect(text).not.toMatch(/Oura/);
-    expect(text).toContain("Track weight, body fat, and lean tissue.");
+    expect(text).not.toContain("Track weight, body fat, and lean tissue.");
+    expect(text).toContain("Weight");
+    expect(text).toContain("Body Fat");
+    expect(text).toContain("Lean Tissue");
   });
 });
