@@ -1,24 +1,26 @@
 # Repo-Truth Progress Map
 
 **Status:** Current operational truth (subordinate to code + CI)
-**Last verified:** 2026-09-16
-**Merged `main` SHA:** `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`
+**Last verified:** 2026-09-18
+**Merged `main` SHA:** `c92ca0518366f0ef7b5e3af08e127fb623506622`
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
 **Prior Stage 1A truth freeze (historical):** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `Stage 2 — Minimal Onboarding and Data Readiness` (**implementation complete on branch**; pending independent PR review/merge)
+**Current execution-stage label:** `Stage 3A — Body Composition Definition` (**COMPLETE** docs; RFC/ADR **Accepted** 2026-09-18 with guardrails). Stage 3B shell **AUTHORIZED — NOT STARTED**.
 **Stage 1B:** **MERGED** (PR #214 at `3d4859e45d537813b6846ecaf4cb49222519ef80`)
 **Stage 1C:** **MERGED** (PR #215 at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`)
 **Build hygiene:** **MERGED** (PR #216 at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`)
-**Stage 2 branch:** `feat/consumer-stage2-minimal-onboarding-readiness`
-**Stage 2 physical runtime SHA:** `255f7101db7a111471ca38b92813cb426e762007` (**PASS**)
+**Stage 2:** **MERGED** (PR #217 at `c92ca0518366f0ef7b5e3af08e127fb623506622`)
+**Stage 2 final implementation head:** `2e8cbb7b83b7c2b311e5dccc2bcfda23b5ce6ffc` (ancestor of `main`)
+**Stage 2 physical runtime SHA:** `255f7101db7a111471ca38b92813cb426e762007` (**PASS**; ancestor of `main`)
+**Stage 3A branch:** `docs/body-composition-definition-evidence-audit-v1`
 
 > **Rule:** If this map conflicts with merged code or CI, **code and CI win**. Update this map; do not invent product truth from docs alone.
 
 > **R0 status:** Complete and merged (PR #211). Do **not** treat R0 as in-progress.
 
-> **R1 status:** Complete and merged (PR #212). Primary navigation on `main`: **Home · Plan · Progress · You**.
+> **R1 status:** Complete and merged (PR #212). Historical four-destination dock superseded by Stage 2.
 
 > **Stage 1A status:** **Merged** (PR [#213](https://github.com/danielhendel/oli/pull/213) at `10f85ee3d377d25075353c152b27611b6b572c84`). Password recovery verified on physical iPhone. Public-link infrastructure merged. Hosted legal/support pages **not published**. **RG-LEGAL-01 OPEN**. Durable legal assent remains **inactive**.
 >
@@ -28,7 +30,9 @@
 >
 > **PR #216 status:** **MERGED** at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`. Ordinary API builds no longer mutate tracked checksum truth. Local `main` synchronized to `origin/main`.
 >
-> **Stage 2 status:** **Implementation complete** on `feat/consumer-stage2-minimal-onboarding-readiness` at physical runtime SHA `255f7101db7a111471ca38b92813cb426e762007` (**physical-iPhone PASS**). Pending independent PR review/merge — **not yet merged**. Profile-only onboarding **Opening → About You → Home**. Primary IA: **Home · Today · Plan · Progress · You**. Home is domain map (full-width cards + drawer); Today owns Daily Monitor. Source connection contextual. Focused static/automated source-gate tests PASS; complete two-disposable-account server-side evidence **deferred by product leadership** — **LEADERSHIP-ACCEPTED RESIDUAL RISK**; **RG-SOURCE-PRIVACY-01 OPEN**. Consent persistence **not implemented**. Legal assent **inactive**. **RG-LEGAL-01 OPEN**. Export coverage closure **OPEN**. Export scalability gate **OPEN**. Infrastructure CI validation truth gap **OPEN**. Production deploy **none**. Stage 3 **not begun**. Body Composition work **not begun**.
+> **Stage 2 status:** **MERGED** (PR [#217](https://github.com/danielhendel/oli/pull/217) at `c92ca0518366f0ef7b5e3af08e127fb623506622`). Profile-only onboarding **Opening → About You → Home**. Primary IA on `main`: **Home · Today · Plan · Progress · You**. Home is domain map (full-width category cards + drawer); Today is a separate destination owning Daily Monitor. Source connection contextual. Focused static/automated source-gate tests PASS; complete two-disposable-account server-side evidence **deferred by product leadership** — **LEADERSHIP-ACCEPTED RESIDUAL RISK**; **RG-SOURCE-PRIVACY-01 OPEN**. Consent persistence **not implemented**. Legal assent **inactive**. **RG-LEGAL-01 OPEN**. Export coverage closure **OPEN**. Export scalability gate **OPEN**. Infrastructure CI validation truth gap **OPEN**. Production deploy **none**.
+>
+> **Stage 3A status:** **COMPLETE** (docs) on `docs/body-composition-definition-evidence-audit-v1`. Human approval **2026-09-18 APPROVED WITH GUARDRAILS**. RFC/ADR **Accepted**. Product/standards spec accepted with guardrails. Body Composition runtime redesign **not implemented**. Stage 3B value-first shell **AUTHORIZED — NOT STARTED**. Official classification / personal rail placement / facts-first trends **blocked** by repository gaps (fact-only Body path, AH vs manual DailyFacts dual truth, hollow RMR, RawEvent trends, unresolved standards-registry location).
 
 ---
 
@@ -112,14 +116,16 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 
 ## Partial product capabilities (merged `main`)
 
-- Primary dock: **Home · Plan · Progress · You** (filesystem Home remains `/(app)/(tabs)/dash`)
-- Home transitional shell: “Where am I?” + “Building your health picture” + Today Daily Monitor (no overall score / no What Oli Sees)
+- Primary dock: **Home · Today · Plan · Progress · You** (filesystem Home remains `/(app)/(tabs)/dash`)
+- Home: compact **Oli** header + hamburger drawer + seven full-width **My Health & Performance** category cards (Stage 2 / PR #217)
+- Today: separate primary destination owning Daily Monitor
 - Plan: honest empty state; placeholder builders not launch-facing
 - Progress: Weekly Progress once (when relocation flag ON) + history links
 - You: profile, devices, assessments, labs, privacy, settings, Account, failures, domain discovery
 - Assessment / Baseline / Target UI with **in-memory** assessment store
 - Ownership backend complete; mobile export UI **merged** (Stage 1B); delete-account UI **merged** (Stage 1C / PR #215)
 - Account route at `/(app)/settings/account`; You → Account routing **merged** (Stage 1A)
+- Profile-only onboarding **Opening → About You → Home** **merged** (Stage 2 / PR #217)
 
 ## Stage 1A (MERGED — RG-LEGAL-01 OPEN)
 
@@ -189,13 +195,13 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Ordinary API builds no longer mutate tracked workout-summary checksum truth
 - Local `main` synchronized to `origin/main` at the SHA above
 
-## Stage 2 (COMPLETE ON BRANCH — pending PR review/merge)
+## Stage 2 (MERGED — PR #217)
 
-- Branch: `feat/consumer-stage2-minimal-onboarding-readiness`
-- Baseline `main`: `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`
-- Physical runtime SHA: `255f7101db7a111471ca38b92813cb426e762007` — **physical-iPhone functional PASS**
-- Implementation status: **complete on branch**; **not yet merged** to `main`
-- Product direction:
+- Merged via PR [#217](https://github.com/danielhendel/oli/pull/217) at `c92ca0518366f0ef7b5e3af08e127fb623506622`
+- Branch (historical): `feat/consumer-stage2-minimal-onboarding-readiness`
+- Final implementation head: `2e8cbb7b83b7c2b311e5dccc2bcfda23b5ce6ffc` (ancestor of `main`)
+- Physical runtime SHA: `255f7101db7a111471ca38b92813cb426e762007` — **physical-iPhone functional PASS** (ancestor of `main`)
+- Product direction now on `main`:
   - Opening → About You → Home
   - Primary dock **Home · Today · Plan · Progress · You**
   - Source connection not part of mandatory onboarding
@@ -209,17 +215,33 @@ Technical foundations from the August 10 audit remain valid unless merged code d
   - Complete two-disposable-account server-side evidence: **deferred** (leadership-accepted residual risk)
   - Do **not** claim full source-privacy verification PASS
   - Evidence: `docs/90_audits/2026-09-16-stage2-source-privacy-risk-acceptance.md`
-- Staging: Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`
+- Staging (historical Stage 2): Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`
 - **Consent persistence:** **not implemented**
 - **Legal assent:** **inactive**
 - **RG-LEGAL-01:** **OPEN**
-- **RG-SOURCE-PRIVACY-01:** **OPEN** — blocks external TestFlight, production deployment, and public release; does **not** block Stage 2 merge or Stage 3A internal development
+- **RG-SOURCE-PRIVACY-01:** **OPEN** — blocks external TestFlight, production deployment, and public release; does **not** block Stage 3A internal development
 - **Export coverage closure:** **OPEN**
 - **Export scalability gate:** **OPEN**
 - **Infrastructure CI validation truth gap:** **OPEN**
 - **Production deploy:** **none**
-- **Stage 3:** **not begun**
-- **Body Composition:** **not begun**
+
+## Stage 3A (COMPLETE — docs; Accepted 2026-09-18 with guardrails)
+
+- Branch: `docs/body-composition-definition-evidence-audit-v1`
+- Baseline `main`: `c92ca0518366f0ef7b5e3af08e127fb623506622`
+- Delivered: repository-truth audit; evidence matrix; product/standards specification; RFC/ADR
+- Human approval: **2026-09-18 APPROVED WITH GUARDRAILS**
+- RFC: `docs/80_rfc/RFC-body-composition-category-intelligence-v1.md` — **Accepted**
+- ADR: `docs/70_adrs/ADR-body-composition-category-intelligence-v1.md` — **Accepted**
+- Spec: `docs/10_product/specs/BODY_COMPOSITION_PRODUCT_AND_STANDARDS_V1.md` — Accepted with guardrails
+- Gate: `docs/90_audits/2026-09-18-body-composition-definition-gate.md`
+- **Body Composition runtime redesign:** **not implemented**
+- **Stage 3B:** **AUTHORIZED** as value-first educational shell only — **NOT STARTED**
+- **Not authorized:** personalized rails, Body score, aggregate health/performance classification, “Optimized”/“Excellence” personal placement, new schema/persistence/DailyFacts/Insights, DEXA parsing, RawEvent classification, AH→BIA inference
+- **Repository blockers for classification/trends:** incomplete CanonicalEvent path; AH/manual DailyFacts dual truth; manual outside overview truth; hollow RMR; RawEvent-derived trends; standards-registry location unresolved
+- Does **not** close RG-LEGAL-01, RG-SOURCE-PRIVACY-01, export coverage, export scalability, or infra validation truth gap
+- Does **not** authorize external TestFlight, production deployment, public release, or App Store submission
+- **Production deploy:** **none**
 
 ### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
 
@@ -270,16 +292,17 @@ RG-SOURCE-PRIVACY-01 remaining OPEN does **not** block Stage 2 engineering merge
 - Device-verified E2E golden paths for launch acceptance
 - Defensible overall score (gated — not a P0 assumption)
 - Body salvage (PR #178 deferred)
-- Minimal onboarding / data readiness (Stage 2 **complete on branch**, pending merge)
+- Minimal onboarding / data readiness (Stage 2 **MERGED** via PR #217)
+- Body Composition Category Intelligence (Stage 3A **complete**; Stage 3B shell **authorized — not started**)
 
-**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-authored Plan persistence, Progress outcome analytics, consent persistence; Stage 3 / Body Composition not begun.
+**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-authored Plan persistence, Progress outcome analytics, consent persistence; Body Composition Stage 3B+ runtime; official Body classification.
 
 ## In progress (not complete)
 
-- **Stage 2 complete on branch** — Opening → About You → Home; Home/Today IA; pending independent PR review/merge
-- **RG-SOURCE-PRIVACY-01 OPEN** (complete two-account server evidence deferred; leadership-accepted residual risk)
+- **Stage 3B Body Composition value-first shell** — **authorized, not started**
+- **RG-SOURCE-PRIVACY-01 OPEN** (complete two-account server evidence deferred; leadership-accepted residual risk; Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN)
 - **RG-LEGAL-01 OPEN** (hosted legal/support pages not published)
-- PR #178 remains CLOSED unmerged; Body salvage deferred
+- PR #178 remains CLOSED unmerged; Body salvage disposition in Stage 3A docs only
 - PR #210 remains CLOSED unmerged; preserved branch unmodified
 - Other open PRs and local worktrees are **in-progress only** until merged to `main`
 
