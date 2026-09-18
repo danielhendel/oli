@@ -4,7 +4,7 @@
  * Graph components must only consume the returned presentation model.
  */
 
-import { formatMassRangeForCopy, type MassDisplayUnit } from "@/lib/body/bodyCompositionShared";
+import type { MassDisplayUnit } from "@/lib/body/bodyCompositionShared";
 import type {
   BodyMetricResolvedClassificationSegment,
   BodyMetricStandardPresentationModel,
@@ -16,13 +16,17 @@ import {
   LEAN_TISSUE_PROPOSED_STANDARD_STUB,
 } from "@/lib/body/standards/leanTissueStandardProposal";
 import {
-  CDC_WHO_ADULT_BMI_AXIS,
   CDC_WHO_ADULT_BMI_SCREENING_STANDARD,
   bmiFromWeightAndHeight,
   classifyCdcWhoAdultBmi,
-  formatBmiRangeLabel,
   weightKgForBmiAtHeight,
 } from "@/lib/body/standards/cdcWhoAdultBmiScreeningStandard";
+import {
+  assertCdcWhoHeightWeightRangesContiguous,
+  buildCdcWhoHeightWeightDisplayTicks,
+  formatCdcWhoWeightRangeForClass,
+} from "@/lib/body/standards/cdcWhoHeightWeightRangeDisplay";
+import { formatBodyWeight } from "@/lib/ui/body/bodyMetricFormatting";
 
 export type BodyMetricStandardResolveInput = {
   readonly metric: "weight" | "bodyFat" | "leanTissue";
@@ -38,6 +42,8 @@ export type BodyMetricStandardResolveInput = {
   readonly massDisplayUnit: MassDisplayUnit;
 };
 
+const OPEN_ENDED_WITHIN_SEGMENT = 0.42;
+
 function clamp01(x: number): number {
   if (!Number.isFinite(x)) return 0;
   if (x <= 0) return 0;
@@ -45,54 +51,110 @@ function clamp01(x: number): number {
   return x;
 }
 
-function bmiAxisPosition(bmi: number): number {
-  const { min, max } = CDC_WHO_ADULT_BMI_AXIS;
-  return clamp01((bmi - min) / (max - min));
-}
-
-function buildWeightSegments(): readonly BodyMetricResolvedClassificationSegment[] {
-  const { min, max } = CDC_WHO_ADULT_BMI_AXIS;
-  const span = max - min;
-  const cuts = [
-    { id: "underweight", label: "Underweight", lo: min, hi: 18.5, tone: "caution" as const },
-    { id: "healthy_weight", label: "Healthy Weight", lo: 18.5, hi: 25, tone: "reference" as const },
-    { id: "overweight", label: "Overweight", lo: 25, hi: 30, tone: "caution" as const },
-    { id: "obesity", label: "Obesity", lo: 30, hi: max, tone: "elevated" as const },
+/**
+ * Categorical equal-width bands (not a continuous BMI axis).
+ * Scientific meaning lives in labels + numeric ranges, not band width.
+ */
+function buildWeightCategoricalSegments(
+  ticks: ReturnType<typeof buildCdcWhoHeightWeightDisplayTicks>,
+): readonly BodyMetricResolvedClassificationSegment[] {
+  const defs = [
+    {
+      id: "underweight" as const,
+      label: "Underweight",
+      tone: "cool" as const,
+      lowerBound: null as number | null,
+      upperBound: 18.5,
+      lowerInclusive: false,
+      upperInclusive: false,
+    },
+    {
+      id: "healthy_weight" as const,
+      label: "Healthy Weight",
+      tone: "reference" as const,
+      lowerBound: 18.5,
+      upperBound: 25,
+      lowerInclusive: true,
+      upperInclusive: false,
+    },
+    {
+      id: "overweight" as const,
+      label: "Overweight",
+      tone: "caution" as const,
+      lowerBound: 25,
+      upperBound: 30,
+      lowerInclusive: true,
+      upperInclusive: false,
+    },
+    {
+      id: "obesity" as const,
+      label: "Obesity",
+      tone: "elevated" as const,
+      lowerBound: 30,
+      upperBound: null as number | null,
+      lowerInclusive: true,
+      upperInclusive: false,
+    },
   ];
-  return cuts.map((c) => {
-    const cls = CDC_WHO_ADULT_BMI_SCREENING_STANDARD.classifications.find((x) => x.id === c.id)!;
+  const n = defs.length;
+  return defs.map((d, i) => {
+    const heightRange = formatCdcWhoWeightRangeForClass(d.id, ticks);
     return {
-      id: c.id,
-      displayLabel: c.label,
-      numericRangeLabel: formatBmiRangeLabel(cls.lowerInclusive, cls.upperExclusive),
-      unit: "kg/m²",
-      start: (c.lo - min) / span,
-      end: (c.hi - min) / span,
-      tone: c.tone,
+      id: d.id,
+      displayLabel: d.label,
+      // Height-specific ranges only; BMI labels stay off the primary visual card.
+      numericRangeLabel: heightRange,
+      unit: ticks != null ? ticks.unit : "kg/m²",
+      start: i / n,
+      end: (i + 1) / n,
+      tone: d.tone,
+      lowerBound: d.lowerBound,
+      upperBound: d.upperBound,
+      lowerInclusive: d.lowerInclusive,
+      upperInclusive: d.upperInclusive,
     };
   });
 }
 
-function heightWeightRangeForClass(
+function withinSegmentForBmi(
+  classId: "underweight" | "healthy_weight" | "overweight" | "obesity",
+  bmi: number,
+): number {
+  if (classId === "underweight" || classId === "obesity") {
+    return OPEN_ENDED_WITHIN_SEGMENT;
+  }
+  if (classId === "healthy_weight") {
+    return clamp01((bmi - 18.5) / (25 - 18.5));
+  }
+  return clamp01((bmi - 25) / (30 - 25));
+}
+
+function markerAxisPosition(
   classId: string,
-  heightCm: number,
-  unit: MassDisplayUnit,
-): string | null {
-  const cls = CDC_WHO_ADULT_BMI_SCREENING_STANDARD.classifications.find((c) => c.id === classId);
-  if (!cls) return null;
-  const loBmi = cls.lowerInclusive ?? CDC_WHO_ADULT_BMI_AXIS.min;
-  const hiBmi =
-    cls.upperExclusive != null ? cls.upperExclusive - 0.0001 : CDC_WHO_ADULT_BMI_AXIS.max;
-  const loKg = weightKgForBmiAtHeight(loBmi, heightCm);
-  const hiKg = weightKgForBmiAtHeight(hiBmi, heightCm);
-  if (loKg == null || hiKg == null) return null;
-  return formatMassRangeForCopy(loKg, hiKg, unit);
+  within: number,
+  segmentCount: number,
+): number {
+  const idx = ["underweight", "healthy_weight", "overweight", "obesity"].indexOf(classId);
+  if (idx < 0) return 0.5;
+  const start = idx / segmentCount;
+  const width = 1 / segmentCount;
+  return clamp01(start + within * width);
+}
+
+function formatRangeAnnouncement(
+  segments: readonly BodyMetricResolvedClassificationSegment[],
+): string {
+  return segments
+    .map((s) => {
+      const range = s.numericRangeLabel ? ` ${s.numericRangeLabel}` : "";
+      return `${s.displayLabel}${range}`;
+    })
+    .join(". ");
 }
 
 /**
  * Resolve Weight BMI screening presentation.
- * Returns null when standard graph must not be shown (malformed), or a model with
- * markerPosition null when personal classification is not applicable.
+ * Returns null when adult standard must not be shown (under-20 / unknown age).
  */
 export function resolveWeightBmiScreeningPresentation(
   input: BodyMetricStandardResolveInput,
@@ -101,41 +163,50 @@ export function resolveWeightBmiScreeningPresentation(
   if (standard.runtimeAuthorization !== "approved_for_body_consumer_ui") return null;
   if (standard.classifications.length < 2) return null;
 
-  const segments = buildWeightSegments();
-  const educationalSummary =
-    "Weight-for-height BMI screening using CDC and WHO adult categories: Underweight, Healthy Weight, Overweight, and Obesity. This is screening, not Body Composition.";
-
   const ageOk =
     input.ageYears != null &&
     Number.isFinite(input.ageYears) &&
     input.ageYears >= (standard.applicableAge.minimumYears ?? 20);
-
-  const heightOk = input.heightCm != null && Number.isFinite(input.heightCm) && input.heightCm > 0;
-  const weightOk = input.weightKg != null && Number.isFinite(input.weightKg) && input.weightKg > 0;
-
-  let bmi = input.bmi != null && Number.isFinite(input.bmi) && input.bmi > 0 ? input.bmi : null;
-  if (bmi == null && weightOk && heightOk) {
-    bmi = bmiFromWeightAndHeight(input.weightKg as number, input.heightCm as number);
-  }
 
   // Adult categories require known age ≥ 20. Unknown or under-20: fail closed (no adult graph).
   if (!ageOk) {
     return null;
   }
 
-  // Educational standard graph may remain visible without a personal marker when height/BMI incomplete.
-  if (!heightOk || !weightOk || bmi == null) {
+  const heightOk = input.heightCm != null && Number.isFinite(input.heightCm) && input.heightCm > 0;
+  const weightOk = input.weightKg != null && Number.isFinite(input.weightKg) && input.weightKg > 0;
+
+  const ticks = heightOk
+    ? buildCdcWhoHeightWeightDisplayTicks(input.heightCm as number, input.massDisplayUnit)
+    : null;
+  if (ticks != null && !assertCdcWhoHeightWeightRangesContiguous(ticks)) {
+    return null;
+  }
+
+  const segments = buildWeightCategoricalSegments(ticks);
+  const rangeAnnouncement = formatRangeAnnouncement(segments);
+  const educationalSummary = `Weight classification chart. Adult BMI screening. ${rangeAnnouncement}. This is screening context, not a direct Body Composition measurement.`;
+
+  let bmi = input.bmi != null && Number.isFinite(input.bmi) && input.bmi > 0 ? input.bmi : null;
+  if (bmi == null && weightOk && heightOk) {
+    bmi = bmiFromWeightAndHeight(input.weightKg as number, input.heightCm as number);
+  }
+
+  // Chart may remain without a personal marker when weight or BMI incomplete.
+  if (!weightOk || !heightOk || bmi == null) {
     return {
       standardId: standard.standardId,
       standardVersion: standard.version,
       classificationPurpose: standard.classificationPurpose,
       sourceTitle: standard.sourceTitle,
-      contextLabel: "BMI screening (CDC / WHO)",
+      contextLabel: "Adult BMI screening classification",
       segments,
       markerPosition: null,
       markerLabel: null,
       classifiedId: null,
-      accessibleSummary: `${educationalSummary} No personal comparison is available yet.`,
+      withinSegmentPosition: null,
+      markerFormattedValue: null,
+      accessibleSummary: `${educationalSummary} No current measurement.`,
       heightSpecificWeightRangeLabel: null,
     };
   }
@@ -147,36 +218,37 @@ export function resolveWeightBmiScreeningPresentation(
       standardVersion: standard.version,
       classificationPurpose: standard.classificationPurpose,
       sourceTitle: standard.sourceTitle,
-      contextLabel: "BMI screening (CDC / WHO)",
+      contextLabel: "Adult BMI screening classification",
       segments,
       markerPosition: null,
       markerLabel: null,
       classifiedId: null,
+      withinSegmentPosition: null,
+      markerFormattedValue: null,
       accessibleSummary: `${educationalSummary} Classification could not be resolved.`,
       heightSpecificWeightRangeLabel: null,
     };
   }
 
   const cls = standard.classifications.find((c) => c.id === classId)!;
-  const rangeLabel = heightWeightRangeForClass(classId, input.heightCm as number, input.massDisplayUnit);
+  const within = withinSegmentForBmi(classId, bmi);
+  const formattedValue = formatBodyWeight(input.weightKg as number, input.massDisplayUnit);
+  const heightRange = formatCdcWhoWeightRangeForClass(classId, ticks);
 
   return {
     standardId: standard.standardId,
     standardVersion: standard.version,
     classificationPurpose: standard.classificationPurpose,
     sourceTitle: standard.sourceTitle,
-    contextLabel: "BMI screening (CDC / WHO)",
+    contextLabel: "Adult BMI screening classification",
     segments,
-    markerPosition: bmiAxisPosition(bmi),
+    markerPosition: markerAxisPosition(classId, within, segments.length),
     markerLabel: cls.displayLabel,
     classifiedId: classId,
-    accessibleSummary: `Weight. ${cls.displayLabel}. ${formatBmiRangeLabel(
-      cls.lowerInclusive,
-      cls.upperExclusive,
-    )}. BMI screening using CDC and WHO adult categories, standard ${standard.version}.${
-      rangeLabel ? ` Height-specific weight range ${rangeLabel}.` : ""
-    }`,
-    heightSpecificWeightRangeLabel: rangeLabel,
+    withinSegmentPosition: within,
+    markerFormattedValue: formattedValue,
+    accessibleSummary: `Weight classification chart. Current weight ${formattedValue}, classified as ${cls.displayLabel} under the adult BMI screening standard. This is screening context, not a direct Body Composition measurement. ${rangeAnnouncement}.`,
+    heightSpecificWeightRangeLabel: heightRange,
   };
 }
 
@@ -216,3 +288,6 @@ export function resolveBodyMetricStandardPresentation(
       return null;
   }
 }
+
+/** Re-export for tests that verify height conversion remains pure. */
+export { weightKgForBmiAtHeight };

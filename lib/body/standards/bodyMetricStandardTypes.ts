@@ -70,13 +70,17 @@ export type BodyMetricStandardDefinition = {
 export type BodyMetricResolvedClassificationSegment = {
   readonly id: string;
   readonly displayLabel: string;
-  readonly numericRangeLabel: string;
+  readonly numericRangeLabel: string | null;
   readonly unit: string;
-  /** Relative start along the presentation axis (0–1). */
+  /** Relative start along the categorical presentation axis (0–1). */
   readonly start: number;
-  /** Relative end along the presentation axis (0–1). */
+  /** Relative end along the categorical presentation axis (0–1). */
   readonly end: number;
-  readonly tone: "muted" | "reference" | "caution" | "elevated";
+  readonly tone: "cool" | "reference" | "caution" | "elevated" | "neutral" | "muted";
+  readonly lowerBound: number | null;
+  readonly upperBound: number | null;
+  readonly lowerInclusive: boolean;
+  readonly upperInclusive: boolean;
 };
 
 /**
@@ -93,6 +97,9 @@ export type BodyMetricStandardPresentationModel = {
   readonly markerPosition: number | null;
   readonly markerLabel: string | null;
   readonly classifiedId: string | null;
+  /** 0–1 within classified segment for categorical placement; null when open-ended or absent. */
+  readonly withinSegmentPosition: number | null;
+  readonly markerFormattedValue: string | null;
   readonly accessibleSummary: string;
   readonly heightSpecificWeightRangeLabel: string | null;
 };
