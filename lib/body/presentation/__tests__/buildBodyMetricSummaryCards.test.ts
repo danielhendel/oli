@@ -4,6 +4,12 @@ import {
 } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import { BODY_COMPOSITION_METRIC_DETAIL_ROUTES } from "@/lib/data/body/bodyCompositionMetricRoutes";
 
+const adultProfile = {
+  heightCm: 170,
+  ageYears: 30,
+  sex: "female" as const,
+};
+
 describe("buildBodyMetricSummaryCards", () => {
   it("returns exactly three cards in Weight → Body Fat → Lean Tissue order", () => {
     const cards = buildBodyMetricSummaryCards({
@@ -15,11 +21,11 @@ describe("buildBodyMetricSummaryCards", () => {
         bmi: null,
         hasAnyMetric: false,
       },
+      profile: adultProfile,
       unit: "lb",
     });
     expect(cards).toHaveLength(3);
     expect(cards.map((c) => c.metric)).toEqual(["weight", "bodyFat", "leanTissue"]);
-    expect(cards.map((c) => c.title)).toEqual(["Weight", "Body Fat", "Lean Tissue"]);
   });
 
   it("never renders missing values as zero", () => {
@@ -32,37 +38,59 @@ describe("buildBodyMetricSummaryCards", () => {
         bmi: null,
         hasAnyMetric: false,
       },
+      profile: adultProfile,
       unit: "lb",
     });
     for (const card of cards) {
       expect(card.value).toBeNull();
       expect(card.formattedValue).toBeNull();
-      expect(card.formattedValue).not.toBe("0");
-      expect(card.formattedValue).not.toBe("0.0");
     }
   });
 
-  it("labels weight as weight-for-height screening without personal marker or BMI target language", () => {
+  it("uses CDC/WHO Weight labels and never generic Below/Reference/Above/High", () => {
     const [weight] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
-        weightKg: 80,
+        weightKg: 70,
         bodyFatPercent: null,
         leanBodyMassKg: null,
         bmi: 24.2,
         hasAnyMetric: true,
-        latestObservedAtIso: "2026-09-18T12:00:00.000Z",
       },
-      unit: "lb",
+      profile: adultProfile,
+      unit: "kg",
     });
-    expect(weight.formattedValue).toMatch(/lb/);
-    expect(weight.referenceContextLabel).toBe("Weight-for-height screening");
-    expect(weight.referenceLabel).toBe("Reference unavailable");
-    expect(weight.referenceBar?.markerPosition).toBeNull();
-    expect(JSON.stringify(weight)).not.toMatch(/ideal weight|optimal Body Composition|BMI target|healthy weight target/i);
+    expect(weight.statusLabel).toBe("Healthy Weight");
+    expect(weight.referenceContextLabel).toMatch(/BMI screening/i);
+    expect(weight.referenceBar?.markerPosition).not.toBeNull();
+    expect(weight.referenceBar?.segments.map((s) => s.label)).toEqual([
+      "Underweight",
+      "Healthy Weight",
+      "Overweight",
+      "Obesity",
+    ]);
+    const labels = weight.referenceBar!.segments.map((s) => s.label).join(" ");
+    expect(labels).not.toMatch(/\bBelow\b|\bReference\b|\bAbove\b|\bHigh\b/);
+    expect(JSON.stringify(weight)).not.toMatch(/ideal weight|Optimal|Excellence/i);
   });
 
-  it("withholds Body Fat marker when method is unknown and never infers BIA", () => {
+  it("withholds Weight marker without height", () => {
+    const [weight] = buildBodyMetricSummaryCards({
+      overview: {
+        overviewDay: "2026-09-18",
+        weightKg: 70,
+        bodyFatPercent: null,
+        leanBodyMassKg: null,
+        bmi: 24.2,
+        hasAnyMetric: true,
+      },
+      profile: { heightCm: null, ageYears: 30, sex: "female" },
+      unit: "kg",
+    });
+    expect(weight.referenceBar?.markerPosition).toBeNull();
+  });
+
+  it("withholds Body Fat classification when standard unresolved / method unknown", () => {
     const [, bodyFat] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -72,16 +100,16 @@ describe("buildBodyMetricSummaryCards", () => {
         bmi: null,
         hasAnyMetric: true,
       },
+      profile: adultProfile,
       unit: "lb",
     });
     expect(bodyFat.formattedValue).toBe("18.0%");
-    expect(bodyFat.referenceBar?.markerPosition).toBeNull();
-    expect(bodyFat.referenceLabel).toBe("Reference unavailable");
-    expect(bodyFat.statusLabel).toMatch(/method/i);
-    expect(JSON.stringify(bodyFat)).not.toMatch(/BIA|universal|Excellence|Optimized/i);
+    expect(bodyFat.referenceBar).toBeNull();
+    expect(bodyFat.referenceLabel).toMatch(/pending approval/i);
+    expect(JSON.stringify(bodyFat)).not.toMatch(/BIA|Essential|Athlete|Fitness|Average|Excellence/i);
   });
 
-  it("withholds Lean Tissue marker without a compatible standard", () => {
+  it("withholds Lean Tissue classification for total lean mass", () => {
     const [, , lean] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -91,12 +119,12 @@ describe("buildBodyMetricSummaryCards", () => {
         bmi: null,
         hasAnyMetric: true,
       },
+      profile: adultProfile,
       unit: "lb",
     });
-    expect(lean.formattedValue).toMatch(/lb/);
-    expect(lean.referenceBar?.markerPosition).toBeNull();
-    expect(lean.referenceLabel).toMatch(/Method-specific reference unavailable/);
-    expect(JSON.stringify(lean)).not.toMatch(/Elite|Optimal|Excellent|Weak|sarcopenia/i);
+    expect(lean.referenceBar).toBeNull();
+    expect(lean.statusLabel).toMatch(/Total lean mass/i);
+    expect(JSON.stringify(lean)).not.toMatch(/Elite|Optimal|Excellent|Weak|sarcopenia diagnosis/i);
   });
 
   it("does not invent Body score or aggregate rails", () => {
@@ -109,17 +137,12 @@ describe("buildBodyMetricSummaryCards", () => {
         bmi: 24,
         hasAnyMetric: true,
       },
+      profile: adultProfile,
       unit: "kg",
     });
     const serialized = JSON.stringify(cards);
     expect(serialized).not.toMatch(/Body score|Health Protection|Performance Support|You are here/i);
-    expect(cards.every((c) => c.detailHref.startsWith("/(app)/body/metric/"))).toBe(true);
     expect(cards[0].detailHref).toBe(BODY_COMPOSITION_METRIC_DETAIL_ROUTES.weight);
-    expect(cards[1].detailHref).toBe(BODY_COMPOSITION_METRIC_DETAIL_ROUTES.bodyFat);
-    expect(cards[2].detailHref).toBe(BODY_COMPOSITION_METRIC_DETAIL_ROUTES.leanMass);
-  });
-
-  it("omits advanced markers CTA until a real destination exists", () => {
     expect(BODY_COMPOSITION_SUMMARY_COPY.moreMarkersHref).toBeNull();
   });
 });

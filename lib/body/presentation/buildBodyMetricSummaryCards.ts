@@ -1,13 +1,6 @@
 /**
  * Pure builders for Stage 3B Body metric summary cards.
- *
- * Guardrails:
- * - No personal Health Protection / Performance Support rails
- * - No Body score / Optimized / Excellence placement
- * - No Apple Health → BIA inference
- * - No universal body-fat range
- * - No personal marker without an approved method-compatible classification
- * - Weight screening personal bands deferred (avoid duplicate BMI truth on Body UI)
+ * Classification comes only from approved standards resolvers — never generic labels.
  */
 
 import { BODY_COMPOSITION_METRIC_DETAIL_ROUTES } from "@/lib/data/body/bodyCompositionMetricRoutes";
@@ -15,6 +8,10 @@ import type {
   BodyMetricCardModel,
   BodyMetricReferenceBarModel,
 } from "@/lib/body/presentation/bodyMetricCardTypes";
+import {
+  resolveBodyMetricStandardPresentation,
+  type BodyMetricStandardResolveInput,
+} from "@/lib/body/standards/resolveBodyMetricStandardPresentation";
 import {
   formatBodyLeanMass,
   formatBodyWeight,
@@ -30,33 +27,13 @@ export type BodyMetricSummaryOverviewSlice = {
   latestObservedAtIso?: string | null;
 };
 
+export type BodyMetricSummaryProfileSlice = {
+  heightCm: number | null;
+  ageYears: number | null;
+  sex: "female" | "male" | "unspecified" | null;
+};
+
 const LBS_PER_KG = 2.2046226218;
-
-/** Educational screening segments only — never paired with a personal marker in Stage 3B. */
-function buildEducationalScreeningBar(accessibleSummary: string): BodyMetricReferenceBarModel {
-  return {
-    segments: [
-      { id: "below", label: "Below", start: 0, end: 0.25, tone: "caution" },
-      { id: "within", label: "Within", start: 0.25, end: 0.55, tone: "reference" },
-      { id: "above", label: "Above", start: 0.55, end: 0.78, tone: "caution" },
-      { id: "high", label: "High", start: 0.78, end: 1, tone: "elevated" },
-    ],
-    markerPosition: null,
-    markerLabel: null,
-    accessibleSummary,
-  };
-}
-
-function buildMutedUnavailableBar(accessibleSummary: string): BodyMetricReferenceBarModel {
-  return {
-    segments: [
-      { id: "unavailable", label: "Reference unavailable", start: 0, end: 1, tone: "muted" },
-    ],
-    markerPosition: null,
-    markerLabel: null,
-    accessibleSummary,
-  };
-}
 
 function formatMeasuredAtLabel(input: {
   overviewDay: string | null;
@@ -82,12 +59,53 @@ function numericWeightDisplay(kg: number, unit: "kg" | "lb"): number {
   return unit === "lb" ? kg * LBS_PER_KG : kg;
 }
 
+function toReferenceBar(
+  presentation: NonNullable<ReturnType<typeof resolveBodyMetricStandardPresentation>>,
+): BodyMetricReferenceBarModel {
+  return {
+    segments: presentation.segments.map((s) => ({
+      id: s.id,
+      label: s.displayLabel,
+      numericRangeLabel: s.numericRangeLabel,
+      start: s.start,
+      end: s.end,
+      tone: s.tone,
+    })),
+    markerPosition: presentation.markerPosition,
+    markerLabel: presentation.markerLabel,
+    accessibleSummary: presentation.accessibleSummary,
+    standardId: presentation.standardId,
+    standardVersion: presentation.standardVersion,
+  };
+}
+
+function resolveInput(params: {
+  metric: BodyMetricStandardResolveInput["metric"];
+  overview: BodyMetricSummaryOverviewSlice;
+  profile: BodyMetricSummaryProfileSlice;
+  unit: "kg" | "lb";
+  measurementMethod: string | null;
+}): BodyMetricStandardResolveInput {
+  return {
+    metric: params.metric,
+    weightKg: params.overview.weightKg,
+    bodyFatPercent: params.overview.bodyFatPercent,
+    leanBodyMassKg: params.overview.leanBodyMassKg,
+    bmi: params.overview.bmi,
+    heightCm: params.profile.heightCm,
+    ageYears: params.profile.ageYears,
+    sex: params.profile.sex,
+    measurementMethod: params.measurementMethod,
+    massDisplayUnit: params.unit,
+  };
+}
+
 /**
  * Build the three primary Stage 3B cards in order: Weight, Body Fat, Lean Tissue.
- * Personal markers remain null — method-compatible Body classification is not authorized here.
  */
 export function buildBodyMetricSummaryCards(input: {
   overview: BodyMetricSummaryOverviewSlice;
+  profile: BodyMetricSummaryProfileSlice;
   unit: "kg" | "lb";
   seriesError?: boolean;
 }): readonly [BodyMetricCardModel, BodyMetricCardModel, BodyMetricCardModel] {
@@ -96,29 +114,34 @@ export function buildBodyMetricSummaryCards(input: {
     latestObservedAtIso: input.overview.latestObservedAtIso,
   });
 
-  const weight = buildWeightCard({
-    overview: input.overview,
-    unit: input.unit,
-    measuredAtLabel,
-    seriesError: input.seriesError === true,
-  });
-  const bodyFat = buildBodyFatCard({
-    overview: input.overview,
-    measuredAtLabel,
-    seriesError: input.seriesError === true,
-  });
-  const leanTissue = buildLeanTissueCard({
-    overview: input.overview,
-    unit: input.unit,
-    measuredAtLabel,
-    seriesError: input.seriesError === true,
-  });
-
-  return [weight, bodyFat, leanTissue];
+  return [
+    buildWeightCard({
+      overview: input.overview,
+      profile: input.profile,
+      unit: input.unit,
+      measuredAtLabel,
+      seriesError: input.seriesError === true,
+    }),
+    buildBodyFatCard({
+      overview: input.overview,
+      profile: input.profile,
+      unit: input.unit,
+      measuredAtLabel,
+      seriesError: input.seriesError === true,
+    }),
+    buildLeanTissueCard({
+      overview: input.overview,
+      profile: input.profile,
+      unit: input.unit,
+      measuredAtLabel,
+      seriesError: input.seriesError === true,
+    }),
+  ];
 }
 
 function buildWeightCard(input: {
   overview: BodyMetricSummaryOverviewSlice;
+  profile: BodyMetricSummaryProfileSlice;
   unit: "kg" | "lb";
   measuredAtLabel: string | null;
   seriesError: boolean;
@@ -129,6 +152,19 @@ function buildWeightCard(input: {
     : null;
   const value = hasValue ? numericWeightDisplay(input.overview.weightKg as number, input.unit) : null;
 
+  const presentation = input.seriesError
+    ? null
+    : resolveBodyMetricStandardPresentation(
+        resolveInput({
+          metric: "weight",
+          overview: input.overview,
+          profile: input.profile,
+          unit: input.unit,
+          measurementMethod: "height_and_weight",
+        }),
+      );
+  const referenceBar = presentation ? toReferenceBar(presentation) : null;
+
   if (input.seriesError) {
     return {
       metric: "weight",
@@ -138,11 +174,10 @@ function buildWeightCard(input: {
       unit: input.unit,
       readiness: "error",
       statusLabel: "Couldn’t load this measurement",
-      referenceLabel: "Reference unavailable",
-      referenceContextLabel: "Weight-for-height screening",
-      referenceBar: buildMutedUnavailableBar(
-        "Weight. Error loading measurement. No personal screening comparison is available.",
-      ),
+      referenceLabel: null,
+      referenceContextLabel: "BMI screening (CDC / WHO)",
+      referenceBar: null,
+      heightSpecificRangeLabel: null,
       provenance: {
         transportLabel: null,
         sourceApplicationLabel: null,
@@ -151,7 +186,7 @@ function buildWeightCard(input: {
       },
       detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.weight,
       addDataHref: null,
-      accessibilityLabel: "Weight. Couldn’t load this measurement. Reference unavailable.",
+      accessibilityLabel: "Weight. Couldn’t load this measurement.",
     };
   }
 
@@ -164,11 +199,12 @@ function buildWeightCard(input: {
       unit: input.unit,
       readiness: "missing",
       statusLabel: "No measurement yet",
-      referenceLabel: "Reference unavailable",
-      referenceContextLabel: "Weight-for-height screening",
-      referenceBar: buildEducationalScreeningBar(
-        "Weight. No measurement yet. Weight-for-height screening reference shown for education only. No personal comparison is available.",
-      ),
+      referenceLabel: presentation
+        ? "Personal screening placement unavailable"
+        : "Adult BMI screening not applicable",
+      referenceContextLabel: presentation?.contextLabel ?? "BMI screening (CDC / WHO)",
+      referenceBar,
+      heightSpecificRangeLabel: null,
       provenance: {
         transportLabel: null,
         sourceApplicationLabel: null,
@@ -177,16 +213,13 @@ function buildWeightCard(input: {
       },
       detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.weight,
       addDataHref: null,
-      accessibilityLabel: "Weight. No measurement yet. Weight-for-height screening. Reference unavailable.",
+      accessibilityLabel:
+        referenceBar?.accessibleSummary ??
+        "Weight. No measurement yet. BMI screening reference unavailable.",
     };
   }
 
-  /**
-   * Personal BMI screening bands are not authorized on Body consumer UI in Stage 3B
-   * (approved classifyBodyComposition path remains deferred from this surface to avoid
-   * duplicate truth vs overview facts). Show value + honest screening context only.
-   */
-  const hasBmiContext = input.overview.bmi != null && Number.isFinite(input.overview.bmi);
+  const hasMarker = presentation?.markerPosition != null && presentation.markerLabel != null;
 
   return {
     metric: "weight",
@@ -194,15 +227,19 @@ function buildWeightCard(input: {
     value,
     formattedValue,
     unit: input.unit,
-    readiness: "partial",
-    statusLabel: hasBmiContext
-      ? "Weight-for-height screening context available"
-      : "Current weight",
-    referenceLabel: "Reference unavailable",
-    referenceContextLabel: "Weight-for-height screening",
-    referenceBar: buildEducationalScreeningBar(
-      `Weight ${formattedValue}. Weight-for-height screening. Personal screening placement is not available on this page yet.`,
-    ),
+    readiness: hasMarker ? "referenceAvailable" : "partial",
+    statusLabel: hasMarker
+      ? (presentation!.markerLabel as string)
+      : presentation == null
+        ? "Adult BMI screening not applicable"
+        : "Personal screening placement unavailable",
+    referenceLabel: hasMarker
+      ? presentation!.segments.find((s) => s.id === presentation!.classifiedId)?.numericRangeLabel ??
+        null
+      : "Needs height and adult age for BMI screening placement",
+    referenceContextLabel: presentation?.contextLabel ?? "BMI screening (CDC / WHO)",
+    referenceBar,
+    heightSpecificRangeLabel: presentation?.heightSpecificWeightRangeLabel ?? null,
     provenance: {
       transportLabel: null,
       sourceApplicationLabel: null,
@@ -211,14 +248,16 @@ function buildWeightCard(input: {
     },
     detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.weight,
     addDataHref: null,
-    accessibilityLabel: `Weight ${formattedValue}. Weight-for-height screening. Reference unavailable.${
-      input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
-    } Open weight details.`,
+    accessibilityLabel:
+      referenceBar?.accessibleSummary ??
+      `Weight ${formattedValue}. BMI screening. Open weight details.`,
   };
 }
 
 function buildBodyFatCard(input: {
   overview: BodyMetricSummaryOverviewSlice;
+  profile: BodyMetricSummaryProfileSlice;
+  unit: "kg" | "lb";
   measuredAtLabel: string | null;
   seriesError: boolean;
 }): BodyMetricCardModel {
@@ -229,6 +268,17 @@ function buildBodyFatCard(input: {
     : null;
   const value = hasValue ? (input.overview.bodyFatPercent as number) : null;
 
+  // Fail closed — proposed standard is not runtime-authorized.
+  const presentation = resolveBodyMetricStandardPresentation(
+    resolveInput({
+      metric: "bodyFat",
+      overview: input.overview,
+      profile: input.profile,
+      unit: input.unit,
+      measurementMethod: null,
+    }),
+  );
+
   if (input.seriesError) {
     return {
       metric: "bodyFat",
@@ -238,11 +288,10 @@ function buildBodyFatCard(input: {
       unit: "%",
       readiness: "error",
       statusLabel: "Couldn’t load this measurement",
-      referenceLabel: "Reference unavailable",
+      referenceLabel: null,
       referenceContextLabel: null,
-      referenceBar: buildMutedUnavailableBar(
-        "Body Fat. Error loading measurement. No personal comparison is available.",
-      ),
+      referenceBar: null,
+      heightSpecificRangeLabel: null,
       provenance: {
         transportLabel: null,
         sourceApplicationLabel: null,
@@ -251,7 +300,7 @@ function buildBodyFatCard(input: {
       },
       detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.bodyFat,
       addDataHref: null,
-      accessibilityLabel: "Body Fat. Couldn’t load this measurement. Reference unavailable.",
+      accessibilityLabel: "Body Fat. Couldn’t load this measurement.",
     };
   }
 
@@ -264,11 +313,10 @@ function buildBodyFatCard(input: {
       unit: "%",
       readiness: "missing",
       statusLabel: "No measurement yet",
-      referenceLabel: "Reference unavailable",
+      referenceLabel: "Classification standard pending approval",
       referenceContextLabel: null,
-      referenceBar: buildMutedUnavailableBar(
-        "Body Fat. No measurement yet. Measurement method is needed for a reliable comparison. No personal marker is available.",
-      ),
+      referenceBar: null,
+      heightSpecificRangeLabel: null,
       provenance: {
         transportLabel: null,
         sourceApplicationLabel: null,
@@ -277,11 +325,11 @@ function buildBodyFatCard(input: {
       },
       detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.bodyFat,
       addDataHref: null,
-      accessibilityLabel: "Body Fat. No measurement yet. Reference unavailable. Add measurement.",
+      accessibilityLabel:
+        "Body Fat. No measurement yet. No approved body-fat classification standard is available.",
     };
   }
 
-  // Method unknown on overview — never place a personal marker; never infer BIA from Apple Health.
   return {
     metric: "bodyFat",
     title: "Body Fat",
@@ -290,11 +338,10 @@ function buildBodyFatCard(input: {
     unit: "%",
     readiness: "partial",
     statusLabel: "Measurement method is needed for a reliable comparison",
-    referenceLabel: "Reference unavailable",
+    referenceLabel: "Classification standard pending approval",
     referenceContextLabel: null,
-    referenceBar: buildMutedUnavailableBar(
-      `Body Fat ${formattedValue}. Reference unavailable. Measurement method is needed for a reliable comparison. No personal marker is available.`,
-    ),
+    referenceBar: presentation ? toReferenceBar(presentation) : null,
+    heightSpecificRangeLabel: null,
     provenance: {
       transportLabel: null,
       sourceApplicationLabel: null,
@@ -303,7 +350,7 @@ function buildBodyFatCard(input: {
     },
     detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.bodyFat,
     addDataHref: null,
-    accessibilityLabel: `Body Fat ${formattedValue}. Reference unavailable. Measurement method is needed for a reliable comparison.${
+    accessibilityLabel: `Body Fat ${formattedValue}. No approved body-fat classification standard is available. Method unknown.${
       input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
     } Open body fat details.`,
   };
@@ -311,6 +358,7 @@ function buildBodyFatCard(input: {
 
 function buildLeanTissueCard(input: {
   overview: BodyMetricSummaryOverviewSlice;
+  profile: BodyMetricSummaryProfileSlice;
   unit: "kg" | "lb";
   measuredAtLabel: string | null;
   seriesError: boolean;
@@ -324,6 +372,16 @@ function buildLeanTissueCard(input: {
     ? numericWeightDisplay(input.overview.leanBodyMassKg as number, input.unit)
     : null;
 
+  const presentation = resolveBodyMetricStandardPresentation(
+    resolveInput({
+      metric: "leanTissue",
+      overview: input.overview,
+      profile: input.profile,
+      unit: input.unit,
+      measurementMethod: null,
+    }),
+  );
+
   if (input.seriesError) {
     return {
       metric: "leanTissue",
@@ -333,11 +391,10 @@ function buildLeanTissueCard(input: {
       unit: input.unit,
       readiness: "error",
       statusLabel: "Couldn’t load this measurement",
-      referenceLabel: "Method-specific reference unavailable",
+      referenceLabel: null,
       referenceContextLabel: null,
-      referenceBar: buildMutedUnavailableBar(
-        "Lean Tissue. Error loading measurement. No personal comparison is available.",
-      ),
+      referenceBar: null,
+      heightSpecificRangeLabel: null,
       provenance: {
         transportLabel: null,
         sourceApplicationLabel: null,
@@ -346,7 +403,7 @@ function buildLeanTissueCard(input: {
       },
       detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.leanMass,
       addDataHref: null,
-      accessibilityLabel: "Lean Tissue. Couldn’t load this measurement. Method-specific reference unavailable.",
+      accessibilityLabel: "Lean Tissue. Couldn’t load this measurement.",
     };
   }
 
@@ -359,11 +416,10 @@ function buildLeanTissueCard(input: {
       unit: input.unit,
       readiness: "missing",
       statusLabel: "No measurement yet",
-      referenceLabel: "Method-specific reference unavailable",
+      referenceLabel: "Classification standard pending approval",
       referenceContextLabel: null,
-      referenceBar: buildMutedUnavailableBar(
-        "Lean Tissue. No measurement yet. Method-specific reference unavailable. No personal marker is available.",
-      ),
+      referenceBar: null,
+      heightSpecificRangeLabel: null,
       provenance: {
         transportLabel: null,
         sourceApplicationLabel: null,
@@ -372,7 +428,8 @@ function buildLeanTissueCard(input: {
       },
       detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.leanMass,
       addDataHref: null,
-      accessibilityLabel: "Lean Tissue. No measurement yet. Method-specific reference unavailable. Add measurement.",
+      accessibilityLabel:
+        "Lean Tissue. No measurement yet. No approved lean-tissue classification standard is available.",
     };
   }
 
@@ -383,12 +440,11 @@ function buildLeanTissueCard(input: {
     formattedValue,
     unit: input.unit,
     readiness: "partial",
-    statusLabel: "Method-specific reference unavailable",
-    referenceLabel: "Method-specific reference unavailable",
+    statusLabel: "Total lean mass — construct-specific standard pending approval",
+    referenceLabel: "Classification standard pending approval",
     referenceContextLabel: null,
-    referenceBar: buildMutedUnavailableBar(
-      `Lean Tissue ${formattedValue}. Method-specific reference unavailable. No personal marker is available.`,
-    ),
+    referenceBar: presentation ? toReferenceBar(presentation) : null,
+    heightSpecificRangeLabel: null,
     provenance: {
       transportLabel: null,
       sourceApplicationLabel: null,
@@ -397,7 +453,7 @@ function buildLeanTissueCard(input: {
     },
     detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.leanMass,
     addDataHref: null,
-    accessibilityLabel: `Lean Tissue ${formattedValue}. Method-specific reference unavailable.${
+    accessibilityLabel: `Lean Tissue ${formattedValue}. Total lean mass is not classified as appendicular muscle. No approved lean-tissue classification standard is available.${
       input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
     } Open lean tissue details.`,
   };
@@ -408,7 +464,6 @@ export const BODY_COMPOSITION_SUMMARY_COPY = {
   pageTitle: "Body Composition",
   purpose: "Track weight, body fat, and lean tissue.",
   actionsTitle: "Add or connect measurements",
-  /** Omitted from landing until a real advanced-markers destination exists (Stage 3C+). */
   moreMarkersHref: null as string | null,
   moreMarkersLabel: "More Body Composition markers",
   rangesExplainerLabel: "Learn about measurement ranges",

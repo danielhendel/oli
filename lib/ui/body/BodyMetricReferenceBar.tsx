@@ -1,8 +1,9 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricReferenceBarModel } from "@/lib/body/presentation/bodyMetricCardTypes";
 import { SYSTEM_ACCENT, SYSTEM_ACCENT_OVERLAY_10 } from "@/lib/ui/theme/systemAccent";
+import { UI_TEXT_MUTED, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 const TONE_COLORS = {
   muted: "rgba(255,255,255,0.12)",
@@ -14,13 +15,17 @@ const TONE_COLORS = {
 export type BodyMetricReferenceBarProps = {
   model: BodyMetricReferenceBarModel;
   testID?: string;
+  /** When true, render text labels for each classification (not color-only). */
+  showSegmentLabels?: boolean;
 };
 
 /**
  * Presentation-only reference bar. Does not compute thresholds or classify.
+ * Supports a variable number of segments.
  */
 export function BodyMetricReferenceBar(props: BodyMetricReferenceBarProps) {
   const { model } = props;
+  const showLabels = props.showSegmentLabels !== false;
   const showMarker =
     model.markerPosition != null &&
     Number.isFinite(model.markerPosition) &&
@@ -62,6 +67,26 @@ export function BodyMetricReferenceBar(props: BodyMetricReferenceBarProps) {
           testID="body-metric-reference-marker"
         />
       ) : null}
+      {showLabels ? (
+        <View
+          style={styles.labelRow}
+          importantForAccessibility="no-hide-descendants"
+          accessibilityElementsHidden
+        >
+          {model.segments.map((segment) => (
+            <View key={`label-${segment.id}`} style={styles.labelCell}>
+              <Text style={styles.labelText} numberOfLines={2}>
+                {segment.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {model.standardVersion ? (
+        <Text style={styles.standardMeta} importantForAccessibility="no">
+          {model.standardId} · v{model.standardVersion}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -70,7 +95,8 @@ const styles = StyleSheet.create({
   wrap: {
     position: "relative",
     paddingTop: 4,
-    paddingBottom: 4,
+    paddingBottom: 2,
+    gap: 6,
   },
   track: {
     height: 8,
@@ -90,5 +116,23 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 2,
     backgroundColor: SYSTEM_ACCENT,
+  },
+  labelRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  labelCell: {
+    flex: 1,
+  },
+  labelText: {
+    color: UI_TEXT_SECONDARY,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: "600",
+  },
+  standardMeta: {
+    color: UI_TEXT_MUTED,
+    fontSize: 10,
+    lineHeight: 12,
   },
 });

@@ -19,6 +19,11 @@ import {
   BODY_COMPOSITION_SUMMARY_COPY,
   buildBodyMetricSummaryCards,
 } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
+import { ageYearsFromProfileDateOfBirth } from "@/lib/body/bodyCompositionShared";
+import {
+  resolveUserProfileMainForInterpretation,
+} from "@/lib/data/body/useBodyCompositionInterpretation";
+import { useUserProfileMain } from "@/lib/data/profile/useUserProfileMain";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { UI_SCREEN_BG, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
@@ -37,6 +42,11 @@ export default function BodyOverviewScreen() {
   const navigation = useNavigation();
   const { state: prefState } = usePreferences();
   const unit = prefState.preferences?.units?.mass ?? "lb";
+  const { state: profileState } = useUserProfileMain();
+  const profileMain = useMemo(
+    () => resolveUserProfileMainForInterpretation(profileState),
+    [profileState],
+  );
   const body = useBodyOverviewData();
   const [weightLogVisible, setWeightLogVisible] = useState(false);
   const bodyBackfill = useAppleHealthBodyBackfill(() => {
@@ -97,6 +107,20 @@ export default function BodyOverviewScreen() {
   ) : undefined;
 
   const seriesError = body.series.status === "error";
+  const profileSlice = useMemo(() => {
+    const sexRaw = profileMain.identity.sexAtBirth;
+    const sex =
+      sexRaw === "female" || sexRaw === "male"
+        ? sexRaw
+        : sexRaw == null
+          ? null
+          : ("unspecified" as const);
+    return {
+      heightCm: profileMain.body.heightCm ?? null,
+      ageYears: ageYearsFromProfileDateOfBirth(profileMain.identity.dateOfBirth ?? null),
+      sex,
+    };
+  }, [profileMain]);
   const cards = useMemo(
     () =>
       buildBodyMetricSummaryCards({
@@ -109,10 +133,11 @@ export default function BodyOverviewScreen() {
           hasAnyMetric: body.overview.hasAnyMetric,
           latestObservedAtIso: body.overview.latestObservedAtIso ?? null,
         },
+        profile: profileSlice,
         unit,
         seriesError,
       }),
-    [body.overview, unit, seriesError],
+    [body.overview, profileSlice, unit, seriesError],
   );
 
   const unavailableMsg =

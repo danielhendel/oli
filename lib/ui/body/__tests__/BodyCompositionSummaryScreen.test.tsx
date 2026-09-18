@@ -29,6 +29,7 @@ describe("BodyCompositionSummaryScreen", () => {
       bmi: 24.2,
       hasAnyMetric: true,
     },
+    profile: { heightCm: 175, ageYears: 32, sex: "male" },
     unit: "lb",
   });
 
@@ -78,8 +79,10 @@ describe("BodyCompositionSummaryScreen", () => {
     expect(text).not.toContain("Visceral Adiposity");
     expect(text).not.toContain("What influences Body Composition");
     expect(text).not.toContain("Open Plan");
+    expect(text).toContain("Underweight");
+    expect(text).toContain("Healthy Weight");
+    expect(text).not.toMatch(/\bBelow\b/);
     expect(tree.root.findAllByProps({ testID: "body-composition-reference-model" })).toHaveLength(0);
-    expect(tree.root.findAllByProps({ testID: "body-metric-reference-marker" })).toHaveLength(0);
   });
 
   it("keeps Apple Health below the metric cards and routes Add weight", () => {

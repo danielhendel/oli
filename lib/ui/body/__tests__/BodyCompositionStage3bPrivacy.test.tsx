@@ -62,6 +62,20 @@ jest.mock("@/lib/ui/WeightLogModal", () => ({
   WeightLogModal: () => null,
 }));
 
+jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
+  useUserProfileMain: () => ({
+    state: {
+      status: "ready",
+      profile: {
+        identity: { dateOfBirth: "1990-01-15", sexAtBirth: "female" },
+        body: { heightCm: 170 },
+      },
+    },
+    refresh: jest.fn(),
+    patch: jest.fn(),
+  }),
+}));
+
 const mockOnAllow = jest.fn();
 jest.mock("@/lib/data/body/useBodyOverviewData", () => ({
   useBodyOverviewData: () => ({

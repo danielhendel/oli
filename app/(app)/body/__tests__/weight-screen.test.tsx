@@ -65,6 +65,20 @@ jest.mock("@/lib/data/body/useAppleHealthBodyBackfill", () => ({
   }),
 }));
 
+jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
+  useUserProfileMain: () => ({
+    state: {
+      status: "ready",
+      profile: {
+        identity: { dateOfBirth: "1990-01-15", sexAtBirth: "female" },
+        body: { heightCm: 170 },
+      },
+    },
+    refresh: jest.fn(),
+    patch: jest.fn(),
+  }),
+}));
+
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
 }));
@@ -178,10 +192,10 @@ describe("Body Composition simplified main screen", () => {
     expect(text).not.toContain("Evidence levels");
     expect(text).not.toContain("Central Adiposity");
     expect(text).not.toMatch(/Body score|Optimized|Excellence/i);
-    expect(tree.root.findAllByProps({ testID: "body-metric-reference-marker" })).toHaveLength(0);
+    // Weight may show a CDC/WHO screening marker; Body Fat / Lean must not invent markers.
   });
 
-  it("shows populated values without placing personal markers", () => {
+  it("shows populated values with CDC/WHO Weight labels and fail-closed BF/Lean", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -191,9 +205,13 @@ describe("Body Composition simplified main screen", () => {
     expect(text).toContain("176.4 lb");
     expect(text).toContain("18.0%");
     expect(text).toContain("132.3 lb");
-    expect(text).toContain("Weight-for-height screening");
-    expect(text).toContain("Reference unavailable");
-    expect(text).toContain("Method-specific reference unavailable");
+    expect(text).toContain("Underweight");
+    expect(text).toContain("Healthy Weight");
+    expect(text).toContain("Overweight");
+    expect(text).toContain("Obesity");
+    expect(text).toContain("BMI screening");
+    expect(text).not.toMatch(/\bBelow\b|\bAbove\b/);
+    expect(text).toContain("Classification standard pending approval");
   });
 
   it("routes Weight card to weight metric detail", () => {

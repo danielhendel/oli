@@ -1,6 +1,5 @@
 /**
  * Presentation-only types for Stage 3B Body Composition metric summary cards.
- * Adapts existing overview values for display — does not create official classification.
  */
 
 export type BodyMetricReferenceBarTone = "muted" | "reference" | "caution" | "elevated";
@@ -8,6 +7,7 @@ export type BodyMetricReferenceBarTone = "muted" | "reference" | "caution" | "el
 export type BodyMetricReferenceBarSegment = {
   readonly id: string;
   readonly label: string;
+  readonly numericRangeLabel: string | null;
   /** Relative start along the bar (0–1). */
   readonly start: number;
   /** Relative end along the bar (0–1). */
@@ -21,6 +21,8 @@ export type BodyMetricReferenceBarModel = {
   readonly markerPosition: number | null;
   readonly markerLabel: string | null;
   readonly accessibleSummary: string;
+  readonly standardId: string | null;
+  readonly standardVersion: string | null;
 };
 
 export type BodyMetricCardMetric = "weight" | "bodyFat" | "leanTissue";
@@ -51,6 +53,7 @@ export type BodyMetricCardModel = {
   readonly referenceLabel: string | null;
   readonly referenceContextLabel: string | null;
   readonly referenceBar: BodyMetricReferenceBarModel | null;
+  readonly heightSpecificRangeLabel: string | null;
   readonly provenance: BodyMetricCardProvenance;
   readonly detailHref: string;
   readonly addDataHref: string | null;

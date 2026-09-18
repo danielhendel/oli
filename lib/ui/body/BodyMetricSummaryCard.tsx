@@ -76,6 +76,10 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
 
       {model.referenceLabel ? <Text style={styles.reference}>{model.referenceLabel}</Text> : null}
 
+      {model.heightSpecificRangeLabel ? (
+        <Text style={styles.heightRange}>{model.heightSpecificRangeLabel}</Text>
+      ) : null}
+
       {model.referenceBar ? (
         <BodyMetricReferenceBar
           model={model.referenceBar}
@@ -159,6 +163,11 @@ const styles = StyleSheet.create({
     color: UI_TEXT_SECONDARY,
     fontSize: 13,
     lineHeight: 18,
+  },
+  heightRange: {
+    color: UI_TEXT_MUTED,
+    fontSize: 12,
+    lineHeight: 16,
   },
   provenance: {
     marginTop: 2,
