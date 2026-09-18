@@ -55,4 +55,4 @@ Landing is a three-card summary: Weight → Body Fat → Lean Tissue.
 | `npx expo-doctor` | exit 1; exactly **five** known findings; no sixth |
 
 **Prior head:** `efb9907915639bbff053b55d5deb65166c5254dc`
-**Retest head:** `PENDING`
+**Retest head:** `206a082a8b7bd2998a9939831d8bc15998ed34d1`
