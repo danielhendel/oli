@@ -23,7 +23,7 @@
 | `npm run check:invariants` | _(pending full gate)_ |
 | Focused sheet / refresh / access-page tests | PASS |
 
-**Retest head:** _(filled after commit)_
+**Retest head:** `6daaf59e7b96e978d7a8ecdaad3c32f720555197`
 
 ## Boundaries
 
