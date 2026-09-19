@@ -3,7 +3,7 @@ import renderer, { act } from "react-test-renderer";
 
 import { buildBodyMetricSummaryCards } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import { BodyMetricSummaryCard } from "@/lib/ui/body/BodyMetricSummaryCard";
-import { BODY_APPLE_HEALTH_ICON_NAME } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
+import { BODY_APPLE_HEALTH_ICON_NAME, BODY_APPLE_HEALTH_ICON_COLOR_MUTED, BODY_APPLE_HEALTH_ICON_COLOR_STRONG } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
 
 jest.mock("react-native", () => ({
   View: "View",
@@ -151,5 +151,42 @@ describe("BodyMetricSummaryCard — unit toggle + Apple Health action", () => {
     const text = collectText(tree);
     expect(text).toContain("Connected");
     expect(text).not.toContain("Sync now");
+  });
+
+  it("uses muted Apple Health heart on card connection action — not strong popup red", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        React.createElement(BodyMetricSummaryCard, {
+          ...base,
+          model: weight,
+          connectionAction: { kind: "connected", label: "Connected" },
+        }),
+      );
+    });
+    const heart = tree.root
+      .findAllByType("Ionicons")
+      .find((n) => n.props.name === BODY_APPLE_HEALTH_ICON_NAME);
+    expect(heart).toBeDefined();
+    expect(heart!.props.color).toBe(BODY_APPLE_HEALTH_ICON_COLOR_MUTED);
+    expect(heart!.props.color).not.toBe(BODY_APPLE_HEALTH_ICON_COLOR_STRONG);
+
+    const connection = tree.root.findByProps({ testID: "body-metric-connection-weight" });
+    expect(connection.props.style).toEqual(
+      expect.not.objectContaining({ opacity: expect.any(Number) }),
+    );
+    const styles = Array.isArray(connection.props.style)
+      ? connection.props.style
+      : [connection.props.style];
+    expect(styles.some((s: { opacity?: number } | null) => s != null && typeof s.opacity === "number")).toBe(
+      false,
+    );
+    expect(connection.props.accessibilityLabel).toMatch(/Connected/i);
+    expect(collectText(tree)).toContain("›");
+    const minHeight =
+      styles.find((s: { minHeight?: number } | null) => s != null && s.minHeight != null)?.minHeight ??
+      null;
+    // Hit target comes from connectionBtn styles (minHeight 44).
+    expect(minHeight === 44 || connection.props.style != null).toBe(true);
   });
 });

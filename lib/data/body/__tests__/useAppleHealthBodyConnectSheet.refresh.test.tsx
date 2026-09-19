@@ -5,6 +5,7 @@ import renderer, { act } from "react-test-renderer";
 const mockSyncLatest = jest.fn(async () => ({ ok: true as const, ingested: 1 }));
 const mockGetLastChecked = jest.fn(async () => "2026-09-19T18:00:00.000Z");
 const mockGetBackfill = jest.fn(async () => null);
+const mockIsDomainEnabled = jest.fn(async () => true);
 const mockConnect = jest.fn();
 const mockResume = jest.fn();
 
@@ -32,6 +33,7 @@ jest.mock("@/lib/data/body/connectAppleHealthBodyForComposition", () => ({
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getAppleHealthBodyBackfillState: (...a: unknown[]) => mockGetBackfill(...a),
   getAppleHealthBodyLastCheckedAt: (...a: unknown[]) => mockGetLastChecked(...a),
+  isAppleHealthDomainEnabled: (...a: unknown[]) => mockIsDomainEnabled(...a),
 }));
 
 import { useAppleHealthBodyConnectSheet } from "../useAppleHealthBodyConnectSheet";
@@ -54,91 +56,64 @@ function Host({
   return null;
 }
 
+type SheetApi = ReturnType<typeof useAppleHealthBodyConnectSheet>;
+
 async function mountSheet(accessPhase = "ready") {
-  let api: ReturnType<typeof useAppleHealthBodyConnectSheet> | null = null;
+  const holder: { api: SheetApi | null } = { api: null };
   await act(async () => {
     renderer.create(
       React.createElement(Host, {
         accessPhase,
         onReady: (next) => {
-          api = next;
+          holder.api = next;
         },
       }),
     );
   });
-  // Allow storage hydration effect to settle.
   await act(async () => {
     await Promise.resolve();
+    await Promise.resolve();
   });
-  if (!api) throw new Error("hook api not ready");
-  return api;
+  if (!holder.api) throw new Error("hook api not ready");
+  return holder;
 }
 
-describe("useAppleHealthBodyConnectSheet latest refresh", () => {
+describe("useAppleHealthBodyConnectSheet — no refresh on open", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSyncLatest.mockResolvedValue({ ok: true, ingested: 1 });
     mockGetLastChecked.mockResolvedValue("2026-09-19T18:00:00.000Z");
     mockGetBackfill.mockResolvedValue(null);
+    mockIsDomainEnabled.mockResolvedValue(true);
   });
 
-  it("opens connected sheet and refreshes latest exactly once per open", async () => {
-    const api = await mountSheet();
+  it("opening connected sheet invokes zero latest refreshes", async () => {
+    const holder = await mountSheet();
+    await act(async () => {
+      holder.api!.onPressCardConnection();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(mockSyncLatest).not.toHaveBeenCalled();
-
-    await act(async () => {
-      api.onPressCardConnection();
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(mockSyncLatest).toHaveBeenCalledTimes(1);
-    expect(mockSyncLatest.mock.calls[0]?.[1]).toEqual({ trigger: "body_status_sheet_open" });
-
-    await act(async () => {
-      api.onPressCardConnection();
-    });
-    expect(mockSyncLatest).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      api.close();
-    });
-    await act(async () => {
-      api.onPressCardConnection();
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(mockSyncLatest).toHaveBeenCalledTimes(2);
-  });
-
-  it("pull-to-refresh uses pull trigger and does not start history", async () => {
-    const api = await mountSheet();
-    await act(async () => {
-      api.onPressCardConnection();
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    mockSyncLatest.mockClear();
-
-    await act(async () => {
-      await api.onRefreshLatest();
-    });
-    expect(mockSyncLatest).toHaveBeenCalledTimes(1);
-    expect(mockSyncLatest.mock.calls[0]?.[1]).toEqual({ trigger: "pull_to_refresh" });
     expect(mockConnect).not.toHaveBeenCalled();
     expect(mockResume).not.toHaveBeenCalled();
+    expect(holder.api!.visible).toBe(true);
+    expect(holder.api!.phase).toBe("connectedStatus");
   });
 
-  it("needsReview does not auto-query latest", async () => {
-    const api = await mountSheet("denied");
+  it("close and reopen still does not refresh", async () => {
+    const holder = await mountSheet();
     await act(async () => {
-      api.onPressCardConnection();
+      holder.api!.onPressCardConnection();
     });
     await act(async () => {
-      await Promise.resolve();
+      holder.api!.close();
+    });
+    await act(async () => {
+      holder.api!.onPressCardConnection();
     });
     expect(mockSyncLatest).not.toHaveBeenCalled();
+    expect(holder.api!.visible).toBe(true);
   });
 });

@@ -9,8 +9,9 @@ jest.mock("react-native", () => ({
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   Modal: "Modal",
+  RefreshControl: "RefreshControl",
   Platform: { OS: "ios" },
-  StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },
+  StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1, absoluteFillObject: {} },
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -63,23 +64,22 @@ jest.mock("@/lib/data/body/useAppleHealthBodyAccessState", () => ({
 const mockConnectSheet = {
   visible: false,
   phase: "explaining" as const,
-  detailLine: null as string | null,
   historyAttention: false,
-  refreshing: false,
-  refreshError: null as string | null,
   lastSuccessfulSyncAtIso: null as string | null,
+  bodyScopeConnected: false,
   cardAction: { kind: "connected" as const, label: "Connected" },
   openForConnect: jest.fn(),
   close: jest.fn(),
   onPrimary: jest.fn(),
-  onRefreshLatest: jest.fn(),
   onPressCardConnection: jest.fn(),
+  refreshLastUpdatedFromStorage: jest.fn(),
 };
 jest.mock("@/lib/data/body/useAppleHealthBodyConnectSheet", () => ({
   useAppleHealthBodyConnectSheet: () => mockConnectSheet,
 }));
 
 jest.mock("@/lib/ui/body/BodyAppleHealthConnectSheet", () => ({
+  BODY_APPLE_HEALTH_SETTINGS_HREF: "/(app)/settings/devices/apple_health",
   BodyAppleHealthConnectSheet: () => null,
 }));
 
@@ -139,7 +139,10 @@ function buildBody(overrides: Record<string, unknown> = {}) {
     },
     dayFacts: { status: "missing" as const },
     isBodySyncing: false,
+    isPullRefreshing: false,
+    pullRefreshError: null as string | null,
     syncAppleHealthBodyNow: jest.fn(),
+    onPullToRefresh: jest.fn(),
     hasSuccessfulBodySync: false,
     weekDays: [] as { day: string; meta: { hasMeasurement: boolean } }[],
     markedDays: new Set<string>(),
@@ -183,12 +186,10 @@ describe("Body Composition simplified main screen", () => {
     mockMassUnit = "lb";
     mockConnectSheet.visible = false;
     mockConnectSheet.phase = "explaining";
-    mockConnectSheet.detailLine = null;
     mockConnectSheet.cardAction = { kind: "connected", label: "Connected" };
     mockConnectSheet.openForConnect.mockClear();
     mockConnectSheet.close.mockClear();
     mockConnectSheet.onPrimary.mockClear();
-    mockConnectSheet.onRefreshLatest.mockClear();
     mockConnectSheet.onPressCardConnection.mockClear();
     mockAccess.mockReturnValue({
       phase: "ready",

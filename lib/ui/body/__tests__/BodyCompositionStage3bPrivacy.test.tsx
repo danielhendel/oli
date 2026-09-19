@@ -21,9 +21,11 @@ jest.mock("react-native", () => ({
   Text: "Text",
   Pressable: "Pressable",
   Platform: { OS: "ios" },
-  StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },
+  StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1, absoluteFillObject: {} },
   Modal: "Modal",
   ScrollView: "ScrollView",
+  RefreshControl: "RefreshControl",
+  ActivityIndicator: "ActivityIndicator",
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -98,7 +100,10 @@ jest.mock("@/lib/data/body/useBodyOverviewData", () => ({
     },
     dayFacts: { status: "missing" },
     isBodySyncing: false,
+    isPullRefreshing: false,
+    pullRefreshError: null,
     syncAppleHealthBodyNow: mockRunBodySync,
+    onPullToRefresh: jest.fn(),
     hasSuccessfulBodySync: false,
     weekDays: [],
     markedDays: new Set(),
@@ -133,21 +138,20 @@ jest.mock("@/lib/data/body/useAppleHealthBodyConnectSheet", () => ({
   useAppleHealthBodyConnectSheet: () => ({
     visible: false,
     phase: "explaining",
-    detailLine: null,
     historyAttention: false,
-    refreshing: false,
-    refreshError: null,
     lastSuccessfulSyncAtIso: null,
+    bodyScopeConnected: false,
     cardAction: { kind: "sync_now", label: "Sync now" },
     openForConnect: mockOpenForConnect,
     close: jest.fn(),
     onPrimary: jest.fn(),
-    onRefreshLatest: jest.fn(),
     onPressCardConnection: mockOnPressCardConnection,
+    refreshLastUpdatedFromStorage: jest.fn(),
   }),
 }));
 
 jest.mock("@/lib/ui/body/BodyAppleHealthConnectSheet", () => ({
+  BODY_APPLE_HEALTH_SETTINGS_HREF: "/(app)/settings/devices/apple_health",
   BodyAppleHealthConnectSheet: () => null,
 }));
 

@@ -60,7 +60,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockUseAppleHealthBodySync.mockReturnValue({
     isBodySyncing: false,
+    isPullRefreshing: false,
+    pullRefreshError: null,
     syncAppleHealthBodyNow: jest.fn(),
+    onPullToRefresh: jest.fn(),
     hasSuccessfulBodySync: false,
   });
 });
