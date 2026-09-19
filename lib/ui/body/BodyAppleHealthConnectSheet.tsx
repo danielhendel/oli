@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,8 +17,9 @@ import {
   resolveBodyHistoryStatusLabel,
   type AppleHealthBodyConnectSheetPhase,
 } from "@/lib/body/presentation/appleHealthBodyConnectSheetModel";
+import { AppleHealthScopeIndicator } from "@/lib/ui/body/AppleHealthScopeIndicator";
 import {
-  BODY_APPLE_HEALTH_ICON_COLOR,
+  BODY_APPLE_HEALTH_ICON_COLOR_STRONG,
   BodyAppleHealthSourceIcon,
 } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
@@ -34,23 +34,25 @@ import {
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 
+/** Canonical in-app Apple Health access summary. */
+export const BODY_APPLE_HEALTH_SETTINGS_HREF = "/(app)/settings/devices/apple_health";
+
 export type BodyAppleHealthConnectSheetProps = {
   visible: boolean;
   phase: AppleHealthBodyConnectSheetPhase;
   onClose: () => void;
   onPrimary: () => void;
-  /** Latest-only refresh (sheet-open / pull). Must not restart history. */
-  onRefreshLatest?: () => void | Promise<void>;
-  refreshing?: boolean;
   lastSuccessfulSyncAtIso?: string | null;
-  refreshError?: string | null;
   historyAttention?: boolean;
+  /** Body domain connected for current account — drives noninteractive ON indicators. */
+  bodyScopeConnected?: boolean;
   onReviewAccess?: () => void;
+  onOpenAppleHealthSettings?: () => void;
 };
 
 /**
- * Premium Body Composition Apple Health sheet — Category Card visual language.
- * Healthy connected state is almost action-free: Done + pull-to-refresh.
+ * Premium Body Composition Apple Health status sheet — Category Card visual language.
+ * Status/management only: no latest refresh on open.
  */
 export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetProps) {
   const insets = useSafeAreaInsets();
@@ -67,8 +69,7 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
   const lastUpdated = formatAppleHealthLastUpdatedLabel(
     props.lastSuccessfulSyncAtIso ?? null,
   );
-  const refreshing = props.refreshing === true;
-  const canPull = copy.allowPullToRefresh && typeof props.onRefreshLatest === "function";
+  const scopeOn = props.bodyScopeConnected === true;
 
   return (
     <Modal
@@ -93,23 +94,11 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
-            refreshControl={
-              canPull ? (
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={() => {
-                    void props.onRefreshLatest?.();
-                  }}
-                  tintColor={BODY_APPLE_HEALTH_ICON_COLOR}
-                  accessibilityLabel="Refresh Apple Health Body measurements"
-                />
-              ) : undefined
-            }
           >
             <View style={styles.headerRow} testID="body-ah-sheet-header">
               <View style={styles.headerLeft}>
                 <View style={styles.sourceTitleRow} testID="body-ah-sheet-source-title-row">
-                  <BodyAppleHealthSourceIcon size={20} decorative />
+                  <BodyAppleHealthSourceIcon accent="strong" size={20} decorative />
                   {copy.eyebrow ? (
                     <Text style={styles.sourceTitle} accessibilityRole="header">
                       {copy.eyebrow}
@@ -133,9 +122,24 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
 
             {copy.showMetricList ? (
               <View style={styles.metricCard} accessibilityRole="list">
-                {BODY_APPLE_HEALTH_CONNECT_METRICS.map((metric) => (
-                  <View key={metric} style={styles.metricRow}>
+                {BODY_APPLE_HEALTH_CONNECT_METRICS.map((metric, index) => (
+                  <View
+                    key={metric}
+                    style={[
+                      styles.metricRow,
+                      index < BODY_APPLE_HEALTH_CONNECT_METRICS.length - 1
+                        ? styles.metricRowBorder
+                        : null,
+                    ]}
+                  >
                     <Text style={styles.metricText}>{metric}</Text>
+                    {copy.showScopeIndicators ? (
+                      <AppleHealthScopeIndicator
+                        metricLabel={metric}
+                        on={scopeOn}
+                        testID={`body-ah-sheet-scope-${metric.toLowerCase().replace(/\s+/g, "-")}`}
+                      />
+                    ) : null}
                   </View>
                 ))}
               </View>
@@ -171,14 +175,20 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
               </View>
             ) : null}
 
-            {props.refreshError ? (
-              <Text
-                style={styles.refreshError}
-                accessibilityLiveRegion="polite"
-                testID="body-ah-sheet-refresh-error"
+            {copy.showSettingsLink && props.onOpenAppleHealthSettings ? (
+              <Pressable
+                style={styles.settingsRow}
+                onPress={props.onOpenAppleHealthSettings}
+                accessibilityRole="button"
+                accessibilityLabel="Apple Health settings"
+                accessibilityHint="Opens Apple Health access summary in Oli"
+                testID="body-ah-sheet-settings-link"
               >
-                {props.refreshError}
-              </Text>
+                <Text style={styles.settingsLabel}>Apple Health settings</Text>
+                <Text style={styles.settingsChevron} accessibilityElementsHidden>
+                  ›
+                </Text>
+              </Pressable>
             ) : null}
 
             {copy.progressLabel ? (
@@ -187,7 +197,9 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
                 accessibilityLiveRegion="polite"
                 accessibilityLabel={copy.progressLabel}
               >
-                {busy ? <ActivityIndicator color={BODY_APPLE_HEALTH_ICON_COLOR} /> : null}
+                {busy ? (
+                  <ActivityIndicator color={BODY_APPLE_HEALTH_ICON_COLOR_STRONG} />
+                ) : null}
                 <Text style={styles.progressText}>{copy.progressLabel}</Text>
               </View>
             ) : null}
@@ -322,8 +334,15 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   metricRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    minHeight: 44,
+  },
+  metricRowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: UI_CARD_ELEVATED_BORDER,
   },
@@ -331,6 +350,7 @@ const styles = StyleSheet.create({
     color: UI_TEXT_PRIMARY,
     fontSize: 15,
     fontWeight: "600",
+    flexShrink: 1,
   },
   statusRow: {
     flexDirection: "row",
@@ -360,10 +380,22 @@ const styles = StyleSheet.create({
   statusRowCaution: {
     color: "#F5C26B",
   },
-  refreshError: {
+  settingsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 44,
+    paddingVertical: 4,
+  },
+  settingsLabel: {
     color: UI_TEXT_SECONDARY,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  settingsChevron: {
+    color: "rgba(255,255,255,0.45)",
+    fontSize: 20,
+    fontWeight: "300",
   },
   progressBlock: {
     flexDirection: "row",
@@ -387,7 +419,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   reviewBtnText: {
-    color: BODY_APPLE_HEALTH_ICON_COLOR,
+    color: BODY_APPLE_HEALTH_ICON_COLOR_STRONG,
     fontSize: 15,
     fontWeight: "600",
   },

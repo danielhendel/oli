@@ -83,10 +83,16 @@ export const UI_DASH_RECAP_CARD_RADIUS = 14;
 export const UI_DASH_CATEGORY_CARD_RADIUS = 20;
 
 /**
- * Apple Health / HealthKit source identity — system Health pink-red.
- * Use for the heart glyph beside “Apple Health”, not for status chips.
+ * Apple Health / HealthKit source identity — system Health pink-red (popup / settings).
  */
 export const UI_APPLE_HEALTH_HEART = "#FF2D55";
+/** Alias for strong accent used in popup headers and Apple Health settings identity. */
+export const UI_APPLE_HEALTH_HEART_STRONG = UI_APPLE_HEALTH_HEART;
+/**
+ * Muted Apple Health red for Body metric-card source actions — keeps identity without
+ * overpowering the metric value/chart.
+ */
+export const UI_APPLE_HEALTH_HEART_MUTED = "#C45A6A";
 
 /** Modal scrim / overlay dim */
 export const UI_OVERLAY = T.overlay;

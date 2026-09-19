@@ -39,11 +39,13 @@ export type AppleHealthBodyConnectSheetCopy = {
   readonly footer: string | null;
   readonly showMetricList: boolean;
   readonly showStatusRows: boolean;
-  /** Healthy / recovery sheets may pull-to-refresh latest only. */
-  readonly allowPullToRefresh: boolean;
+  /** Noninteractive Body sync-scope ON indicators beside metric rows. */
+  readonly showScopeIndicators: boolean;
   /** Review access — only when source state needs attention. */
   readonly showReviewAccess: boolean;
   readonly showResumeImport: boolean;
+  /** Subtle link to in-app Apple Health access summary. */
+  readonly showSettingsLink: boolean;
 };
 
 export const BODY_APPLE_HEALTH_CONNECT_METRICS = [
@@ -55,7 +57,7 @@ export const BODY_APPLE_HEALTH_CONNECT_METRICS = [
 const HEALTHY_CONNECTED: AppleHealthBodyConnectSheetCopy = {
   title: "Body Composition",
   eyebrow: "Apple Health",
-  body: "Oli keeps these measurements up to date.",
+  body: null,
   progressLabel: null,
   statusChip: "Connected",
   primaryLabel: "Done",
@@ -64,9 +66,10 @@ const HEALTHY_CONNECTED: AppleHealthBodyConnectSheetCopy = {
   footer: null,
   showMetricList: true,
   showStatusRows: true,
-  allowPullToRefresh: true,
+  showScopeIndicators: true,
   showReviewAccess: false,
   showResumeImport: false,
+  showSettingsLink: true,
 };
 
 export function buildAppleHealthBodyConnectSheetCopy(
@@ -86,9 +89,10 @@ export function buildAppleHealthBodyConnectSheetCopy(
         footer: "You control access in Apple Health and can change it at any time.",
         showMetricList: true,
         showStatusRows: false,
-        allowPullToRefresh: false,
+        showScopeIndicators: false,
         showReviewAccess: false,
         showResumeImport: false,
+        showSettingsLink: false,
       };
     case "requestingPermission":
       return {
@@ -103,9 +107,10 @@ export function buildAppleHealthBodyConnectSheetCopy(
         footer: "You can leave this screen. If the import pauses, Oli will resume automatically.",
         showMetricList: false,
         showStatusRows: false,
-        allowPullToRefresh: false,
+        showScopeIndicators: false,
         showReviewAccess: false,
         showResumeImport: false,
+        showSettingsLink: false,
       };
     case "findingLatest":
       return {
@@ -120,9 +125,10 @@ export function buildAppleHealthBodyConnectSheetCopy(
         footer: "You can leave this screen. If the import pauses, Oli will resume automatically.",
         showMetricList: false,
         showStatusRows: false,
-        allowPullToRefresh: false,
+        showScopeIndicators: false,
         showReviewAccess: false,
         showResumeImport: false,
+        showSettingsLink: false,
       };
     case "importingRecent":
       return {
@@ -137,9 +143,10 @@ export function buildAppleHealthBodyConnectSheetCopy(
         footer: "You can leave this screen. If the import pauses, Oli will resume automatically.",
         showMetricList: false,
         showStatusRows: false,
-        allowPullToRefresh: false,
+        showScopeIndicators: false,
         showReviewAccess: false,
         showResumeImport: false,
+        showSettingsLink: false,
       };
     case "importingEarlier":
       return {
@@ -154,9 +161,10 @@ export function buildAppleHealthBodyConnectSheetCopy(
         footer: "You can leave this screen. If the import pauses, Oli will resume automatically.",
         showMetricList: false,
         showStatusRows: false,
-        allowPullToRefresh: false,
+        showScopeIndicators: false,
         showReviewAccess: false,
         showResumeImport: false,
+        showSettingsLink: false,
       };
     case "upToDate":
     case "connectedStatus":
@@ -180,9 +188,10 @@ export function buildAppleHealthBodyConnectSheetCopy(
         footer: null,
         showMetricList: false,
         showStatusRows: true,
-        allowPullToRefresh: true,
+        showScopeIndicators: false,
         showReviewAccess: false,
         showResumeImport: true,
+        showSettingsLink: true,
       };
     case "waitingForNetwork":
       return {
@@ -197,9 +206,10 @@ export function buildAppleHealthBodyConnectSheetCopy(
         footer: null,
         showMetricList: false,
         showStatusRows: true,
-        allowPullToRefresh: true,
+        showScopeIndicators: false,
         showReviewAccess: false,
         showResumeImport: true,
+        showSettingsLink: true,
       };
     case "needsReview":
       return {
@@ -214,9 +224,10 @@ export function buildAppleHealthBodyConnectSheetCopy(
         footer: null,
         showMetricList: false,
         showStatusRows: false,
-        allowPullToRefresh: false,
+        showScopeIndicators: false,
         showReviewAccess: false,
         showResumeImport: false,
+        showSettingsLink: false,
       };
     case "failed":
       return {
@@ -231,9 +242,10 @@ export function buildAppleHealthBodyConnectSheetCopy(
         footer: null,
         showMetricList: false,
         showStatusRows: false,
-        allowPullToRefresh: false,
+        showScopeIndicators: false,
         showReviewAccess: false,
         showResumeImport: false,
+        showSettingsLink: false,
       };
     default: {
       const _exhaustive: never = phase;

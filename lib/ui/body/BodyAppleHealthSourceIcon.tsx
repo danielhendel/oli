@@ -10,16 +10,28 @@ import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { UI_APPLE_HEALTH_HEART } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_APPLE_HEALTH_HEART_MUTED,
+  UI_APPLE_HEALTH_HEART_STRONG,
+} from "@/lib/ui/theme/uiTokens";
 
 /** Filled heart — Ionicons equivalent of SF Symbol `heart.fill`. */
 export const BODY_APPLE_HEALTH_ICON_NAME = "heart" as const;
 export const BODY_APPLE_HEALTH_ICON_SIZE = 20;
-/** Semantic Apple Health heart red — not the Body indigo accent. */
-export const BODY_APPLE_HEALTH_ICON_COLOR = UI_APPLE_HEALTH_HEART;
+
+/** Strong red — popup header / Apple Health settings identity. */
+export const BODY_APPLE_HEALTH_ICON_COLOR_STRONG = UI_APPLE_HEALTH_HEART_STRONG;
+/** Muted red — Body metric-card source action only. */
+export const BODY_APPLE_HEALTH_ICON_COLOR_MUTED = UI_APPLE_HEALTH_HEART_MUTED;
+/** @deprecated Prefer STRONG or MUTED explicitly. Defaults to strong. */
+export const BODY_APPLE_HEALTH_ICON_COLOR = BODY_APPLE_HEALTH_ICON_COLOR_STRONG;
+
+export type BodyAppleHealthSourceIconAccent = "strong" | "muted";
 
 export type BodyAppleHealthSourceIconProps = {
-  /** Defaults to {@link BODY_APPLE_HEALTH_ICON_COLOR}. */
+  /** Defaults to strong when omitted. */
+  accent?: BodyAppleHealthSourceIconAccent;
+  /** Explicit override — prefer `accent` when possible. */
   color?: string;
   size?: number;
   /** When true, hide from VoiceOver (parent Pressable already announces Apple Health). */
@@ -28,7 +40,11 @@ export type BodyAppleHealthSourceIconProps = {
 
 export function BodyAppleHealthSourceIcon(props: BodyAppleHealthSourceIconProps) {
   const size = props.size ?? BODY_APPLE_HEALTH_ICON_SIZE;
-  const color = props.color ?? BODY_APPLE_HEALTH_ICON_COLOR;
+  const color =
+    props.color ??
+    (props.accent === "muted"
+      ? BODY_APPLE_HEALTH_ICON_COLOR_MUTED
+      : BODY_APPLE_HEALTH_ICON_COLOR_STRONG);
   return (
     <View
       style={styles.wrap}

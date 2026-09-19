@@ -269,7 +269,7 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
             testID={`body-metric-connection-${model.metric}`}
           >
             <View style={styles.connectionInner}>
-              <BodyAppleHealthSourceIcon size={18} decorative />
+              <BodyAppleHealthSourceIcon accent="muted" size={18} decorative />
               <Text
                 style={[
                   styles.connectionBtnText,
