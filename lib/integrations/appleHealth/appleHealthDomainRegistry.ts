@@ -62,7 +62,7 @@ export const APPLE_HEALTH_DOMAIN_REGISTRY: readonly AppleHealthDomainDefinition[
   {
     id: "body",
     displayName: "Body Composition",
-    consumerMetrics: ["Weight", "Body Fat", "Lean Tissue"],
+    consumerMetrics: ["Weight", "Body Fat", "Lean Mass"],
     readTypes: APPLE_HEALTH_BODY_READ_TYPES,
     importPolicy: "latest_then_bounded_history",
     implemented: true,

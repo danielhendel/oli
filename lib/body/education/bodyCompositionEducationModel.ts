@@ -73,14 +73,14 @@ export const BODY_COMPOSITION_EDUCATION_MODEL: BodyCompositionEducationModel = {
     },
     {
       id: "lean_tissue",
-      title: "Lean Tissue",
+      title: "Lean Mass",
       meaning: "Non-fat mass estimated by a supported measurement method.",
       whyItMatters:
         "Lean tissue is not identical to skeletal muscle. Adequate lean tissue supports physical function and performance context. Interpretation depends on method.",
       evidenceTierId: "composition",
       evidenceTierLabel: "Composition",
       accessibilityLabel:
-        "Lean Tissue. Non-fat mass. Composition evidence. Not identical to skeletal muscle.",
+        "Lean Mass. Non-fat mass. Composition evidence. Not identical to skeletal muscle.",
       learnMoreHref: null,
     },
     {

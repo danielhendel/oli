@@ -48,13 +48,13 @@ export const BODY_APPLE_HEALTH_METRIC_REGISTRY: readonly BodyAppleHealthMetricDe
   },
   {
     id: "leanTissue",
-    cardTitle: "Lean Tissue",
-    popupTitle: "Lean Tissue",
+    cardTitle: "Lean Mass",
+    popupTitle: "Lean Mass",
     settingsLabel: "Lean Body Mass",
     appleHealthReadType: LEAN_BODY_MASS!,
     scopeKey: "leanTissue",
     unitKind: "mass",
-    connectVerb: "Connect Lean Tissue",
+    connectVerb: "Connect Lean Mass",
   },
 ] as const;
 

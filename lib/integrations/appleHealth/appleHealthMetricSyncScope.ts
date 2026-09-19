@@ -55,7 +55,7 @@ export const APPLE_HEALTH_METRIC_SYNC_REGISTRY: readonly AppleHealthMetricSyncDe
     id: "leanTissue",
     domain: "body",
     displayName: "Lean Body Mass",
-    sheetLabel: "Lean Tissue",
+    sheetLabel: "Lean Mass",
   },
   { id: "steps", domain: "activity", displayName: "Steps" },
   { id: "distance", domain: "activity", displayName: "Walking + Running Distance" },

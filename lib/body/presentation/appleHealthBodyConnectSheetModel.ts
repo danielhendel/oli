@@ -51,7 +51,7 @@ export type AppleHealthBodyConnectSheetCopy = {
 export const BODY_APPLE_HEALTH_CONNECT_METRICS = [
   "Weight",
   "Body Fat",
-  "Lean Tissue",
+  "Lean Mass",
 ] as const;
 
 const HEALTHY_CONNECTED: AppleHealthBodyConnectSheetCopy = {
