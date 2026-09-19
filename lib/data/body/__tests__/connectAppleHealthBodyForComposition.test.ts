@@ -1,7 +1,9 @@
 import {
   connectAppleHealthBodyForComposition,
+  connectAppleHealthBodyMetricForComposition,
   APPLE_HEALTH_BODY_CONNECT_TRIGGER,
 } from "@/lib/data/body/connectAppleHealthBodyForComposition";
+import { APPLE_HEALTH_BODY_READ_TYPES } from "@/lib/integrations/appleHealth/appleHealthDomainRegistry";
 
 const mockRequestBody = jest.fn();
 const mockRequestBroad = jest.fn();
@@ -14,9 +16,12 @@ jest.mock("react-native", () => ({
   Platform: { OS: "ios" },
 }));
 
+const mockRequestRead = jest.fn();
+
 jest.mock("@/lib/integrations/appleHealth", () => ({
   requestBodyCompositionPermissions: (...a: unknown[]) => mockRequestBody(...a),
   requestPermissions: (...a: unknown[]) => mockRequestBroad(...a),
+  requestAppleHealthReadPermissions: (...a: unknown[]) => mockRequestRead(...a),
   pullBodyCompositionSamples: jest.fn(),
   appleHealthBodyWeightIdempotencyKey: jest.fn(),
   appleHealthBodyCompositionIdempotencyKey: jest.fn(),
@@ -29,9 +34,20 @@ jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getAppleHealthNotAvailable: jest.fn(async () => false),
   enableAppleHealthDomain: (...a: unknown[]) => mockEnableBody(...a),
   setAppleHealthBodyLastCheckedAt: jest.fn(async () => undefined),
+  setAppleHealthMetricLastCheckedAt: jest.fn(async () => undefined),
   setLastSyncAt: jest.fn(async () => undefined),
   getAppleHealthBodyBackfillState: jest.fn(),
   setAppleHealthBodyBackfillState: jest.fn(),
+}));
+
+jest.mock("@/lib/integrations/appleHealth/appleHealthMetricSyncController", () => ({
+  enableAllMetricsForDomain: jest.fn(async () => undefined),
+  resolveBodyMetricSyncFlags: jest.fn(async () => ({
+    weight: true,
+    bodyFat: true,
+    leanTissue: true,
+  })),
+  setAppleHealthMetricSyncEnabled: jest.fn(async () => ({ ok: true })),
 }));
 
 jest.mock("@/lib/api/ingest", () => ({
@@ -46,6 +62,7 @@ describe("connectAppleHealthBodyForComposition", () => {
   beforeEach(() => {
     mockRequestBody.mockReset();
     mockRequestBroad.mockReset();
+    mockRequestRead.mockReset();
     mockEnableBody.mockReset();
     mockSync.mockReset();
     mockBackfill.mockReset();
@@ -109,5 +126,93 @@ describe("connectAppleHealthBodyForComposition", () => {
     }
     expect(onLatest).toHaveBeenCalled();
     expect(mockScheduleSteps).not.toHaveBeenCalled();
+  });
+});
+
+describe("connectAppleHealthBodyMetricForComposition", () => {
+  const [bodyMass, bodyFatPct, leanBodyMass] = APPLE_HEALTH_BODY_READ_TYPES;
+
+  beforeEach(() => {
+    mockRequestBody.mockReset();
+    mockRequestBroad.mockReset();
+    mockRequestRead.mockReset();
+    mockEnableBody.mockReset();
+    mockSync.mockReset();
+    mockBackfill.mockReset();
+    mockScheduleSteps.mockReset();
+    mockRequestRead.mockResolvedValue({ ok: true });
+    mockEnableBody.mockResolvedValue(undefined);
+    mockSync.mockResolvedValue({ ok: true, ingested: 1, replayedOrSkipped: 0, samplesRead: 1 });
+    mockBackfill.mockResolvedValue({
+      ok: true,
+      status: "completed",
+      startedAt: "t0",
+      completedAt: "t1",
+      chunkCount: 1,
+      samplesRead: 1,
+      samplesIngested: 1,
+      samplesSkippedDuplicate: 0,
+      lastProcessedDate: null,
+    });
+  });
+
+  it("Weight ON requests Body Mass only", async () => {
+    const result = await connectAppleHealthBodyMetricForComposition({
+      getIdToken: async () => "tok",
+      metricId: "weight",
+      uid: "u1",
+    });
+    expect(result.ok).toBe(true);
+    expect(mockRequestRead).toHaveBeenCalledWith([bodyMass]);
+    expect(mockRequestBody).not.toHaveBeenCalled();
+    expect(mockRequestBroad).not.toHaveBeenCalled();
+    expect(mockSync.mock.calls[0]?.[0]?.include).toEqual({
+      weight: true,
+      bodyFat: false,
+      leanTissue: false,
+    });
+    expect(mockScheduleSteps).not.toHaveBeenCalled();
+  });
+
+  it("Body Fat ON requests Body Fat Percentage only", async () => {
+    await connectAppleHealthBodyMetricForComposition({
+      getIdToken: async () => "tok",
+      metricId: "bodyFat",
+      uid: "u1",
+    });
+    expect(mockRequestRead).toHaveBeenCalledWith([bodyFatPct]);
+    expect(mockSync.mock.calls[0]?.[0]?.include).toEqual({
+      weight: false,
+      bodyFat: true,
+      leanTissue: false,
+    });
+  });
+
+  it("Lean Tissue ON requests Lean Body Mass only", async () => {
+    await connectAppleHealthBodyMetricForComposition({
+      getIdToken: async () => "tok",
+      metricId: "leanTissue",
+      uid: "u1",
+    });
+    expect(mockRequestRead).toHaveBeenCalledWith([leanBodyMass]);
+    expect(mockSync.mock.calls[0]?.[0]?.include).toEqual({
+      weight: false,
+      bodyFat: false,
+      leanTissue: true,
+    });
+  });
+
+  it("keeps source connected when latest sync fails after authorization", async () => {
+    mockSync.mockResolvedValue({ ok: false, error: "x", requestId: null });
+    const result = await connectAppleHealthBodyMetricForComposition({
+      getIdToken: async () => "tok",
+      metricId: "weight",
+      uid: "u1",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.sourceState).toBe("connected");
+      expect(result.safeErrorCode).toBe("latest_sync_failed");
+    }
   });
 });

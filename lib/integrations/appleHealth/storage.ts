@@ -21,6 +21,8 @@ export const APPLE_HEALTH_DOMAIN_SCOPES = "appleHealth:domainScopes";
  * Keyed by uid so multi-account devices do not leak toggle state.
  */
 export const APPLE_HEALTH_METRIC_SYNC_SCOPES_PREFIX = "appleHealth:metricSyncScopes";
+/** Per-account latest successful sync timestamps keyed by metric sync id. */
+export const APPLE_HEALTH_METRIC_LAST_CHECKED_PREFIX = "appleHealth:metricLastCheckedAt";
 export const APPLE_HEALTH_DEEP_BACKFILL_VERSION = "appleHealth:deepBackfillVersion";
 /** Last completed workout range-bootstrap build id (see workoutBootstrapPolicy). */
 export const APPLE_HEALTH_WORKOUT_RANGE_BOOTSTRAP_BUILD = "appleHealth:workoutRangeBootstrapBuild";
@@ -295,6 +297,52 @@ export async function isAppleHealthMetricSyncEnabled(
     return scopes.metrics[metricId] === true;
   }
   return true;
+}
+
+export type AppleHealthMetricLastCheckedV1 = {
+  readonly version: 1;
+  readonly metrics: Partial<Record<string, string>>;
+};
+
+export function appleHealthMetricLastCheckedKey(uid: string): string {
+  if (!uid || typeof uid !== "string") {
+    throw new Error("appleHealth metric last checked: uid required");
+  }
+  return `${APPLE_HEALTH_METRIC_LAST_CHECKED_PREFIX}:${uid}`;
+}
+
+export async function getAppleHealthMetricLastCheckedMap(
+  uid: string,
+): Promise<AppleHealthMetricLastCheckedV1 | null> {
+  const raw = await AsyncStorage.getItem(appleHealthMetricLastCheckedKey(uid));
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as AppleHealthMetricLastCheckedV1;
+    if (parsed && parsed.version === 1 && parsed.metrics && typeof parsed.metrics === "object") {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setAppleHealthMetricLastCheckedAt(
+  uid: string,
+  metricId: string,
+  iso: string,
+): Promise<void> {
+  const existing = (await getAppleHealthMetricLastCheckedMap(uid).catch(() => null)) ?? {
+    version: 1 as const,
+    metrics: {},
+  };
+  await AsyncStorage.setItem(
+    appleHealthMetricLastCheckedKey(uid),
+    JSON.stringify({
+      version: 1,
+      metrics: { ...existing.metrics, [metricId]: iso },
+    }),
+  );
 }
 
 export async function getAppleHealthNotAvailable(): Promise<boolean> {

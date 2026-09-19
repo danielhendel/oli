@@ -11,12 +11,14 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
-  BODY_APPLE_HEALTH_CONNECT_METRICS,
   buildAppleHealthBodyConnectSheetCopy,
   formatAppleHealthLastUpdatedLabel,
-  resolveBodyHistoryStatusLabel,
   type AppleHealthBodyConnectSheetPhase,
 } from "@/lib/body/presentation/appleHealthBodyConnectSheetModel";
+import {
+  getBodyAppleHealthMetricDefinition,
+  type BodyAppleHealthMetricId,
+} from "@/lib/body/presentation/bodyAppleHealthMetricRegistry";
 import { AppleHealthScopeToggle } from "@/lib/ui/body/AppleHealthScopeToggle";
 import {
   BODY_APPLE_HEALTH_ICON_COLOR_STRONG,
@@ -24,15 +26,12 @@ import {
 } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import type { BodyMetricSyncFlags } from "@/lib/integrations/appleHealth/appleHealthMetricSyncController";
-import type { AppleHealthMetricSyncId } from "@/lib/integrations/appleHealth/appleHealthMetricSyncScope";
-import { bodySheetMetricIdFromLabel } from "@/lib/integrations/appleHealth/appleHealthMetricSyncScope";
 import {
   UI_CARD_ELEVATED_BORDER,
   UI_CARD_SURFACE,
   UI_DASH_CATEGORY_CARD_RADIUS,
   UI_DURATION_STATUS_RECOMMENDED_TEXT,
   UI_OVERLAY,
-  UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
@@ -43,44 +42,52 @@ export const BODY_APPLE_HEALTH_SETTINGS_HREF = "/(app)/settings/devices/apple_he
 export type BodyAppleHealthConnectSheetProps = {
   visible: boolean;
   phase: AppleHealthBodyConnectSheetPhase;
+  /** Metric that opened this sheet — required for connected/explaining surfaces. */
+  activeMetric: BodyAppleHealthMetricId | null;
   onClose: () => void;
   onPrimary: () => void;
   lastSuccessfulSyncAtIso?: string | null;
+  historyLabel?: string | null;
+  statusChipLabel?: string | null;
   historyAttention?: boolean;
-  /** Body domain connected for current account — drives default ON when metric map absent. */
   bodyScopeConnected?: boolean;
-  /** Per-metric Oli sync scope for Body sheet toggles. */
   metricSync?: BodyMetricSyncFlags;
-  onToggleMetricSync?: (metricId: AppleHealthMetricSyncId, enabled: boolean) => void;
+  onToggleMetricSync?: (metricId: BodyAppleHealthMetricId, enabled: boolean) => void;
   onReviewAccess?: () => void;
   onOpenAppleHealthSettings?: () => void;
 };
 
 /**
- * Premium Body Composition Apple Health status sheet — Category Card visual language.
- * Status/management only: no latest refresh on open.
+ * Metric-specific Apple Health status/management sheet.
+ * Shows only the initiating Body metric.
  */
 export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetProps) {
   const insets = useSafeAreaInsets();
-  const copy = buildAppleHealthBodyConnectSheetCopy(props.phase);
+  const metricDef =
+    props.activeMetric != null ? getBodyAppleHealthMetricDefinition(props.activeMetric) : null;
+  const copy = buildAppleHealthBodyConnectSheetCopy(props.phase, {
+    ...(metricDef != null
+      ? { metricPopupTitle: metricDef.popupTitle, connectVerb: metricDef.connectVerb }
+      : {}),
+    ...(props.statusChipLabel !== undefined
+      ? { statusChipOverride: props.statusChipLabel }
+      : {}),
+  });
   const busy =
     props.phase === "requestingPermission" ||
     props.phase === "findingLatest" ||
     props.phase === "importingRecent" ||
     props.phase === "importingEarlier";
-  const historyLabel = resolveBodyHistoryStatusLabel(
-    props.phase,
-    props.historyAttention === true,
-  );
+  const historyLabel =
+    props.historyLabel ??
+    (props.historyAttention === true ? "Incomplete" : "Up to date");
   const lastUpdated = formatAppleHealthLastUpdatedLabel(
     props.lastSuccessfulSyncAtIso ?? null,
   );
-  const scopeOn = props.bodyScopeConnected === true;
-  const metricSync = props.metricSync ?? {
-    weight: scopeOn,
-    bodyFat: scopeOn,
-    leanTissue: scopeOn,
-  };
+  const metricOn =
+    props.activeMetric != null && props.metricSync
+      ? props.metricSync[props.activeMetric] === true
+      : false;
 
   return (
     <Modal
@@ -116,7 +123,9 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
                     </Text>
                   ) : null}
                 </View>
-                <Text style={styles.contextTitle}>{copy.title}</Text>
+                <Text style={styles.contextTitle} testID="body-ah-sheet-metric-title">
+                  {copy.title}
+                </Text>
               </View>
               {copy.statusChip ? (
                 <View
@@ -131,41 +140,21 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
 
             {copy.body ? <Text style={styles.body}>{copy.body}</Text> : null}
 
-            {copy.showMetricList ? (
+            {copy.showMetricList && metricDef ? (
               <View style={styles.metricCard} accessibilityRole="list">
-                {BODY_APPLE_HEALTH_CONNECT_METRICS.map((metric, index) => (
-                  <View
-                    key={metric}
-                    style={[
-                      styles.metricRow,
-                      index < BODY_APPLE_HEALTH_CONNECT_METRICS.length - 1
-                        ? styles.metricRowBorder
-                        : null,
-                    ]}
-                  >
-                    <Text style={styles.metricText}>{metric}</Text>
-                    {copy.showScopeIndicators ? (
-                      <AppleHealthScopeToggle
-                        metricLabel={metric}
-                        on={
-                          (() => {
-                            const id = bodySheetMetricIdFromLabel(metric);
-                            if (id === "weight") return metricSync.weight;
-                            if (id === "bodyFat") return metricSync.bodyFat;
-                            if (id === "leanTissue") return metricSync.leanTissue;
-                            return scopeOn;
-                          })()
-                        }
-                        onValueChange={(next) => {
-                          const id = bodySheetMetricIdFromLabel(metric);
-                          if (!id || !props.onToggleMetricSync) return;
-                          props.onToggleMetricSync(id, next);
-                        }}
-                        testID={`body-ah-sheet-scope-${metric.toLowerCase().replace(/\s+/g, "-")}`}
-                      />
-                    ) : null}
-                  </View>
-                ))}
+                <View style={styles.metricRow} testID={`body-ah-sheet-metric-row-${metricDef.id}`}>
+                  <Text style={styles.metricText}>{metricDef.popupTitle}</Text>
+                  {copy.showScopeIndicators ? (
+                    <AppleHealthScopeToggle
+                      metricLabel={metricDef.popupTitle}
+                      on={metricOn}
+                      onValueChange={(next) => {
+                        props.onToggleMetricSync?.(metricDef.id, next);
+                      }}
+                      testID={`body-ah-sheet-scope-${metricDef.id}`}
+                    />
+                  ) : null}
+                </View>
               </View>
             ) : null}
 
@@ -183,7 +172,7 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
                 </View>
                 <View style={styles.statusRowDivider} />
                 <View style={styles.statusRow}>
-                  <Text style={styles.statusRowLabel}>Body history</Text>
+                  <Text style={styles.statusRowLabel}>History</Text>
                   <Text
                     style={[
                       styles.statusRowValue,
@@ -227,8 +216,6 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
                 <Text style={styles.progressText}>{copy.progressLabel}</Text>
               </View>
             ) : null}
-
-            {copy.footer ? <Text style={styles.footer}>{copy.footer}</Text> : null}
 
             {copy.showReviewAccess && props.onReviewAccess ? (
               <Pressable
@@ -336,7 +323,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: "rgba(52, 211, 153, 0.14)",
+    backgroundColor: "rgba(52, 199, 89, 0.16)",
     minHeight: 28,
     justifyContent: "center",
   },
@@ -365,10 +352,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     minHeight: 44,
-  },
-  metricRowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: UI_CARD_ELEVATED_BORDER,
   },
   metricText: {
     color: UI_TEXT_PRIMARY,
@@ -432,11 +415,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     flex: 1,
   },
-  footer: {
-    color: UI_TEXT_MUTED,
-    fontSize: 13,
-    lineHeight: 18,
-  },
   reviewBtn: {
     minHeight: 44,
     justifyContent: "center",
@@ -460,7 +438,7 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   primaryLabel: {
-    color: "#FFFFFF",
+    color: "rgb(255, 255, 255)",
     fontSize: 16,
     fontWeight: "700",
   },

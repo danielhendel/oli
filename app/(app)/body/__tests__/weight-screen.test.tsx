@@ -63,15 +63,40 @@ jest.mock("@/lib/data/body/useAppleHealthBodyAccessState", () => ({
 
 const mockConnectSheet = {
   visible: false,
+  activeMetric: null as null | "weight" | "bodyFat" | "leanTissue",
   phase: "explaining" as const,
   historyAttention: false,
   lastSuccessfulSyncAtIso: null as string | null,
+  historyLabel: "Not yet",
+  statusChipLabel: null as string | null,
   bodyScopeConnected: false,
-  cardAction: { kind: "connected" as const, label: "Connected" },
-  openForConnect: jest.fn(),
+  scopesLoaded: true,
+  metricSync: { weight: true, bodyFat: true, leanTissue: true },
+  cardActionsByMetric: {
+    weight: {
+      kind: "connected" as const,
+      label: "Connected",
+      chipLabel: "Connected",
+      accessibilityLabel: "Apple Health connected for Weight",
+    },
+    bodyFat: {
+      kind: "connected" as const,
+      label: "Connected",
+      chipLabel: "Connected",
+      accessibilityLabel: "Apple Health connected for Body Fat",
+    },
+    leanTissue: {
+      kind: "connected" as const,
+      label: "Connected",
+      chipLabel: "Connected",
+      accessibilityLabel: "Apple Health connected for Lean Tissue",
+    },
+  },
+  openForMetric: jest.fn(),
   close: jest.fn(),
   onPrimary: jest.fn(),
   onPressCardConnection: jest.fn(),
+  onToggleMetricSync: jest.fn(),
   refreshLastUpdatedFromStorage: jest.fn(),
 };
 jest.mock("@/lib/data/body/useAppleHealthBodyConnectSheet", () => ({
@@ -180,14 +205,54 @@ function buildPopulatedBody() {
 }
 
 describe("Body Composition simplified main screen", () => {
+  const syncNowActions = {
+    weight: {
+      kind: "sync_now" as const,
+      label: "Sync now",
+      chipLabel: "Not Connected",
+      accessibilityLabel: "Connect Weight to Apple Health",
+    },
+    bodyFat: {
+      kind: "sync_now" as const,
+      label: "Sync now",
+      chipLabel: "Not Connected",
+      accessibilityLabel: "Connect Body Fat to Apple Health",
+    },
+    leanTissue: {
+      kind: "sync_now" as const,
+      label: "Sync now",
+      chipLabel: "Not Connected",
+      accessibilityLabel: "Connect Lean Tissue to Apple Health",
+    },
+  };
+
   beforeEach(() => {
     mockPush.mockClear();
     mockSetMassUnit.mockClear();
     mockMassUnit = "lb";
     mockConnectSheet.visible = false;
     mockConnectSheet.phase = "explaining";
-    mockConnectSheet.cardAction = { kind: "connected", label: "Connected" };
-    mockConnectSheet.openForConnect.mockClear();
+    mockConnectSheet.cardActionsByMetric = {
+      weight: {
+        kind: "connected",
+        label: "Connected",
+        chipLabel: "Connected",
+        accessibilityLabel: "Apple Health connected for Weight",
+      },
+      bodyFat: {
+        kind: "connected",
+        label: "Connected",
+        chipLabel: "Connected",
+        accessibilityLabel: "Apple Health connected for Body Fat",
+      },
+      leanTissue: {
+        kind: "connected",
+        label: "Connected",
+        chipLabel: "Connected",
+        accessibilityLabel: "Apple Health connected for Lean Tissue",
+      },
+    };
+    mockConnectSheet.openForMetric.mockClear();
     mockConnectSheet.close.mockClear();
     mockConnectSheet.onPrimary.mockClear();
     mockConnectSheet.onPressCardConnection.mockClear();
@@ -276,7 +341,7 @@ describe("Body Composition simplified main screen", () => {
   });
 
   it("shows Sync now when Apple Health is not yet connected for this account", () => {
-    mockConnectSheet.cardAction = { kind: "sync_now", label: "Sync now" };
+    mockConnectSheet.cardActionsByMetric = syncNowActions;
     mockHook.mockReturnValue(buildBody());
     mockAccess.mockReturnValue({
       phase: "not_determined",
@@ -297,7 +362,7 @@ describe("Body Composition simplified main screen", () => {
   });
 
   it("opens Body connect sheet from Sync now without pushing full Apple Health route", () => {
-    mockConnectSheet.cardAction = { kind: "sync_now", label: "Sync now" };
+    mockConnectSheet.cardActionsByMetric = syncNowActions;
     const onAllow = jest.fn();
     mockHook.mockReturnValue(buildBody());
     mockAccess.mockReturnValue({
@@ -355,7 +420,7 @@ describe("Body Composition simplified main screen", () => {
   });
 
   it("opens Apple Health Body sheet from Connect card without requesting permissions on that tap", () => {
-    mockConnectSheet.cardAction = { kind: "sync_now", label: "Sync now" };
+    mockConnectSheet.cardActionsByMetric = syncNowActions;
     const onAllow = jest.fn();
     mockHook.mockReturnValue(buildBody());
     mockAccess.mockReturnValue({
@@ -377,7 +442,7 @@ describe("Body Composition simplified main screen", () => {
     act(() => {
       primary!.props.onPress();
     });
-    expect(mockConnectSheet.openForConnect).toHaveBeenCalledTimes(1);
+    expect(mockConnectSheet.openForMetric).toHaveBeenCalledWith("weight");
     expect(mockPush).not.toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
     expect(onAllow).not.toHaveBeenCalled();
   });

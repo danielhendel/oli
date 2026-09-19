@@ -19,6 +19,7 @@ import {
 
 export type BodyMetricConnectionActionKind =
   | "sync_now"
+  | "sync_off"
   | "connected"
   | "connected_attention"
   | "syncing"
@@ -87,50 +88,59 @@ function MassUnitSegmentedControl(props: {
   );
 }
 
-function connectionAccessibility(kind: BodyMetricConnectionActionKind): {
+function connectionAccessibility(
+  kind: BodyMetricConnectionActionKind,
+  metricTitle?: string,
+): {
   label: string;
   hint: string;
 } {
+  const metric = metricTitle ?? "Body measurements";
   switch (kind) {
     case "connected":
       return {
-        label: "Apple Health connected for Body measurements",
+        label: `Apple Health connected for ${metric}`,
         hint: "Double tap to view sync status",
+      };
+    case "sync_off":
+      return {
+        label: `Apple Health ${metric} sync is off`,
+        hint: "Double tap to manage sync",
       };
     case "connected_attention":
       return {
-        label: "Apple Health connected. Body history import is incomplete",
+        label: `Apple Health connected. ${metric} history import is incomplete`,
         hint: "Double tap to resume import",
       };
     case "review_access":
       return {
-        label: "Apple Health Body access may need attention",
+        label: `Apple Health ${metric} access may need attention`,
         hint: "Double tap to review",
       };
     case "syncing":
       return {
-        label: "Connecting Apple Health for Body measurements",
+        label: `Connecting Apple Health for ${metric}`,
         hint: "Please wait",
       };
     case "importing":
       return {
-        label: "Importing Apple Health Body history",
+        label: `Importing Apple Health ${metric} history`,
         hint: "Double tap to view progress",
       };
     case "resume":
       return {
-        label: "Resume importing Apple Health Body history",
+        label: `Resume importing Apple Health ${metric} history`,
         hint: "Double tap to resume",
       };
     case "try_again":
       return {
-        label: "Try again to connect Apple Health for Body measurements",
+        label: `Try again to connect Apple Health for ${metric}`,
         hint: "Double tap to retry",
       };
     case "sync_now":
     default:
       return {
-        label: "Sync Body measurements with Apple Health",
+        label: `Connect ${metric} to Apple Health`,
         hint: "Opens Apple Health connection setup",
       };
   }
@@ -153,18 +163,28 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
     props.connectionAction.kind === "connected_attention";
   const isMassMetric = model.metric === "weight" || model.metric === "leanTissue";
   const showPercentInValue = model.displayUnit === "%";
-  const connectionA11y = connectionAccessibility(props.connectionAction.kind);
+  const metricTitle =
+    model.metric === "weight"
+      ? "Weight"
+      : model.metric === "bodyFat"
+        ? "Body Fat"
+        : model.metric === "leanTissue"
+          ? "Lean Tissue"
+          : "Body measurements";
+  const connectionA11y = connectionAccessibility(props.connectionAction.kind, metricTitle);
   const connectionColor =
     connected
       ? UI_DURATION_STATUS_RECOMMENDED_TEXT
-      : props.connectionAction.kind === "syncing" ||
-          props.connectionAction.kind === "importing"
+      : props.connectionAction.kind === "sync_off"
         ? UI_TEXT_SECONDARY
-        : props.connectionAction.kind === "review_access" ||
-            props.connectionAction.kind === "try_again" ||
-            props.connectionAction.kind === "resume"
-          ? "#F5C26B"
-          : BODY_INDIGO;
+        : props.connectionAction.kind === "syncing" ||
+            props.connectionAction.kind === "importing"
+          ? UI_TEXT_SECONDARY
+          : props.connectionAction.kind === "review_access" ||
+              props.connectionAction.kind === "try_again" ||
+              props.connectionAction.kind === "resume"
+            ? "#F5C26B"
+            : BODY_INDIGO;
 
   return (
     <Pressable

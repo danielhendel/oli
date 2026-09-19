@@ -14,6 +14,7 @@ const mockPush = jest.fn();
 const mockSetMassUnit = jest.fn();
 const mockOnAllow = jest.fn();
 const mockOpenForConnect = jest.fn();
+const mockOpenForMetric = jest.fn();
 const mockOnPressCardConnection = jest.fn();
 
 jest.mock("react-native", () => ({
@@ -141,13 +142,22 @@ jest.mock("@/lib/data/body/useAppleHealthBodyConnectSheet", () => ({
     historyAttention: false,
     lastSuccessfulSyncAtIso: null,
     bodyScopeConnected: false,
-    cardAction: { kind: "sync_now", label: "Sync now" },
     openForConnect: mockOpenForConnect,
+    openForMetric: mockOpenForMetric,
     close: jest.fn(),
     onPrimary: jest.fn(),
     onPressCardConnection: mockOnPressCardConnection,
     onToggleMetricSync: jest.fn(),
-    metricSync: { weight: true, bodyFat: true, leanTissue: true },
+    metricSync: { weight: false, bodyFat: false, leanTissue: false },
+    cardActionsByMetric: {
+      weight: { kind: "sync_now", label: "Sync now", chipLabel: "Not Connected", accessibilityLabel: "Connect Weight" },
+      bodyFat: { kind: "sync_now", label: "Sync now", chipLabel: "Not Connected", accessibilityLabel: "Connect Body Fat" },
+      leanTissue: { kind: "sync_now", label: "Sync now", chipLabel: "Not Connected", accessibilityLabel: "Connect Lean Tissue" },
+    },
+    activeMetric: null,
+    historyLabel: "Not yet",
+    statusChipLabel: null,
+    scopesLoaded: true,
     refreshLastUpdatedFromStorage: jest.fn(),
   }),
 }));
@@ -185,6 +195,7 @@ describe("Body Composition Stage 3B source privacy", () => {
     mockPush.mockClear();
     mockSetMassUnit.mockClear();
     mockOpenForConnect.mockClear();
+    mockOpenForMetric.mockClear();
     mockOnPressCardConnection.mockClear();
   });
 
@@ -211,7 +222,7 @@ describe("Body Composition Stage 3B source privacy", () => {
     act(() => {
       primary!.props.onPress();
     });
-    expect(mockOpenForConnect).toHaveBeenCalledTimes(1);
+    expect(mockOpenForMetric).toHaveBeenCalledWith("weight");
     expect(mockPush).not.toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
     expect(mockOnAllow).not.toHaveBeenCalled();
     expect(mockRequestPermissions).not.toHaveBeenCalled();

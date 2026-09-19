@@ -6,6 +6,7 @@
 export {
   requestPermissions,
   requestBodyCompositionPermissions,
+  requestAppleHealthReadPermissions,
   BODY_COMPOSITION_CONNECT_READ_PERMISSIONS,
   getBodyCompositionReadAuthStatus,
   pullTodaySnapshot,

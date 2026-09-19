@@ -25,10 +25,15 @@ export type BodyCompositionConnectionAction = {
 export type BodyCompositionSummaryScreenProps = {
   cards: readonly BodyMetricCardModel[];
   appleHealthSlot: React.ReactNode;
-  connectionAction: BodyCompositionConnectionAction;
+  /** @deprecated Prefer connectionActionForMetric for metric-specific status. */
+  connectionAction?: BodyCompositionConnectionAction;
+  connectionActionForMetric?: (
+    metric: BodyMetricCardModel["metric"],
+  ) => BodyCompositionConnectionAction;
   onPressCard: (href: string) => void;
   onPressAddWeight: () => void;
-  onPressConnectionAction: () => void;
+  onPressConnectionAction?: () => void;
+  onPressConnectionActionForMetric?: (metric: BodyMetricCardModel["metric"]) => void;
   onPressHref: (href: string) => void;
   /** Shared Body mass display unit (Weight + Lean Tissue). */
   massDisplayUnit: BodyMassDisplayUnit;
@@ -53,18 +58,29 @@ export function BodyCompositionSummaryScreen(props: BodyCompositionSummaryScreen
       {props.measurementErrorSlot}
 
       <View style={styles.cards} testID="body-composition-metric-cards">
-        {ordered.map((card) => (
-          <BodyMetricSummaryCard
-            key={card.metric}
-            model={card}
-            onPress={() => props.onPressCard(card.detailHref)}
-            onPressAddMeasurement={props.onPressAddWeight}
-            connectionAction={props.connectionAction}
-            onPressConnectionAction={props.onPressConnectionAction}
-            massDisplayUnit={props.massDisplayUnit}
-            onChangeMassDisplayUnit={props.onChangeMassDisplayUnit}
-          />
-        ))}
+        {ordered.map((card) => {
+          const connectionAction =
+            props.connectionActionForMetric?.(card.metric) ??
+            props.connectionAction ?? { kind: "sync_now" as const, label: "Sync now" };
+          return (
+            <BodyMetricSummaryCard
+              key={card.metric}
+              model={card}
+              onPress={() => props.onPressCard(card.detailHref)}
+              onPressAddMeasurement={props.onPressAddWeight}
+              connectionAction={connectionAction}
+              onPressConnectionAction={() => {
+                if (props.onPressConnectionActionForMetric) {
+                  props.onPressConnectionActionForMetric(card.metric);
+                  return;
+                }
+                props.onPressConnectionAction?.();
+              }}
+              massDisplayUnit={props.massDisplayUnit}
+              onChangeMassDisplayUnit={props.onChangeMassDisplayUnit}
+            />
+          );
+        })}
       </View>
 
       {showActions ? (

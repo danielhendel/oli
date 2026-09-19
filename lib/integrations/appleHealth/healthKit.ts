@@ -590,6 +590,19 @@ export async function requestBodyCompositionPermissions(): Promise<HealthKitPerm
   return requestHealthKitReadPermissions(BODY_COMPOSITION_CONNECT_READ_PERMISSIONS);
 }
 
+/**
+ * Request HealthKit read for an explicit typed permission set (metric-scoped connect).
+ * Callers must pass registry-derived identifiers — never invent strings in UI.
+ */
+export async function requestAppleHealthReadPermissions(
+  read: readonly HealthPermission[],
+): Promise<HealthKitPermissionResult> {
+  if (!read.length) {
+    return { ok: false, error: "No HealthKit read types requested." };
+  }
+  return requestHealthKitReadPermissions(read);
+}
+
 async function requestHealthKitReadPermissions(
   read: readonly HealthPermission[],
 ): Promise<HealthKitPermissionResult> {

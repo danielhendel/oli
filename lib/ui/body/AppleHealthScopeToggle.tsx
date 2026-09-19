@@ -32,12 +32,9 @@ export function AppleHealthScopeToggle(props: AppleHealthScopeToggleProps) {
       hitSlop={8}
       accessibilityRole="switch"
       accessibilityState={{ checked: on, disabled }}
-      accessibilityLabel={`${props.metricLabel} sync with Apple Health`}
-      accessibilityHint={
-        on
-          ? "Turns off Oli sync for this metric"
-          : "Turns on Oli sync for this metric"
-      }
+      accessibilityLabel={`Sync ${props.metricLabel} from Apple Health`}
+      accessibilityHint="Controls whether Oli syncs this measurement from Apple Health. Apple Health permissions are managed separately."
+      accessibilityValue={{ text: on ? "On" : "Off" }}
       testID={props.testID ?? "apple-health-scope-toggle"}
       style={[styles.hit, disabled ? styles.hitDisabled : null]}
     >

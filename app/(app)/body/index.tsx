@@ -100,7 +100,13 @@ export default function BodyOverviewScreen() {
           : "connect";
 
   /** Account-scoped connection chip — prefer connect-sheet transient states. */
-  const connectionAction = connectSheet.cardAction;
+  const connectionActionForMetric = useCallback(
+    (metric: "weight" | "bodyFat" | "leanTissue") => {
+      const status = connectSheet.cardActionsByMetric[metric];
+      return { kind: status.kind, label: status.label };
+    },
+    [connectSheet.cardActionsByMetric],
+  );
 
   useEffect(() => {
     navigation.setOptions({
@@ -170,8 +176,8 @@ export default function BodyOverviewScreen() {
         variant={permissionCardVariant}
         {...(typeof unavailableMsg === "string" ? { unavailableMessage: unavailableMsg } : {})}
         onAllowAccess={() => {
-          // Explicit connect entry — same in-context Body sheet as Sync now.
-          connectSheet.openForConnect();
+          // Explicit connect entry — opens Weight metric sheet (primary Body metric).
+          connectSheet.openForMetric("weight");
         }}
         onOpenSettings={access.onOpenAppSettings}
       />
@@ -252,10 +258,12 @@ export default function BodyOverviewScreen() {
           <BodyCompositionSummaryScreen
             cards={cards}
             appleHealthSlot={appleHealthSlot}
-            connectionAction={connectionAction}
+            connectionActionForMetric={connectionActionForMetric}
             onPressCard={(href) => router.push(href as never)}
             onPressAddWeight={() => setWeightLogVisible(true)}
-            onPressConnectionAction={connectSheet.onPressCardConnection}
+            onPressConnectionActionForMetric={(metric) => {
+              connectSheet.onPressCardConnection(metric);
+            }}
             onPressHref={(href) => router.push(href as never)}
             massDisplayUnit={unit}
             onChangeMassDisplayUnit={(next) => {
@@ -268,8 +276,11 @@ export default function BodyOverviewScreen() {
       <BodyAppleHealthConnectSheet
         visible={connectSheet.visible}
         phase={connectSheet.phase}
+        activeMetric={connectSheet.activeMetric}
         historyAttention={connectSheet.historyAttention}
         lastSuccessfulSyncAtIso={connectSheet.lastSuccessfulSyncAtIso}
+        historyLabel={connectSheet.historyLabel}
+        statusChipLabel={connectSheet.statusChipLabel}
         bodyScopeConnected={connectSheet.bodyScopeConnected}
         metricSync={connectSheet.metricSync}
         onToggleMetricSync={(metricId, enabled) => {

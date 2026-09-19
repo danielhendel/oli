@@ -74,26 +74,37 @@ const HEALTHY_CONNECTED: AppleHealthBodyConnectSheetCopy = {
 
 export function buildAppleHealthBodyConnectSheetCopy(
   phase: AppleHealthBodyConnectSheetPhase,
+  opts?: { metricPopupTitle?: string; connectVerb?: string; statusChipOverride?: string | null },
 ): AppleHealthBodyConnectSheetCopy {
+  const metricTitle = opts?.metricPopupTitle ?? "Body Composition";
+  const connectVerb = opts?.connectVerb ?? "Connect & import history";
+  const withMetricTitle = (base: AppleHealthBodyConnectSheetCopy): AppleHealthBodyConnectSheetCopy => ({
+    ...base,
+    title: metricTitle,
+    ...(opts?.statusChipOverride !== undefined
+      ? { statusChip: opts.statusChipOverride }
+      : {}),
+  });
+
   switch (phase) {
     case "explaining":
-      return {
-        title: "Body Composition",
+      return withMetricTitle({
+        title: metricTitle,
         eyebrow: "Apple Health",
-        body: "Keep these measurements up to date.",
+        body: null,
         progressLabel: null,
         statusChip: null,
-        primaryLabel: "Connect & import history",
+        primaryLabel: connectVerb,
         primaryDisabled: false,
         secondaryLabel: "Not now",
-        footer: "You control access in Apple Health and can change it at any time.",
+        footer: null,
         showMetricList: true,
         showStatusRows: false,
         showScopeIndicators: false,
         showReviewAccess: false,
         showResumeImport: false,
         showSettingsLink: false,
-      };
+      });
     case "requestingPermission":
       return {
         title: "Body Composition",
@@ -168,31 +179,31 @@ export function buildAppleHealthBodyConnectSheetCopy(
       };
     case "upToDate":
     case "connectedStatus":
-      return { ...HEALTHY_CONNECTED };
+      return withMetricTitle({ ...HEALTHY_CONNECTED });
     case "connectedNoData":
-      return {
+      return withMetricTitle({
         ...HEALTHY_CONNECTED,
-        body: "No Body measurements were found yet.",
-        showMetricList: false,
-      };
+        body: null,
+        showMetricList: true,
+      });
     case "historyIncomplete":
-      return {
-        title: "Body Composition",
+      return withMetricTitle({
+        title: metricTitle,
         eyebrow: "Apple Health",
-        body: "Your latest measurements are available. Oli has not finished importing all earlier Body history.",
+        body: null,
         progressLabel: null,
         statusChip: "Connected",
         primaryLabel: "Resume history",
         primaryDisabled: false,
         secondaryLabel: "Done",
         footer: null,
-        showMetricList: false,
+        showMetricList: true,
         showStatusRows: true,
-        showScopeIndicators: false,
+        showScopeIndicators: true,
         showReviewAccess: false,
         showResumeImport: true,
         showSettingsLink: true,
-      };
+      });
     case "waitingForNetwork":
       return {
         title: "Body Composition",

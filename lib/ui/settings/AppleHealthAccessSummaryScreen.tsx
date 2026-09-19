@@ -245,6 +245,10 @@ export function AppleHealthAccessSummaryScreen() {
             </View>
           </View>
           <Text style={styles.intro}>{model.intro}</Text>
+          <Text style={styles.footnote}>
+            Turning a measurement off stops future syncing. It does not remove information already
+            imported.
+          </Text>
         </View>
 
         {APPLE_HEALTH_METRIC_SYNC_GROUPS.map((group) => (
@@ -392,6 +396,12 @@ const styles = StyleSheet.create({
     color: UI_TEXT_SECONDARY,
     fontSize: 15,
     lineHeight: 22,
+    marginBottom: 4,
+  },
+  footnote: {
+    color: UI_TEXT_MUTED,
+    fontSize: 13,
+    lineHeight: 18,
     marginBottom: 6,
   },
   sectionEyebrow: {

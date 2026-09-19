@@ -15,6 +15,7 @@ import {
   appleHealthBodyCompositionIdempotencyKey,
   appleHealthBodyWeightIdempotencyKey,
   pullBodyCompositionSamples,
+  requestAppleHealthReadPermissions,
   requestBodyCompositionPermissions,
   runAppleHealthBodyBackfill,
   runAppleHealthBodySync,
@@ -26,9 +27,19 @@ import {
   getAppleHealthNotAvailable,
   setAppleHealthBodyBackfillState,
   setAppleHealthBodyLastCheckedAt,
+  setAppleHealthMetricLastCheckedAt,
   setLastSyncAt,
 } from "@/lib/integrations/appleHealth/storage";
-import { enableAllMetricsForDomain, resolveBodyMetricSyncFlags } from "@/lib/integrations/appleHealth/appleHealthMetricSyncController";
+import {
+  enableAllMetricsForDomain,
+  resolveBodyMetricSyncFlags,
+  setAppleHealthMetricSyncEnabled,
+} from "@/lib/integrations/appleHealth/appleHealthMetricSyncController";
+import {
+  bodyMetricIncludeFlags,
+  getBodyAppleHealthMetricDefinition,
+  type BodyAppleHealthMetricId,
+} from "@/lib/body/presentation/bodyAppleHealthMetricRegistry";
 import { nowIso } from "@/lib/sync/throttle";
 
 async function bodySyncIncludeForUid(uid: string | undefined) {
@@ -36,9 +47,20 @@ async function bodySyncIncludeForUid(uid: string | undefined) {
   return resolveBodyMetricSyncFlags(uid);
 }
 
-function scopedBodyPull(uid: string | undefined) {
+function scopedBodyPull(
+  uid: string | undefined,
+  includeOverride?: { weight: boolean; bodyFat: boolean; leanTissue: boolean },
+) {
   return async (opts: { startDate: string; endDate: string; limit?: number }) => {
-    const include = await bodySyncIncludeForUid(uid);
+    const include = includeOverride ?? (await bodySyncIncludeForUid(uid));
+    if (
+      include &&
+      include.weight !== true &&
+      include.bodyFat !== true &&
+      include.leanTissue !== true
+    ) {
+      return { ok: true as const, data: [] };
+    }
     return pullBodyCompositionSamples({
       ...opts,
       ...(include ? { include } : {}),
@@ -370,12 +392,19 @@ export type AppleHealthBodyLatestRefreshTrigger =
 /** Latest-only Body refresh — no history restart, no unrelated domains, no auth re-prompt. */
 export async function syncAppleHealthBodyLatestForComposition(
   deps: Omit<AppleHealthBodyCompositionConnectDeps, "onPhase">,
-  opts?: { trigger?: AppleHealthBodyLatestRefreshTrigger },
+  opts?: {
+    trigger?: AppleHealthBodyLatestRefreshTrigger;
+    /** When set, only this metric is queried/ingested. */
+    metricId?: BodyAppleHealthMetricId;
+  },
 ): Promise<AppleHealthBodyCompositionSyncLatestResult> {
   const trigger = opts?.trigger ?? "pull_to_refresh";
   if (typeof __DEV__ !== "undefined" && __DEV__) {
     // eslint-disable-next-line no-console
-    console.info("[AH_BODY] apple_health_body_latest_refresh_started", { trigger });
+    console.info("[AH_BODY] apple_health_body_latest_refresh_started", {
+      trigger,
+      metric: opts?.metricId ?? "all_enabled",
+    });
   }
   const connected = await getAppleHealthConnected().catch(() => false);
   if (!connected) {
@@ -385,8 +414,20 @@ export async function syncAppleHealthBodyLatestForComposition(
   if (!token) {
     return { ok: false, message: "Sign in to sync Body measurements." };
   }
-  // Already connected — do not re-request HealthKit authorization on refresh.
-  const include = await bodySyncIncludeForUid(deps.uid);
+
+  const include = opts?.metricId
+    ? bodyMetricIncludeFlags(opts.metricId)
+    : await bodySyncIncludeForUid(deps.uid);
+
+  if (
+    include &&
+    include.weight !== true &&
+    include.bodyFat !== true &&
+    include.leanTissue !== true
+  ) {
+    return { ok: true, ingested: 0 };
+  }
+
   const syncResult = await runAppleHealthBodySync(
     {
       token,
@@ -396,7 +437,7 @@ export async function syncAppleHealthBodyLatestForComposition(
       ...(include ? { include } : {}),
     },
     {
-      pullBodyCompositionSamples: scopedBodyPull(deps.uid),
+      pullBodyCompositionSamples: scopedBodyPull(deps.uid, include ?? undefined),
       ingestRawEvent,
       appleHealthBodyWeightIdempotencyKey,
       appleHealthBodyCompositionIdempotencyKey,
@@ -416,7 +457,25 @@ export async function syncAppleHealthBodyLatestForComposition(
       message: "Couldn’t refresh. Check your connection and pull down to try again.",
     };
   }
-  await setAppleHealthBodyLastCheckedAt(nowIso()).catch(() => undefined);
+  const checkedAt = nowIso();
+  await setAppleHealthBodyLastCheckedAt(checkedAt).catch(() => undefined);
+  if (deps.uid && opts?.metricId) {
+    await setAppleHealthMetricLastCheckedAt(deps.uid, opts.metricId, checkedAt).catch(
+      () => undefined,
+    );
+  } else if (deps.uid && include) {
+    const writes: Promise<void>[] = [];
+    if (include.weight) {
+      writes.push(setAppleHealthMetricLastCheckedAt(deps.uid, "weight", checkedAt));
+    }
+    if (include.bodyFat) {
+      writes.push(setAppleHealthMetricLastCheckedAt(deps.uid, "bodyFat", checkedAt));
+    }
+    if (include.leanTissue) {
+      writes.push(setAppleHealthMetricLastCheckedAt(deps.uid, "leanTissue", checkedAt));
+    }
+    await Promise.all(writes.map((p) => p.catch(() => undefined)));
+  }
   deps.onLatestSynced?.();
   if (typeof __DEV__ !== "undefined" && __DEV__) {
     // eslint-disable-next-line no-console
@@ -426,4 +485,162 @@ export async function syncAppleHealthBodyLatestForComposition(
     });
   }
   return { ok: true, ingested: syncResult.ingested };
+}
+
+/**
+ * Metric-scoped Body connect — requests only one HealthKit read type.
+ */
+export async function connectAppleHealthBodyMetricForComposition(
+  deps: AppleHealthBodyCompositionConnectDeps & { metricId: BodyAppleHealthMetricId },
+): Promise<AppleHealthBodyCompositionConnectResult> {
+  const def = getBodyAppleHealthMetricDefinition(deps.metricId);
+  logBodyOp("apple_health_body_metric_connect_started", {
+    trigger: "body_metric_connect",
+    metric: deps.metricId,
+  });
+
+  if (Platform.OS !== "ios") {
+    return {
+      ok: false,
+      sourceState: "disconnected",
+      historyState: "notStarted",
+      reason: "not_ios",
+      message: "Apple Health is available on iPhone.",
+      safeErrorCode: "not_ios",
+    };
+  }
+
+  const notAvailable = await getAppleHealthNotAvailable().catch(() => false);
+  if (notAvailable) {
+    return {
+      ok: false,
+      sourceState: "disconnected",
+      historyState: "notStarted",
+      reason: "unavailable",
+      message: "Apple Health isn’t available on this device.",
+      safeErrorCode: "unavailable",
+    };
+  }
+
+  const wasConnected = await getAppleHealthConnected().catch(() => false);
+
+  deps.onPhase?.("requestingPermission");
+  const perm = await requestAppleHealthReadPermissions([def.appleHealthReadType]);
+  logBodyOp("apple_health_body_authorization_completed", {
+    ok: perm.ok,
+    trigger: "body_metric_connect",
+    metric: deps.metricId,
+  });
+  if (!perm.ok) {
+    return {
+      ok: false,
+      sourceState: "needsReview",
+      historyState: "notStarted",
+      reason: "permission_denied",
+      message: "We couldn’t finish connecting to Apple Health. Try again when you’re ready.",
+      safeErrorCode: "permission_denied",
+    };
+  }
+
+  await enableAppleHealthDomain("body").catch(() => undefined);
+  if (deps.uid) {
+    await setAppleHealthMetricSyncEnabled({
+      uid: deps.uid,
+      metricId: def.scopeKey,
+      enabled: true,
+    }).catch(() => undefined);
+  }
+
+  const token = await deps.getIdToken(false);
+  if (!token) {
+    return {
+      ok: false,
+      sourceState: "disconnected",
+      historyState: "notStarted",
+      reason: "no_token",
+      message: "Sign in to connect Apple Health.",
+      safeErrorCode: "no_token",
+    };
+  }
+
+  deps.onPhase?.("findingLatest");
+  const include = bodyMetricIncludeFlags(deps.metricId);
+  const syncResult = await runAppleHealthBodySync(
+    {
+      token,
+      startDate: isoDaysAgo(LATEST_DAYS_BACK),
+      endDate: new Date().toISOString(),
+      limit: 200,
+      include,
+    },
+    {
+      pullBodyCompositionSamples: scopedBodyPull(deps.uid, include),
+      ingestRawEvent,
+      appleHealthBodyWeightIdempotencyKey,
+      appleHealthBodyCompositionIdempotencyKey,
+      getDeviceTimezone,
+    },
+  );
+
+  if (!syncResult.ok) {
+    return {
+      ok: false,
+      sourceState: "connected",
+      historyState: "failed",
+      reason: "sync_failed",
+      message: "We couldn’t load your latest measurements. Try again.",
+      safeErrorCode: "latest_sync_failed",
+    };
+  }
+
+  const checkedAt = nowIso();
+  await setAppleHealthBodyLastCheckedAt(checkedAt).catch(() => undefined);
+  if (deps.uid) {
+    await setAppleHealthMetricLastCheckedAt(deps.uid, deps.metricId, checkedAt).catch(
+      () => undefined,
+    );
+  }
+  await setLastSyncAt(checkedAt).catch(() => undefined);
+  deps.onLatestSynced?.();
+
+  deps.onPhase?.("importingEarlier");
+  const backfill = await runAppleHealthBodyBackfill(
+    { token },
+    {
+      nowIso,
+      pullBodyCompositionSamples: scopedBodyPull(deps.uid, include),
+      ingestRawEvent,
+      appleHealthBodyWeightIdempotencyKey,
+      appleHealthBodyCompositionIdempotencyKey,
+      getDeviceTimezone,
+      getBackfillState: getAppleHealthBodyBackfillState,
+      setBackfillState: setAppleHealthBodyBackfillState,
+    },
+  );
+
+  if (!backfill.ok) {
+    deps.onPhase?.("historyIncomplete");
+    return {
+      ok: true,
+      sourceState: "connected",
+      historyState: "failed",
+      phase: "historyIncomplete",
+      samplesIngested: syncResult.ingested,
+      alreadyConnected: wasConnected,
+      safeErrorCode: "history_batch_failed",
+    };
+  }
+
+  deps.onLatestSynced?.();
+  const phase =
+    syncResult.ingested > 0 || backfill.samplesIngested > 0 ? "upToDate" : "connectedNoData";
+  deps.onPhase?.(phase === "connectedNoData" ? "upToDate" : phase);
+  return {
+    ok: true,
+    sourceState: "connected",
+    historyState: "complete",
+    phase: phase === "connectedNoData" ? "connectedNoData" : "upToDate",
+    samplesIngested: syncResult.ingested + backfill.samplesIngested,
+    alreadyConnected: wasConnected,
+  };
 }
