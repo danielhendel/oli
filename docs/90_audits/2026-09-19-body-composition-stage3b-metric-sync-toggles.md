@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-19
 **Branch:** `feat/body-composition-stage3b-value-first-shell`
-**Status:** READY FOR PHYSICAL RETEST (per-metric toggles + Apple Health settings)
+**Status:** READY FOR PHYSICAL RETEST — `026c62a69793b0031bbb5ccd36f5d695ca3e2106`
 
 ## Product
 
