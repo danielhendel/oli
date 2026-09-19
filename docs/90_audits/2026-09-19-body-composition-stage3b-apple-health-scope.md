@@ -65,7 +65,7 @@ buckets for the retest.
 | `npx expo-doctor` | exit 1; exactly **five** known findings; no sixth |
 
 **Blocked physical SHA (do not reuse evidence):** `6a7d5d7f2a163ee95dcc636e838e37a2f8dffea6`
-**Retest head:** _(filled after commit)_
+**Retest head:** `b7f3dd8e459bee4a528501794c313e82ed864c55`
 
 ## Boundaries
 
