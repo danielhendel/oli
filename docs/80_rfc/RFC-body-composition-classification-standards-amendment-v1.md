@@ -157,3 +157,83 @@ Body Fat personal classification: PROPOSED / UNRESOLVED — NOT APPROVED FOR RUN
 Lean Tissue personal classification: PROPOSED / UNRESOLVED — NOT APPROVED FOR RUNTIME.
   Do not apply EWGSOP2 ASM/ALMI thresholds to total lean mass.
 ```
+---
+
+## 7. Stage 3B display-refinement addendum (2026-09-19) — PROPOSED evidence only
+
+**Consumer rename:** Oli landing/popups use **Lean Mass** (was Lean Tissue). Internal id `leanTissue` and HealthKit **Lean Body Mass** remain unchanged.
+
+**Runtime classification status unchanged:**
+
+| Metric | Status |
+|--------|--------|
+| Weight (CDC/WHO adult BMI screening) | **APPROVED / IMPLEMENTED** |
+| Body Fat personal classification | **PROPOSED / HUMAN APPROVAL REQUIRED** |
+| Lean Mass personal classification | **PROPOSED / HUMAN APPROVAL REQUIRED** |
+
+**Explicit runtime non-ship (this pass):**
+
+- No Body Fat classification labels/marker
+- No Lean Mass classification labels/marker
+- No Body score / aggregate classification
+- No Apple Health → BIA inference
+- No total-Lean-Mass → ALMI / EWGSOP2 mapping
+- No sarcopenia diagnosis
+
+### 7.A Body Fat evidence candidates (comparison)
+
+| Candidate | Role | Method / population notes | Product fit |
+|-----------|------|---------------------------|-------------|
+| Gallagher et al. 2000 | Primary candidate for %BF ↔ BMI-linked screening bands | Age-/sex-/ethnicity-aware; provisional; DXA-era method sensitivity | Possible future health-risk screening **only** with method gate |
+| Zhu et al. 2003 / NHANES III | Metabolic-syndrome risk thresholds | Population/outcome specific; calibration limits | Risk context — not universal “healthy BF%” |
+| NHANES DXA %BF / FMI refs | Population reference percentiles | Age/sex/ethnicity specific; DXA | Reference ≠ health classification |
+| Government universal adult BF% classes | **None adopted** as of Stage 3A/3B review | — | Do not invent universal ACE-style health classes |
+
+**Rejected as health truth:** ACE Essential/Athletic/Fitness/Average; universal Excellence/Optimal; unknown-method Apple Health classification; mixed-method trend classification.
+
+**Candidate consumer vocabulary (not approved for code):** Below screening reference / Reference range / Elevated / High — pending primary-source verification and leadership approval. Default remains **fail closed**.
+
+**Method applicability (proposed):** DXA / 4C / validated MF-BIA may classify only when method-labeled and standard-compatible; consumer BIA / unknown Apple Health transport / unlabeled manual → **value + source only, no marker**.
+
+### 7.B Lean Mass constructs (must stay separated)
+
+| Construct | Owned in Oli today? | Classification path |
+|-----------|---------------------|---------------------|
+| Total Lean Body Mass | Yes (`leanBodyMassKg`) | No official class without compatible total-LMI model |
+| Fat-free mass | No distinct field | Do not equate silently |
+| Appendicular lean mass / ALMI | No | Future DXA advanced path only |
+| Skeletal muscle / strength / performance | No | Out of Stage 3B |
+
+**EWGSOP2:** low strength primary; quantity confirms; ALMI cutoffs apply to appendicular constructs — **not** Apple Health total Lean Body Mass.
+
+**NHANES DXA:** population LMI/ALMI percentiles — label as Population reference only; never Optimal/High/Excellence health claims.
+
+### 7.C Compatibility for derived display (runtime, presentation-only)
+
+Fat mass and Lean Mass % may display only when same-measurement-event pairing is proven. Overview day-merge without event identity → **unavailable (em dash)**. No new Firestore path.
+
+### 7.D Proposed standards registry contract (docs only)
+
+```ts
+type BodyMetricStandardDefinition = {
+  readonly id: string;
+  readonly version: string;
+  readonly construct: BodyCompositionConstruct;
+  readonly evidenceTier: string;
+  readonly applicableMethods: readonly MeasurementMethod[];
+  readonly applicability: ApplicabilityRule;
+  readonly classify: PureClassifier;
+  readonly sourceCitations: readonly EvidenceCitation[];
+};
+```
+
+Durable location remains via RFC/ADR process — **not implemented** in this pass. No remote mutable thresholds. No JSX thresholds.
+
+### 7.E Versioning / recomputation (proposed)
+
+- Pure, deterministic, versioned classifiers
+- Recompute on standard version bump
+- Missing / conflicting / stale / unknown-method → withhold marker
+- Apple Health is transport, not method
+
+**Status of this section:** PROPOSED — do not implement Body Fat or Lean Mass classification ranges until explicit human approval is recorded.
