@@ -14,6 +14,8 @@ export const APPLE_HEALTH_STEPS_BACKFILL_STATE = "appleHealth:stepsBackfillState
 export const APPLE_HEALTH_STEPS_AUTO_REPAIR_LAST_AT = "appleHealth:stepsAutoRepair:lastCompletedAt";
 export const APPLE_HEALTH_CONNECTED = "appleHealth:connected";
 export const APPLE_HEALTH_NOT_AVAILABLE = "appleHealth:notAvailable";
+/** Progressive domain scopes — which domains the current account explicitly enabled. */
+export const APPLE_HEALTH_DOMAIN_SCOPES = "appleHealth:domainScopes";
 export const APPLE_HEALTH_DEEP_BACKFILL_VERSION = "appleHealth:deepBackfillVersion";
 /** Last completed workout range-bootstrap build id (see workoutBootstrapPolicy). */
 export const APPLE_HEALTH_WORKOUT_RANGE_BOOTSTRAP_BUILD = "appleHealth:workoutRangeBootstrapBuild";
@@ -160,6 +162,78 @@ export async function getAppleHealthConnected(): Promise<boolean> {
 
 export async function setAppleHealthConnected(connected: boolean): Promise<void> {
   await AsyncStorage.setItem(APPLE_HEALTH_CONNECTED, connected ? "true" : "false");
+}
+
+/**
+ * Progressive domain enablement for the current Apple Health source.
+ * Legacy devices with `connected=true` and no scopes key are treated as all
+ * implemented domains enabled (preserves prior behavior).
+ * Body-only connect writes an explicit scopes object with only `body: true`.
+ */
+export type AppleHealthDomainScopesV1 = {
+  readonly version: 1;
+  readonly body?: boolean;
+  readonly activity?: boolean;
+  readonly workouts?: boolean;
+  readonly cardioVitals?: boolean;
+  readonly sleepRecovery?: boolean;
+  readonly nutrition?: boolean;
+};
+
+export type AppleHealthDomainScopeId = keyof Omit<AppleHealthDomainScopesV1, "version">;
+
+export async function getAppleHealthDomainScopes(): Promise<AppleHealthDomainScopesV1 | null> {
+  const raw = await AsyncStorage.getItem(APPLE_HEALTH_DOMAIN_SCOPES);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as AppleHealthDomainScopesV1;
+    if (parsed && parsed.version === 1) return parsed;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setAppleHealthDomainScopes(scopes: AppleHealthDomainScopesV1): Promise<void> {
+  await AsyncStorage.setItem(APPLE_HEALTH_DOMAIN_SCOPES, JSON.stringify(scopes));
+}
+
+/**
+ * Enable one domain without enabling unrelated domains.
+ * Also sets the account-level connected flag.
+ */
+export async function enableAppleHealthDomain(domain: AppleHealthDomainScopeId): Promise<void> {
+  const existing = (await getAppleHealthDomainScopes()) ?? { version: 1 as const };
+  await setAppleHealthDomainScopes({ ...existing, version: 1, [domain]: true });
+  await setAppleHealthConnected(true);
+}
+
+/** Enable all currently implemented domains (Settings → Connect all / onboarding). */
+export async function enableAllImplementedAppleHealthDomains(): Promise<void> {
+  await setAppleHealthDomainScopes({
+    version: 1,
+    body: true,
+    activity: true,
+    workouts: true,
+    cardioVitals: true,
+  });
+  await setAppleHealthConnected(true);
+}
+
+/**
+ * Whether a domain may run import/repair work.
+ * Legacy: connected without scopes → allow (pre-progressive migration).
+ * Explicit scopes: only listed domains.
+ */
+export async function isAppleHealthDomainEnabled(domain: AppleHealthDomainScopeId): Promise<boolean> {
+  const connected = await getAppleHealthConnected().catch(() => false);
+  if (!connected) return false;
+  const scopes = await getAppleHealthDomainScopes().catch(() => null);
+  if (!scopes) {
+    // Legacy global connect — preserve prior Behavior until account re-connects.
+    return true;
+  }
+  return scopes[domain] === true;
 }
 
 export async function getAppleHealthNotAvailable(): Promise<boolean> {

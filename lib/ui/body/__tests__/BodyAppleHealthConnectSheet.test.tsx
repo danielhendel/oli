@@ -45,7 +45,8 @@ describe("BodyAppleHealthConnectSheet", () => {
       );
     });
     const text = collectText(tree);
-    expect(text).toContain("Connect Apple Health");
+    expect(text).toContain("Apple Health");
+    expect(text).toContain("Body Composition");
     expect(text).toContain("Weight");
     expect(text).toContain("Body Fat");
     expect(text).toContain("Lean Tissue");
@@ -56,6 +57,25 @@ describe("BodyAppleHealthConnectSheet", () => {
       tree.root.findByProps({ testID: "body-ah-sheet-primary" }).props.onPress();
     });
     expect(onPrimary).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows Connected chip and Resume import when history incomplete", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        React.createElement(BodyAppleHealthConnectSheet, {
+          visible: true,
+          phase: "historyIncomplete",
+          onClose: jest.fn(),
+          onPrimary: jest.fn(),
+        }),
+      );
+    });
+    const text = collectText(tree);
+    expect(text).toContain("Connected");
+    expect(text).toContain("Resume import");
+    expect(text).toMatch(/latest measurements are still available/i);
+    expect(tree.root.findByProps({ testID: "body-ah-sheet-status-chip" })).toBeDefined();
   });
 
   it("shows Importing progress without primary submit", () => {
@@ -70,7 +90,7 @@ describe("BodyAppleHealthConnectSheet", () => {
         }),
       );
     });
-    expect(collectText(tree)).toMatch(/Importing earlier Body history/i);
+    expect(collectText(tree)).toMatch(/Importing earlier history/i);
     expect(tree.root.findAllByProps({ testID: "body-ah-sheet-primary" })).toHaveLength(0);
   });
 });

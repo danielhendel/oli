@@ -1,10 +1,11 @@
 import {
   connectAppleHealthBodyForComposition,
+  APPLE_HEALTH_BODY_CONNECT_TRIGGER,
 } from "@/lib/data/body/connectAppleHealthBodyForComposition";
 
 const mockRequestBody = jest.fn();
 const mockRequestBroad = jest.fn();
-const mockSetConnected = jest.fn();
+const mockEnableBody = jest.fn();
 const mockSync = jest.fn();
 const mockBackfill = jest.fn();
 const mockScheduleSteps = jest.fn();
@@ -26,7 +27,7 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getAppleHealthConnected: jest.fn(async () => false),
   getAppleHealthNotAvailable: jest.fn(async () => false),
-  setAppleHealthConnected: (...a: unknown[]) => mockSetConnected(...a),
+  enableAppleHealthDomain: (...a: unknown[]) => mockEnableBody(...a),
   setAppleHealthBodyLastCheckedAt: jest.fn(async () => undefined),
   setLastSyncAt: jest.fn(async () => undefined),
   getAppleHealthBodyBackfillState: jest.fn(),
@@ -45,15 +46,15 @@ describe("connectAppleHealthBodyForComposition", () => {
   beforeEach(() => {
     mockRequestBody.mockReset();
     mockRequestBroad.mockReset();
-    mockSetConnected.mockReset();
+    mockEnableBody.mockReset();
     mockSync.mockReset();
     mockBackfill.mockReset();
     mockScheduleSteps.mockReset();
   });
 
-  it("requests Body-only permissions, syncs latest, then imports history without Steps repair", async () => {
+  it("enables Body domain only, syncs latest, imports history without Steps repair", async () => {
     mockRequestBody.mockResolvedValue({ ok: true });
-    mockSetConnected.mockResolvedValue(undefined);
+    mockEnableBody.mockResolvedValue(undefined);
     mockSync.mockResolvedValue({ ok: true, ingested: 2, replayedOrSkipped: 0, samplesRead: 2 });
     mockBackfill.mockResolvedValue({
       ok: true,
@@ -72,25 +73,41 @@ describe("connectAppleHealthBodyForComposition", () => {
       onPhase: (p) => phases.push(p),
     });
     expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.sourceState).toBe("connected");
+      expect(result.historyState).toBe("complete");
+    }
     expect(mockRequestBody).toHaveBeenCalledTimes(1);
     expect(mockRequestBroad).not.toHaveBeenCalled();
-    expect(mockSetConnected).toHaveBeenCalledWith(true);
+    expect(mockEnableBody).toHaveBeenCalledWith("body");
     expect(mockSync).toHaveBeenCalledTimes(1);
     expect(mockBackfill).toHaveBeenCalledTimes(1);
     expect(mockScheduleSteps).not.toHaveBeenCalled();
+    expect(APPLE_HEALTH_BODY_CONNECT_TRIGGER).toBe("body_connect");
     expect(phases[0]).toBe("requestingPermission");
-    expect(phases).toContain("findingLatest");
-    expect(phases).toContain("importingEarlier");
   });
 
-  it("does not call HealthKit when unavailable", async () => {
-    const storage = require("@/lib/integrations/appleHealth/storage");
-    storage.getAppleHealthNotAvailable.mockResolvedValueOnce(true);
+  it("keeps source connected when history fails after latest succeeds", async () => {
+    mockRequestBody.mockResolvedValue({ ok: true });
+    mockEnableBody.mockResolvedValue(undefined);
+    mockSync.mockResolvedValue({ ok: true, ingested: 1, replayedOrSkipped: 0, samplesRead: 1 });
+    mockBackfill.mockResolvedValue({
+      ok: false,
+      error: "chunk failed",
+      requestId: null,
+    });
+    const onLatest = jest.fn();
     const result = await connectAppleHealthBodyForComposition({
       getIdToken: async () => "tok",
+      onLatestSynced: onLatest,
     });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe("unavailable");
-    expect(mockRequestBody).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.sourceState).toBe("connected");
+      expect(result.historyState).toBe("failed");
+      expect(result.phase).toBe("historyIncomplete");
+    }
+    expect(onLatest).toHaveBeenCalled();
+    expect(mockScheduleSteps).not.toHaveBeenCalled();
   });
 });

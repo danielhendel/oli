@@ -15,6 +15,7 @@ import { deriveOuraImportState } from "@/lib/integrations/oura/importState";
 import { getOuraConnectUrl, postOuraRevoke } from "@/lib/api/oura";
 import { getAppleHealthStatus } from "@/lib/api/appleHealth";
 import { resolveAppleHealthDeviceConnected } from "@/lib/integrations/appleHealth/resolveAppleHealthDeviceConnected";
+import { listImplementedAppleHealthDomains } from "@/lib/integrations/appleHealth/appleHealthDomainRegistry";
 import { connectAppleHealthForOnboarding } from "@/lib/onboarding/appleHealthOnboardingConnect";
 import { getAppleHealthConnected } from "@/lib/integrations/appleHealth/storage";
 
@@ -222,18 +223,12 @@ function DeviceDetailScreen() {
             : "Not connected";
 
   const appleCopy =
-    "Apple Health can provide workouts, steps, activity, HRV, sleep, and Body Composition (weight, body fat, BMI, lean mass, resting energy) from your iPhone and Apple Watch. Grant access in Body or Workouts when prompted; you can change access anytime in the Health app under Sharing → Apps → Oli.";
+    "Apple Health can keep Body Composition, Activity, Workouts, and Cardio & Vitals up to date. Connect all supported data here, or connect a single category from its screen. You can change access anytime in the Health app under Sharing → Apps → Oli.";
 
   const ouraCopy =
     "Oura can provide sleep and HRV data. When connected and synced, Oli uses Oura for sleep duration and heart rate variability in your record.";
 
-  const metricsForAppleHealth = [
-    "Steps",
-    "Activity minutes",
-    "HRV",
-    "Sleep duration",
-    "Weight & body composition",
-  ];
+  const metricsForAppleHealth = listImplementedAppleHealthDomains().map((d) => d.displayName);
   const metricsForOura = ["Sleep duration", "HRV"];
 
   return (
@@ -286,15 +281,15 @@ function DeviceDetailScreen() {
                 void handleConnectAppleHealth();
               }}
               accessibilityRole="button"
-              accessibilityLabel="Connect Apple Health"
+              accessibilityLabel="Connect all supported Apple Health data"
             >
               <Text style={styles.primaryButtonText}>
-                {appleConnecting ? "Connecting…" : "Connect Apple Health"}
+                {appleConnecting ? "Connecting…" : "Connect all supported data"}
               </Text>
             </Pressable>
             <Text style={styles.description}>
-              Connecting grants Health access and starts sync. Device permission alone does not connect
-              your account.
+              Optional. Requests access for the categories listed below, then starts sync. You can
+              also connect a single category from Body or Activity later.
             </Text>
           </View>
         ) : null}
@@ -307,7 +302,9 @@ function DeviceDetailScreen() {
 
         <View style={styles.group}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Metrics this device provides</Text>
+            <Text style={styles.sectionTitle}>
+              {isAppleHealth ? "Supported categories" : "Metrics this device provides"}
+            </Text>
           </View>
           {(isOura ? metricsForOura : metricsForAppleHealth).map((m) => (
             <View key={m} style={styles.metricRow}>

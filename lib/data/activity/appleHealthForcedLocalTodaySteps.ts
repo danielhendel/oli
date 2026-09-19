@@ -28,7 +28,7 @@ import {
   requestPermissions,
 } from "@/lib/integrations/appleHealth/healthKit";
 import { stepsIdempotencyKey } from "@/lib/integrations/appleHealth/idempotency";
-import { getAppleHealthConnected, setLastIngestedStepsForDay } from "@/lib/integrations/appleHealth/storage";
+import { isAppleHealthDomainEnabled, setLastIngestedStepsForDay } from "@/lib/integrations/appleHealth/storage";
 import { getTodayDayKeyLocal } from "@/lib/ui/calendar/dateUtils";
 
 const DEV = typeof __DEV__ !== "undefined" && __DEV__ && !process.env.JEST_WORKER_ID;
@@ -89,9 +89,9 @@ export async function runForcedLocalTodayAppleHealthStepsIngest(
 ): Promise<void> {
   if (Platform.OS !== "ios") return;
 
-  const connected = await getAppleHealthConnected().catch(() => false);
-  if (!connected) {
-    devLog("skip: not connected", {});
+  const activityEnabled = await isAppleHealthDomainEnabled("activity").catch(() => false);
+  if (!activityEnabled) {
+    devLog("skip: activity domain not enabled", {});
     return;
   }
 

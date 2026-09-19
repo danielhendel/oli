@@ -40,7 +40,7 @@ describe("runForcedLocalYesterdayAppleHealthStepsIngest", () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     jest.clearAllMocks();
-    jest.spyOn(appleStorage, "getAppleHealthConnected").mockResolvedValue(true);
+    await appleStorage.setAppleHealthConnected(true);
     requestPermissions.mockResolvedValue({ ok: true } as never);
     pullStepCountForLocalCalendarDay.mockResolvedValue({ ok: true, steps: 8421 });
     ingestRawEvent.mockResolvedValue({

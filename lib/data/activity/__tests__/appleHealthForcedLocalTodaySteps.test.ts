@@ -53,6 +53,8 @@ jest.mock("@/lib/integrations/appleHealth/idempotency", () => ({
 
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getAppleHealthConnected: (...args: unknown[]) => mockGetAppleHealthConnected(...args),
+  // Domain enablement requires connected (legacy: connected without scopes ⇒ all domains).
+  isAppleHealthDomainEnabled: (...args: unknown[]) => mockGetAppleHealthConnected(...args),
   setLastIngestedStepsForDay: (...args: unknown[]) => mockSetLastIngestedStepsForDay(...args),
 }));
 
@@ -67,6 +69,7 @@ jest.mock("@/lib/data/dailyFactsSessionCache", () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGetAppleHealthConnected.mockResolvedValue(true);
   mockIngestRawEvent.mockResolvedValue({ ok: true });
   mockGetDailyFacts.mockResolvedValue({ ok: true, json: { activity: { steps: 419 } } });
   mockTruthOutcome.mockReturnValue({ status: "ready", data: { activity: { steps: 419 } } });

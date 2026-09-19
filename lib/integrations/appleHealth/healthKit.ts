@@ -20,6 +20,7 @@ import {
   shouldEnableWorkoutPhysiologyV1,
   type WorkoutPhysiologyEnrichmentBlock,
 } from "./enrichWorkoutPhysiologyForIngest";
+import { APPLE_HEALTH_BODY_READ_TYPES, buildAppleHealthConnectAllReadTypes } from "./appleHealthDomainRegistry";
 
 /**
  * react-native-health parses dates with NSDateFormatter `yyyy-MM-dd'T'HH:mm:ss.SSSZ`.
@@ -236,30 +237,21 @@ function promiseFromInit(cb: (resolve: (r: HealthKitPermissionResult) => void, r
   });
 }
 
-/** W1 read permissions: steps, workouts, resting heart rate, apple exercise time, active energy. Write: none. */
-const W1_READ_PERMISSIONS: HealthPermission[] = [
-  "StepCount",
-  "Workout",
-  "RestingHeartRate",
-  "HeartRate",
-  "DistanceWalkingRunning",
-  "AppleExerciseTime",
-  "ActiveEnergyBurned",
-  "BodyMass",
-  "BodyFatPercentage",
-  "BodyMassIndex",
-  "LeanBodyMass",
-  "BasalEnergyBurned",
+/**
+ * Settings / onboarding "Connect all supported data" — typed union from the domain registry.
+ * Implemented domains only; excludes speculative future types and Body BMI/basal extras.
+ */
+const CONNECT_ALL_READ_PERMISSIONS: HealthPermission[] = [
+  ...buildAppleHealthConnectAllReadTypes(),
 ];
 
 /**
  * Body Composition card connect scope — Weight, Body Fat %, Lean Body Mass only.
  * Does not request Steps, Workouts, Sleep, HRV, or other W1 activity domains.
+ * Identifiers come from {@link APPLE_HEALTH_BODY_READ_TYPES} in the domain registry.
  */
 export const BODY_COMPOSITION_CONNECT_READ_PERMISSIONS: HealthPermission[] = [
-  "BodyMass",
-  "BodyFatPercentage",
-  "LeanBodyMass",
+  ...APPLE_HEALTH_BODY_READ_TYPES,
 ];
 
 export type AppleHealthBodyWeightSample = {
@@ -563,11 +555,11 @@ export async function getBodyCompositionReadAuthStatus(): Promise<BodyCompositio
 }
 
 /**
- * Request HealthKit read permissions (includes BodyMass, body fat, BMI, lean mass, basal energy for Body).
- * Call before body sync/backfill so queries are authorized. Write: none.
+ * Request HealthKit read permissions for Connect all supported data (Settings / onboarding).
+ * Typed union from the domain registry. Write: none.
  */
 export async function requestPermissions(): Promise<HealthKitPermissionResult> {
-  return requestHealthKitReadPermissions(W1_READ_PERMISSIONS);
+  return requestHealthKitReadPermissions(CONNECT_ALL_READ_PERMISSIONS);
 }
 
 /**

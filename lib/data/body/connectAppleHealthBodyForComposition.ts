@@ -1,7 +1,11 @@
 /**
  * Explicit Apple Health Body Composition connect — Body-only permissions,
- * bounded latest sync, then resumable history import. No Steps/Activity/Workout
- * side effects (unlike onboarding connect).
+ * bounded latest sync, then resumable history import.
+ *
+ * Source connection and history import are independent outcomes:
+ * latest sync success keeps the source Connected even if history later fails.
+ *
+ * Trigger context (internal): body_connect — must not enqueue Activity/Steps work.
  */
 
 import { Platform } from "react-native";
@@ -16,15 +20,18 @@ import {
   runAppleHealthBodySync,
 } from "@/lib/integrations/appleHealth";
 import {
+  enableAppleHealthDomain,
   getAppleHealthBodyBackfillState,
   getAppleHealthConnected,
   getAppleHealthNotAvailable,
   setAppleHealthBodyBackfillState,
   setAppleHealthBodyLastCheckedAt,
-  setAppleHealthConnected,
   setLastSyncAt,
 } from "@/lib/integrations/appleHealth/storage";
 import { nowIso } from "@/lib/sync/throttle";
+
+/** Internal trigger — never shown in consumer UI. */
+export const APPLE_HEALTH_BODY_CONNECT_TRIGGER = "body_connect" as const;
 
 const LATEST_DAYS_BACK = 45;
 
@@ -43,6 +50,22 @@ function getDeviceTimezone(): string {
   }
 }
 
+export type AppleHealthBodySourceState =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "needsReview";
+
+export type AppleHealthBodyHistoryState =
+  | "notStarted"
+  | "findingLatest"
+  | "importingRecent"
+  | "importingEarlier"
+  | "paused"
+  | "partial"
+  | "complete"
+  | "failed";
+
 export type AppleHealthBodyCompositionConnectPhase =
   | "requestingPermission"
   | "findingLatest"
@@ -50,19 +73,26 @@ export type AppleHealthBodyCompositionConnectPhase =
   | "importingEarlier"
   | "upToDate"
   | "connectedNoData"
+  | "historyIncomplete"
   | "failed";
 
 export type AppleHealthBodyCompositionConnectResult =
   | {
       ok: true;
-      phase: "upToDate" | "connectedNoData";
+      sourceState: "connected";
+      historyState: "complete" | "partial" | "failed";
+      phase: "upToDate" | "connectedNoData" | "historyIncomplete";
       samplesIngested: number;
       alreadyConnected: boolean;
+      safeErrorCode?: "history_batch_failed";
     }
   | {
       ok: false;
-      reason: "unavailable" | "permission_denied" | "no_token" | "not_ios" | "sync_failed" | "import_failed";
+      sourceState: AppleHealthBodySourceState;
+      historyState: AppleHealthBodyHistoryState;
+      reason: "unavailable" | "permission_denied" | "no_token" | "not_ios" | "sync_failed";
       message: string;
+      safeErrorCode: string;
     };
 
 export type AppleHealthBodyCompositionConnectDeps = {
@@ -72,23 +102,43 @@ export type AppleHealthBodyCompositionConnectDeps = {
   onLatestSynced?: () => void;
 };
 
+function logBodyOp(op: string, fields: Record<string, string | number | boolean | undefined>): void {
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    // Safe structured observability — no health values, UUIDs, tokens, or UIDs.
+    // eslint-disable-next-line no-console
+    console.info(`[AH_BODY] ${op}`, fields);
+  }
+}
+
 /**
  * One-tap Body Composition connect + import history.
- * Permission → account connect flag → latest/recent sync → resumable backfill.
+ * Permission → body domain enable → latest sync → resumable backfill.
  */
 export async function connectAppleHealthBodyForComposition(
   deps: AppleHealthBodyCompositionConnectDeps,
 ): Promise<AppleHealthBodyCompositionConnectResult> {
+  logBodyOp("apple_health_body_connect_started", { trigger: APPLE_HEALTH_BODY_CONNECT_TRIGGER });
+
   if (Platform.OS !== "ios") {
-    return { ok: false, reason: "not_ios", message: "Apple Health is available on iPhone." };
+    return {
+      ok: false,
+      sourceState: "disconnected",
+      historyState: "notStarted",
+      reason: "not_ios",
+      message: "Apple Health is available on iPhone.",
+      safeErrorCode: "not_ios",
+    };
   }
 
   const notAvailable = await getAppleHealthNotAvailable().catch(() => false);
   if (notAvailable) {
     return {
       ok: false,
+      sourceState: "disconnected",
+      historyState: "notStarted",
       reason: "unavailable",
       message: "Apple Health isn’t available on this device.",
+      safeErrorCode: "unavailable",
     };
   }
 
@@ -96,22 +146,33 @@ export async function connectAppleHealthBodyForComposition(
 
   deps.onPhase?.("requestingPermission");
   const perm = await requestBodyCompositionPermissions();
+  logBodyOp("apple_health_body_authorization_completed", {
+    ok: perm.ok,
+    trigger: APPLE_HEALTH_BODY_CONNECT_TRIGGER,
+  });
   if (!perm.ok) {
     return {
       ok: false,
+      sourceState: "needsReview",
+      historyState: "notStarted",
       reason: "permission_denied",
       message: "We couldn’t finish connecting to Apple Health. Try again when you’re ready.",
+      safeErrorCode: "permission_denied",
     };
   }
 
-  await setAppleHealthConnected(true).catch(() => undefined);
+  // Account source + Body domain only — does not enable Activity (Steps).
+  await enableAppleHealthDomain("body").catch(() => undefined);
 
   const token = await deps.getIdToken(false);
   if (!token) {
     return {
       ok: false,
+      sourceState: "disconnected",
+      historyState: "notStarted",
       reason: "no_token",
       message: "Sign in to connect Apple Health.",
+      safeErrorCode: "no_token",
     };
   }
 
@@ -132,11 +193,19 @@ export async function connectAppleHealthBodyForComposition(
     },
   );
 
+  logBodyOp("apple_health_body_latest_query_completed", {
+    ok: syncResult.ok,
+    ingestedBucket: syncResult.ok ? (syncResult.ingested > 0 ? "nonzero" : "zero") : "n/a",
+  });
+
   if (!syncResult.ok) {
     return {
       ok: false,
+      sourceState: "connected",
+      historyState: "failed",
       reason: "sync_failed",
-      message: "We couldn’t finish importing your Body history. Try again.",
+      message: "We couldn’t load your latest Body measurements. Try again.",
+      safeErrorCode: "latest_sync_failed",
     };
   }
 
@@ -145,7 +214,6 @@ export async function connectAppleHealthBodyForComposition(
   deps.onLatestSynced?.();
 
   deps.onPhase?.("importingRecent");
-  // Backfill runner covers recent + earlier history in bounded chunks (existing 5Y window).
   deps.onPhase?.("importingEarlier");
   const backfill = await runAppleHealthBodyBackfill(
     { token },
@@ -162,12 +230,27 @@ export async function connectAppleHealthBodyForComposition(
   );
 
   if (!backfill.ok) {
+    logBodyOp("apple_health_body_history_failed", {
+      safeErrorCode: "history_batch_failed",
+      hasRequestId: backfill.requestId != null,
+    });
+    // Source stays connected; latest values already available.
+    deps.onPhase?.("historyIncomplete");
     return {
-      ok: false,
-      reason: "import_failed",
-      message: "We couldn’t finish importing your Body history. Try again.",
+      ok: true,
+      sourceState: "connected",
+      historyState: "failed",
+      phase: "historyIncomplete",
+      samplesIngested: syncResult.ingested,
+      alreadyConnected: wasConnected,
+      safeErrorCode: "history_batch_failed",
     };
   }
+
+  logBodyOp("apple_health_body_history_completed", {
+    status: backfill.status,
+    samplesBucket: backfill.samplesIngested > 0 ? "nonzero" : "zero",
+  });
 
   const samplesIngested = syncResult.ingested + (backfill.samplesIngested ?? 0);
   const phase = samplesIngested > 0 ? "upToDate" : "connectedNoData";
@@ -175,9 +258,79 @@ export async function connectAppleHealthBodyForComposition(
 
   return {
     ok: true,
+    sourceState: "connected",
+    historyState: "complete",
     phase,
     samplesIngested,
     alreadyConnected: wasConnected,
+  };
+}
+
+/** Resume Body history from checkpoint after partial/failed import. */
+export async function resumeAppleHealthBodyHistoryImport(
+  deps: AppleHealthBodyCompositionConnectDeps,
+): Promise<AppleHealthBodyCompositionConnectResult> {
+  const connected = await getAppleHealthConnected().catch(() => false);
+  if (!connected) {
+    return {
+      ok: false,
+      sourceState: "disconnected",
+      historyState: "notStarted",
+      reason: "unavailable",
+      message: "Connect Apple Health before importing history.",
+      safeErrorCode: "not_connected",
+    };
+  }
+  const token = await deps.getIdToken(false);
+  if (!token) {
+    return {
+      ok: false,
+      sourceState: "connected",
+      historyState: "paused",
+      reason: "no_token",
+      message: "Sign in to resume Body history import.",
+      safeErrorCode: "no_token",
+    };
+  }
+
+  deps.onPhase?.("importingEarlier");
+  const backfill = await runAppleHealthBodyBackfill(
+    { token },
+    {
+      nowIso,
+      pullBodyCompositionSamples,
+      ingestRawEvent,
+      appleHealthBodyWeightIdempotencyKey,
+      appleHealthBodyCompositionIdempotencyKey,
+      getDeviceTimezone,
+      getBackfillState: getAppleHealthBodyBackfillState,
+      setBackfillState: setAppleHealthBodyBackfillState,
+    },
+  );
+
+  if (!backfill.ok) {
+    logBodyOp("apple_health_body_history_failed", { safeErrorCode: "history_batch_failed", resume: true });
+    deps.onPhase?.("historyIncomplete");
+    return {
+      ok: true,
+      sourceState: "connected",
+      historyState: "failed",
+      phase: "historyIncomplete",
+      samplesIngested: 0,
+      alreadyConnected: true,
+      safeErrorCode: "history_batch_failed",
+    };
+  }
+
+  deps.onLatestSynced?.();
+  deps.onPhase?.("upToDate");
+  return {
+    ok: true,
+    sourceState: "connected",
+    historyState: "complete",
+    phase: "upToDate",
+    samplesIngested: backfill.samplesIngested,
+    alreadyConnected: true,
   };
 }
 

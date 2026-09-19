@@ -20,6 +20,7 @@ import {
 export type BodyMetricConnectionActionKind =
   | "sync_now"
   | "connected"
+  | "connected_attention"
   | "syncing"
   | "importing"
   | "review_access"
@@ -96,6 +97,11 @@ function connectionAccessibility(kind: BodyMetricConnectionActionKind): {
         label: "Apple Health connected for Body measurements",
         hint: "Double tap to view sync status",
       };
+    case "connected_attention":
+      return {
+        label: "Apple Health connected. Body history import is incomplete",
+        hint: "Double tap to resume import",
+      };
     case "review_access":
       return {
         label: "Apple Health Body access may need attention",
@@ -142,7 +148,9 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const valueText = model.displayValue ?? "—";
   const valueA11y =
     model.formattedValue != null ? model.formattedValue : "No current measurement";
-  const connected = props.connectionAction.kind === "connected";
+  const connected =
+    props.connectionAction.kind === "connected" ||
+    props.connectionAction.kind === "connected_attention";
   const isMassMetric = model.metric === "weight" || model.metric === "leanTissue";
   const showPercentInValue = model.displayUnit === "%";
   const connectionA11y = connectionAccessibility(props.connectionAction.kind);
@@ -261,7 +269,7 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
             testID={`body-metric-connection-${model.metric}`}
           >
             <View style={styles.connectionInner}>
-              <BodyAppleHealthSourceIcon color={connectionColor} decorative />
+              <BodyAppleHealthSourceIcon color={connectionColor} size={18} decorative />
               <Text
                 style={[
                   styles.connectionBtnText,
@@ -274,6 +282,18 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
               >
                 {props.connectionAction.label}
               </Text>
+              {props.connectionAction.kind === "connected_attention" ? (
+                <View
+                  style={styles.attentionDot}
+                  accessibilityElementsHidden
+                  testID={`body-metric-connection-attention-${model.metric}`}
+                />
+              ) : null}
+              {connected ? (
+                <Text style={styles.connectionChevron} accessibilityElementsHidden>
+                  ›
+                </Text>
+              ) : null}
             </View>
           </Pressable>
         </View>
@@ -445,19 +465,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   connectionBtnConnected: {
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    backgroundColor: "rgba(52, 211, 153, 0.12)",
+    // Compact status — visual height ~28–32 via padding; hit target remains 44 via minHeight.
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: "transparent",
   },
   connectionInner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
   },
   connectionBtnText: {
     fontSize: 15,
     fontWeight: "600",
     textAlign: "right",
+  },
+  connectionChevron: {
+    color: "rgba(255,255,255,0.45)",
+    fontSize: 18,
+    fontWeight: "300",
+    marginLeft: 1,
+    marginTop: -1,
+  },
+  attentionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#F5C26B",
+    marginLeft: 1,
   },
   connectionMuted: {
     color: UI_TEXT_SECONDARY,

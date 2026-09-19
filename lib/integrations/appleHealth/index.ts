@@ -25,6 +25,19 @@ export {
   runAppleHealthWorkoutPhysiologyEnrichment,
 } from "./healthKit";
 export {
+  APPLE_HEALTH_DOMAIN_REGISTRY,
+  APPLE_HEALTH_BODY_READ_TYPES,
+  getAppleHealthDomainDefinition,
+  listImplementedAppleHealthDomains,
+  buildAppleHealthConnectAllReadTypes,
+  assertBodyBundleExcludesUnrelatedTypes,
+} from "./appleHealthDomainRegistry";
+export type {
+  AppleHealthDomain,
+  AppleHealthDomainDefinition,
+  AppleHealthReadType,
+} from "./appleHealthDomainRegistry";
+export {
   enrichWorkoutPhysiologyForIngest,
   shouldEnableWorkoutPhysiologyV1,
   WORKOUT_PHYSIOLOGY_SUMMARY_HR_PADDING_MS,
