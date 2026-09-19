@@ -41,7 +41,7 @@
 
 **Delta from prior branch baseline (1047 / 6436 / 0):** +1 suite, −1 test, 0 skipped.
 
-**Retest head:** _(branch tip after docs commit)_
+**Retest head:** `4bd1b01d0f9d6bca14b0fde2783f4b12446cc799`
 
 ## Boundaries
 
