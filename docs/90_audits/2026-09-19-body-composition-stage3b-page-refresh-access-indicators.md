@@ -41,7 +41,7 @@
 
 **Delta from prior branch baseline (1047 / 6436 / 0):** +1 suite, −1 test, 0 skipped.
 
-**Retest head:** `4bd1b01d0f9d6bca14b0fde2783f4b12446cc799`
+**Retest head:** `c0929245c7453a2d1d5caea9dc115b29b5a4d4f7`
 
 ## Boundaries
 
