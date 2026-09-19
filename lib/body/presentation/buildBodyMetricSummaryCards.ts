@@ -171,7 +171,7 @@ function resolveInput(params: {
 }
 
 /**
- * Build the three primary Stage 3B cards in order: Weight, Body Fat, Lean Tissue.
+ * Build the three primary Stage 3B cards in order: Weight, Body Fat, Lean Mass.
  */
 export function buildBodyMetricSummaryCards(input: {
   overview: BodyMetricSummaryOverviewSlice;
@@ -359,11 +359,11 @@ function buildLeanTissueCard(input: {
     ? formatMassFaceValue(input.overview.leanBodyMassKg as number, input.unit)
     : null;
   const scaffoldA11y =
-    "Lean Tissue visual reference only. Total lean mass. No approved classification standard. No personal marker.";
+    "Lean Mass visual reference only. Total lean mass. No approved classification standard. No personal marker.";
 
   return {
     metric: "leanTissue",
-    title: "Lean Tissue",
+    title: "Lean Mass",
     value: input.seriesError ? null : value,
     formattedValue: input.seriesError ? null : formattedValue,
     displayValue: input.seriesError ? null : displayValue,
@@ -389,12 +389,12 @@ function buildLeanTissueCard(input: {
     detailHref: BODY_COMPOSITION_METRIC_DETAIL_ROUTES.leanMass,
     addDataHref: null,
     accessibilityLabel: input.seriesError
-      ? "Lean Tissue. No current measurement. Couldn’t load this measurement."
+      ? "Lean Mass. No current measurement. Couldn’t load this measurement."
       : hasValue
-        ? `Lean Tissue ${formattedValue}. Total lean mass. No approved classification.${
+        ? `Lean Mass ${formattedValue}. Total lean mass. No approved classification.${
             input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
-          } Open lean tissue details.`
-        : "Lean Tissue. No current measurement. Add measurement.",
+          } Open lean mass details.`
+        : "Lean Mass. No current measurement. Add measurement.",
     featured: true,
   };
 }
@@ -404,7 +404,8 @@ export const BODY_COMPOSITION_SUMMARY_COPY = {
   pageTitle: "Body Composition",
   /** Removed from landing UI — kept null so tests can assert absence. */
   purpose: null as string | null,
-  actionsTitle: "Add or connect measurements",
+  /** Removed from landing — routes remain reachable via header/cards. */
+  actionsTitle: null as string | null,
   moreMarkersHref: null as string | null,
   moreMarkersLabel: "More Body Composition markers",
   rangesExplainerLabel: "Learn about measurement ranges",

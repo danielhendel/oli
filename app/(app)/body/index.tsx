@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
@@ -8,7 +8,6 @@ import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHe
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { BodyWeeklyStrip } from "@/lib/ui/body/BodyWeeklyStrip";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
-import { BodyAppleHealthPermissionCard } from "@/lib/ui/body/BodyAppleHealthPermissionCard";
 import {
   BODY_APPLE_HEALTH_SETTINGS_HREF,
   BodyAppleHealthConnectSheet,
@@ -21,9 +20,20 @@ import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBa
 import { useAppleHealthBodyConnectSheet } from "@/lib/data/body/useAppleHealthBodyConnectSheet";
 import { BODY_COMPOSITION_METRIC_DETAIL_ROUTES } from "@/lib/data/body/bodyCompositionMetricRoutes";
 import {
+  applyBodyFatPrimaryView,
+  applyLeanMassPrimaryView,
+  applyWeightPrimaryView,
+} from "@/lib/body/presentation/applyBodyMetricPrimaryView";
+import {
   BODY_COMPOSITION_SUMMARY_COPY,
   buildBodyMetricSummaryCards,
 } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
+import {
+  DEFAULT_BODY_PRIMARY_VIEW_STATE,
+  type BodyFatPrimaryView,
+  type LeanMassPrimaryView,
+  type WeightPrimaryView,
+} from "@/lib/body/presentation/bodyMetricPrimaryViews";
 import { ageYearsFromProfileDateOfBirth } from "@/lib/body/bodyCompositionShared";
 import {
   resolveUserProfileMainForInterpretation,
@@ -45,7 +55,7 @@ export const BODY_SHOW_WEEKLY_CALENDAR_STRIP = false;
 export default function BodyOverviewScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { state: prefState, setMassUnit } = usePreferences();
+  const { state: prefState } = usePreferences();
   const unit = prefState.preferences?.units?.mass ?? "lb";
   const { state: profileState } = useUserProfileMain();
   const profileMain = useMemo(
@@ -54,6 +64,15 @@ export default function BodyOverviewScreen() {
   );
   const body = useBodyOverviewData();
   const [weightLogVisible, setWeightLogVisible] = useState(false);
+  const [weightPrimaryView, setWeightPrimaryView] = useState<WeightPrimaryView>(
+    DEFAULT_BODY_PRIMARY_VIEW_STATE.weight,
+  );
+  const [bodyFatPrimaryView, setBodyFatPrimaryView] = useState<BodyFatPrimaryView>(
+    DEFAULT_BODY_PRIMARY_VIEW_STATE.bodyFat,
+  );
+  const [leanMassPrimaryView, setLeanMassPrimaryView] = useState<LeanMassPrimaryView>(
+    DEFAULT_BODY_PRIMARY_VIEW_STATE.leanMass,
+  );
   const bodyBackfill = useAppleHealthBodyBackfill(() => {
     void body.series.refetch({ cacheBust: `bodyBackfill:${Date.now()}` });
     void body.peek.refetch({ cacheBust: `bodyBackfillPeek:${Date.now()}` });
@@ -84,20 +103,6 @@ export default function BodyOverviewScreen() {
     onDataMaybeChanged: refetchBodyAfterImport,
     refreshAccess: access.refreshAuth,
   });
-
-  const showAppleHealthConnectCard =
-    access.phase === "not_determined" ||
-    access.phase === "denied" ||
-    access.phase === "unavailable" ||
-    access.phase === "loading";
-  const permissionCardVariant =
-    access.phase === "unavailable"
-      ? "unavailable"
-      : access.phase === "denied"
-        ? "denied"
-        : access.phase === "loading"
-          ? "checking"
-          : "connect";
 
   /** Account-scoped connection chip — prefer connect-sheet transient states. */
   const connectionActionForMetric = useCallback(
@@ -148,7 +153,7 @@ export default function BodyOverviewScreen() {
       sex,
     };
   }, [profileMain]);
-  const cards = useMemo(
+  const baseCards = useMemo(
     () =>
       buildBodyMetricSummaryCards({
         overview: {
@@ -167,48 +172,61 @@ export default function BodyOverviewScreen() {
     [body.overview, profileSlice, unit, seriesError],
   );
 
-  const unavailableMsg =
-    access.authSnapshot?.kind === "unavailable" ? access.authSnapshot.error : undefined;
-
-  const appleHealthSlot = showAppleHealthConnectCard ? (
-    <View style={styles.appleHealthSlot}>
-      <BodyAppleHealthPermissionCard
-        variant={permissionCardVariant}
-        {...(typeof unavailableMsg === "string" ? { unavailableMessage: unavailableMsg } : {})}
-        onAllowAccess={() => {
-          // Explicit connect entry — opens Weight metric sheet (primary Body metric).
-          connectSheet.openForMetric("weight");
-        }}
-        onOpenSettings={access.onOpenAppSettings}
-      />
-      {Platform.OS === "ios" ? (
-        <Pressable
-          onPress={() => router.push("/(app)/settings/devices/apple_health")}
-          style={styles.secondaryLinkWrap}
-          accessibilityRole="button"
-          accessibilityLabel="Open Apple Health device settings"
-        >
-          <Text style={styles.secondaryLink}>Apple Health in Settings</Text>
-        </Pressable>
-      ) : null}
-    </View>
-  ) : (
-    <View style={styles.appleHealthConnectedNote} testID="body-apple-health-connected-note">
-      <Text style={styles.appleHealthConnectedText}>
-        Apple Health access is available for Body transport. Review connected devices anytime in Settings.
-      </Text>
-      {Platform.OS === "ios" ? (
-        <Pressable
-          onPress={() => router.push("/(app)/settings/devices/apple_health")}
-          style={styles.secondaryLinkWrap}
-          accessibilityRole="button"
-          accessibilityLabel="Open Apple Health device settings"
-        >
-          <Text style={styles.secondaryLink}>Review Apple Health access</Text>
-        </Pressable>
-      ) : null}
-    </View>
+  const pairingEvidence = useMemo(
+    () => ({
+      weightKg: body.overview.weightKg,
+      bodyFatPercent: body.overview.bodyFatPercent,
+      leanBodyMassKg: body.overview.leanBodyMassKg,
+      // Overview merges by day without same-event provenance — fail closed for derivations.
+      weightAndBodyFatSameEvent: false,
+      weightAndLeanSameEvent: false,
+    }),
+    [body.overview.weightKg, body.overview.bodyFatPercent, body.overview.leanBodyMassKg],
   );
+
+  const cards = useMemo(() => {
+    const [weightCard, bodyFatCard, leanCard] = baseCards;
+    const weightResolveInput = {
+      metric: "weight" as const,
+      weightKg: body.overview.weightKg,
+      bodyFatPercent: body.overview.bodyFatPercent,
+      leanBodyMassKg: body.overview.leanBodyMassKg,
+      bmi: body.overview.bmi,
+      heightCm: profileSlice.heightCm,
+      ageYears: profileSlice.ageYears,
+      sex: profileSlice.sex,
+      measurementMethod: "height_and_weight",
+      massDisplayUnit: unit,
+    };
+    return [
+      applyWeightPrimaryView({
+        card: weightCard,
+        view: weightPrimaryView,
+        resolveInput: weightResolveInput,
+      }),
+      applyBodyFatPrimaryView({
+        card: bodyFatCard,
+        view: bodyFatPrimaryView,
+        massDisplayUnit: unit,
+        evidence: pairingEvidence,
+      }),
+      applyLeanMassPrimaryView({
+        card: leanCard,
+        view: leanMassPrimaryView,
+        massDisplayUnit: unit,
+        evidence: pairingEvidence,
+      }),
+    ] as const;
+  }, [
+    baseCards,
+    body.overview,
+    profileSlice,
+    unit,
+    weightPrimaryView,
+    bodyFatPrimaryView,
+    leanMassPrimaryView,
+    pairingEvidence,
+  ]);
 
   const measurementErrorSlot = seriesError ? (
     <View style={styles.measurementError} testID="body-composition-measurement-error">
@@ -257,18 +275,19 @@ export default function BodyOverviewScreen() {
         <View style={styles.pageBody}>
           <BodyCompositionSummaryScreen
             cards={cards}
-            appleHealthSlot={appleHealthSlot}
             connectionActionForMetric={connectionActionForMetric}
             onPressCard={(href) => router.push(href as never)}
             onPressAddWeight={() => setWeightLogVisible(true)}
             onPressConnectionActionForMetric={(metric) => {
               connectSheet.onPressCardConnection(metric);
             }}
-            onPressHref={(href) => router.push(href as never)}
             massDisplayUnit={unit}
-            onChangeMassDisplayUnit={(next) => {
-              void setMassUnit(next);
-            }}
+            weightPrimaryView={weightPrimaryView}
+            onChangeWeightPrimaryView={setWeightPrimaryView}
+            bodyFatPrimaryView={bodyFatPrimaryView}
+            onChangeBodyFatPrimaryView={setBodyFatPrimaryView}
+            leanMassPrimaryView={leanMassPrimaryView}
+            onChangeLeanMassPrimaryView={setLeanMassPrimaryView}
             measurementErrorSlot={measurementErrorSlot}
           />
         </View>
@@ -318,24 +337,6 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     gap: 16,
   },
-  appleHealthSlot: {
-    gap: 8,
-  },
-  appleHealthConnectedNote: {
-    gap: 8,
-  },
-  appleHealthConnectedText: {
-    color: UI_TEXT_SECONDARY,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  secondaryLinkWrap: {
-    alignSelf: "flex-start",
-    minHeight: 44,
-    justifyContent: "center",
-    paddingVertical: 4,
-  },
-  secondaryLink: { fontSize: 15, fontWeight: "600", color: BODY_INDIGO },
   measurementError: {
     gap: 8,
     padding: 14,
