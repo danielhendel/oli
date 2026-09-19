@@ -340,7 +340,9 @@ export type AppleHealthBodyCompositionSyncLatestResult =
 
 export type AppleHealthBodyLatestRefreshTrigger =
   | "body_status_sheet_open"
-  | "pull_to_refresh";
+  | "pull_to_refresh"
+  | "body_page_entry"
+  | "body_page_pull_refresh";
 
 /** Latest-only Body refresh — no history restart, no unrelated domains, no auth re-prompt. */
 export async function syncAppleHealthBodyLatestForComposition(

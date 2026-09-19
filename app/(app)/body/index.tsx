@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
@@ -9,7 +9,10 @@ import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { BodyWeeklyStrip } from "@/lib/ui/body/BodyWeeklyStrip";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import { BodyAppleHealthPermissionCard } from "@/lib/ui/body/BodyAppleHealthPermissionCard";
-import { BodyAppleHealthConnectSheet } from "@/lib/ui/body/BodyAppleHealthConnectSheet";
+import {
+  BODY_APPLE_HEALTH_SETTINGS_HREF,
+  BodyAppleHealthConnectSheet,
+} from "@/lib/ui/body/BodyAppleHealthConnectSheet";
 import { BodyCompositionSummaryScreen } from "@/lib/ui/body/BodyCompositionSummaryScreen";
 import { WeightLogModal } from "@/lib/ui/WeightLogModal";
 import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
@@ -217,6 +220,10 @@ export default function BodyOverviewScreen() {
         <Text style={styles.retryBtnText}>Retry</Text>
       </Pressable>
     </View>
+  ) : body.pullRefreshError ? (
+    <View style={styles.syncBanner} testID="body-composition-pull-refresh-error">
+      <Text style={styles.syncBannerText}>{body.pullRefreshError}</Text>
+    </View>
   ) : access.phase === "syncing" ? (
     <View style={styles.syncBanner} testID="body-composition-sync-banner">
       <Text style={styles.syncBannerText}>Syncing Apple Health…</Text>
@@ -230,6 +237,16 @@ export default function BodyOverviewScreen() {
         hideTitleChrome
         compactHeader={BODY_SHOW_WEEKLY_CALENDAR_STRIP}
         {...(headerContent != null ? { headerContent } : {})}
+        refreshControl={
+          <RefreshControl
+            refreshing={body.isPullRefreshing}
+            onRefresh={() => {
+              void body.onPullToRefresh();
+            }}
+            tintColor={BODY_INDIGO}
+            accessibilityLabel="Refresh Body measurements"
+          />
+        }
       >
         <View style={styles.pageBody}>
           <BodyCompositionSummaryScreen
@@ -252,12 +269,14 @@ export default function BodyOverviewScreen() {
         visible={connectSheet.visible}
         phase={connectSheet.phase}
         historyAttention={connectSheet.historyAttention}
-        refreshing={connectSheet.refreshing}
-        refreshError={connectSheet.refreshError}
         lastSuccessfulSyncAtIso={connectSheet.lastSuccessfulSyncAtIso}
+        bodyScopeConnected={connectSheet.bodyScopeConnected}
         onClose={connectSheet.close}
         onPrimary={connectSheet.onPrimary}
-        onRefreshLatest={connectSheet.onRefreshLatest}
+        onOpenAppleHealthSettings={() => {
+          connectSheet.close();
+          router.push(BODY_APPLE_HEALTH_SETTINGS_HREF as never);
+        }}
       />
       <WeightLogModal
         visible={weightLogVisible}
