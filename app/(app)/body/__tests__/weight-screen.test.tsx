@@ -89,7 +89,7 @@ const mockConnectSheet = {
       kind: "connected" as const,
       label: "Connected",
       chipLabel: "Connected",
-      accessibilityLabel: "Apple Health connected for Lean Tissue",
+      accessibilityLabel: "Apple Health connected for Lean Mass",
     },
   },
   openForMetric: jest.fn(),
@@ -222,7 +222,7 @@ describe("Body Composition simplified main screen", () => {
       kind: "sync_now" as const,
       label: "Sync now",
       chipLabel: "Not Connected",
-      accessibilityLabel: "Connect Lean Tissue to Apple Health",
+      accessibilityLabel: "Connect Lean Mass to Apple Health",
     },
   };
 
@@ -249,7 +249,7 @@ describe("Body Composition simplified main screen", () => {
         kind: "connected",
         label: "Connected",
         chipLabel: "Connected",
-        accessibilityLabel: "Apple Health connected for Lean Tissue",
+        accessibilityLabel: "Apple Health connected for Lean Mass",
       },
     };
     mockConnectSheet.openForMetric.mockClear();
@@ -266,7 +266,7 @@ describe("Body Composition simplified main screen", () => {
     });
   });
 
-  it("renders three primary metric cards before Apple Health actions", () => {
+  it("renders three primary metric cards without redundant Add/connect card", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -278,8 +278,9 @@ describe("Body Composition simplified main screen", () => {
     expect(tree.root.findByProps({ testID: "body-metric-card-bodyFat" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-metric-card-leanTissue" })).toBeDefined();
     expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("Body Fat"));
-    expect(text.indexOf("Body Fat")).toBeLessThan(text.indexOf("Lean Tissue"));
-    expect(text.indexOf("Lean Tissue")).toBeLessThan(text.indexOf("Add or connect measurements"));
+    expect(text.indexOf("Body Fat")).toBeLessThan(text.indexOf("Lean Mass"));
+    expect(text).not.toContain("Add or connect measurements");
+    expect(tree.root.findAllByProps({ testID: "body-composition-actions" })).toHaveLength(0);
   });
 
   it("does not render the previous dense educational landing", () => {
@@ -399,27 +400,7 @@ describe("Body Composition simplified main screen", () => {
     expect(mockPush).toHaveBeenCalledWith(BODY_METRIC_DETAIL_HREFS.weight);
   });
 
-  it("shows Apple Health connect after metric cards when access is not determined", () => {
-    mockHook.mockReturnValue(buildBody());
-    mockAccess.mockReturnValue({
-      phase: "not_determined",
-      authLoading: false,
-      authSnapshot: { kind: "not_determined" },
-      refreshAuth: jest.fn(),
-      onAllowAppleHealthBodyAccess: jest.fn(),
-      onOpenAppSettings: jest.fn(),
-    });
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    const text = collectText(tree);
-    expect(text).toContain("Connect Apple Health");
-    expect(text).toContain("transport");
-    expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("Connect Apple Health"));
-  });
-
-  it("opens Apple Health Body sheet from Connect card without requesting permissions on that tap", () => {
+  it("opens Weight Apple Health sheet from Sync now without requesting permissions on that tap", () => {
     mockConnectSheet.cardActionsByMetric = syncNowActions;
     const onAllow = jest.fn();
     mockHook.mockReturnValue(buildBody());
@@ -435,34 +416,30 @@ describe("Body Composition simplified main screen", () => {
     act(() => {
       tree = renderer.create(React.createElement(Screen));
     });
-    const primary = tree.root
-      .findAllByType("Pressable")
-      .find((p) => p.props.accessibilityLabel === "Allow Apple Health access for body data");
-    expect(primary).toBeDefined();
     act(() => {
-      primary!.props.onPress();
+      tree.root
+        .findByProps({ testID: "body-metric-connection-weight" })
+        .props.onPress({ stopPropagation: jest.fn() });
     });
-    expect(mockConnectSheet.openForMetric).toHaveBeenCalledWith("weight");
+    expect(mockConnectSheet.onPressCardConnection).toHaveBeenCalledWith("weight");
     expect(mockPush).not.toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
     expect(onAllow).not.toHaveBeenCalled();
   });
 
-  it("toggles mass unit via shared preference without opening detail", () => {
+  it("toggles Weight mass|BMI view without opening detail or mutating mass preference", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(React.createElement(Screen));
     });
-    const onCard = jest.fn();
-    // Toggle kg — stopPropagation prevents card drill-down
     act(() => {
       tree.root
-        .findAllByProps({ testID: "body-metric-unit-kg" })[0]
+        .findByProps({ testID: "body-metric-view-weight-bmi" })
         .props.onPress({ stopPropagation: jest.fn() });
     });
-    expect(mockSetMassUnit).toHaveBeenCalledWith("kg");
     expect(mockPush).not.toHaveBeenCalledWith(BODY_METRIC_DETAIL_HREFS.weight);
-    void onCard;
+    expect(mockSetMassUnit).not.toHaveBeenCalled();
+    expect(tree.root.findByProps({ testID: "body-metric-view-weight-bmi" })).toBeDefined();
   });
 
   it("keeps cards visible when measurement series errors", () => {

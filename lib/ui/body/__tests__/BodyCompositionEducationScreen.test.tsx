@@ -58,7 +58,7 @@ describe("BodyCompositionEducationScreen", () => {
     expect(text).toContain("Performance Support");
     expect(text).toContain("Central Adiposity");
     expect(text).toContain("Body Fat");
-    expect(text).toContain("Lean Tissue");
+    expect(text).toContain("Lean Mass");
     expect(text).toContain("Visceral Adiposity");
     expect(text).toContain("Screening");
     expect(text).toContain("Composition");

@@ -55,7 +55,7 @@ describe("BodyAppleHealthConnectSheet — metric-specific", () => {
     const text = collectText(tree);
     expect(text).toContain("Weight");
     expect(text).not.toMatch(/Body Fat/);
-    expect(text).not.toMatch(/Lean Tissue/);
+    expect(text).not.toMatch(/Lean Mass/);
     expect(text).toContain("History");
     expect(text).toContain("Done");
     expect(tree.root.findByProps({ testID: "body-ah-sheet-metric-row-weight" })).toBeDefined();
@@ -84,13 +84,13 @@ describe("BodyAppleHealthConnectSheet — metric-specific", () => {
     const text = collectText(tree);
     expect(text).toContain("Body Fat");
     expect(text).not.toMatch(/\bWeight\b/);
-    expect(text).not.toMatch(/Lean Tissue/);
+    expect(text).not.toMatch(/Lean Mass/);
     expect(tree.root.findByProps({ testID: "body-ah-sheet-status-chip" }).props.accessibilityLabel).toMatch(
       /Sync Off/,
     );
   });
 
-  it("Lean Tissue popup shows Lean Tissue only and settings href is canonical", () => {
+  it("Lean Mass popup shows Lean Mass only and settings href is canonical", () => {
     const onSettings = jest.fn();
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -107,7 +107,7 @@ describe("BodyAppleHealthConnectSheet — metric-specific", () => {
         }),
       );
     });
-    expect(collectText(tree)).toContain("Lean Tissue");
+    expect(collectText(tree)).toContain("Lean Mass");
     expect(collectText(tree)).not.toMatch(/\bWeight\b/);
     expect(collectText(tree)).not.toMatch(/Body Fat/);
     act(() => {

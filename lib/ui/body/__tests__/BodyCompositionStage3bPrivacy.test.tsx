@@ -152,7 +152,7 @@ jest.mock("@/lib/data/body/useAppleHealthBodyConnectSheet", () => ({
     cardActionsByMetric: {
       weight: { kind: "sync_now", label: "Sync now", chipLabel: "Not Connected", accessibilityLabel: "Connect Weight" },
       bodyFat: { kind: "sync_now", label: "Sync now", chipLabel: "Not Connected", accessibilityLabel: "Connect Body Fat" },
-      leanTissue: { kind: "sync_now", label: "Sync now", chipLabel: "Not Connected", accessibilityLabel: "Connect Lean Tissue" },
+      leanTissue: { kind: "sync_now", label: "Sync now", chipLabel: "Not Connected", accessibilityLabel: "Connect Lean Mass" },
     },
     activeMetric: null,
     historyLabel: "Not yet",
@@ -210,27 +210,6 @@ describe("Body Composition Stage 3B source privacy", () => {
     expect(mockOnAllow).not.toHaveBeenCalled();
   });
 
-  it("opens the Body Apple Health sheet on Connect without HealthKit/sync yet", () => {
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(React.createElement(Screen));
-    });
-    const primary = tree.root
-      .findAllByType("Pressable")
-      .find((p) => p.props.accessibilityLabel === "Allow Apple Health access for body data");
-    expect(primary).toBeDefined();
-    act(() => {
-      primary!.props.onPress();
-    });
-    expect(mockOpenForMetric).toHaveBeenCalledWith("weight");
-    expect(mockPush).not.toHaveBeenCalledWith("/(app)/settings/devices/apple_health");
-    expect(mockOnAllow).not.toHaveBeenCalled();
-    expect(mockRequestPermissions).not.toHaveBeenCalled();
-    expect(mockRunBodySync).not.toHaveBeenCalled();
-    expect(mockRunBodyBackfill).not.toHaveBeenCalled();
-    expect(mockIngest).not.toHaveBeenCalled();
-  });
-
   it("opens the Body sheet from Sync now without HealthKit/sync yet", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -248,17 +227,17 @@ describe("Body Composition Stage 3B source privacy", () => {
     expect(mockRunBodySync).not.toHaveBeenCalled();
   });
 
-  it("does not trigger HealthKit or sync when toggling lb/kg", () => {
+  it("does not trigger HealthKit or sync when toggling Weight BMI view", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(React.createElement(Screen));
     });
     act(() => {
       tree.root
-        .findAllByProps({ testID: "body-metric-unit-kg" })[0]
+        .findByProps({ testID: "body-metric-view-weight-bmi" })
         .props.onPress({ stopPropagation: jest.fn() });
     });
-    expect(mockSetMassUnit).toHaveBeenCalledWith("kg");
+    expect(mockSetMassUnit).not.toHaveBeenCalled();
     expect(mockRequestPermissions).not.toHaveBeenCalled();
     expect(mockRunBodySync).not.toHaveBeenCalled();
     expect(mockRunBodyBackfill).not.toHaveBeenCalled();
@@ -279,6 +258,7 @@ describe("Body Composition Stage 3B source privacy", () => {
     expect(text).not.toContain("Track weight, body fat, and lean tissue.");
     expect(text).toContain("Weight");
     expect(text).toContain("Body Fat");
-    expect(text).toContain("Lean Tissue");
+    expect(text).toContain("Lean Mass");
+    expect(text).not.toContain("Add or connect measurements");
   });
 });

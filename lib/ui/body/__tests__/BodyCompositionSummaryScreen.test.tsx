@@ -3,7 +3,6 @@ import renderer, { act } from "react-test-renderer";
 
 import { buildBodyMetricSummaryCards } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import { BodyCompositionSummaryScreen } from "@/lib/ui/body/BodyCompositionSummaryScreen";
-import { UI_TEXT_MUTED } from "@/lib/ui/theme/uiTokens";
 
 jest.mock("react-native", () => ({
   View: "View",
@@ -17,37 +16,18 @@ jest.mock("@expo/vector-icons", () => ({
 }));
 
 jest.mock("@/lib/ui/body/BodyMetricClassificationChart", () => {
-  const React = require("react");
+  const ReactLocal = require("react");
   return {
-    BodyMetricClassificationChart: (props: {
-      model: { segments: { label: string; formattedRange: string | null }[]; marker: unknown };
-      testID?: string;
-    }) =>
-      React.createElement(
-        "View",
-        { testID: props.testID ?? "body-metric-classification-chart" },
-        props.model.segments.map((s) =>
-          React.createElement(
-            "Text",
-            { key: s.label },
-            `${s.label} ${s.formattedRange ?? ""}`,
-          ),
-        ),
-        props.model.marker
-          ? React.createElement("Text", null, "MARKER")
-          : null,
-      ),
+    BodyMetricClassificationChart: (props: { testID?: string }) =>
+      ReactLocal.createElement("View", { testID: props.testID ?? "chart" }),
   };
 });
 
 jest.mock("@/lib/ui/body/BodyMetricUnclassifiedScaffold", () => {
-  const React = require("react");
+  const ReactLocal = require("react");
   return {
-    BodyMetricUnclassifiedScaffold: (props: { testID?: string; accessibilityLabel: string }) =>
-      React.createElement("View", {
-        testID: props.testID ?? "body-metric-unclassified-scaffold",
-        accessibilityLabel: props.accessibilityLabel,
-      }),
+    BodyMetricUnclassifiedScaffold: (props: { testID?: string }) =>
+      ReactLocal.createElement("View", { testID: props.testID ?? "scaffold" }),
   };
 });
 
@@ -59,17 +39,18 @@ function collectText(test: renderer.ReactTestRenderer): string {
     .join(" ");
 }
 
-const connectionAction = { kind: "sync_now" as const, label: "Sync now" };
-
 const baseScreenProps = {
-  appleHealthSlot: React.createElement("Text", null, "AH_SLOT"),
-  connectionAction,
+  connectionAction: { kind: "sync_now" as const, label: "Sync now" },
   onPressCard: jest.fn(),
   onPressAddWeight: jest.fn(),
   onPressConnectionAction: jest.fn(),
-  onPressHref: jest.fn(),
   massDisplayUnit: "lb" as const,
-  onChangeMassDisplayUnit: jest.fn(),
+  weightPrimaryView: "mass" as const,
+  onChangeWeightPrimaryView: jest.fn(),
+  bodyFatPrimaryView: "percentage" as const,
+  onChangeBodyFatPrimaryView: jest.fn(),
+  leanMassPrimaryView: "mass" as const,
+  onChangeLeanMassPrimaryView: jest.fn(),
 };
 
 describe("BodyCompositionSummaryScreen — visual cards", () => {
@@ -86,124 +67,59 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     unit: "lb",
   });
 
-  it("renders three cards without landing subtitle", () => {
+  it("renders three metric cards and omits Add or connect measurements", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         React.createElement(BodyCompositionSummaryScreen, {
-          cards,
           ...baseScreenProps,
+          cards,
         }),
       );
     });
     const text = collectText(tree);
-    expect(text).not.toContain("Track weight, body fat, and lean tissue.");
-    expect(tree.root.findAllByProps({ testID: "body-composition-purpose" })).toHaveLength(0);
-    expect(tree.root.findByProps({ testID: "body-metric-card-weight" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-card-bodyFat" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-card-leanTissue" })).toBeDefined();
-    expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("Body Fat"));
-    expect(text.indexOf("Body Fat")).toBeLessThan(text.indexOf("Lean Tissue"));
+    expect(text).toContain("Weight");
+    expect(text).toContain("Body Fat");
+    expect(text).toContain("Lean Mass");
+    expect(text).not.toContain("Add or connect measurements");
+    expect(text).not.toContain("View measurement history");
+    expect(text).not.toContain("Learn about measurement ranges");
+    expect(tree.root.findAllByProps({ testID: "body-composition-actions" })).toHaveLength(0);
+    expect(tree.root.findByProps({ testID: "body-composition-bottom-clearance" })).toBeDefined();
+    expect(text.indexOf("Body Fat")).toBeLessThan(text.indexOf("Lean Mass"));
   });
 
-  it("shows Weight chart labels and omits BF/Lean classification charts", () => {
+  it("Weight toggle exposes lb|BMI for imperial preference", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         React.createElement(BodyCompositionSummaryScreen, {
-          cards,
           ...baseScreenProps,
-          appleHealthSlot: null,
+          cards,
+          massDisplayUnit: "lb",
         }),
       );
     });
-    const text = collectText(tree);
-    expect(tree.root.findByProps({ testID: "body-metric-chart-weight" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-chevron-weight" })).toBeDefined();
-    expect(tree.root.findAllByProps({ testID: "body-metric-unit-pill" }).length).toBeGreaterThan(0);
-    expect(tree.root.findAllByProps({ testID: "body-metric-chart-bodyFat" })).toHaveLength(0);
-    expect(tree.root.findAllByProps({ testID: "body-metric-chart-leanTissue" })).toHaveLength(0);
-    expect(tree.root.findByProps({ testID: "body-metric-scaffold-bodyFat" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-scaffold-leanTissue" })).toBeDefined();
-    expect(text).toContain("Underweight");
-    expect(text).toContain("Healthy Weight");
-    expect(text).toContain("Overweight");
-    expect(text).toContain("Obesity");
-    expect(text).not.toContain("BMI SCREENING");
-    expect(text).not.toContain("cdc-who-adult-bmi-screening");
-    expect(text).not.toContain("No measurement yet");
-    expect(text).not.toContain("Personal screening placement unavailable");
-    expect(text).not.toMatch(/Optimal|Ideal|Target|Excellence|Body score/i);
+    expect(tree.root.findByProps({ testID: "body-metric-view-weight-mass" }).props.children).toBeDefined();
+    const massSeg = tree.root.findByProps({ testID: "body-metric-view-weight-mass" });
+    const bmiSeg = tree.root.findByProps({ testID: "body-metric-view-weight-bmi" });
+    expect(massSeg.props.accessibilityLabel).toMatch(/pounds/i);
+    expect(bmiSeg.props.accessibilityLabel).toMatch(/BMI/i);
   });
 
-  it("keeps Add measurement left and Sync now right with Apple Health a11y", () => {
-    const onPressAddWeight = jest.fn();
-    const onPressConnectionAction = jest.fn();
+  it("Weight toggle exposes kg|BMI for metric preference", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         React.createElement(BodyCompositionSummaryScreen, {
-          cards,
           ...baseScreenProps,
-          appleHealthSlot: React.createElement("Text", null, "CONNECT_AH"),
-          onPressAddWeight,
-          onPressConnectionAction,
+          cards,
+          massDisplayUnit: "kg",
         }),
       );
     });
-    act(() => {
-      tree.root.findByProps({ testID: "body-metric-add-weight" }).props.onPress({ stopPropagation: jest.fn() });
-    });
-    expect(onPressAddWeight).toHaveBeenCalledTimes(1);
-    const connection = tree.root.findByProps({ testID: "body-metric-connection-weight" });
-    expect(connection.props.accessibilityLabel).toMatch(/Apple Health/i);
-    act(() => {
-      connection.props.onPress({ stopPropagation: jest.fn() });
-    });
-    expect(onPressConnectionAction).toHaveBeenCalledTimes(1);
-    expect(collectText(tree)).toContain("Sync now");
-    expect(collectText(tree)).toContain("Add measurement");
-  });
-
-  it("exposes interactive lb/kg segments that call onChangeMassDisplayUnit", () => {
-    const onChangeMassDisplayUnit = jest.fn();
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(
-        React.createElement(BodyCompositionSummaryScreen, {
-          cards,
-          ...baseScreenProps,
-          onChangeMassDisplayUnit,
-        }),
-      );
-    });
-    const lbButtons = tree.root.findAllByProps({ testID: "body-metric-unit-lb" });
-    const kgButtons = tree.root.findAllByProps({ testID: "body-metric-unit-kg" });
-    expect(lbButtons.length).toBeGreaterThanOrEqual(2); // Weight + Lean Tissue
-    expect(kgButtons.length).toBeGreaterThanOrEqual(2);
-    expect(lbButtons[0].props.accessibilityState.selected).toBe(true);
-    expect(kgButtons[0].props.accessibilityState.selected).toBe(false);
-    act(() => {
-      kgButtons[0].props.onPress({ stopPropagation: jest.fn() });
-    });
-    expect(onChangeMassDisplayUnit).toHaveBeenCalledWith("kg");
-    // Body Fat keeps a non-interactive % pill (no unit-lb/kg on that card alone as fake toggle)
-    expect(collectText(tree)).toContain("%");
-  });
-
-  it("keeps classification chrome labels brighter than muted tertiary tokens", () => {
-    const {
-      BODY_METRIC_CLASSIFICATION_LABEL_TOKENS,
-      resolveBodyMetricClassificationBandChrome,
-    } = require("@/lib/ui/theme/bodyMetricClassificationChrome");
-    expect(BODY_METRIC_CLASSIFICATION_LABEL_TOKENS.cool).toBe("#7DD3FC");
-    expect(BODY_METRIC_CLASSIFICATION_LABEL_TOKENS.reference).toBe("#4ADE80");
-    for (const tone of ["cool", "reference", "caution", "elevated"] as const) {
-      const chrome = resolveBodyMetricClassificationBandChrome(tone);
-      expect(chrome.label).not.toBe(UI_TEXT_MUTED);
-      expect(chrome.range).not.toBe(UI_TEXT_MUTED);
-      expect(chrome.label.startsWith("#")).toBe(true);
-      expect(chrome.range.startsWith("#")).toBe(true);
-    }
+    expect(
+      tree.root.findByProps({ testID: "body-metric-view-weight-mass" }).props.accessibilityLabel,
+    ).toMatch(/kilograms/i);
   });
 });

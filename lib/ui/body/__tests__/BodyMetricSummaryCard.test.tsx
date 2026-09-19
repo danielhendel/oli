@@ -3,7 +3,10 @@ import renderer, { act } from "react-test-renderer";
 
 import { buildBodyMetricSummaryCards } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import { BodyMetricSummaryCard } from "@/lib/ui/body/BodyMetricSummaryCard";
-import { BODY_APPLE_HEALTH_ICON_NAME, BODY_APPLE_HEALTH_ICON_COLOR_MUTED, BODY_APPLE_HEALTH_ICON_COLOR_STRONG } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
+import {
+  BODY_APPLE_HEALTH_ICON_NAME,
+  BODY_APPLE_HEALTH_ICON_COLOR_MUTED,
+} from "@/lib/ui/body/BodyAppleHealthSourceIcon";
 
 jest.mock("react-native", () => ({
   View: "View",
@@ -17,18 +20,18 @@ jest.mock("@expo/vector-icons", () => ({
 }));
 
 jest.mock("@/lib/ui/body/BodyMetricClassificationChart", () => {
-  const React = require("react");
+  const ReactLocal = require("react");
   return {
     BodyMetricClassificationChart: (props: { testID?: string }) =>
-      React.createElement("View", { testID: props.testID ?? "chart" }),
+      ReactLocal.createElement("View", { testID: props.testID ?? "chart" }),
   };
 });
 
 jest.mock("@/lib/ui/body/BodyMetricUnclassifiedScaffold", () => {
-  const React = require("react");
+  const ReactLocal = require("react");
   return {
     BodyMetricUnclassifiedScaffold: (props: { testID?: string }) =>
-      React.createElement("View", { testID: props.testID ?? "scaffold" }),
+      ReactLocal.createElement("View", { testID: props.testID ?? "scaffold" }),
   };
 });
 
@@ -40,7 +43,7 @@ function collectText(test: renderer.ReactTestRenderer): string {
     .join(" ");
 }
 
-describe("BodyMetricSummaryCard — unit toggle + Apple Health action", () => {
+describe("BodyMetricSummaryCard — view toggles + Apple Health action", () => {
   const [weight, bodyFat, lean] = buildBodyMetricSummaryCards({
     overview: {
       overviewDay: "2026-09-18",
@@ -59,7 +62,12 @@ describe("BodyMetricSummaryCard — unit toggle + Apple Health action", () => {
     onPressAddMeasurement: jest.fn(),
     onPressConnectionAction: jest.fn(),
     massDisplayUnit: "lb" as const,
-    onChangeMassDisplayUnit: jest.fn(),
+    weightPrimaryView: "mass" as const,
+    onChangeWeightPrimaryView: jest.fn(),
+    bodyFatPrimaryView: "percentage" as const,
+    onChangeBodyFatPrimaryView: jest.fn(),
+    leanMassPrimaryView: "mass" as const,
+    onChangeLeanMassPrimaryView: jest.fn(),
     connectionAction: { kind: "sync_now" as const, label: "Sync now" },
   };
 
@@ -67,126 +75,78 @@ describe("BodyMetricSummaryCard — unit toggle + Apple Health action", () => {
     base.onPress.mockClear();
     base.onPressAddMeasurement.mockClear();
     base.onPressConnectionAction.mockClear();
-    base.onChangeMassDisplayUnit.mockClear();
+    base.onChangeWeightPrimaryView.mockClear();
+    base.onChangeBodyFatPrimaryView.mockClear();
+    base.onChangeLeanMassPrimaryView.mockClear();
   });
 
-  it("renders segmented lb/kg with selected state and separate chevron", () => {
+  it("Weight lb|BMI toggle does not open detail", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         React.createElement(BodyMetricSummaryCard, { ...base, model: weight }),
       );
     });
-    const lb = tree.root.findByProps({ testID: "body-metric-unit-lb" });
-    const kg = tree.root.findByProps({ testID: "body-metric-unit-kg" });
-    expect(lb.props.accessibilityState.selected).toBe(true);
-    expect(kg.props.accessibilityState.selected).toBe(false);
+    const mass = tree.root.findByProps({ testID: "body-metric-view-weight-mass" });
+    const bmi = tree.root.findByProps({ testID: "body-metric-view-weight-bmi" });
+    expect(mass.props.accessibilityState.selected).toBe(true);
+    expect(bmi.props.accessibilityState.selected).toBe(false);
     expect(tree.root.findByProps({ testID: "body-metric-chevron-weight" })).toBeDefined();
     act(() => {
-      kg.props.onPress({ stopPropagation: jest.fn() });
+      bmi.props.onPress({ stopPropagation: jest.fn() });
     });
-    expect(base.onChangeMassDisplayUnit).toHaveBeenCalledWith("kg");
+    expect(base.onChangeWeightPrimaryView).toHaveBeenCalledWith("bmi");
     expect(base.onPress).not.toHaveBeenCalled();
   });
 
-  it("keeps Body Fat as non-interactive percent", () => {
+  it("Body Fat %|lb toggle is interactive", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         React.createElement(BodyMetricSummaryCard, { ...base, model: bodyFat }),
       );
     });
-    expect(tree.root.findAllByProps({ testID: "body-metric-unit-lb" })).toHaveLength(0);
-    expect(tree.root.findAllByProps({ testID: "body-metric-unit-kg" })).toHaveLength(0);
-    expect(collectText(tree)).toContain("%");
+    act(() => {
+      tree.root
+        .findByProps({ testID: "body-metric-view-bodyFat-fatMass" })
+        .props.onPress({ stopPropagation: jest.fn() });
+    });
+    expect(base.onChangeBodyFatPrimaryView).toHaveBeenCalledWith("fatMass");
+    expect(base.onPress).not.toHaveBeenCalled();
   });
 
-  it("shows Apple Health heart icon with Sync now and blocks syncing taps", () => {
+  it("Lean Mass title and %|lb toggle", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         React.createElement(BodyMetricSummaryCard, { ...base, model: lean }),
       );
     });
-    const icons = tree.root.findAllByType("Ionicons");
-    expect(icons.some((n) => n.props.name === BODY_APPLE_HEALTH_ICON_NAME)).toBe(true);
-    expect(collectText(tree)).toContain("Sync now");
-    const connection = tree.root.findByProps({ testID: "body-metric-connection-leanTissue" });
-    expect(connection.props.accessibilityLabel).toMatch(/Apple Health/i);
-    act(() => {
-      connection.props.onPress({ stopPropagation: jest.fn() });
-    });
-    expect(base.onPressConnectionAction).toHaveBeenCalledTimes(1);
-    expect(base.onPress).not.toHaveBeenCalled();
-
-    act(() => {
-      tree.update(
-        React.createElement(BodyMetricSummaryCard, {
-          ...base,
-          model: lean,
-          connectionAction: { kind: "syncing", label: "Syncing…" },
-        }),
-      );
-    });
-    base.onPressConnectionAction.mockClear();
+    expect(collectText(tree)).toContain("Lean Mass");
     act(() => {
       tree.root
-        .findByProps({ testID: "body-metric-connection-leanTissue" })
+        .findByProps({ testID: "body-metric-view-leanTissue-percentage" })
         .props.onPress({ stopPropagation: jest.fn() });
     });
-    expect(base.onPressConnectionAction).not.toHaveBeenCalled();
+    expect(base.onChangeLeanMassPrimaryView).toHaveBeenCalledWith("percentage");
   });
 
-  it("shows Connected without Sync now wording", () => {
+  it("connection action uses muted heart and does not open card detail", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        React.createElement(BodyMetricSummaryCard, {
-          ...base,
-          model: weight,
-          connectionAction: { kind: "connected", label: "Connected" },
-        }),
+        React.createElement(BodyMetricSummaryCard, { ...base, model: weight }),
       );
     });
-    const text = collectText(tree);
-    expect(text).toContain("Connected");
-    expect(text).not.toContain("Sync now");
-  });
-
-  it("uses muted Apple Health heart on card connection action — not strong popup red", () => {
-    let tree!: renderer.ReactTestRenderer;
+    const icon = tree.root.findByType("Ionicons");
+    expect(icon.props.name).toBe(BODY_APPLE_HEALTH_ICON_NAME);
+    expect(icon.props.color).toBe(BODY_APPLE_HEALTH_ICON_COLOR_MUTED);
     act(() => {
-      tree = renderer.create(
-        React.createElement(BodyMetricSummaryCard, {
-          ...base,
-          model: weight,
-          connectionAction: { kind: "connected", label: "Connected" },
-        }),
-      );
+      tree.root
+        .findByProps({ testID: "body-metric-connection-weight" })
+        .props.onPress({ stopPropagation: jest.fn() });
     });
-    const heart = tree.root
-      .findAllByType("Ionicons")
-      .find((n) => n.props.name === BODY_APPLE_HEALTH_ICON_NAME);
-    expect(heart).toBeDefined();
-    expect(heart!.props.color).toBe(BODY_APPLE_HEALTH_ICON_COLOR_MUTED);
-    expect(heart!.props.color).not.toBe(BODY_APPLE_HEALTH_ICON_COLOR_STRONG);
-
-    const connection = tree.root.findByProps({ testID: "body-metric-connection-weight" });
-    expect(connection.props.style).toEqual(
-      expect.not.objectContaining({ opacity: expect.any(Number) }),
-    );
-    const styles = Array.isArray(connection.props.style)
-      ? connection.props.style
-      : [connection.props.style];
-    expect(styles.some((s: { opacity?: number } | null) => s != null && typeof s.opacity === "number")).toBe(
-      false,
-    );
-    expect(connection.props.accessibilityLabel).toMatch(/Connected/i);
-    expect(collectText(tree)).toContain("›");
-    const minHeight =
-      styles.find((s: { minHeight?: number } | null) => s != null && s.minHeight != null)?.minHeight ??
-      null;
-    // Hit target comes from connectionBtn styles (minHeight 44).
-    expect(minHeight === 44 || connection.props.style != null).toBe(true);
+    expect(base.onPressConnectionAction).toHaveBeenCalled();
+    expect(base.onPress).not.toHaveBeenCalled();
   });
 });

@@ -15,8 +15,8 @@ import {
 } from "@/lib/ui/theme/uiTokens";
 
 describe("Apple Health Body connect sheet model", () => {
-  it("lists Weight, Body Fat, Lean Tissue and Connect & import history", () => {
-    expect([...BODY_APPLE_HEALTH_CONNECT_METRICS]).toEqual(["Weight", "Body Fat", "Lean Tissue"]);
+  it("lists Weight, Body Fat, Lean Mass and Connect & import history", () => {
+    expect([...BODY_APPLE_HEALTH_CONNECT_METRICS]).toEqual(["Weight", "Body Fat", "Lean Mass"]);
     const copy = buildAppleHealthBodyConnectSheetCopy("explaining");
     expect(copy.primaryLabel).toBe("Connect & import history");
     expect(copy.secondaryLabel).toBe("Not now");

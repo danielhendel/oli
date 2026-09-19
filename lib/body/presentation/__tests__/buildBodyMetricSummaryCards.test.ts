@@ -16,7 +16,7 @@ const adultProfile = {
 };
 
 describe("buildBodyMetricSummaryCards — visual classification", () => {
-  it("returns exactly three cards in Weight → Body Fat → Lean Tissue order", () => {
+  it("returns exactly three cards in Weight → Body Fat → Lean Mass order", () => {
     const cards = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: null,
@@ -162,7 +162,7 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     );
   });
 
-  it("shows Lean Tissue without classification chart or ASM/ALMI", () => {
+  it("shows Lean Mass without classification chart or ASM/ALMI", () => {
     const [, , lean] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -177,6 +177,7 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     });
     expect(lean.classificationChart).toBeNull();
     expect(lean.showUnclassifiedScaffold).toBe(true);
+    expect(lean.title).toBe("Lean Mass");
     expect(lean.accessibilityLabel).toMatch(/Total lean mass/i);
     expect(JSON.stringify(lean)).not.toMatch(
       /Elite|Optimal|Excellent|Weak|sarcopenia diagnosis|ALMI|ASM|Performance Rating/i,

@@ -13,7 +13,7 @@ describe("Apple Health access summary model", () => {
       listImplementedAppleHealthDomains().map((d) => d.displayName),
     );
     expect(model.dataSections.find((s) => s.title === "Body Composition")?.metricsLine).toBe(
-      "Weight, Body Fat, Lean Tissue",
+      "Weight, Body Fat, Lean Mass",
     );
     expect(JSON.stringify(model)).not.toMatch(/Backfill|RawEvent|Anchor|Repair/i);
     expect(model.showConnectAll).toBe(false);
