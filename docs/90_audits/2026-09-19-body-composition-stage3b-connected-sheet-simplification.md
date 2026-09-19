@@ -20,8 +20,16 @@
 |------|--------|
 | `npm run typecheck` | PASS |
 | `npm run lint` | PASS |
-| `npm run check:invariants` | _(pending full gate)_ |
+| `npm run check:invariants` | PASS |
+| `npm run check:client-trust-boundary` | PASS |
 | Focused sheet / refresh / access-page tests | PASS |
+| `npm test -- --ci` | PASS — **1047** suites / **6436** tests / **0** skipped |
+| `npm run check` | PASS |
+| Workout-summary checksums | PASS |
+| `npm run -w api build` | PASS — tracked checksum unchanged |
+| Functions build | PASS |
+| `git diff --check` | PASS |
+| `npx expo-doctor` | exit 1; exactly **five** known findings |
 
 **Retest head:** `6daaf59e7b96e978d7a8ecdaad3c32f720555197`
 
