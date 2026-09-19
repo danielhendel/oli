@@ -38,9 +38,10 @@ export type AppleHealthBodyConnectSheetCopy = {
   readonly secondaryLabel: string | null;
   readonly footer: string | null;
   readonly showMetricList: boolean;
-  readonly showMetricStatusRows: boolean;
-  readonly showManageInSettings: boolean;
-  readonly showSyncLatest: boolean;
+  readonly showStatusRows: boolean;
+  /** Healthy / recovery sheets may pull-to-refresh latest only. */
+  readonly allowPullToRefresh: boolean;
+  /** Review access — only when source state needs attention. */
   readonly showReviewAccess: boolean;
   readonly showResumeImport: boolean;
 };
@@ -50,6 +51,23 @@ export const BODY_APPLE_HEALTH_CONNECT_METRICS = [
   "Body Fat",
   "Lean Tissue",
 ] as const;
+
+const HEALTHY_CONNECTED: AppleHealthBodyConnectSheetCopy = {
+  title: "Body Composition",
+  eyebrow: "Apple Health",
+  body: "Oli keeps these measurements up to date.",
+  progressLabel: null,
+  statusChip: "Connected",
+  primaryLabel: "Done",
+  primaryDisabled: false,
+  secondaryLabel: null,
+  footer: null,
+  showMetricList: true,
+  showStatusRows: true,
+  allowPullToRefresh: true,
+  showReviewAccess: false,
+  showResumeImport: false,
+};
 
 export function buildAppleHealthBodyConnectSheetCopy(
   phase: AppleHealthBodyConnectSheetPhase,
@@ -67,9 +85,8 @@ export function buildAppleHealthBodyConnectSheetCopy(
         secondaryLabel: "Not now",
         footer: "You control access in Apple Health and can change it at any time.",
         showMetricList: true,
-        showMetricStatusRows: false,
-        showManageInSettings: false,
-        showSyncLatest: false,
+        showStatusRows: false,
+        allowPullToRefresh: false,
         showReviewAccess: false,
         showResumeImport: false,
       };
@@ -85,9 +102,8 @@ export function buildAppleHealthBodyConnectSheetCopy(
         secondaryLabel: "Not now",
         footer: "You can leave this screen. If the import pauses, Oli will resume automatically.",
         showMetricList: false,
-        showMetricStatusRows: false,
-        showManageInSettings: false,
-        showSyncLatest: false,
+        showStatusRows: false,
+        allowPullToRefresh: false,
         showReviewAccess: false,
         showResumeImport: false,
       };
@@ -103,9 +119,8 @@ export function buildAppleHealthBodyConnectSheetCopy(
         secondaryLabel: "Close",
         footer: "You can leave this screen. If the import pauses, Oli will resume automatically.",
         showMetricList: false,
-        showMetricStatusRows: false,
-        showManageInSettings: false,
-        showSyncLatest: false,
+        showStatusRows: false,
+        allowPullToRefresh: false,
         showReviewAccess: false,
         showResumeImport: false,
       };
@@ -121,9 +136,8 @@ export function buildAppleHealthBodyConnectSheetCopy(
         secondaryLabel: "Close",
         footer: "You can leave this screen. If the import pauses, Oli will resume automatically.",
         showMetricList: false,
-        showMetricStatusRows: false,
-        showManageInSettings: false,
-        showSyncLatest: false,
+        showStatusRows: false,
+        allowPullToRefresh: false,
         showReviewAccess: false,
         showResumeImport: false,
       };
@@ -139,84 +153,36 @@ export function buildAppleHealthBodyConnectSheetCopy(
         secondaryLabel: "Close",
         footer: "You can leave this screen. If the import pauses, Oli will resume automatically.",
         showMetricList: false,
-        showMetricStatusRows: false,
-        showManageInSettings: false,
-        showSyncLatest: false,
+        showStatusRows: false,
+        allowPullToRefresh: false,
         showReviewAccess: false,
         showResumeImport: false,
       };
     case "upToDate":
-      return {
-        title: "Body Composition",
-        eyebrow: "Apple Health",
-        body: "Your available Body history is up to date.",
-        progressLabel: null,
-        statusChip: "Connected",
-        primaryLabel: "Done",
-        primaryDisabled: false,
-        secondaryLabel: null,
-        footer: null,
-        showMetricList: false,
-        showMetricStatusRows: true,
-        showManageInSettings: true,
-        showSyncLatest: true,
-        showReviewAccess: true,
-        showResumeImport: false,
-      };
+    case "connectedStatus":
+      return { ...HEALTHY_CONNECTED };
     case "connectedNoData":
       return {
-        title: "Body Composition",
-        eyebrow: "Apple Health",
+        ...HEALTHY_CONNECTED,
         body: "No Body measurements were found yet.",
-        progressLabel: null,
-        statusChip: "Connected",
-        primaryLabel: "Done",
-        primaryDisabled: false,
-        secondaryLabel: null,
-        footer:
-          "Connection and data availability are separate. Measurements may appear after you log them in Health or another app.",
         showMetricList: false,
-        showMetricStatusRows: true,
-        showManageInSettings: true,
-        showSyncLatest: true,
-        showReviewAccess: true,
-        showResumeImport: false,
       };
     case "historyIncomplete":
       return {
         title: "Body Composition",
         eyebrow: "Apple Health",
-        body: "We couldn’t finish importing all of your Body history. Your latest measurements are still available.",
+        body: "Your latest measurements are available. Oli has not finished importing all earlier Body history.",
         progressLabel: null,
         statusChip: "Connected",
-        primaryLabel: "Resume import",
+        primaryLabel: "Resume history",
         primaryDisabled: false,
-        secondaryLabel: "Close",
+        secondaryLabel: "Done",
         footer: null,
         showMetricList: false,
-        showMetricStatusRows: true,
-        showManageInSettings: true,
-        showSyncLatest: true,
-        showReviewAccess: true,
+        showStatusRows: true,
+        allowPullToRefresh: true,
+        showReviewAccess: false,
         showResumeImport: true,
-      };
-    case "connectedStatus":
-      return {
-        title: "Body Composition",
-        eyebrow: "Apple Health",
-        body: "Apple Health is connected for Body measurements.",
-        progressLabel: null,
-        statusChip: "Connected",
-        primaryLabel: "Done",
-        primaryDisabled: false,
-        secondaryLabel: null,
-        footer: null,
-        showMetricList: true,
-        showMetricStatusRows: true,
-        showManageInSettings: true,
-        showSyncLatest: true,
-        showReviewAccess: true,
-        showResumeImport: false,
       };
     case "waitingForNetwork":
       return {
@@ -225,14 +191,13 @@ export function buildAppleHealthBodyConnectSheetCopy(
         body: "Body history paused. Oli will resume when you’re back online.",
         progressLabel: null,
         statusChip: "Connected",
-        primaryLabel: "Resume",
+        primaryLabel: "Resume when online",
         primaryDisabled: false,
-        secondaryLabel: "Close",
+        secondaryLabel: "Done",
         footer: null,
         showMetricList: false,
-        showMetricStatusRows: false,
-        showManageInSettings: false,
-        showSyncLatest: false,
+        showStatusRows: true,
+        allowPullToRefresh: true,
         showReviewAccess: false,
         showResumeImport: true,
       };
@@ -240,17 +205,16 @@ export function buildAppleHealthBodyConnectSheetCopy(
       return {
         title: "Body Composition",
         eyebrow: "Apple Health",
-        body: "Apple Health access may need attention for Body measurements. Enable the body metrics you want to share in Settings or the Health app.",
+        body: "Oli couldn’t access Body measurements.",
         progressLabel: null,
-        statusChip: null,
-        primaryLabel: "Open Settings",
+        statusChip: "Needs attention",
+        primaryLabel: "Review access",
         primaryDisabled: false,
-        secondaryLabel: "Close",
+        secondaryLabel: "Done",
         footer: null,
         showMetricList: false,
-        showMetricStatusRows: false,
-        showManageInSettings: true,
-        showSyncLatest: false,
+        showStatusRows: false,
+        allowPullToRefresh: false,
         showReviewAccess: false,
         showResumeImport: false,
       };
@@ -266,12 +230,73 @@ export function buildAppleHealthBodyConnectSheetCopy(
         secondaryLabel: "Close",
         footer: null,
         showMetricList: false,
-        showMetricStatusRows: false,
-        showManageInSettings: false,
-        showSyncLatest: false,
+        showStatusRows: false,
+        allowPullToRefresh: false,
         showReviewAccess: false,
         showResumeImport: false,
       };
+    default: {
+      const _exhaustive: never = phase;
+      throw new Error(`Unhandled Apple Health Body sheet phase: ${String(_exhaustive)}`);
+    }
+  }
+}
+
+/**
+ * Factually format last successful latest-refresh timestamp.
+ * Does not invent “Just now” without a real timestamp.
+ */
+export function formatAppleHealthLastUpdatedLabel(
+  lastSuccessfulSyncAtIso: string | null,
+  nowMs: number = Date.now(),
+): string {
+  if (!lastSuccessfulSyncAtIso) return "Not yet";
+  const t = Date.parse(lastSuccessfulSyncAtIso);
+  if (!Number.isFinite(t)) return "Not yet";
+  const deltaMs = nowMs - t;
+  if (deltaMs >= 0 && deltaMs < 90_000) return "Just now";
+  const d = new Date(t);
+  const now = new Date(nowMs);
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  if (sameDay) return `Today, ${time}`;
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function resolveBodyHistoryStatusLabel(
+  phase: AppleHealthBodyConnectSheetPhase,
+  historyAttention: boolean,
+): string {
+  switch (phase) {
+    case "importingRecent":
+    case "importingEarlier":
+      return "Importing";
+    case "waitingForNetwork":
+      return "Paused";
+    case "historyIncomplete":
+      return "Incomplete";
+    case "upToDate":
+    case "connectedStatus":
+    case "connectedNoData":
+      return historyAttention ? "Incomplete" : "Up to date";
+    case "explaining":
+    case "requestingPermission":
+    case "findingLatest":
+    case "needsReview":
+    case "failed":
+      return historyAttention ? "Incomplete" : "—";
+    default: {
+      const _exhaustive: never = phase;
+      return String(_exhaustive);
+    }
   }
 }
 
@@ -292,7 +317,6 @@ export function mapConnectPhaseToCardAction(
   if (phase === "needsReview" || accessPhase === "denied") {
     return { kind: "review_access", label: "Review access" };
   }
-  // History incomplete / waiting: keep Connected with attention — never a giant Try again.
   if (
     phase === "historyIncomplete" ||
     phase === "waitingForNetwork" ||
@@ -317,7 +341,6 @@ export function mapConnectPhaseToCardAction(
     return { kind: "connected", label: "Connected" };
   }
   if (phase === "failed") {
-    // Only when source itself failed to connect — not history failure.
     return { kind: "try_again", label: "Try again" };
   }
   if (accessPhase === "syncing") {

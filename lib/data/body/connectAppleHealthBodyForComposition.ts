@@ -338,10 +338,20 @@ export type AppleHealthBodyCompositionSyncLatestResult =
   | { ok: true; ingested: number }
   | { ok: false; message: string };
 
-/** Explicit “Sync latest” from the connected status sheet — Body-only, no history restart. */
+export type AppleHealthBodyLatestRefreshTrigger =
+  | "body_status_sheet_open"
+  | "pull_to_refresh";
+
+/** Latest-only Body refresh — no history restart, no unrelated domains, no auth re-prompt. */
 export async function syncAppleHealthBodyLatestForComposition(
   deps: Omit<AppleHealthBodyCompositionConnectDeps, "onPhase">,
+  opts?: { trigger?: AppleHealthBodyLatestRefreshTrigger },
 ): Promise<AppleHealthBodyCompositionSyncLatestResult> {
+  const trigger = opts?.trigger ?? "pull_to_refresh";
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    // eslint-disable-next-line no-console
+    console.info("[AH_BODY] apple_health_body_latest_refresh_started", { trigger });
+  }
   const connected = await getAppleHealthConnected().catch(() => false);
   if (!connected) {
     return { ok: false, message: "Connect Apple Health before syncing." };
@@ -350,10 +360,7 @@ export async function syncAppleHealthBodyLatestForComposition(
   if (!token) {
     return { ok: false, message: "Sign in to sync Body measurements." };
   }
-  const perm = await requestBodyCompositionPermissions();
-  if (!perm.ok) {
-    return { ok: false, message: "We couldn’t sync with Apple Health. Try again." };
-  }
+  // Already connected — do not re-request HealthKit authorization on refresh.
   const syncResult = await runAppleHealthBodySync(
     {
       token,
@@ -370,9 +377,26 @@ export async function syncAppleHealthBodyLatestForComposition(
     },
   );
   if (!syncResult.ok) {
-    return { ok: false, message: "We couldn’t sync with Apple Health. Try again." };
+    if (typeof __DEV__ !== "undefined" && __DEV__) {
+      // eslint-disable-next-line no-console
+      console.info("[AH_BODY] apple_health_body_latest_refresh_failed", {
+        trigger,
+        safeErrorCode: "latest_refresh_failed",
+      });
+    }
+    return {
+      ok: false,
+      message: "Couldn’t refresh. Check your connection and pull down to try again.",
+    };
   }
   await setAppleHealthBodyLastCheckedAt(nowIso()).catch(() => undefined);
   deps.onLatestSynced?.();
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    // eslint-disable-next-line no-console
+    console.info("[AH_BODY] apple_health_body_latest_refresh_completed", {
+      trigger,
+      ingestedBucket: syncResult.ingested > 0 ? "nonzero" : "zero",
+    });
+  }
   return { ok: true, ingested: syncResult.ingested };
 }

@@ -82,6 +82,12 @@ export const UI_DASH_RECAP_CARD_RADIUS = 14;
 /** Dash category module rows — softer, more premium than recap. */
 export const UI_DASH_CATEGORY_CARD_RADIUS = 20;
 
+/**
+ * Apple Health / HealthKit source identity — system Health pink-red.
+ * Use for the heart glyph beside “Apple Health”, not for status chips.
+ */
+export const UI_APPLE_HEALTH_HEART = "#FF2D55";
+
 /** Modal scrim / overlay dim */
 export const UI_OVERLAY = T.overlay;
 

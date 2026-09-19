@@ -25,6 +25,8 @@ export type AppleHealthImportPolicy =
 export type AppleHealthDomainDefinition = {
   readonly id: AppleHealthDomain;
   readonly displayName: string;
+  /** Consumer-facing metric names for access summary (no HealthKit ids). */
+  readonly consumerMetrics: readonly string[];
   readonly readTypes: readonly AppleHealthReadType[];
   readonly importPolicy: AppleHealthImportPolicy;
   readonly implemented: boolean;
@@ -60,6 +62,7 @@ export const APPLE_HEALTH_DOMAIN_REGISTRY: readonly AppleHealthDomainDefinition[
   {
     id: "body",
     displayName: "Body Composition",
+    consumerMetrics: ["Weight", "Body Fat", "Lean Tissue"],
     readTypes: APPLE_HEALTH_BODY_READ_TYPES,
     importPolicy: "latest_then_bounded_history",
     implemented: true,
@@ -67,6 +70,7 @@ export const APPLE_HEALTH_DOMAIN_REGISTRY: readonly AppleHealthDomainDefinition[
   {
     id: "activity",
     displayName: "Activity",
+    consumerMetrics: ["Steps", "Active Energy", "Exercise Minutes", "Distance"],
     readTypes: APPLE_HEALTH_ACTIVITY_READ_TYPES,
     importPolicy: "incremental_only",
     implemented: true,
@@ -74,6 +78,7 @@ export const APPLE_HEALTH_DOMAIN_REGISTRY: readonly AppleHealthDomainDefinition[
   {
     id: "workouts",
     displayName: "Workouts",
+    consumerMetrics: ["Workout records"],
     readTypes: APPLE_HEALTH_WORKOUTS_READ_TYPES,
     importPolicy: "incremental_only",
     implemented: true,
@@ -81,6 +86,7 @@ export const APPLE_HEALTH_DOMAIN_REGISTRY: readonly AppleHealthDomainDefinition[
   {
     id: "cardioVitals",
     displayName: "Cardio & Vitals",
+    consumerMetrics: ["Heart Rate", "Resting Heart Rate"],
     readTypes: APPLE_HEALTH_CARDIO_VITALS_READ_TYPES,
     importPolicy: "incremental_only",
     implemented: true,
@@ -88,6 +94,7 @@ export const APPLE_HEALTH_DOMAIN_REGISTRY: readonly AppleHealthDomainDefinition[
   {
     id: "sleepRecovery",
     displayName: "Sleep & Recovery",
+    consumerMetrics: [],
     readTypes: [],
     importPolicy: "none",
     implemented: false,
@@ -95,6 +102,7 @@ export const APPLE_HEALTH_DOMAIN_REGISTRY: readonly AppleHealthDomainDefinition[
   {
     id: "nutrition",
     displayName: "Nutrition",
+    consumerMetrics: [],
     readTypes: [],
     importPolicy: "none",
     implemented: false,

@@ -64,11 +64,15 @@ const mockConnectSheet = {
   visible: false,
   phase: "explaining" as const,
   detailLine: null as string | null,
+  historyAttention: false,
+  refreshing: false,
+  refreshError: null as string | null,
+  lastSuccessfulSyncAtIso: null as string | null,
   cardAction: { kind: "connected" as const, label: "Connected" },
   openForConnect: jest.fn(),
   close: jest.fn(),
   onPrimary: jest.fn(),
-  onSyncLatest: jest.fn(),
+  onRefreshLatest: jest.fn(),
   onPressCardConnection: jest.fn(),
 };
 jest.mock("@/lib/data/body/useAppleHealthBodyConnectSheet", () => ({
@@ -184,7 +188,7 @@ describe("Body Composition simplified main screen", () => {
     mockConnectSheet.openForConnect.mockClear();
     mockConnectSheet.close.mockClear();
     mockConnectSheet.onPrimary.mockClear();
-    mockConnectSheet.onSyncLatest.mockClear();
+    mockConnectSheet.onRefreshLatest.mockClear();
     mockConnectSheet.onPressCardConnection.mockClear();
     mockAccess.mockReturnValue({
       phase: "ready",

@@ -7,13 +7,17 @@ import {
   resumeAppleHealthBodyHistoryImport,
   syncAppleHealthBodyLatestForComposition,
   type AppleHealthBodyCompositionConnectPhase,
+  type AppleHealthBodyLatestRefreshTrigger,
 } from "@/lib/data/body/connectAppleHealthBodyForComposition";
 import {
   mapConnectPhaseToCardAction,
   type AppleHealthBodyConnectSheetPhase,
 } from "@/lib/body/presentation/appleHealthBodyConnectSheetModel";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { getAppleHealthBodyBackfillState } from "@/lib/integrations/appleHealth/storage";
+import {
+  getAppleHealthBodyBackfillState,
+  getAppleHealthBodyLastCheckedAt,
+} from "@/lib/integrations/appleHealth/storage";
 
 export type UseAppleHealthBodyConnectSheetArgs = {
   accessPhase: string;
@@ -21,9 +25,17 @@ export type UseAppleHealthBodyConnectSheetArgs = {
   refreshAccess: () => Promise<void>;
 };
 
+const STATUS_SHEET_PHASES: ReadonlySet<AppleHealthBodyConnectSheetPhase> = new Set([
+  "upToDate",
+  "connectedNoData",
+  "connectedStatus",
+  "historyIncomplete",
+  "waitingForNetwork",
+]);
+
 /**
  * Orchestrates the in-context Body Apple Health connect sheet.
- * Separates source Connected from history import progress/failure.
+ * Separates source Connected from history import; latest refresh on sheet-open / pull.
  */
 export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSheetArgs) {
   const { accessPhase, onDataMaybeChanged, refreshAccess } = args;
@@ -34,8 +46,16 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
   const [phase, setPhase] = useState<AppleHealthBodyConnectSheetPhase>("explaining");
   const [detailLine, setDetailLine] = useState<string | null>(null);
   const [historyAttention, setHistoryAttention] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [lastSuccessfulSyncAtIso, setLastSuccessfulSyncAtIso] = useState<string | null>(null);
   const inFlight = useRef(false);
+  const refreshInFlight = useRef(false);
   const activeUid = useRef<string | undefined>(uid);
+  const prevVisible = useRef(false);
+  const refreshSessionId = useRef(0);
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
   const onDataRef = useRef(onDataMaybeChanged);
   const refreshAccessRef = useRef(refreshAccess);
   onDataRef.current = onDataMaybeChanged;
@@ -44,10 +64,15 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
   useEffect(() => {
     if (activeUid.current !== uid) {
       inFlight.current = false;
+      refreshInFlight.current = false;
+      refreshSessionId.current += 1;
       setVisible(false);
       setPhase("explaining");
       setDetailLine(null);
       setHistoryAttention(false);
+      setRefreshing(false);
+      setRefreshError(null);
+      setLastSuccessfulSyncAtIso(null);
       activeUid.current = uid;
     }
   }, [uid]);
@@ -55,12 +80,17 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const s = await getAppleHealthBodyBackfillState().catch(() => null);
-      if (cancelled || !s) return;
-      if (s.status === "in_progress") {
+      const [backfill, lastChecked] = await Promise.all([
+        getAppleHealthBodyBackfillState().catch(() => null),
+        getAppleHealthBodyLastCheckedAt().catch(() => null),
+      ]);
+      if (cancelled) return;
+      if (lastChecked) setLastSuccessfulSyncAtIso(lastChecked);
+      if (!backfill) return;
+      if (backfill.status === "in_progress") {
         setPhase("importingEarlier");
         setHistoryAttention(true);
-      } else if (s.status === "failed") {
+      } else if (backfill.status === "failed") {
         setPhase("historyIncomplete");
         setHistoryAttention(true);
       }
@@ -70,14 +100,77 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
     };
   }, [uid]);
 
+  const runLatestRefresh = useCallback(
+    async (trigger: AppleHealthBodyLatestRefreshTrigger, sessionId: number) => {
+      if (refreshInFlight.current) return;
+      if (!uid || activeUid.current !== uid) return;
+      if (phaseRef.current === "needsReview" || phaseRef.current === "explaining") return;
+      if (netInfo.isConnected === false) {
+        setRefreshError("Couldn’t refresh. Check your connection and pull down to try again.");
+        setRefreshing(false);
+        return;
+      }
+      refreshInFlight.current = true;
+      setRefreshing(true);
+      setRefreshError(null);
+      try {
+        const res = await syncAppleHealthBodyLatestForComposition(
+          {
+            getIdToken,
+            onLatestSynced: () => {
+              if (activeUid.current !== uid) return;
+              onDataRef.current();
+            },
+          },
+          { trigger },
+        );
+        if (activeUid.current !== uid || sessionId !== refreshSessionId.current) return;
+        if (!res.ok) {
+          setRefreshError(res.message);
+          return;
+        }
+        const checked = await getAppleHealthBodyLastCheckedAt().catch(() => null);
+        if (activeUid.current !== uid || sessionId !== refreshSessionId.current) return;
+        if (checked) setLastSuccessfulSyncAtIso(checked);
+        setRefreshError(null);
+        await refreshAccessRef.current();
+      } catch {
+        if (activeUid.current === uid && sessionId === refreshSessionId.current) {
+          setRefreshError("Couldn’t refresh. Check your connection and pull down to try again.");
+        }
+      } finally {
+        refreshInFlight.current = false;
+        if (activeUid.current === uid && sessionId === refreshSessionId.current) {
+          setRefreshing(false);
+        }
+      }
+    },
+    [uid, getIdToken, netInfo.isConnected],
+  );
+
+  // Stable false→true visibility transition: at most one latest refresh per open session.
+  useEffect(() => {
+    const becameVisible = visible && !prevVisible.current;
+    prevVisible.current = visible;
+    if (!visible) return;
+    if (!becameVisible) return;
+    const currentPhase = phaseRef.current;
+    if (!STATUS_SHEET_PHASES.has(currentPhase)) return;
+    if (accessPhase === "denied" || currentPhase === "needsReview") return;
+    const sessionId = ++refreshSessionId.current;
+    void runLatestRefresh("body_status_sheet_open", sessionId);
+  }, [visible, uid, accessPhase, runLatestRefresh]);
+
   const openForConnect = useCallback(() => {
     setDetailLine(null);
+    setRefreshError(null);
     setPhase("explaining");
     setVisible(true);
   }, []);
 
   const openForStatus = useCallback(() => {
     setDetailLine(null);
+    setRefreshError(null);
     setPhase((current) => {
       if (
         current === "importingRecent" ||
@@ -99,6 +192,11 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
     setVisible(false);
   }, []);
 
+  const onRefreshLatest = useCallback(async () => {
+    const sessionId = refreshSessionId.current;
+    await runLatestRefresh("pull_to_refresh", sessionId);
+  }, [runLatestRefresh]);
+
   const runConnect = useCallback(async () => {
     if (inFlight.current) return;
     if (!uid) {
@@ -115,6 +213,7 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
 
     inFlight.current = true;
     setDetailLine(null);
+    setRefreshError(null);
     try {
       const result = await connectAppleHealthBodyForComposition({
         getIdToken,
@@ -139,9 +238,8 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
       }
       setPhase(result.phase);
       setHistoryAttention(result.historyState === "failed" || result.historyState === "partial");
-      if (result.samplesIngested > 0) {
-        setDetailLine(`${result.samplesIngested} measurements imported`);
-      }
+      const checked = await getAppleHealthBodyLastCheckedAt().catch(() => null);
+      if (checked) setLastSuccessfulSyncAtIso(checked);
       onDataRef.current();
     } catch {
       if (activeUid.current === uid) setPhase("failed");
@@ -174,9 +272,6 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
       }
       setPhase(result.phase);
       setHistoryAttention(result.historyState !== "complete");
-      if (result.samplesIngested > 0) {
-        setDetailLine(`${result.samplesIngested} measurements imported`);
-      }
       await refreshAccessRef.current();
       onDataRef.current();
     } finally {
@@ -205,28 +300,6 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
       close();
     }
   }, [phase, runConnect, runResumeHistory, close]);
-
-  const onSyncLatest = useCallback(async () => {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    try {
-      const res = await syncAppleHealthBodyLatestForComposition({
-        getIdToken,
-        onLatestSynced: () => onDataRef.current(),
-      });
-      if (!res.ok) {
-        // Keep source Connected — sync latest failure is not disconnect.
-        setDetailLine(null);
-        return;
-      }
-      setDetailLine(
-        res.ingested > 0 ? `${res.ingested} measurements imported` : "No new measurements",
-      );
-      await refreshAccessRef.current();
-    } finally {
-      inFlight.current = false;
-    }
-  }, [getIdToken]);
 
   const transientImport =
     phase === "importingRecent" ||
@@ -282,11 +355,14 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
     phase,
     detailLine,
     historyAttention,
+    refreshing,
+    refreshError,
+    lastSuccessfulSyncAtIso,
     cardAction,
     openForConnect,
     close,
     onPrimary,
-    onSyncLatest,
+    onRefreshLatest,
     onPressCardConnection,
   };
 }

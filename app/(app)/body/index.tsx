@@ -251,17 +251,13 @@ export default function BodyOverviewScreen() {
       <BodyAppleHealthConnectSheet
         visible={connectSheet.visible}
         phase={connectSheet.phase}
-        detailLine={connectSheet.detailLine}
+        historyAttention={connectSheet.historyAttention}
+        refreshing={connectSheet.refreshing}
+        refreshError={connectSheet.refreshError}
+        lastSuccessfulSyncAtIso={connectSheet.lastSuccessfulSyncAtIso}
         onClose={connectSheet.close}
         onPrimary={connectSheet.onPrimary}
-        onSyncLatest={() => {
-          void connectSheet.onSyncLatest();
-        }}
-        onReviewAccess={access.onOpenAppSettings}
-        onManageInSettings={() => {
-          connectSheet.close();
-          router.push("/(app)/settings/devices/apple_health");
-        }}
+        onRefreshLatest={connectSheet.onRefreshLatest}
       />
       <WeightLogModal
         visible={weightLogVisible}

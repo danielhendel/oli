@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,9 +14,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   BODY_APPLE_HEALTH_CONNECT_METRICS,
   buildAppleHealthBodyConnectSheetCopy,
+  formatAppleHealthLastUpdatedLabel,
+  resolveBodyHistoryStatusLabel,
   type AppleHealthBodyConnectSheetPhase,
 } from "@/lib/body/presentation/appleHealthBodyConnectSheetModel";
-import { BodyAppleHealthSourceIcon } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
+import {
+  BODY_APPLE_HEALTH_ICON_COLOR,
+  BodyAppleHealthSourceIcon,
+} from "@/lib/ui/body/BodyAppleHealthSourceIcon";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import {
   UI_CARD_ELEVATED_BORDER,
@@ -33,15 +39,18 @@ export type BodyAppleHealthConnectSheetProps = {
   phase: AppleHealthBodyConnectSheetPhase;
   onClose: () => void;
   onPrimary: () => void;
-  onSyncLatest?: () => void;
+  /** Latest-only refresh (sheet-open / pull). Must not restart history. */
+  onRefreshLatest?: () => void | Promise<void>;
+  refreshing?: boolean;
+  lastSuccessfulSyncAtIso?: string | null;
+  refreshError?: string | null;
+  historyAttention?: boolean;
   onReviewAccess?: () => void;
-  onManageInSettings?: () => void;
-  detailLine?: string | null;
-  historyStatusLabel?: string | null;
 };
 
 /**
  * Premium Body Composition Apple Health sheet — Category Card visual language.
+ * Healthy connected state is almost action-free: Done + pull-to-refresh.
  */
 export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetProps) {
   const insets = useSafeAreaInsets();
@@ -51,17 +60,15 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
     props.phase === "findingLatest" ||
     props.phase === "importingRecent" ||
     props.phase === "importingEarlier";
-  const historyLabel =
-    props.historyStatusLabel ??
-    (props.phase === "historyIncomplete"
-      ? "Incomplete"
-      : props.phase === "upToDate" || props.phase === "connectedStatus"
-        ? "Up to date"
-        : props.phase === "connectedNoData"
-          ? "No data yet"
-          : props.phase === "importingRecent" || props.phase === "importingEarlier"
-            ? "Importing"
-            : null);
+  const historyLabel = resolveBodyHistoryStatusLabel(
+    props.phase,
+    props.historyAttention === true,
+  );
+  const lastUpdated = formatAppleHealthLastUpdatedLabel(
+    props.lastSuccessfulSyncAtIso ?? null,
+  );
+  const refreshing = props.refreshing === true;
+  const canPull = copy.allowPullToRefresh && typeof props.onRefreshLatest === "function";
 
   return (
     <Modal
@@ -86,20 +93,30 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
+            refreshControl={
+              canPull ? (
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => {
+                    void props.onRefreshLatest?.();
+                  }}
+                  tintColor={BODY_APPLE_HEALTH_ICON_COLOR}
+                  accessibilityLabel="Refresh Apple Health Body measurements"
+                />
+              ) : undefined
+            }
           >
-            <View style={styles.headerRow}>
+            <View style={styles.headerRow} testID="body-ah-sheet-header">
               <View style={styles.headerLeft}>
-                <BodyAppleHealthSourceIcon color={BODY_INDIGO} size={20} decorative />
-                <View style={styles.headerText}>
-                  {copy.eyebrow ? <Text style={styles.eyebrow}>{copy.eyebrow}</Text> : null}
-                  <Text
-                    style={styles.title}
-                    accessibilityRole="header"
-                    accessibilityLiveRegion="polite"
-                  >
-                    {copy.title}
-                  </Text>
+                <View style={styles.sourceTitleRow} testID="body-ah-sheet-source-title-row">
+                  <BodyAppleHealthSourceIcon size={20} decorative />
+                  {copy.eyebrow ? (
+                    <Text style={styles.sourceTitle} accessibilityRole="header">
+                      {copy.eyebrow}
+                    </Text>
+                  ) : null}
                 </View>
+                <Text style={styles.contextTitle}>{copy.title}</Text>
               </View>
               {copy.statusChip ? (
                 <View
@@ -124,12 +141,16 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
               </View>
             ) : null}
 
-            {copy.showMetricStatusRows ? (
+            {copy.showStatusRows ? (
               <View style={styles.metricCard} testID="body-ah-sheet-status-rows">
                 <View style={styles.statusRow}>
-                  <Text style={styles.statusRowLabel}>Latest measurements</Text>
-                  <Text style={styles.statusRowValue}>
-                    {props.phase === "connectedNoData" ? "None found" : "Available"}
+                  <Text style={styles.statusRowLabel}>Last updated</Text>
+                  <Text
+                    style={styles.statusRowValue}
+                    accessibilityLabel={`Last updated ${lastUpdated}`}
+                    testID="body-ah-sheet-last-updated"
+                  >
+                    {lastUpdated}
                   </Text>
                 </View>
                 <View style={styles.statusRowDivider} />
@@ -138,13 +159,26 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
                   <Text
                     style={[
                       styles.statusRowValue,
-                      historyLabel === "Incomplete" && styles.statusRowCaution,
+                      historyLabel === "Incomplete" || historyLabel === "Paused"
+                        ? styles.statusRowCaution
+                        : null,
                     ]}
+                    testID="body-ah-sheet-history-status"
                   >
-                    {historyLabel ?? "—"}
+                    {historyLabel}
                   </Text>
                 </View>
               </View>
+            ) : null}
+
+            {props.refreshError ? (
+              <Text
+                style={styles.refreshError}
+                accessibilityLiveRegion="polite"
+                testID="body-ah-sheet-refresh-error"
+              >
+                {props.refreshError}
+              </Text>
             ) : null}
 
             {copy.progressLabel ? (
@@ -153,54 +187,24 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
                 accessibilityLiveRegion="polite"
                 accessibilityLabel={copy.progressLabel}
               >
-                {busy ? <ActivityIndicator color={BODY_INDIGO} /> : null}
+                {busy ? <ActivityIndicator color={BODY_APPLE_HEALTH_ICON_COLOR} /> : null}
                 <Text style={styles.progressText}>{copy.progressLabel}</Text>
               </View>
             ) : null}
 
-            {props.detailLine ? (
-              <Text style={styles.detailLine}>{props.detailLine}</Text>
-            ) : null}
-
             {copy.footer ? <Text style={styles.footer}>{copy.footer}</Text> : null}
 
-            {(copy.showSyncLatest || copy.showReviewAccess || copy.showManageInSettings) && (
-              <View style={styles.secondaryGroup}>
-                {copy.showSyncLatest && props.onSyncLatest ? (
-                  <Pressable
-                    style={styles.linkBtn}
-                    onPress={props.onSyncLatest}
-                    accessibilityRole="button"
-                    accessibilityLabel="Sync latest Body measurements"
-                    testID="body-ah-sheet-sync-latest"
-                  >
-                    <Text style={styles.linkText}>Sync latest</Text>
-                  </Pressable>
-                ) : null}
-                {copy.showReviewAccess && props.onReviewAccess ? (
-                  <Pressable
-                    style={styles.linkBtn}
-                    onPress={props.onReviewAccess}
-                    accessibilityRole="button"
-                    accessibilityLabel="Review Apple Health access"
-                    testID="body-ah-sheet-review-access"
-                  >
-                    <Text style={styles.linkText}>Review access</Text>
-                  </Pressable>
-                ) : null}
-                {copy.showManageInSettings && props.onManageInSettings ? (
-                  <Pressable
-                    style={styles.linkBtn}
-                    onPress={props.onManageInSettings}
-                    accessibilityRole="button"
-                    accessibilityLabel="Manage Apple Health in Settings"
-                    testID="body-ah-sheet-manage-settings"
-                  >
-                    <Text style={styles.linkText}>Manage Apple Health</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            )}
+            {copy.showReviewAccess && props.onReviewAccess ? (
+              <Pressable
+                style={styles.reviewBtn}
+                onPress={props.onReviewAccess}
+                accessibilityRole="button"
+                accessibilityLabel="Review Apple Health access"
+                testID="body-ah-sheet-review-access"
+              >
+                <Text style={styles.reviewBtnText}>Review access</Text>
+              </Pressable>
+            ) : null}
           </ScrollView>
 
           {copy.primaryLabel ? (
@@ -272,33 +276,33 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerLeft: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  sourceTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    flex: 1,
-    minWidth: 0,
+    gap: 8,
   },
-  headerText: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  eyebrow: {
-    color: UI_TEXT_MUTED,
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  title: {
+  sourceTitle: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: "700",
+  },
+  contextTitle: {
+    color: UI_TEXT_SECONDARY,
+    fontSize: 15,
+    fontWeight: "600",
+    paddingLeft: 28,
   },
   statusChip: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
     backgroundColor: "rgba(52, 211, 153, 0.14)",
+    minHeight: 28,
+    justifyContent: "center",
   },
   statusChipText: {
     color: UI_DURATION_STATUS_RECOMMENDED_TEXT,
@@ -318,87 +322,86 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   metricRow: {
-    minHeight: 44,
     paddingHorizontal: 14,
-    justifyContent: "center",
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: UI_CARD_ELEVATED_BORDER,
   },
   metricText: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
   },
   statusRow: {
-    minHeight: 44,
-    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 44,
   },
   statusRowDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: UI_CARD_ELEVATED_BORDER,
   },
   statusRowLabel: {
     color: UI_TEXT_SECONDARY,
     fontSize: 14,
     fontWeight: "500",
+    flexShrink: 1,
   },
   statusRowValue: {
     color: UI_TEXT_PRIMARY,
     fontSize: 14,
     fontWeight: "600",
+    textAlign: "right",
   },
   statusRowCaution: {
     color: "#F5C26B",
+  },
+  refreshError: {
+    color: UI_TEXT_SECONDARY,
+    fontSize: 14,
+    lineHeight: 20,
   },
   progressBlock: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingVertical: 4,
+    minHeight: 44,
   },
   progressText: {
-    color: UI_TEXT_PRIMARY,
+    color: UI_TEXT_SECONDARY,
     fontSize: 15,
-    fontWeight: "600",
     flex: 1,
-  },
-  detailLine: {
-    color: UI_TEXT_MUTED,
-    fontSize: 13,
-    lineHeight: 18,
   },
   footer: {
     color: UI_TEXT_MUTED,
     fontSize: 13,
     lineHeight: 18,
   },
-  secondaryGroup: {
-    gap: 2,
-    marginTop: 2,
-  },
-  linkBtn: {
+  reviewBtn: {
     minHeight: 44,
     justifyContent: "center",
+    alignItems: "center",
   },
-  linkText: {
-    color: BODY_INDIGO,
+  reviewBtnText: {
+    color: BODY_APPLE_HEALTH_ICON_COLOR,
     fontSize: 15,
     fontWeight: "600",
   },
   primaryBtn: {
+    marginTop: 8,
     minHeight: 48,
     borderRadius: 14,
     backgroundColor: BODY_INDIGO,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 8,
+    paddingHorizontal: 16,
   },
   primaryDisabled: {
-    opacity: 0.55,
+    opacity: 0.45,
   },
   primaryLabel: {
     color: "#FFFFFF",
@@ -406,10 +409,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   secondaryBtn: {
+    marginTop: 4,
     minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 2,
   },
   secondaryLabel: {
     color: UI_TEXT_SECONDARY,
