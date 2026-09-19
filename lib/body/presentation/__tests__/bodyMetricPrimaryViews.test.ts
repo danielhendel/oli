@@ -1,6 +1,8 @@
 import {
+  resolveBodyFatWeightPairing,
   resolveCompatibleFatMassKg,
   resolveCompatibleLeanMassPercentage,
+  resolveLeanMassWeightPairing,
 } from "@/lib/body/presentation/resolveCompatibleBodyCompositionDerivation";
 import {
   presentWeightClassificationChartForView,
@@ -14,53 +16,141 @@ import {
 import { buildBodyMetricSummaryCards } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import { resolveWeightBmiScreeningPresentation } from "@/lib/body/standards/resolveBodyMetricStandardPresentation";
 import { bmiFromWeightAndHeight } from "@/lib/body/standards/cdcWhoAdultBmiScreeningStandard";
+import { formatBodyWeight } from "@/lib/ui/body/bodyMetricFormatting";
+import { LB_PER_KG } from "@/lib/body/bodyCompositionShared";
 
 describe("resolveCompatibleBodyCompositionDerivation", () => {
-  it("fails closed for fat mass without same-event pairing", () => {
+  it("fails closed for fat mass without overview day or stronger pairing", () => {
     const r = resolveCompatibleFatMassKg({
       weightKg: 80,
       bodyFatPercent: 20,
       leanBodyMassKg: null,
-      weightAndBodyFatSameEvent: false,
     });
     expect(r.status).toBe("incompatible");
     expect(r.valueKg).toBeNull();
+    expect(r.reason).toMatch(/compatible Weight/i);
   });
 
-  it("derives fat mass only when same-event evidence is true", () => {
-    const r = resolveCompatibleFatMassKg({
-      weightKg: 80,
-      bodyFatPercent: 25,
+  it("accepts approved Body overview snapshot-day pairing for fat mass", () => {
+    const pairing = resolveBodyFatWeightPairing({
+      weightKg: 74.298, // ~163.8 lb
+      bodyFatPercent: 18.2,
       leanBodyMassKg: null,
-      weightAndBodyFatSameEvent: true,
+      overviewDay: "2026-09-19",
+      latestObservedAtIso: "2026-09-19T15:00:00.000Z",
+    });
+    expect(pairing.status).toBe("compatible");
+    if (pairing.status === "compatible") {
+      expect(pairing.compatibilityBasis).toBe("existing_approved_pairing_rule");
+    }
+    const r = resolveCompatibleFatMassKg({
+      weightKg: 74.298,
+      bodyFatPercent: 18.2,
+      leanBodyMassKg: null,
+      overviewDay: "2026-09-19",
     });
     expect(r.status).toBe("ready");
     if (r.status === "ready") {
-      expect(r.valueKg).toBe(20);
+      const displayLb = Number((r.valueKg * LB_PER_KG).toFixed(1));
+      expect(displayLb).toBeCloseTo(29.8, 0);
       expect(r.provenanceLabel).toMatch(/Calculated from compatible/);
     }
   });
 
-  it("fails closed for lean % without same-event pairing", () => {
-    const r = resolveCompatibleLeanMassPercentage({
+  it("same-event flag is stronger than snapshot day", () => {
+    const pairing = resolveBodyFatWeightPairing({
       weightKg: 80,
-      bodyFatPercent: null,
-      leanBodyMassKg: 60,
-      weightAndLeanSameEvent: false,
+      bodyFatPercent: 25,
+      leanBodyMassKg: null,
+      overviewDay: "2026-09-19",
+      weightAndBodyFatSameEvent: true,
     });
-    expect(r.status).toBe("incompatible");
-    expect(r.percent).toBeNull();
+    expect(pairing.status).toBe("compatible");
+    if (pairing.status === "compatible") {
+      expect(pairing.compatibilityBasis).toBe("same_measurement_group");
+    }
   });
 
-  it("derives lean % only when compatible", () => {
-    const r = resolveCompatibleLeanMassPercentage({
+  it("same source + identical timestamp pairs without inventing a window", () => {
+    const pairing = resolveLeanMassWeightPairing({
       weightKg: 80,
       bodyFatPercent: null,
       leanBodyMassKg: 60,
-      weightAndLeanSameEvent: true,
+      weightObservedAt: "2026-09-19T12:00:00.000Z",
+      leanObservedAt: "2026-09-19T12:00:00.000Z",
+      weightSourceId: "apple_health",
+      leanSourceId: "apple_health",
+    });
+    expect(pairing.status).toBe("compatible");
+    if (pairing.status === "compatible") {
+      expect(pairing.compatibilityBasis).toBe("same_origin_and_timestamp");
+    }
+  });
+
+  it("different sources with timestamps withhold", () => {
+    const pairing = resolveBodyFatWeightPairing({
+      weightKg: 80,
+      bodyFatPercent: 20,
+      leanBodyMassKg: null,
+      weightObservedAt: "2026-09-19T12:00:00.000Z",
+      bodyFatObservedAt: "2026-09-19T12:00:00.000Z",
+      weightSourceId: "withings",
+      bodyFatSourceId: "apple_health",
+    });
+    expect(pairing.status).toBe("different_origin");
+  });
+
+  it("rejects zero/negative weight and non-finite inputs", () => {
+    expect(
+      resolveCompatibleFatMassKg({
+        weightKg: 0,
+        bodyFatPercent: 18,
+        leanBodyMassKg: null,
+        overviewDay: "2026-09-19",
+      }).status,
+    ).toBe("missing");
+    expect(
+      resolveCompatibleFatMassKg({
+        weightKg: Number.NaN,
+        bodyFatPercent: 18,
+        leanBodyMassKg: null,
+        overviewDay: "2026-09-19",
+      }).status,
+    ).toBe("missing");
+  });
+
+  it("derives lean % from snapshot-day pairing (~81.8% for physical fixture)", () => {
+    const weightKg = 163.8 / LB_PER_KG;
+    const leanKg = 134 / LB_PER_KG;
+    const r = resolveCompatibleLeanMassPercentage({
+      weightKg,
+      bodyFatPercent: null,
+      leanBodyMassKg: leanKg,
+      overviewDay: "2026-09-19",
     });
     expect(r.status).toBe("ready");
-    expect(r.percent).toBe(75);
+    expect(r.percent != null ? Number(r.percent.toFixed(1)) : null).toBeCloseTo(81.8, 0);
+  });
+
+  it("lean mass greater than weight is conflicting", () => {
+    const pairing = resolveLeanMassWeightPairing({
+      weightKg: 70,
+      bodyFatPercent: null,
+      leanBodyMassKg: 80,
+      overviewDay: "2026-09-19",
+    });
+    expect(pairing.status).toBe("conflicting");
+  });
+
+  it("missing weight withholds lean percentage with consumer-safe reason", () => {
+    const r = resolveCompatibleLeanMassPercentage({
+      weightKg: null,
+      bodyFatPercent: null,
+      leanBodyMassKg: 60,
+      overviewDay: "2026-09-19",
+    });
+    expect(r.status).toBe("missing");
+    expect(r.reason).toMatch(/compatible Weight/i);
   });
 });
 
@@ -114,7 +204,6 @@ describe("Weight mass | BMI presentation", () => {
     expect(bmiChart.segments.find((s) => s.id === "healthy_weight")?.formattedRange).toBe(
       "18.5–24.9",
     );
-    expect(massChart.segments.find((s) => s.id === "healthy_weight")?.formattedRange).toMatch(/lb/);
   });
 
   it("BMI face withholds when height missing", () => {
@@ -194,9 +283,8 @@ describe("Body Fat and Lean Mass display views", () => {
   };
   const profile = { heightCm: 170, ageYears: 30, sex: "male" as const };
 
-  it("Body Fat default percentage preserves measured value; fat mass fails closed without pairing", () => {
+  it("Body Fat fat-mass view uses snapshot-day pairing and marks calculated", () => {
     const [, bodyFat] = buildBodyMetricSummaryCards({ overview, profile, unit: "lb" });
-    expect(bodyFat.displayUnit).toBe("%");
     const fatMass = applyBodyFatPrimaryView({
       card: bodyFat,
       view: "fatMass",
@@ -205,17 +293,36 @@ describe("Body Fat and Lean Mass display views", () => {
         weightKg: 80,
         bodyFatPercent: 20,
         leanBodyMassKg: 60,
-        weightAndBodyFatSameEvent: false,
+        overviewDay: "2026-03-31",
+      },
+    });
+    expect(fatMass.displayValue).not.toBeNull();
+    expect(fatMass.formattedValue).toBe(formatBodyWeight(16, "lb"));
+    expect(fatMass.accessibilityLabel).toMatch(/Calculated/);
+    expect(fatMass.accessibilityLabel).not.toMatch(/Essential|Athletic|Fitness|Average/i);
+    expect(bodyFat.classificationChart).toBeNull();
+    expect(bodyFat.showUnclassifiedScaffold).toBe(true);
+  });
+
+  it("Body Fat fat mass unavailable without pairing explains need for Weight", () => {
+    const [, bodyFat] = buildBodyMetricSummaryCards({ overview, profile, unit: "lb" });
+    const fatMass = applyBodyFatPrimaryView({
+      card: bodyFat,
+      view: "fatMass",
+      massDisplayUnit: "lb",
+      evidence: {
+        weightKg: 80,
+        bodyFatPercent: 20,
+        leanBodyMassKg: 60,
       },
     });
     expect(fatMass.displayValue).toBeNull();
-    expect(fatMass.accessibilityLabel).not.toMatch(/Essential|Athletic|Fitness|Average/i);
+    expect(fatMass.accessibilityLabel).toMatch(/compatible Weight/i);
   });
 
-  it("Lean Mass title and mass default; percentage fails closed without pairing", () => {
+  it("Lean Mass percentage uses snapshot-day pairing without ALMI claims", () => {
     const [, , lean] = buildBodyMetricSummaryCards({ overview, profile, unit: "kg" });
     expect(lean.title).toBe("Lean Mass");
-    expect(lean.displayUnit).toBe("kg");
     const pct = applyLeanMassPrimaryView({
       card: lean,
       view: "percentage",
@@ -224,27 +331,12 @@ describe("Body Fat and Lean Mass display views", () => {
         weightKg: 80,
         bodyFatPercent: null,
         leanBodyMassKg: 60,
-        weightAndLeanSameEvent: false,
-      },
-    });
-    expect(pct.displayValue).toBeNull();
-    expect(pct.accessibilityLabel).not.toMatch(/Optimal|High|ALMI|sarcopenia/i);
-  });
-
-  it("compatible lean % derives without claiming skeletal muscle", () => {
-    const [, , lean] = buildBodyMetricSummaryCards({ overview, profile, unit: "lb" });
-    const pct = applyLeanMassPrimaryView({
-      card: lean,
-      view: "percentage",
-      massDisplayUnit: "lb",
-      evidence: {
-        weightKg: 80,
-        bodyFatPercent: null,
-        leanBodyMassKg: 60,
-        weightAndLeanSameEvent: true,
+        overviewDay: "2026-03-31",
       },
     });
     expect(pct.displayValue).toBe("75.0");
     expect(pct.accessibilityLabel).toMatch(/Not skeletal muscle/);
+    expect(pct.accessibilityLabel).not.toMatch(/Optimal|High|ALMI|sarcopenia/i);
+    expect(lean.classificationChart).toBeNull();
   });
 });

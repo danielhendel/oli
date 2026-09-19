@@ -105,13 +105,17 @@ export const BODY_METRIC_CHART_TRACK_BORDER = "rgba(255,255,255,0.14)";
 export const BODY_METRIC_CHART_TRACK_SHEEN = "rgba(255,255,255,0.22)";
 export const BODY_METRIC_CHART_TRACK_SHADOW = "rgba(0,0,0,0.45)";
 
-/** Soft unclassified continuum (visual family only — not a standard). */
+/** Soft unclassified continuum (visual family only — not a standard). @deprecated Prefer neutral rail. */
 export const BODY_METRIC_UNCLASSIFIED_SPECTRUM = [
   { fill: "#3B82F6", highlight: "rgba(191, 219, 254, 0.40)" },
   { fill: "#10B981", highlight: "rgba(167, 243, 208, 0.35)" },
   { fill: "#F59E0B", highlight: "rgba(253, 230, 138, 0.32)" },
   { fill: "#EF4444", highlight: "rgba(254, 202, 202, 0.30)" },
 ] as const;
+
+/** Honest single-tone rail for unclassified Body metrics (no implied classes). */
+export const BODY_METRIC_UNCLASSIFIED_NEUTRAL_FILL = "rgba(148, 163, 184, 0.42)";
+export const BODY_METRIC_UNCLASSIFIED_NEUTRAL_HIGHLIGHT = "rgba(226, 232, 240, 0.28)";
 
 /** Shared spectrum track geometry for classified + unclassified charts. */
 export const BODY_METRIC_SPECTRUM_HEIGHT = 12;

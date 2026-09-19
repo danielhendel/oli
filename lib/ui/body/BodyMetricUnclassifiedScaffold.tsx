@@ -7,7 +7,8 @@ import {
   BODY_METRIC_CHART_TRACK_SHEEN,
   BODY_METRIC_SPECTRUM_HEIGHT,
   BODY_METRIC_SPECTRUM_RADIUS,
-  BODY_METRIC_UNCLASSIFIED_SPECTRUM,
+  BODY_METRIC_UNCLASSIFIED_NEUTRAL_FILL,
+  BODY_METRIC_UNCLASSIFIED_NEUTRAL_HIGHLIGHT,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
 export type BodyMetricUnclassifiedScaffoldProps = {
@@ -17,8 +18,8 @@ export type BodyMetricUnclassifiedScaffoldProps = {
 };
 
 /**
- * Premium visual continuum for metrics without an approved classification standard.
- * Matches Weight card chart rhythm without claiming scientific bands or markers.
+ * Honest neutral measurement rail for metrics without an approved classification.
+ * Single restrained tone — no multi-band spectrum that implies risk classes.
  */
 export function BodyMetricUnclassifiedScaffold(props: BodyMetricUnclassifiedScaffoldProps) {
   return (
@@ -36,31 +37,22 @@ export function BodyMetricUnclassifiedScaffold(props: BodyMetricUnclassifiedScaf
         accessibilityElementsHidden
       >
         <View style={styles.track}>
-          {BODY_METRIC_UNCLASSIFIED_SPECTRUM.map((tone, index) => {
-            const isFirst = index === 0;
-            const isLast = index === BODY_METRIC_UNCLASSIFIED_SPECTRUM.length - 1;
-            return (
-              <View
-                key={`tone-${index}`}
-                style={[
-                  styles.band,
-                  {
-                    backgroundColor: tone.fill,
-                    borderTopLeftRadius: isFirst ? BODY_METRIC_SPECTRUM_RADIUS : 0,
-                    borderBottomLeftRadius: isFirst ? BODY_METRIC_SPECTRUM_RADIUS : 0,
-                    borderTopRightRadius: isLast ? BODY_METRIC_SPECTRUM_RADIUS : 0,
-                    borderBottomRightRadius: isLast ? BODY_METRIC_SPECTRUM_RADIUS : 0,
-                  },
-                ]}
-              >
-                <View style={[styles.bandSheen, { backgroundColor: tone.highlight }]} />
-              </View>
-            );
-          })}
+          <View
+            style={[
+              styles.band,
+              {
+                backgroundColor: BODY_METRIC_UNCLASSIFIED_NEUTRAL_FILL,
+                borderRadius: BODY_METRIC_SPECTRUM_RADIUS,
+              },
+            ]}
+          >
+            <View
+              style={[styles.bandSheen, { backgroundColor: BODY_METRIC_UNCLASSIFIED_NEUTRAL_HIGHLIGHT }]}
+            />
+          </View>
           <View pointerEvents="none" style={styles.trackSheen} />
         </View>
       </View>
-      {/* Reserve label-row height so unclassified cards match Weight vertical rhythm. */}
       <View style={styles.labelReserve} importantForAccessibility="no" />
     </View>
   );
@@ -76,10 +68,10 @@ const styles = StyleSheet.create({
   trackGlow: {
     borderRadius: BODY_METRIC_SPECTRUM_RADIUS,
     shadowColor: BODY_METRIC_CHART_TRACK_SHADOW,
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   track: {
     flexDirection: "row",
@@ -100,12 +92,12 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     height: "48%",
-    opacity: 0.8,
+    opacity: 0.55,
   },
   trackSheen: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: BODY_METRIC_CHART_TRACK_SHEEN,
-    opacity: 0.16,
+    opacity: 0.12,
   },
   labelReserve: {
     height: 26,

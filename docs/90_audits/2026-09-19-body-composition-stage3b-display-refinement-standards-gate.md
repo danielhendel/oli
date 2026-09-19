@@ -20,10 +20,16 @@ Canonical amendment: `docs/80_rfc/RFC-body-composition-classification-standards-
 | Metric | Status |
 |--------|--------|
 | Weight | **APPROVED / IMPLEMENTED** |
-| Body Fat | **PROPOSED / HUMAN APPROVAL REQUIRED** |
-| Lean Mass | **PROPOSED / HUMAN APPROVAL REQUIRED** |
+| Body Fat classification | **PROPOSED / NOT IMPLEMENTED** |
+| Lean Mass classification | **PROPOSED / NOT IMPLEMENTED** |
+
+**Current blockers for Body Fat / Lean Mass classification:** no universal BF health table approved; method provenance incomplete; unknown-method Apple Health transport; total Lean Body Mass ≠ ALM/ALMI; no approved total Lean Mass performance standard; standards-registry durable location unresolved.
 
 Companions unchanged in role: Stage 3A evidence matrix; product/standards spec; category-intelligence ADR/RFC.
+
+### Presentation derivations (not classification)
+
+When Weight and composition metrics share an approved Body overview snapshot day (or stronger same-event / same-origin+timestamp evidence), fat mass and Lean Mass % may render as **calculated** presentation values. Classification markers remain blocked.
 
 ## Persistence
 

@@ -210,7 +210,15 @@ Lean Tissue personal classification: PROPOSED / UNRESOLVED — NOT APPROVED FOR 
 
 ### 7.C Compatibility for derived display (runtime, presentation-only)
 
-Fat mass and Lean Mass % may display only when same-measurement-event pairing is proven. Overview day-merge without event identity → **unavailable (em dash)**. No new Firestore path.
+Fat mass and Lean Mass % may display when pairing is proven under this hierarchy:
+
+1. Same measurement / raw-event identity
+2. Same sourceId + identical observedAt
+3. **Existing approved Body overview snapshot-day merge** (`bodyMetricsForSnapshotDay` / same-day composition merge) — metrics co-presented on one `overviewDay`
+
+Otherwise withhold with a consumer-safe “compatible Weight needed” explanation.
+Apple Health remains transport, not measurement method. No new Firestore path.
+Derived values are presentation-only (not ingested, not written to HealthKit).
 
 ### 7.D Proposed standards registry contract (docs only)
 

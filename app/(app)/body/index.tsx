@@ -177,11 +177,16 @@ export default function BodyOverviewScreen() {
       weightKg: body.overview.weightKg,
       bodyFatPercent: body.overview.bodyFatPercent,
       leanBodyMassKg: body.overview.leanBodyMassKg,
-      // Overview merges by day without same-event provenance — fail closed for derivations.
-      weightAndBodyFatSameEvent: false,
-      weightAndLeanSameEvent: false,
+      overviewDay: body.overview.overviewDay,
+      latestObservedAtIso: body.overview.latestObservedAtIso ?? null,
     }),
-    [body.overview.weightKg, body.overview.bodyFatPercent, body.overview.leanBodyMassKg],
+    [
+      body.overview.weightKg,
+      body.overview.bodyFatPercent,
+      body.overview.leanBodyMassKg,
+      body.overview.overviewDay,
+      body.overview.latestObservedAtIso,
+    ],
   );
 
   const cards = useMemo(() => {
