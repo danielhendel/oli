@@ -2,6 +2,11 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricCardModel } from "@/lib/body/presentation/bodyMetricCardTypes";
+import type {
+  BodyFatPrimaryView,
+  LeanMassPrimaryView,
+  WeightPrimaryView,
+} from "@/lib/body/presentation/bodyMetricPrimaryViews";
 import { BodyAppleHealthSourceIcon } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
 import { BodyMetricClassificationChart } from "@/lib/ui/body/BodyMetricClassificationChart";
 import { BodyMetricUnclassifiedScaffold } from "@/lib/ui/body/BodyMetricUnclassifiedScaffold";
@@ -39,47 +44,45 @@ export type BodyMetricSummaryCardProps = {
     label: string;
   };
   onPressConnectionAction: () => void;
-  /** Shared Body mass display unit (Weight + Lean Tissue). */
+  /** User mass-unit preference (does not mutate from card toggles). */
   massDisplayUnit: BodyMassDisplayUnit;
-  onChangeMassDisplayUnit: (unit: BodyMassDisplayUnit) => void;
+  weightPrimaryView?: WeightPrimaryView;
+  onChangeWeightPrimaryView?: (view: WeightPrimaryView) => void;
+  bodyFatPrimaryView?: BodyFatPrimaryView;
+  onChangeBodyFatPrimaryView?: (view: BodyFatPrimaryView) => void;
+  leanMassPrimaryView?: LeanMassPrimaryView;
+  onChangeLeanMassPrimaryView?: (view: LeanMassPrimaryView) => void;
 };
 
-function MassUnitSegmentedControl(props: {
-  unit: BodyMassDisplayUnit;
-  onChange: (unit: BodyMassDisplayUnit) => void;
+function SegmentedViewControl<T extends string>(props: {
+  options: readonly { readonly id: T; readonly label: string; readonly accessibilityLabel: string }[];
+  selected: T;
+  onChange: (next: T) => void;
+  testID: string;
 }) {
   return (
-    <View
-      style={styles.unitToggle}
-      testID="body-metric-unit-pill"
-      accessibilityRole="tablist"
-    >
-      {(["lb", "kg"] as const).map((option) => {
-        const selected = props.unit === option;
-        const label = option === "lb" ? "Pounds" : "Kilograms";
+    <View style={styles.unitToggle} testID={props.testID} accessibilityRole="tablist">
+      {props.options.map((option) => {
+        const selected = props.selected === option.id;
         return (
           <Pressable
-            key={option}
+            key={option.id}
             style={[styles.unitToggleSeg, selected && styles.unitToggleSegActive]}
             onPress={(e) => {
               e.stopPropagation?.();
-              if (!selected) props.onChange(option);
+              if (!selected) props.onChange(option.id);
             }}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityState={{ selected }}
-            accessibilityLabel={label}
+            accessibilityLabel={option.accessibilityLabel}
             accessibilityHint={
-              selected
-                ? `Selected. Body mass values are shown in ${option}.`
-                : `Double tap to display Body mass values in ${option}.`
+              selected ? "Selected." : `Double tap to show ${option.label} view.`
             }
-            testID={`body-metric-unit-${option}`}
+            testID={`${props.testID}-${option.id}`}
           >
-            <Text
-              style={[styles.unitToggleText, selected && styles.unitToggleTextActive]}
-            >
-              {option}
+            <Text style={[styles.unitToggleText, selected && styles.unitToggleTextActive]}>
+              {option.label}
             </Text>
           </Pressable>
         );
@@ -148,7 +151,7 @@ function connectionAccessibility(
 
 /**
  * Premium Body metric card shell — value-first hierarchy with integrated chart region.
- * Weight may include an approved classification chart; Body Fat / Lean use unclassified scaffolds.
+ * Weight may include an approved classification chart; Body Fat / Lean Mass use unclassified scaffolds.
  */
 export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const { model } = props;
@@ -161,7 +164,6 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const connected =
     props.connectionAction.kind === "connected" ||
     props.connectionAction.kind === "connected_attention";
-  const isMassMetric = model.metric === "weight" || model.metric === "leanTissue";
   const showPercentInValue = model.displayUnit === "%";
   const metricTitle =
     model.metric === "weight"
@@ -169,7 +171,7 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
       : model.metric === "bodyFat"
         ? "Body Fat"
         : model.metric === "leanTissue"
-          ? "Lean Tissue"
+          ? "Lean Mass"
           : "Body measurements";
   const connectionA11y = connectionAccessibility(props.connectionAction.kind, metricTitle);
   const connectionColor =
@@ -185,6 +187,75 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
               props.connectionAction.kind === "resume"
             ? "#F5C26B"
             : BODY_INDIGO;
+
+  const massLabel = props.massDisplayUnit;
+  const massA11yUnit = massLabel === "lb" ? "pounds" : "kilograms";
+
+  let viewToggle: React.ReactNode = null;
+  if (model.metric === "weight" && props.onChangeWeightPrimaryView) {
+    const selected = props.weightPrimaryView ?? "mass";
+    viewToggle = (
+      <SegmentedViewControl
+        testID="body-metric-view-weight"
+        selected={selected}
+        onChange={props.onChangeWeightPrimaryView}
+        options={[
+          {
+            id: "mass" as const,
+            label: massLabel,
+            accessibilityLabel: `Show Weight in ${massA11yUnit}`,
+          },
+          {
+            id: "bmi" as const,
+            label: "BMI",
+            accessibilityLabel: "Show BMI",
+          },
+        ]}
+      />
+    );
+  } else if (model.metric === "bodyFat" && props.onChangeBodyFatPrimaryView) {
+    const selected = props.bodyFatPrimaryView ?? "percentage";
+    viewToggle = (
+      <SegmentedViewControl
+        testID="body-metric-view-bodyFat"
+        selected={selected}
+        onChange={props.onChangeBodyFatPrimaryView}
+        options={[
+          {
+            id: "percentage" as const,
+            label: "%",
+            accessibilityLabel: "Show Body Fat as percentage",
+          },
+          {
+            id: "fatMass" as const,
+            label: massLabel,
+            accessibilityLabel: `Show Body Fat as fat mass in ${massA11yUnit}`,
+          },
+        ]}
+      />
+    );
+  } else if (model.metric === "leanTissue" && props.onChangeLeanMassPrimaryView) {
+    const selected = props.leanMassPrimaryView ?? "mass";
+    viewToggle = (
+      <SegmentedViewControl
+        testID="body-metric-view-leanTissue"
+        selected={selected}
+        onChange={props.onChangeLeanMassPrimaryView}
+        options={[
+          {
+            id: "percentage" as const,
+            label: "%",
+            accessibilityLabel: "Show Lean Mass as percentage",
+          },
+          {
+            id: "mass" as const,
+            label: massLabel,
+            accessibilityLabel: `Show Lean Mass in ${massA11yUnit}`,
+          },
+        ]}
+      />
+    );
+  }
 
   return (
     <Pressable
@@ -205,16 +276,7 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
           ) : null}
         </View>
         <View style={styles.topTrailing}>
-          {isMassMetric ? (
-            <MassUnitSegmentedControl
-              unit={props.massDisplayUnit}
-              onChange={props.onChangeMassDisplayUnit}
-            />
-          ) : model.displayUnit === "%" ? (
-            <View style={styles.unitPill} accessibilityElementsHidden testID="body-metric-unit-pill">
-              <Text style={styles.unitPillText}>%</Text>
-            </View>
-          ) : null}
+          {viewToggle}
           <Text
             style={styles.chevron}
             accessibilityElementsHidden
@@ -241,9 +303,9 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
       </View>
 
       <View style={styles.chartRegion}>
-        {showChart ? (
+        {showChart && chart != null ? (
           <BodyMetricClassificationChart
-            model={chart!}
+            model={chart}
             testID={`body-metric-chart-${model.metric}`}
           />
         ) : null}
@@ -347,126 +409,98 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 12,
-    marginBottom: 10,
   },
   titleBlock: {
     flex: 1,
-    minWidth: 0,
-    gap: 3,
-    paddingTop: 1,
+    gap: 2,
   },
   title: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: "700",
-    letterSpacing: 0.25,
   },
   recency: {
     color: UI_TEXT_MUTED,
     fontSize: 12,
-    lineHeight: 15,
     fontWeight: "500",
   },
   topTrailing: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   unitToggle: {
     flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.22)",
-    backgroundColor: "rgba(0,0,0,0.35)",
-    padding: 3,
+    backgroundColor: "rgba(120,120,128,0.16)",
+    borderRadius: 8,
+    padding: 2,
     minHeight: 44,
+    alignItems: "center",
   },
   unitToggleSeg: {
-    minWidth: 36,
-    minHeight: 38,
-    paddingHorizontal: 12,
-    borderRadius: 999,
+    minWidth: 40,
+    minHeight: 40,
+    paddingHorizontal: 10,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
   },
   unitToggleSegActive: {
-    backgroundColor: "rgba(255,255,255,0.18)",
+    backgroundColor: UI_CARD_SURFACE,
   },
   unitToggleText: {
     color: UI_TEXT_SECONDARY,
     fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 0.2,
+    fontWeight: "600",
   },
   unitToggleTextActive: {
     color: UI_TEXT_PRIMARY,
   },
-  unitPill: {
-    minHeight: 30,
-    minWidth: 34,
-    paddingHorizontal: 11,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.16)",
-    backgroundColor: "rgba(0,0,0,0.28)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  unitPillText: {
-    color: UI_TEXT_PRIMARY,
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.25,
-  },
   chevron: {
-    color: "rgba(255,255,255,0.55)",
-    fontSize: 26,
-    fontWeight: "300",
-    lineHeight: 28,
-    marginTop: -1,
+    color: UI_TEXT_MUTED,
+    fontSize: 22,
+    fontWeight: "400",
+    lineHeight: 24,
   },
   valueBlock: {
-    marginBottom: 18,
+    marginTop: 10,
+    marginBottom: 4,
   },
   valueRow: {
     flexDirection: "row",
-    alignItems: "baseline",
-    gap: 6,
+    alignItems: "flex-end",
   },
   value: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 44,
-    fontWeight: "800",
-    letterSpacing: -1.4,
-    fontVariant: ["tabular-nums"],
-  },
-  valuePercent: {
-    fontSize: 28,
+    fontSize: 40,
     fontWeight: "700",
-    letterSpacing: -0.6,
-    color: UI_TEXT_SECONDARY,
+    letterSpacing: -0.5,
   },
   missingValue: {
     color: UI_TEXT_MUTED,
+  },
+  valuePercent: {
+    fontSize: 28,
     fontWeight: "600",
   },
   chartRegion: {
-    marginBottom: 16,
+    marginTop: 8,
+    marginBottom: 4,
   },
   actionBlock: {
-    marginTop: 2,
+    marginTop: 4,
   },
   actionDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: UI_BORDER_HAIRLINE,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   actionRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 8,
+    minHeight: 44,
   },
   addBtn: {
     minHeight: 44,
@@ -475,47 +509,35 @@ const styles = StyleSheet.create({
   },
   addBtnText: {
     color: BODY_INDIGO,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
   },
   connectionBtn: {
     minHeight: 44,
     justifyContent: "center",
-    paddingLeft: 8,
-    paddingHorizontal: 4,
+    paddingLeft: 4,
   },
-  connectionBtnConnected: {
-    // Compact status — visual height ~28–32 via padding; hit target remains 44 via minHeight.
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: "transparent",
-  },
+  connectionBtnConnected: {},
   connectionInner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 6,
   },
   connectionBtnText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
-    textAlign: "right",
-  },
-  connectionChevron: {
-    color: "rgba(255,255,255,0.45)",
-    fontSize: 18,
-    fontWeight: "300",
-    marginLeft: 1,
-    marginTop: -1,
-  },
-  attentionDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#F5C26B",
-    marginLeft: 1,
   },
   connectionMuted: {
     color: UI_TEXT_SECONDARY,
+  },
+  connectionChevron: {
+    color: UI_TEXT_MUTED,
+    fontSize: 16,
+  },
+  attentionDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#F5C26B",
   },
 });
