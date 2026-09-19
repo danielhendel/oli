@@ -93,6 +93,11 @@ export const UI_APPLE_HEALTH_HEART_STRONG = UI_APPLE_HEALTH_HEART;
  * overpowering the metric value/chart.
  */
 export const UI_APPLE_HEALTH_HEART_MUTED = "#C45A6A";
+/**
+ * Apple Health–like toggle ON track (system green). Used for Oli sync-scope switches —
+ * not a claim of native HealthKit permission truth.
+ */
+export const UI_APPLE_HEALTH_TOGGLE_ON = "#34C759";
 
 /** Modal scrim / overlay dim */
 export const UI_OVERLAY = T.overlay;

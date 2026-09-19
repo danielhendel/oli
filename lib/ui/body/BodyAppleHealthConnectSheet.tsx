@@ -17,12 +17,15 @@ import {
   resolveBodyHistoryStatusLabel,
   type AppleHealthBodyConnectSheetPhase,
 } from "@/lib/body/presentation/appleHealthBodyConnectSheetModel";
-import { AppleHealthScopeIndicator } from "@/lib/ui/body/AppleHealthScopeIndicator";
+import { AppleHealthScopeToggle } from "@/lib/ui/body/AppleHealthScopeToggle";
 import {
   BODY_APPLE_HEALTH_ICON_COLOR_STRONG,
   BodyAppleHealthSourceIcon,
 } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
+import type { BodyMetricSyncFlags } from "@/lib/integrations/appleHealth/appleHealthMetricSyncController";
+import type { AppleHealthMetricSyncId } from "@/lib/integrations/appleHealth/appleHealthMetricSyncScope";
+import { bodySheetMetricIdFromLabel } from "@/lib/integrations/appleHealth/appleHealthMetricSyncScope";
 import {
   UI_CARD_ELEVATED_BORDER,
   UI_CARD_SURFACE,
@@ -44,8 +47,11 @@ export type BodyAppleHealthConnectSheetProps = {
   onPrimary: () => void;
   lastSuccessfulSyncAtIso?: string | null;
   historyAttention?: boolean;
-  /** Body domain connected for current account — drives noninteractive ON indicators. */
+  /** Body domain connected for current account — drives default ON when metric map absent. */
   bodyScopeConnected?: boolean;
+  /** Per-metric Oli sync scope for Body sheet toggles. */
+  metricSync?: BodyMetricSyncFlags;
+  onToggleMetricSync?: (metricId: AppleHealthMetricSyncId, enabled: boolean) => void;
   onReviewAccess?: () => void;
   onOpenAppleHealthSettings?: () => void;
 };
@@ -70,6 +76,11 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
     props.lastSuccessfulSyncAtIso ?? null,
   );
   const scopeOn = props.bodyScopeConnected === true;
+  const metricSync = props.metricSync ?? {
+    weight: scopeOn,
+    bodyFat: scopeOn,
+    leanTissue: scopeOn,
+  };
 
   return (
     <Modal
@@ -134,9 +145,22 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
                   >
                     <Text style={styles.metricText}>{metric}</Text>
                     {copy.showScopeIndicators ? (
-                      <AppleHealthScopeIndicator
+                      <AppleHealthScopeToggle
                         metricLabel={metric}
-                        on={scopeOn}
+                        on={
+                          (() => {
+                            const id = bodySheetMetricIdFromLabel(metric);
+                            if (id === "weight") return metricSync.weight;
+                            if (id === "bodyFat") return metricSync.bodyFat;
+                            if (id === "leanTissue") return metricSync.leanTissue;
+                            return scopeOn;
+                          })()
+                        }
+                        onValueChange={(next) => {
+                          const id = bodySheetMetricIdFromLabel(metric);
+                          if (!id || !props.onToggleMetricSync) return;
+                          props.onToggleMetricSync(id, next);
+                        }}
                         testID={`body-ah-sheet-scope-${metric.toLowerCase().replace(/\s+/g, "-")}`}
                       />
                     ) : null}

@@ -98,6 +98,7 @@ export function useAppleHealthBodySync(onSynced?: () => void): {
         const res = await syncAppleHealthBodyLatestForComposition(
           {
             getIdToken,
+            ...(uid ? { uid } : {}),
             onLatestSynced: () => {
               if (activeUid.current !== uid) return;
               onSyncedRef.current?.();

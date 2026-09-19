@@ -38,7 +38,7 @@ export function buildAppleHealthAccessSummaryModel(opts: {
   return {
     connected: opts.connected,
     intro:
-      "Oli uses Apple Health to keep your supported health and fitness data up to date.",
+      "Choose which Apple Health data Oli can sync. System permissions stay in Apple Health.",
     dataSections: domains.map((d) => ({
       title: d.displayName,
       metricsLine: d.consumerMetrics.join(", "),

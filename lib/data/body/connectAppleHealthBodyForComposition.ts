@@ -28,7 +28,23 @@ import {
   setAppleHealthBodyLastCheckedAt,
   setLastSyncAt,
 } from "@/lib/integrations/appleHealth/storage";
+import { enableAllMetricsForDomain, resolveBodyMetricSyncFlags } from "@/lib/integrations/appleHealth/appleHealthMetricSyncController";
 import { nowIso } from "@/lib/sync/throttle";
+
+async function bodySyncIncludeForUid(uid: string | undefined) {
+  if (!uid) return undefined;
+  return resolveBodyMetricSyncFlags(uid);
+}
+
+function scopedBodyPull(uid: string | undefined) {
+  return async (opts: { startDate: string; endDate: string; limit?: number }) => {
+    const include = await bodySyncIncludeForUid(uid);
+    return pullBodyCompositionSamples({
+      ...opts,
+      ...(include ? { include } : {}),
+    });
+  };
+}
 
 /** Internal trigger — never shown in consumer UI. */
 export const APPLE_HEALTH_BODY_CONNECT_TRIGGER = "body_connect" as const;
@@ -97,6 +113,8 @@ export type AppleHealthBodyCompositionConnectResult =
 
 export type AppleHealthBodyCompositionConnectDeps = {
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
+  /** Current account uid — seeds per-metric Body sync scopes on connect. */
+  uid?: string;
   onPhase?: (phase: AppleHealthBodyCompositionConnectPhase) => void;
   /** Called after latest/recent sync succeeds so UI can refetch cards. */
   onLatestSynced?: () => void;
@@ -163,6 +181,9 @@ export async function connectAppleHealthBodyForComposition(
 
   // Account source + Body domain only — does not enable Activity (Steps).
   await enableAppleHealthDomain("body").catch(() => undefined);
+  if (deps.uid) {
+    await enableAllMetricsForDomain(deps.uid, "body").catch(() => undefined);
+  }
 
   const token = await deps.getIdToken(false);
   if (!token) {
@@ -177,15 +198,17 @@ export async function connectAppleHealthBodyForComposition(
   }
 
   deps.onPhase?.("findingLatest");
+  const include = await bodySyncIncludeForUid(deps.uid);
   const syncResult = await runAppleHealthBodySync(
     {
       token,
       startDate: isoDaysAgo(LATEST_DAYS_BACK),
       endDate: new Date().toISOString(),
       limit: 200,
+      ...(include ? { include } : {}),
     },
     {
-      pullBodyCompositionSamples,
+      pullBodyCompositionSamples: scopedBodyPull(deps.uid),
       ingestRawEvent,
       appleHealthBodyWeightIdempotencyKey,
       appleHealthBodyCompositionIdempotencyKey,
@@ -219,7 +242,7 @@ export async function connectAppleHealthBodyForComposition(
     { token },
     {
       nowIso,
-      pullBodyCompositionSamples,
+      pullBodyCompositionSamples: scopedBodyPull(deps.uid),
       ingestRawEvent,
       appleHealthBodyWeightIdempotencyKey,
       appleHealthBodyCompositionIdempotencyKey,
@@ -298,7 +321,7 @@ export async function resumeAppleHealthBodyHistoryImport(
     { token },
     {
       nowIso,
-      pullBodyCompositionSamples,
+      pullBodyCompositionSamples: scopedBodyPull(deps.uid),
       ingestRawEvent,
       appleHealthBodyWeightIdempotencyKey,
       appleHealthBodyCompositionIdempotencyKey,
@@ -363,15 +386,17 @@ export async function syncAppleHealthBodyLatestForComposition(
     return { ok: false, message: "Sign in to sync Body measurements." };
   }
   // Already connected — do not re-request HealthKit authorization on refresh.
+  const include = await bodySyncIncludeForUid(deps.uid);
   const syncResult = await runAppleHealthBodySync(
     {
       token,
       startDate: isoDaysAgo(LATEST_DAYS_BACK),
       endDate: new Date().toISOString(),
       limit: 200,
+      ...(include ? { include } : {}),
     },
     {
-      pullBodyCompositionSamples,
+      pullBodyCompositionSamples: scopedBodyPull(deps.uid),
       ingestRawEvent,
       appleHealthBodyWeightIdempotencyKey,
       appleHealthBodyCompositionIdempotencyKey,

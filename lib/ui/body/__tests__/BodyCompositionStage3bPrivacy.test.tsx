@@ -146,6 +146,8 @@ jest.mock("@/lib/data/body/useAppleHealthBodyConnectSheet", () => ({
     close: jest.fn(),
     onPrimary: jest.fn(),
     onPressCardConnection: mockOnPressCardConnection,
+    onToggleMetricSync: jest.fn(),
+    metricSync: { weight: true, bodyFat: true, leanTissue: true },
     refreshLastUpdatedFromStorage: jest.fn(),
   }),
 }));

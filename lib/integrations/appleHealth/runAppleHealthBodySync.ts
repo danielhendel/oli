@@ -5,6 +5,11 @@ export type RunAppleHealthBodySyncDeps = {
     startDate: string;
     endDate: string;
     limit?: number;
+    include?: {
+      weight?: boolean;
+      bodyFat?: boolean;
+      leanTissue?: boolean;
+    };
   }) => Promise<{ ok: true; data: AppleHealthBodyWeightSample[] } | { ok: false; error: string }>;
   ingestRawEvent: (
     body: unknown,
@@ -130,13 +135,24 @@ export async function ingestAppleHealthBodySamples(
 }
 
 export async function runAppleHealthBodySync(
-  opts: { token: string; startDate: string; endDate: string; limit?: number },
+  opts: {
+    token: string;
+    startDate: string;
+    endDate: string;
+    limit?: number;
+    include?: {
+      weight?: boolean;
+      bodyFat?: boolean;
+      leanTissue?: boolean;
+    };
+  },
   deps: RunAppleHealthBodySyncDeps,
 ): Promise<RunAppleHealthBodySyncResult> {
   const pulled = await deps.pullBodyCompositionSamples({
     startDate: opts.startDate,
     endDate: opts.endDate,
     ...(typeof opts.limit === "number" ? { limit: opts.limit } : {}),
+    ...(opts.include ? { include: opts.include } : {}),
   });
   if (!pulled.ok) {
     return { ok: false, error: pulled.error, requestId: null };

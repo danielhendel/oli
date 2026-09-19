@@ -17,6 +17,12 @@ import {
   getAppleHealthBodyLastCheckedAt,
   isAppleHealthDomainEnabled,
 } from "@/lib/integrations/appleHealth/storage";
+import {
+  resolveBodyMetricSyncFlags,
+  setAppleHealthMetricSyncEnabled,
+  type BodyMetricSyncFlags,
+} from "@/lib/integrations/appleHealth/appleHealthMetricSyncController";
+import type { AppleHealthMetricSyncId } from "@/lib/integrations/appleHealth/appleHealthMetricSyncScope";
 
 export type UseAppleHealthBodyConnectSheetArgs = {
   accessPhase: string;
@@ -38,6 +44,11 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
   const [historyAttention, setHistoryAttention] = useState(false);
   const [lastSuccessfulSyncAtIso, setLastSuccessfulSyncAtIso] = useState<string | null>(null);
   const [bodyScopeConnected, setBodyScopeConnected] = useState(false);
+  const [metricSync, setMetricSync] = useState<BodyMetricSyncFlags>({
+    weight: true,
+    bodyFat: true,
+    leanTissue: true,
+  });
   const inFlight = useRef(false);
   const activeUid = useRef<string | undefined>(uid);
   const onDataRef = useRef(onDataMaybeChanged);
@@ -53,6 +64,7 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
       setHistoryAttention(false);
       setLastSuccessfulSyncAtIso(null);
       setBodyScopeConnected(false);
+      setMetricSync({ weight: true, bodyFat: true, leanTissue: true });
       activeUid.current = uid;
     }
   }, [uid]);
@@ -68,6 +80,10 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
       if (cancelled) return;
       if (lastChecked) setLastSuccessfulSyncAtIso(lastChecked);
       setBodyScopeConnected(bodyEnabled);
+      if (uid) {
+        const flags = await resolveBodyMetricSyncFlags(uid).catch(() => null);
+        if (!cancelled && flags) setMetricSync(flags);
+      }
       if (!backfill) return;
       if (backfill.status === "in_progress") {
         setPhase("importingEarlier");
@@ -90,6 +106,10 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
     if (activeUid.current !== uid) return;
     if (lastChecked) setLastSuccessfulSyncAtIso(lastChecked);
     setBodyScopeConnected(bodyEnabled);
+    if (uid) {
+      const flags = await resolveBodyMetricSyncFlags(uid).catch(() => null);
+      if (activeUid.current === uid && flags) setMetricSync(flags);
+    }
   }, [uid]);
 
   const openForConnect = useCallback(() => {
@@ -137,6 +157,7 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
     try {
       const result = await connectAppleHealthBodyForComposition({
         getIdToken,
+        ...(uid ? { uid } : {}),
         onPhase: (p: AppleHealthBodyCompositionConnectPhase) => {
           if (activeUid.current !== uid) return;
           setPhase(p);
@@ -178,6 +199,7 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
     try {
       const result = await resumeAppleHealthBodyHistoryImport({
         getIdToken,
+        ...(uid ? { uid } : {}),
         onPhase: (p) => {
           if (activeUid.current !== uid) return;
           setPhase(p);
@@ -270,17 +292,36 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
     openForConnect();
   }, [accessPhase, phase, historyAttention, openForConnect, openForStatus]);
 
+  const onToggleMetricSync = useCallback(
+    async (metricId: AppleHealthMetricSyncId, enabled: boolean) => {
+      if (!uid || activeUid.current !== uid) return;
+      // Optimistic UI
+      setMetricSync((prev) => ({ ...prev, [metricId]: enabled }));
+      const result = await setAppleHealthMetricSyncEnabled({ uid, metricId, enabled });
+      if (result.ok === false || activeUid.current !== uid) {
+        const flags = await resolveBodyMetricSyncFlags(uid).catch(() => null);
+        if (flags && activeUid.current === uid) setMetricSync(flags);
+        return;
+      }
+      const bodyEnabled = await isAppleHealthDomainEnabled("body").catch(() => false);
+      if (activeUid.current === uid) setBodyScopeConnected(bodyEnabled);
+    },
+    [uid],
+  );
+
   return {
     visible,
     phase,
     historyAttention,
     lastSuccessfulSyncAtIso,
     bodyScopeConnected,
+    metricSync,
     cardAction,
     openForConnect,
     close,
     onPrimary,
     onPressCardConnection,
+    onToggleMetricSync,
     refreshLastUpdatedFromStorage,
   };
 }

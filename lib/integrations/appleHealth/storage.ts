@@ -16,6 +16,11 @@ export const APPLE_HEALTH_CONNECTED = "appleHealth:connected";
 export const APPLE_HEALTH_NOT_AVAILABLE = "appleHealth:notAvailable";
 /** Progressive domain scopes — which domains the current account explicitly enabled. */
 export const APPLE_HEALTH_DOMAIN_SCOPES = "appleHealth:domainScopes";
+/**
+ * Per-account Oli sync-scope for individual Apple Health metrics.
+ * Keyed by uid so multi-account devices do not leak toggle state.
+ */
+export const APPLE_HEALTH_METRIC_SYNC_SCOPES_PREFIX = "appleHealth:metricSyncScopes";
 export const APPLE_HEALTH_DEEP_BACKFILL_VERSION = "appleHealth:deepBackfillVersion";
 /** Last completed workout range-bootstrap build id (see workoutBootstrapPolicy). */
 export const APPLE_HEALTH_WORKOUT_RANGE_BOOTSTRAP_BUILD = "appleHealth:workoutRangeBootstrapBuild";
@@ -234,6 +239,62 @@ export async function isAppleHealthDomainEnabled(domain: AppleHealthDomainScopeI
     return true;
   }
   return scopes[domain] === true;
+}
+
+export type AppleHealthMetricSyncScopesV1 = {
+  readonly version: 1;
+  readonly metrics: Partial<Record<string, boolean>>;
+};
+
+export function appleHealthMetricSyncScopesKey(uid: string): string {
+  if (!uid || typeof uid !== "string") {
+    throw new Error("appleHealth metric sync scopes: uid required");
+  }
+  return `${APPLE_HEALTH_METRIC_SYNC_SCOPES_PREFIX}:${uid}`;
+}
+
+export async function getAppleHealthMetricSyncScopes(
+  uid: string,
+): Promise<AppleHealthMetricSyncScopesV1 | null> {
+  const raw = await AsyncStorage.getItem(appleHealthMetricSyncScopesKey(uid));
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as AppleHealthMetricSyncScopesV1;
+    if (parsed && parsed.version === 1 && parsed.metrics && typeof parsed.metrics === "object") {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setAppleHealthMetricSyncScopes(
+  uid: string,
+  scopes: AppleHealthMetricSyncScopesV1,
+): Promise<void> {
+  await AsyncStorage.setItem(appleHealthMetricSyncScopesKey(uid), JSON.stringify(scopes));
+}
+
+/**
+ * Whether Oli may sync/use a specific metric for this account.
+ * Requires connected + domain enabled; explicit metric OFF wins; missing metric scopes
+ * default ON for metrics in an enabled domain (legacy-safe).
+ */
+export async function isAppleHealthMetricSyncEnabled(
+  uid: string,
+  metricId: string,
+  domain: AppleHealthDomainScopeId,
+): Promise<boolean> {
+  if (!uid) return false;
+  const domainOn = await isAppleHealthDomainEnabled(domain).catch(() => false);
+  if (!domainOn) return false;
+  const scopes = await getAppleHealthMetricSyncScopes(uid).catch(() => null);
+  if (!scopes) return true;
+  if (Object.prototype.hasOwnProperty.call(scopes.metrics, metricId)) {
+    return scopes.metrics[metricId] === true;
+  }
+  return true;
 }
 
 export async function getAppleHealthNotAvailable(): Promise<boolean> {

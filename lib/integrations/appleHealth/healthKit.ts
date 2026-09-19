@@ -434,11 +434,21 @@ export async function pullBodyCompositionSamples(opts: {
   startDate: string;
   endDate: string;
   limit?: number;
+  /** Oli sync-scope gates — omit or true to include. False skips HealthKit query + merge. */
+  include?: {
+    weight?: boolean;
+    bodyFat?: boolean;
+    leanTissue?: boolean;
+  };
 }): Promise<{ ok: true; data: AppleHealthBodyWeightSample[] } | { ok: false; error: string }> {
   const HK = await getHealthKit();
   if (!HK) {
     return { ok: false, error: "HealthKit is not available (e.g. not iOS or native module not linked)." };
   }
+
+  const includeWeight = opts.include?.weight !== false;
+  const includeBodyFat = opts.include?.bodyFat !== false;
+  const includeLean = opts.include?.leanTissue !== false;
 
   const windowOpts: HealthInputOptions = {
     startDate: opts.startDate,
@@ -448,11 +458,21 @@ export async function pullBodyCompositionSamples(opts: {
   };
   const massKgQuery = buildAppleHealthBodyMassSampleQueryOptions(opts);
 
+  const emptyOk = { ok: true as const, data: [] as HealthValue[] };
   const [w, bf, bmiR, leanR, basalR] = await Promise.all([
-    pHealthValueArrayResult(HK.getWeightSamples, massKgQuery, "BodyMass"),
-    pHealthValueArrayResult(HK.getBodyFatPercentageSamples, windowOpts, "BodyFatPercentage"),
-    pHealthValueArrayResult(HK.getBmiSamples, windowOpts, "BodyMassIndex"),
-    pHealthValueArrayResult(HK.getLeanBodyMassSamples, massKgQuery, "LeanBodyMass"),
+    includeWeight
+      ? pHealthValueArrayResult(HK.getWeightSamples, massKgQuery, "BodyMass")
+      : Promise.resolve(emptyOk),
+    includeBodyFat
+      ? pHealthValueArrayResult(HK.getBodyFatPercentageSamples, windowOpts, "BodyFatPercentage")
+      : Promise.resolve(emptyOk),
+    // BMI remains an internal companion query when weight scope is on (not a consumer toggle).
+    includeWeight
+      ? pHealthValueArrayResult(HK.getBmiSamples, windowOpts, "BodyMassIndex")
+      : Promise.resolve(emptyOk),
+    includeLean
+      ? pHealthValueArrayResult(HK.getLeanBodyMassSamples, massKgQuery, "LeanBodyMass")
+      : Promise.resolve(emptyOk),
     pHealthValueArrayResult(HK.getBasalEnergyBurned, windowOpts, "BasalEnergyBurned"),
   ]);
 

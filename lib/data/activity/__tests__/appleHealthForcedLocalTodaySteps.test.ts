@@ -55,6 +55,7 @@ jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getAppleHealthConnected: (...args: unknown[]) => mockGetAppleHealthConnected(...args),
   // Domain enablement requires connected (legacy: connected without scopes ⇒ all domains).
   isAppleHealthDomainEnabled: (...args: unknown[]) => mockGetAppleHealthConnected(...args),
+  isAppleHealthMetricSyncEnabled: jest.fn(async () => true),
   setLastIngestedStepsForDay: (...args: unknown[]) => mockSetLastIngestedStepsForDay(...args),
 }));
 

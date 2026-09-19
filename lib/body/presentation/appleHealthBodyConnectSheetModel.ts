@@ -39,7 +39,7 @@ export type AppleHealthBodyConnectSheetCopy = {
   readonly footer: string | null;
   readonly showMetricList: boolean;
   readonly showStatusRows: boolean;
-  /** Noninteractive Body sync-scope ON indicators beside metric rows. */
+  /** Noninteractive → interactive Body sync-scope toggles beside metric rows. */
   readonly showScopeIndicators: boolean;
   /** Review access — only when source state needs attention. */
   readonly showReviewAccess: boolean;

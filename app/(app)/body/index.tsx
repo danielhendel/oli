@@ -271,6 +271,10 @@ export default function BodyOverviewScreen() {
         historyAttention={connectSheet.historyAttention}
         lastSuccessfulSyncAtIso={connectSheet.lastSuccessfulSyncAtIso}
         bodyScopeConnected={connectSheet.bodyScopeConnected}
+        metricSync={connectSheet.metricSync}
+        onToggleMetricSync={(metricId, enabled) => {
+          void connectSheet.onToggleMetricSync(metricId, enabled);
+        }}
         onClose={connectSheet.close}
         onPrimary={connectSheet.onPrimary}
         onOpenAppleHealthSettings={() => {

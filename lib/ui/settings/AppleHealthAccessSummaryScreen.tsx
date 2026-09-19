@@ -1,10 +1,20 @@
 /**
- * Settings → Devices → Apple Health — consumer access summary.
+ * Settings → Devices → Apple Health — consumer sync-scope management.
  * No HealthKit calls on mount. No backfill / repair / RawEvent language.
+ * Toggles control Oli sync scope, not native permission truth.
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useNavigation } from "expo-router";
 
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
@@ -14,12 +24,22 @@ import { resolveAppleHealthDeviceConnected } from "@/lib/integrations/appleHealt
 import { buildAppleHealthAccessSummaryModel } from "@/lib/integrations/appleHealth/appleHealthAccessSummaryModel";
 import { connectAppleHealthForOnboarding } from "@/lib/onboarding/appleHealthOnboardingConnect";
 import {
+  APPLE_HEALTH_METRIC_SYNC_GROUPS,
+  type AppleHealthMetricSyncId,
+} from "@/lib/integrations/appleHealth/appleHealthMetricSyncScope";
+import {
+  enableAllAppleHealthMetricSyncScopes,
+  resolveMetricSyncMap,
+  setAppleHealthMetricSyncEnabled,
+} from "@/lib/integrations/appleHealth/appleHealthMetricSyncController";
+import {
   getAppleHealthBodyLastCheckedAt,
   getAppleHealthConnected,
   getAppleHealthDomainScopes,
 } from "@/lib/integrations/appleHealth/storage";
+import { AppleHealthScopeToggle } from "@/lib/ui/body/AppleHealthScopeToggle";
 import {
-  BODY_APPLE_HEALTH_ICON_COLOR,
+  BODY_APPLE_HEALTH_ICON_COLOR_STRONG,
   BodyAppleHealthSourceIcon,
 } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
 import {
@@ -35,35 +55,47 @@ import {
 
 type AppleHealthStatus = "loading" | "connected" | "not_connected" | "error";
 
+const EMPTY_METRIC_MAP = Object.fromEntries(
+  APPLE_HEALTH_METRIC_SYNC_GROUPS.flatMap((g) => g.metrics.map((m) => [m.id, false])),
+) as Record<AppleHealthMetricSyncId, boolean>;
+
 export function AppleHealthAccessSummaryScreen() {
   const navigation = useNavigation();
-  const { user, getIdToken } = useAuth();
+  const auth = useAuth();
+  const uid = auth.user?.uid;
+  const getIdTokenRef = React.useRef(auth.getIdToken);
+  getIdTokenRef.current = auth.getIdToken;
   const [appleStatus, setAppleStatus] = useState<AppleHealthStatus>("loading");
   const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null);
   const [enabledDomainCount, setEnabledDomainCount] = useState<number | null>(null);
   const [appleConnecting, setAppleConnecting] = useState(false);
+  const [metricMap, setMetricMap] =
+    useState<Record<AppleHealthMetricSyncId, boolean>>(EMPTY_METRIC_MAP);
+  const [togglingId, setTogglingId] = useState<AppleHealthMetricSyncId | null>(null);
 
   useEffect(() => {
     navigation.setOptions({ title: "Apple Health" });
   }, [navigation]);
 
   const refreshStatus = useCallback(async () => {
-    if (!user) {
+    if (!uid) {
       setAppleStatus("not_connected");
       setLastCheckedAt(null);
       setEnabledDomainCount(0);
+      setMetricMap(EMPTY_METRIC_MAP);
       return;
     }
     try {
-      const token = await getIdToken(false);
+      const token = await getIdTokenRef.current(false);
       if (!token) {
         setAppleStatus("not_connected");
         return;
       }
-      const [res, bodyChecked, scopes] = await Promise.all([
+      const [res, bodyChecked, scopes, metrics] = await Promise.all([
         getAppleHealthStatus(token, { cacheBust: `ah-access:${Date.now()}` }),
         getAppleHealthBodyLastCheckedAt().catch(() => null),
         getAppleHealthDomainScopes().catch(() => null),
+        resolveMetricSyncMap(uid).catch(() => EMPTY_METRIC_MAP),
       ]);
       if (!res.ok) {
         setAppleStatus("error");
@@ -72,6 +104,7 @@ export function AppleHealthAccessSummaryScreen() {
       const effective = await resolveAppleHealthDeviceConnected(res.json.connected);
       setAppleStatus(effective ? "connected" : "not_connected");
       setLastCheckedAt(bodyChecked ?? res.json.lastSyncAt ?? null);
+      setMetricMap(metrics);
       if (scopes) {
         const count = [scopes.body, scopes.activity, scopes.workouts, scopes.cardioVitals].filter(
           Boolean,
@@ -83,7 +116,7 @@ export function AppleHealthAccessSummaryScreen() {
     } catch {
       setAppleStatus("error");
     }
-  }, [user, getIdToken]);
+  }, [uid]);
 
   useEffect(() => {
     void refreshStatus();
@@ -93,14 +126,23 @@ export function AppleHealthAccessSummaryScreen() {
     setAppleConnecting(true);
     try {
       const result = await connectAppleHealthForOnboarding({
-        getIdToken,
-        ...(user?.uid ? { userUid: user.uid } : {}),
+        getIdToken: (force) => getIdTokenRef.current(force),
+        ...(uid ? { userUid: uid } : {}),
       });
       if (!result.ok) {
         if (result.reason === "permission_denied") {
           Alert.alert(
             "Permission needed",
             "Allow Health access in Settings to connect Apple Health, then try again.",
+            [
+              { text: "Not now", style: "cancel" },
+              {
+                text: "Open Settings",
+                onPress: () => {
+                  void Linking.openSettings();
+                },
+              },
+            ],
           );
         } else if (result.reason === "unavailable" || result.reason === "not_ios") {
           Alert.alert("Unavailable", "Apple Health is not available on this device.");
@@ -108,6 +150,9 @@ export function AppleHealthAccessSummaryScreen() {
           Alert.alert("Connection failed", "Could not connect Apple Health. Try again.");
         }
         return;
+      }
+      if (uid) {
+        await enableAllAppleHealthMetricSyncScopes(uid).catch(() => undefined);
       }
       const connected = await getAppleHealthConnected().catch(() => false);
       setAppleStatus(connected ? "connected" : "not_connected");
@@ -117,7 +162,43 @@ export function AppleHealthAccessSummaryScreen() {
     } finally {
       setAppleConnecting(false);
     }
-  }, [getIdToken, user?.uid, refreshStatus]);
+  }, [uid, refreshStatus]);
+
+  const handleToggle = useCallback(
+    async (metricId: AppleHealthMetricSyncId, enabled: boolean) => {
+      if (!uid) return;
+      if (appleStatus !== "connected" && enabled) {
+        Alert.alert(
+          "Connect Apple Health",
+          "Connect Apple Health first to choose which data Oli can sync.",
+          [
+            { text: "Not now", style: "cancel" },
+            {
+              text: "Connect",
+              onPress: () => {
+                void handleConnect();
+              },
+            },
+          ],
+        );
+        return;
+      }
+      setTogglingId(metricId);
+      setMetricMap((prev) => ({ ...prev, [metricId]: enabled }));
+      try {
+        const result = await setAppleHealthMetricSyncEnabled({ uid, metricId, enabled });
+        if (!result.ok) {
+          const restored = await resolveMetricSyncMap(uid).catch(() => null);
+          if (restored) setMetricMap(restored);
+          return;
+        }
+        await refreshStatus();
+      } finally {
+        setTogglingId(null);
+      }
+    },
+    [uid, appleStatus, handleConnect, refreshStatus],
+  );
 
   const model = buildAppleHealthAccessSummaryModel({
     connected: appleStatus === "connected",
@@ -144,7 +225,7 @@ export function AppleHealthAccessSummaryScreen() {
         <View style={styles.card}>
           <View style={styles.headerRow}>
             <View style={styles.sourceTitleRow}>
-              <BodyAppleHealthSourceIcon size={22} decorative />
+              <BodyAppleHealthSourceIcon accent="strong" size={22} decorative />
               <Text style={styles.sourceTitle} accessibilityRole="header">
                 Apple Health
               </Text>
@@ -166,15 +247,32 @@ export function AppleHealthAccessSummaryScreen() {
           <Text style={styles.intro}>{model.intro}</Text>
         </View>
 
-        <View style={styles.card} testID="apple-health-data-oli-uses">
-          <Text style={styles.sectionEyebrow}>DATA OLI USES</Text>
-          {model.dataSections.map((section) => (
-            <View key={section.title} style={styles.domainBlock}>
-              <Text style={styles.domainTitle}>{section.title}</Text>
-              <Text style={styles.domainMetrics}>{section.metricsLine}</Text>
-            </View>
-          ))}
-        </View>
+        {APPLE_HEALTH_METRIC_SYNC_GROUPS.map((group) => (
+          <View
+            key={group.id}
+            style={styles.card}
+            testID={`apple-health-scope-group-${group.id}`}
+          >
+            <Text style={styles.sectionEyebrow}>{group.title.toUpperCase()}</Text>
+            {group.metrics.map((metric, index) => (
+              <View key={metric.id}>
+                {index > 0 ? <View style={styles.divider} /> : null}
+                <View style={styles.metricRow} testID={`apple-health-metric-row-${metric.id}`}>
+                  <Text style={styles.metricLabel}>{metric.displayName}</Text>
+                  <AppleHealthScopeToggle
+                    metricLabel={metric.displayName}
+                    on={metricMap[metric.id] === true}
+                    disabled={togglingId === metric.id || appleStatus === "loading"}
+                    onValueChange={(next) => {
+                      void handleToggle(metric.id, next);
+                    }}
+                    testID={`apple-health-metric-toggle-${metric.id}`}
+                  />
+                </View>
+              </View>
+            ))}
+          </View>
+        ))}
 
         <View style={styles.card} testID="apple-health-connection-summary">
           <Text style={styles.sectionEyebrow}>CONNECTION</Text>
@@ -184,7 +282,7 @@ export function AppleHealthAccessSummaryScreen() {
           </View>
           <View style={styles.divider} />
           <View style={styles.statusRow}>
-            <Text style={styles.statusRowLabel}>Connected categories</Text>
+            <Text style={styles.statusRowLabel}>Categories in use</Text>
             <Text style={styles.statusRowValue}>{model.connectedCategoriesLabel}</Text>
           </View>
         </View>
@@ -203,6 +301,21 @@ export function AppleHealthAccessSummaryScreen() {
             <Text style={styles.primaryBtnText}>
               {appleConnecting ? "Connecting…" : "Connect all supported data"}
             </Text>
+          </Pressable>
+        ) : null}
+
+        {appleStatus === "error" || appleStatus === "connected" ? (
+          <Pressable
+            style={styles.secondaryBtn}
+            onPress={() => {
+              void Linking.openSettings();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open iOS Health access settings"
+            accessibilityHint="Opens system Settings to manage Apple Health permissions"
+            testID="apple-health-system-settings"
+          >
+            <Text style={styles.secondaryBtnText}>iOS Health access</Text>
           </Pressable>
         ) : null}
 
@@ -235,14 +348,17 @@ const styles = StyleSheet.create({
     borderRadius: UI_DASH_CATEGORY_CARD_RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: UI_CARD_ELEVATED_BORDER,
-    padding: 16,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 8,
+    gap: 4,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
+    marginBottom: 4,
   },
   sourceTitleRow: {
     flexDirection: "row",
@@ -265,7 +381,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   statusChipConnected: {
-    backgroundColor: "rgba(52, 211, 153, 0.14)",
+    backgroundColor: "rgba(52, 199, 89, 0.16)",
   },
   statusChipText: {
     color: UI_DURATION_STATUS_RECOMMENDED_TEXT,
@@ -276,33 +392,37 @@ const styles = StyleSheet.create({
     color: UI_TEXT_SECONDARY,
     fontSize: 15,
     lineHeight: 22,
+    marginBottom: 6,
   },
   sectionEyebrow: {
     color: UI_TEXT_MUTED,
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0.6,
+    marginBottom: 4,
   },
-  domainBlock: {
-    gap: 4,
-    paddingTop: 4,
+  metricRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    minHeight: 52,
+    paddingVertical: 4,
   },
-  domainTitle: {
+  metricLabel: {
     color: UI_TEXT_PRIMARY,
     fontSize: 16,
-    fontWeight: "700",
-  },
-  domainMetrics: {
-    color: UI_TEXT_SECONDARY,
-    fontSize: 14,
-    lineHeight: 20,
+    fontWeight: "600",
+    flexShrink: 1,
+    flex: 1,
   },
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    minHeight: 40,
+    minHeight: 44,
+    paddingVertical: 4,
   },
   statusRowLabel: {
     color: UI_TEXT_SECONDARY,
@@ -323,14 +443,14 @@ const styles = StyleSheet.create({
   primaryBtn: {
     minHeight: 48,
     borderRadius: 14,
-    backgroundColor: BODY_APPLE_HEALTH_ICON_COLOR,
+    backgroundColor: BODY_APPLE_HEALTH_ICON_COLOR_STRONG,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
   },
   primaryDisabled: { opacity: 0.55 },
   primaryBtnText: {
-    color: "#FFFFFF",
+    color: "rgb(255, 255, 255)",
     fontSize: 16,
     fontWeight: "700",
   },
@@ -340,7 +460,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   secondaryBtnText: {
-    color: BODY_APPLE_HEALTH_ICON_COLOR,
+    color: BODY_APPLE_HEALTH_ICON_COLOR_STRONG,
     fontSize: 15,
     fontWeight: "600",
   },

@@ -1,17 +1,15 @@
 /**
- * Noninteractive Apple Health Body sync-scope indicator.
- * Visual “ON” switch-like chip — does NOT represent HealthKit permission truth.
+ * Noninteractive Apple Health sync-scope visual (read-only).
+ * Prefer {@link AppleHealthScopeToggle} when the control must change Oli sync scope.
  */
 
 import React from "react";
 import { StyleSheet, View } from "react-native";
 
-import { UI_DURATION_STATUS_RECOMMENDED_TEXT } from "@/lib/ui/theme/uiTokens";
+import { UI_APPLE_HEALTH_TOGGLE_ON } from "@/lib/ui/theme/uiTokens";
 
 export type AppleHealthScopeIndicatorProps = {
-  /** Metric display name for accessibility (e.g. "Weight"). */
   metricLabel: string;
-  /** When true, shows ON appearance. */
   on: boolean;
   testID?: string;
 };
@@ -26,8 +24,8 @@ export function AppleHealthScopeIndicator(props: AppleHealthScopeIndicatorProps)
       accessibilityRole="text"
       accessibilityLabel={
         on
-          ? `${props.metricLabel} is included in Apple Health Body sync`
-          : `${props.metricLabel} is not included in Apple Health Body sync`
+          ? `${props.metricLabel} is included in Apple Health sync`
+          : `${props.metricLabel} is not included in Apple Health sync`
       }
       testID={props.testID ?? "apple-health-scope-indicator"}
     >
@@ -38,25 +36,24 @@ export function AppleHealthScopeIndicator(props: AppleHealthScopeIndicatorProps)
 
 const styles = StyleSheet.create({
   track: {
-    width: 36,
-    height: 22,
-    borderRadius: 11,
+    width: 51,
+    height: 31,
+    borderRadius: 16,
     paddingHorizontal: 2,
     justifyContent: "center",
   },
   trackOn: {
-    backgroundColor: UI_DURATION_STATUS_RECOMMENDED_TEXT,
+    backgroundColor: UI_APPLE_HEALTH_TOGGLE_ON,
     alignItems: "flex-end",
   },
   trackOff: {
-    backgroundColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(120,120,128,0.36)",
     alignItems: "flex-start",
   },
   thumb: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    // Avoid literal `#FFFFFF` StyleSheet card-shell pattern (switch thumb only).
+    width: 27,
+    height: 27,
+    borderRadius: 13.5,
     backgroundColor: "rgb(255, 255, 255)",
   },
   thumbOn: {},
