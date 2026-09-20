@@ -75,7 +75,7 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     unit: "lb",
   });
 
-  it("renders three metric cards and omits Add or connect measurements", () => {
+  it("renders Total Mass and Components hierarchy with three metric cards", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -86,6 +86,10 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
       );
     });
     const text = collectText(tree);
+    expect(tree.root.findByProps({ testID: "body-composition-heading-total-mass" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-composition-heading-components" })).toBeDefined();
+    expect(text).toContain("Total Mass");
+    expect(text).toContain("Components");
     expect(text).toContain("Weight");
     expect(text).toContain("Body Fat");
     expect(text).toContain("Lean Mass");
@@ -94,6 +98,9 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     expect(text).not.toContain("Learn about measurement ranges");
     expect(tree.root.findAllByProps({ testID: "body-composition-actions" })).toHaveLength(0);
     expect(tree.root.findByProps({ testID: "body-composition-bottom-clearance" })).toBeDefined();
+    expect(text.indexOf("Total Mass")).toBeLessThan(text.indexOf("Weight"));
+    expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("Components"));
+    expect(text.indexOf("Components")).toBeLessThan(text.indexOf("Body Fat"));
     expect(text.indexOf("Body Fat")).toBeLessThan(text.indexOf("Lean Mass"));
   });
 

@@ -139,7 +139,32 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     expect(weight.classificationChart).toBeNull();
   });
 
-  it("shows Body Fat educational reference without personal classification marker", () => {
+  it("preserves Weight CDC/WHO classification chart visual contract", () => {
+    const [weight] = buildBodyMetricSummaryCards({
+      overview: {
+        overviewDay: "2026-09-18",
+        weightKg: 80,
+        bodyFatPercent: 18,
+        leanBodyMassKg: 60,
+        bmi: 24.2,
+        hasAnyMetric: true,
+      },
+      profile: adultProfile,
+      unit: "lb",
+    });
+    expect(weight.classificationChart).not.toBeNull();
+    expect(weight.educationalReferenceChart).toBeNull();
+    expect(weight.showUnclassifiedScaffold).toBe(false);
+    expect(weight.classificationChart!.segments.map((s) => s.label)).toEqual([
+      "Underweight",
+      "Healthy Weight",
+      "Overweight",
+      "Obesity",
+    ]);
+    expect(weight.classificationChart!.marker).not.toBeNull();
+  });
+
+  it("shows Body Fat unclassified scaffold on landing without educational essays", () => {
     const [, bodyFat] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -155,18 +180,15 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     expect(bodyFat.formattedValue).toBe("18.0%");
     expect(bodyFat.displayValue).toBe("18.0");
     expect(bodyFat.classificationChart).toBeNull();
-    expect(bodyFat.educationalReferenceChart).not.toBeNull();
-    expect(bodyFat.educationalReferenceChart!.personalMarker).toBeNull();
-    expect(bodyFat.educationalReferenceChart!.badgeLabel).toBe("Educational reference");
-    expect(bodyFat.showUnclassifiedScaffold).toBe(false);
+    expect(bodyFat.educationalReferenceChart).toBeNull();
+    expect(bodyFat.showUnclassifiedScaffold).toBe(true);
     expect(bodyFat.referenceBar).toBeNull();
-    expect(bodyFat.educationalReferenceChart!.segments.map((s) => s.displayLabel)).not.toEqual(
-      expect.arrayContaining(["Underfat", "Healthy Body Fat", "Excess Body Fat"]),
-    );
-    expect(bodyFat.educationalReferenceChart!.personalMarker).toBeNull();
+    expect(bodyFat.referenceContextLabel).toBeNull();
+    expect(bodyFat.accessibilityLabel).not.toMatch(/Educational reference/i);
+    expect(bodyFat.accessibilityLabel).toMatch(/No personal classification/i);
   });
 
-  it("shows Lean Mass educational reference without classification chart or ASM/ALMI", () => {
+  it("shows Lean Mass unclassified scaffold without classification chart or ASM/ALMI", () => {
     const [, , lean] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -180,15 +202,11 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
       unit: "lb",
     });
     expect(lean.classificationChart).toBeNull();
-    expect(lean.educationalReferenceChart).not.toBeNull();
-    expect(lean.educationalReferenceChart!.personalMarker).toBeNull();
-    expect(lean.educationalReferenceChart!.constructLabel).toMatch(/Total lean mass/i);
-    expect(lean.showUnclassifiedScaffold).toBe(false);
+    expect(lean.educationalReferenceChart).toBeNull();
+    expect(lean.showUnclassifiedScaffold).toBe(true);
     expect(lean.title).toBe("Lean Mass");
     expect(lean.accessibilityLabel).toMatch(/Total lean mass/i);
-    expect(lean.educationalReferenceChart!.constructDescription).not.toMatch(
-      /\bALMI\b|\bASM\b|sarcopenia diagnosis/i,
-    );
+    expect(lean.accessibilityLabel).not.toMatch(/\bALMI\b|\bASM\b|sarcopenia/i);
   });
 
   it("does not invent Body score or aggregate rails", () => {

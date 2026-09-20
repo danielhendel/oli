@@ -266,7 +266,7 @@ describe("Body Composition simplified main screen", () => {
     });
   });
 
-  it("renders three primary metric cards without redundant Add/connect card", () => {
+  it("renders Total Mass → Weight and Components → Body Fat / Lean Mass hierarchy", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -274,10 +274,14 @@ describe("Body Composition simplified main screen", () => {
     });
     const text = collectText(tree);
     expect(text).not.toContain("Track weight, body fat, and lean tissue.");
+    expect(tree.root.findByProps({ testID: "body-composition-heading-total-mass" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-composition-heading-components" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-metric-card-weight" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-metric-card-bodyFat" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-metric-card-leanTissue" })).toBeDefined();
-    expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("Body Fat"));
+    expect(text.indexOf("Total Mass")).toBeLessThan(text.indexOf("Weight"));
+    expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("Components"));
+    expect(text.indexOf("Components")).toBeLessThan(text.indexOf("Body Fat"));
     expect(text.indexOf("Body Fat")).toBeLessThan(text.indexOf("Lean Mass"));
     expect(text).not.toContain("Add or connect measurements");
     expect(tree.root.findAllByProps({ testID: "body-composition-actions" })).toHaveLength(0);
@@ -290,17 +294,16 @@ describe("Body Composition simplified main screen", () => {
       tree = renderer.create(React.createElement(Screen));
     });
     const text = collectText(tree);
-    // Stage 3C metric cards may show an "Educational reference" badge on Body Fat / Lean Mass.
-    // The prior Stage 3B dense landing (Health Protection / Performance Support rails) must stay gone.
     expect(text).not.toContain("Health Protection");
     expect(text).not.toContain("Performance Support");
     expect(text).not.toContain("Evidence levels");
     expect(text).not.toContain("Central Adiposity");
     expect(text).not.toMatch(/Body score|Optimized|Excellence/i);
-    // Weight may show a CDC/WHO screening marker; Body Fat / Lean must not invent personal markers.
+    expect(text).not.toContain("Educational reference");
+    expect(text).not.toContain("Population, method, and evidence");
   });
 
-  it("shows populated values with CDC/WHO Weight chart and educational BF/Lean graphs", () => {
+  it("shows populated values with CDC/WHO Weight chart and simplified BF/Lean scaffolds", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -321,11 +324,13 @@ describe("Body Composition simplified main screen", () => {
     expect(tree.root.findByProps({ testID: "body-metric-chart-weight" })).toBeDefined();
     expect(tree.root.findAllByProps({ testID: "body-metric-chart-bodyFat" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-chart-leanTissue" })).toHaveLength(0);
-    expect(tree.root.findByProps({ testID: "body-metric-educational-bodyFat" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-educational-leanTissue" })).toBeDefined();
-    expect(tree.root.findAllByProps({ testID: "body-metric-scaffold-bodyFat" })).toHaveLength(0);
-    expect(tree.root.findAllByProps({ testID: "body-metric-scaffold-leanTissue" })).toHaveLength(0);
-    expect(text).toContain("Educational reference");
+    expect(tree.root.findAllByProps({ testID: "body-metric-educational-bodyFat" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "body-metric-educational-leanTissue" })).toHaveLength(0);
+    expect(tree.root.findByProps({ testID: "body-metric-scaffold-bodyFat" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-scaffold-leanTissue" })).toBeDefined();
+    expect(text).not.toContain("Educational reference");
+    expect(text).not.toContain("Lower adiposity context");
+    expect(text).not.toContain("Mid-range lean-mass context");
     expect(text).toContain("Connected");
     expect(text).toContain("Add measurement");
   });
