@@ -245,3 +245,16 @@ Durable location remains via RFC/ADR process — **not implemented** in this pas
 - Apple Health is transport, not method
 
 **Status of this section:** PROPOSED — do not implement Body Fat or Lean Mass classification ranges until explicit human approval is recorded.
+
+---
+
+## 8. Stage 3B local metric-sync preference (ACCEPTED 2026-09-20)
+
+Narrow amendment accepted by product leadership for Stage 3B only:
+
+- Key: `appleHealth:metricSyncScopes:{uid}`
+- Device-local; UID-keyed; Oli sync scope only (not Apple native permission)
+- OFF stops future sync; does not revoke system access or delete imported data
+- No Firestore path; no backend record
+
+Body Fat / Lean Mass **classification** sections above remain **PROPOSED / NOT IMPLEMENTED**.

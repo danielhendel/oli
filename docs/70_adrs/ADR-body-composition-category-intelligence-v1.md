@@ -1,6 +1,6 @@
 # ADR — Body Composition Category Intelligence v1
 
-**Status:** Accepted (architecture and standards direction; Stage 3B shell authorized; classification runtime not implemented)
+**Status:** Accepted (architecture and standards direction; Stage 3B shell authorized and **implemented on branch**)
 **Date:** 2026-09-18
 **Accepted:** 2026-09-18 — human approval with guardrails
 **Canonical location:** `docs/70_adrs/`
@@ -10,8 +10,9 @@
 **Runtime implemented:** No
 **Schema/persistence authorized:** No
 **Official classification authorized:** No
-**Stage 3B shell authorized:** Yes (value-first educational shell only; separate implementation stage)
-**Stage 3B runtime begun:** No
+**Stage 3B shell authorized:** Yes (value-first shell)
+**Stage 3B runtime:** **COMPLETE on branch** `feat/body-composition-stage3b-value-first-shell` (physical `c962d36ef947e67e03092df9ed8207de17aef9de`, 2026-09-20); Draft PR pending; **not merged**
+**Stage 3C:** **NOT BEGUN**
 
 ---
 
@@ -137,12 +138,12 @@ Stage 3A documented repository truth, evidence, and a proposed architecture. Lea
 
 ## Implementation prerequisites
 
-### For Stage 3B (authorized; not begun here)
+### For Stage 3B (authorized; implemented on branch)
 
-- Separate runtime implementation stage/PR
-- Docs-only acceptance of this ADR/RFC is insufficient to claim 3B complete
-- No schema/persistence/Insights/classification
-- Local `npm run check` on the future 3B PR
+- Runtime complete on `feat/body-composition-stage3b-value-first-shell` (physical PASS)
+- Narrow local preference amendment accepted: `appleHealth:metricSyncScopes:{uid}`
+- No schema/persistence/Insights/Body Fat or Lean Mass classification
+- Draft PR / review-and-merge gate still required before claiming merged
 
 ### For official marker aggregation / rail placement / facts-first trends
 
@@ -155,4 +156,4 @@ Stage 3A documented repository truth, evidence, and a proposed architecture. Lea
 
 ## Status note
 
-This ADR is **Accepted** for architecture, standards direction, and Stage 3B shell authorization as of **2026-09-18**. It does **not** implement Stage 3B runtime and does **not** authorize official Body Composition classification persistence.
+This ADR is **Accepted** for architecture, standards direction, and Stage 3B shell authorization as of **2026-09-18**. Stage 3B runtime is **complete on branch** as of **2026-09-20** (physical `c962d36…`). It does **not** authorize official Body Fat/Lean Mass classification persistence and does **not** begin Stage 3C.

@@ -56,7 +56,7 @@ These do **not** block Stage 3B shell. They **do** block official marker aggrega
 
 ## Runtime status
 
-Stage 3B: **AUTHORIZED — NOT STARTED.**
+Stage 3B: **AUTHORIZED — COMPLETE on branch** (physical `c962d36…`, 2026-09-20; Draft PR pending; not merged). See `docs/90_audits/2026-09-20-stage3b-body-composition-value-first-shell-completion.md`.
 No staging or production deploy.
 
 ## Next action
