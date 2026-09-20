@@ -303,7 +303,7 @@ describe("Body Composition simplified main screen", () => {
     expect(text).not.toContain("Population, method, and evidence");
   });
 
-  it("shows populated values with CDC/WHO Weight chart and composition-share BF/Lean graphs", () => {
+  it("shows populated values with CDC/WHO Weight chart, Gallagher BF ranges, Lean share graph", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -317,16 +317,19 @@ describe("Body Composition simplified main screen", () => {
     expect(text).toContain("Healthy Weight");
     expect(text).toContain("Overweight");
     expect(text).toContain("Obesity");
+    expect(text).toContain("Lower");
+    expect(text).toContain("Mid-range");
+    expect(text).toContain("Higher");
     expect(text).not.toContain("BMI SCREENING");
     expect(text).not.toContain("cdc-who-adult-bmi-screening");
     expect(text).not.toContain("No measurement yet");
     expect(text).not.toMatch(/\bBelow\b|\bAbove\b/);
     expect(tree.root.findByProps({ testID: "body-metric-chart-weight" })).toBeDefined();
-    expect(tree.root.findAllByProps({ testID: "body-metric-chart-bodyFat" })).toHaveLength(0);
+    expect(tree.root.findByProps({ testID: "body-metric-chart-bodyFat" })).toBeDefined();
     expect(tree.root.findAllByProps({ testID: "body-metric-chart-leanTissue" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-educational-bodyFat" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-educational-leanTissue" })).toHaveLength(0);
-    expect(tree.root.findByProps({ testID: "body-metric-share-bodyFat" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-share-bodyFat" })).toHaveLength(0);
     expect(tree.root.findByProps({ testID: "body-metric-share-leanTissue" })).toBeDefined();
     expect(tree.root.findAllByProps({ testID: "body-metric-scaffold-bodyFat" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-scaffold-leanTissue" })).toHaveLength(0);
@@ -334,6 +337,7 @@ describe("Body Composition simplified main screen", () => {
     expect(text).not.toContain("Educational reference");
     expect(text).not.toContain("Lower adiposity context");
     expect(text).not.toContain("Mid-range lean-mass context");
+    expect(text).not.toMatch(/Essential|Athletic|Optimal|Excellence/i);
     expect(text).toContain("Connected");
     expect(text).toContain("Add measurement");
   });

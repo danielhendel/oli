@@ -164,7 +164,7 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     expect(weight.classificationChart!.marker).not.toBeNull();
   });
 
-  it("shows Body Fat composition-share graph without classification essays", () => {
+  it("shows Body Fat Gallagher numerical screening ranges without personal marker", () => {
     const [, bodyFat] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -179,19 +179,26 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     });
     expect(bodyFat.formattedValue).toBe("18.0%");
     expect(bodyFat.displayValue).toBe("18.0");
-    expect(bodyFat.classificationChart).toBeNull();
+    expect(bodyFat.compositionShareGraph).toBeNull();
     expect(bodyFat.educationalReferenceChart).toBeNull();
-    expect(bodyFat.compositionShareGraph).not.toBeNull();
-    expect(bodyFat.compositionShareGraph!.kind).toBe("composition_share");
-    expect(bodyFat.compositionShareGraph!.personalClassification).toBeNull();
-    expect(bodyFat.compositionShareGraph!.target).toBeNull();
-    expect(bodyFat.compositionShareGraph!.caption).toBe("Share of total mass");
-    expect(bodyFat.compositionShareGraph!.normalizedPosition).toBeCloseTo(0.18, 5);
+    expect(bodyFat.classificationChart).not.toBeNull();
+    expect(bodyFat.classificationChart!.segments.map((s) => s.label)).toEqual([
+      "Lower",
+      "Mid-range",
+      "Higher",
+    ]);
+    expect(bodyFat.classificationChart!.segments.map((s) => s.formattedRange)).toEqual([
+      "<21%",
+      "21–<33%",
+      "≥33%",
+    ]);
+    expect(bodyFat.classificationChart!.marker).toBeNull();
     expect(bodyFat.showUnclassifiedScaffold).toBe(false);
-    expect(bodyFat.referenceBar).toBeNull();
-    expect(bodyFat.referenceContextLabel).toBeNull();
+    expect(bodyFat.referenceBar).not.toBeNull();
+    expect(bodyFat.referenceContextLabel).toBe("Screening reference");
     expect(bodyFat.accessibilityLabel).not.toMatch(/Educational reference/i);
-    expect(bodyFat.accessibilityLabel).toMatch(/Share of total mass|quantity/i);
+    expect(bodyFat.accessibilityLabel).toMatch(/screening reference/i);
+    expect(bodyFat.accessibilityLabel).not.toMatch(/Essential|Athletic|Optimal|Excellence/i);
   });
 
   it("shows Lean Mass composition-share graph without ASM/ALMI claims", () => {

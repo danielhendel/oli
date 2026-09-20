@@ -38,8 +38,9 @@ describe("BodyMetricEducationalReferenceChart", () => {
     const text = collectText(tree);
     expect(text).toMatch(/Educational reference/i);
     expect(text).toMatch(/Body fat percentage/i);
-    expect(text).toMatch(/Higher adiposity context/i);
-    expect(text).toMatch(/Mid-range adiposity context/i);
+    expect(text).toMatch(/\bHigher\b/);
+    expect(text).toMatch(/Mid-range/);
+    expect(text).toMatch(/\bLower\b/);
     expect(text).not.toMatch(/\bTypical\b/);
     expect(text).not.toMatch(/You are here|Optimal|Excellence|Elite|Underfat|Healthy|Athletic/i);
     expect(tree.root.findAllByProps({ testID: "body-metric-classification-marker" })).toHaveLength(0);

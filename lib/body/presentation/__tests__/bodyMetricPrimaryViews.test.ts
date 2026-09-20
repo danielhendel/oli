@@ -283,7 +283,7 @@ describe("Body Fat and Lean Mass display views", () => {
   };
   const profile = { heightCm: 170, ageYears: 30, sex: "male" as const };
 
-  it("Body Fat fat-mass view uses snapshot-day pairing and marks calculated", () => {
+  it("Body Fat fat-mass view uses snapshot-day pairing and updates numerical ranges", () => {
     const [, bodyFat] = buildBodyMetricSummaryCards({ overview, profile, unit: "lb" });
     const fatMass = applyBodyFatPrimaryView({
       card: bodyFat,
@@ -295,16 +295,23 @@ describe("Body Fat and Lean Mass display views", () => {
         leanBodyMassKg: 60,
         overviewDay: "2026-03-31",
       },
+      ageYears: profile.ageYears,
+      sex: profile.sex,
     });
     expect(fatMass.displayValue).not.toBeNull();
     expect(fatMass.formattedValue).toBe(formatBodyWeight(16, "lb"));
-    expect(fatMass.compositionShareGraph!.normalizedPosition).toBeCloseTo(0.2, 5);
-    expect(fatMass.compositionShareGraph!.valueLabel).toBe(formatBodyWeight(16, "lb"));
-    expect(fatMass.accessibilityLabel).toMatch(/Share of total mass|quantity/i);
+    expect(fatMass.compositionShareGraph).toBeNull();
+    expect(fatMass.classificationChart).not.toBeNull();
+    expect(fatMass.classificationChart!.segments.map((s) => s.label)).toEqual([
+      "Lower",
+      "Mid-range",
+      "Higher",
+    ]);
+    expect(fatMass.classificationChart!.marker).toBeNull();
+    expect(fatMass.accessibilityLabel).toMatch(/screening reference/i);
     expect(fatMass.accessibilityLabel).not.toMatch(/Essential|Athletic|Fitness|Average/i);
-    expect(bodyFat.classificationChart).toBeNull();
-    expect(bodyFat.compositionShareGraph).not.toBeNull();
-    expect(bodyFat.compositionShareGraph!.personalClassification).toBeNull();
+    expect(bodyFat.classificationChart).not.toBeNull();
+    expect(bodyFat.compositionShareGraph).toBeNull();
     expect(bodyFat.showUnclassifiedScaffold).toBe(false);
   });
 
@@ -319,6 +326,8 @@ describe("Body Fat and Lean Mass display views", () => {
         bodyFatPercent: 20,
         leanBodyMassKg: 60,
       },
+      ageYears: profile.ageYears,
+      sex: profile.sex,
     });
     expect(fatMass.displayValue).toBeNull();
     expect(fatMass.accessibilityLabel).toMatch(/compatible Weight/i);
