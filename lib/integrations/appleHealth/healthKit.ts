@@ -20,6 +20,7 @@ import {
   shouldEnableWorkoutPhysiologyV1,
   type WorkoutPhysiologyEnrichmentBlock,
 } from "./enrichWorkoutPhysiologyForIngest";
+import { APPLE_HEALTH_BODY_READ_TYPES, buildAppleHealthConnectAllReadTypes } from "./appleHealthDomainRegistry";
 
 /**
  * react-native-health parses dates with NSDateFormatter `yyyy-MM-dd'T'HH:mm:ss.SSSZ`.
@@ -236,20 +237,21 @@ function promiseFromInit(cb: (resolve: (r: HealthKitPermissionResult) => void, r
   });
 }
 
-/** W1 read permissions: steps, workouts, resting heart rate, apple exercise time, active energy. Write: none. */
-const W1_READ_PERMISSIONS: HealthPermission[] = [
-  "StepCount",
-  "Workout",
-  "RestingHeartRate",
-  "HeartRate",
-  "DistanceWalkingRunning",
-  "AppleExerciseTime",
-  "ActiveEnergyBurned",
-  "BodyMass",
-  "BodyFatPercentage",
-  "BodyMassIndex",
-  "LeanBodyMass",
-  "BasalEnergyBurned",
+/**
+ * Settings / onboarding "Connect all supported data" — typed union from the domain registry.
+ * Implemented domains only; excludes speculative future types and Body BMI/basal extras.
+ */
+const CONNECT_ALL_READ_PERMISSIONS: HealthPermission[] = [
+  ...buildAppleHealthConnectAllReadTypes(),
+];
+
+/**
+ * Body Composition card connect scope — Weight, Body Fat %, Lean Body Mass only.
+ * Does not request Steps, Workouts, Sleep, HRV, or other W1 activity domains.
+ * Identifiers come from {@link APPLE_HEALTH_BODY_READ_TYPES} in the domain registry.
+ */
+export const BODY_COMPOSITION_CONNECT_READ_PERMISSIONS: HealthPermission[] = [
+  ...APPLE_HEALTH_BODY_READ_TYPES,
 ];
 
 export type AppleHealthBodyWeightSample = {
@@ -432,11 +434,21 @@ export async function pullBodyCompositionSamples(opts: {
   startDate: string;
   endDate: string;
   limit?: number;
+  /** Oli sync-scope gates — omit or true to include. False skips HealthKit query + merge. */
+  include?: {
+    weight?: boolean;
+    bodyFat?: boolean;
+    leanTissue?: boolean;
+  };
 }): Promise<{ ok: true; data: AppleHealthBodyWeightSample[] } | { ok: false; error: string }> {
   const HK = await getHealthKit();
   if (!HK) {
     return { ok: false, error: "HealthKit is not available (e.g. not iOS or native module not linked)." };
   }
+
+  const includeWeight = opts.include?.weight !== false;
+  const includeBodyFat = opts.include?.bodyFat !== false;
+  const includeLean = opts.include?.leanTissue !== false;
 
   const windowOpts: HealthInputOptions = {
     startDate: opts.startDate,
@@ -446,11 +458,21 @@ export async function pullBodyCompositionSamples(opts: {
   };
   const massKgQuery = buildAppleHealthBodyMassSampleQueryOptions(opts);
 
+  const emptyOk = { ok: true as const, data: [] as HealthValue[] };
   const [w, bf, bmiR, leanR, basalR] = await Promise.all([
-    pHealthValueArrayResult(HK.getWeightSamples, massKgQuery, "BodyMass"),
-    pHealthValueArrayResult(HK.getBodyFatPercentageSamples, windowOpts, "BodyFatPercentage"),
-    pHealthValueArrayResult(HK.getBmiSamples, windowOpts, "BodyMassIndex"),
-    pHealthValueArrayResult(HK.getLeanBodyMassSamples, massKgQuery, "LeanBodyMass"),
+    includeWeight
+      ? pHealthValueArrayResult(HK.getWeightSamples, massKgQuery, "BodyMass")
+      : Promise.resolve(emptyOk),
+    includeBodyFat
+      ? pHealthValueArrayResult(HK.getBodyFatPercentageSamples, windowOpts, "BodyFatPercentage")
+      : Promise.resolve(emptyOk),
+    // BMI remains an internal companion query when weight scope is on (not a consumer toggle).
+    includeWeight
+      ? pHealthValueArrayResult(HK.getBmiSamples, windowOpts, "BodyMassIndex")
+      : Promise.resolve(emptyOk),
+    includeLean
+      ? pHealthValueArrayResult(HK.getLeanBodyMassSamples, massKgQuery, "LeanBodyMass")
+      : Promise.resolve(emptyOk),
     pHealthValueArrayResult(HK.getBasalEnergyBurned, windowOpts, "BasalEnergyBurned"),
   ]);
 
@@ -553,10 +575,37 @@ export async function getBodyCompositionReadAuthStatus(): Promise<BodyCompositio
 }
 
 /**
- * Request HealthKit read permissions (includes BodyMass, body fat, BMI, lean mass, basal energy for Body).
- * Call before body sync/backfill so queries are authorized. Write: none.
+ * Request HealthKit read permissions for Connect all supported data (Settings / onboarding).
+ * Typed union from the domain registry. Write: none.
  */
 export async function requestPermissions(): Promise<HealthKitPermissionResult> {
+  return requestHealthKitReadPermissions(CONNECT_ALL_READ_PERMISSIONS);
+}
+
+/**
+ * Body Composition sheet — request only approved Body read types.
+ * Does not prompt for Steps, Workouts, Sleep, or other W1 domains.
+ */
+export async function requestBodyCompositionPermissions(): Promise<HealthKitPermissionResult> {
+  return requestHealthKitReadPermissions(BODY_COMPOSITION_CONNECT_READ_PERMISSIONS);
+}
+
+/**
+ * Request HealthKit read for an explicit typed permission set (metric-scoped connect).
+ * Callers must pass registry-derived identifiers — never invent strings in UI.
+ */
+export async function requestAppleHealthReadPermissions(
+  read: readonly HealthPermission[],
+): Promise<HealthKitPermissionResult> {
+  if (!read.length) {
+    return { ok: false, error: "No HealthKit read types requested." };
+  }
+  return requestHealthKitReadPermissions(read);
+}
+
+async function requestHealthKitReadPermissions(
+  read: readonly HealthPermission[],
+): Promise<HealthKitPermissionResult> {
   const HK = await getHealthKit();
   if (!HK) {
     return { ok: false, error: "HealthKit is not available (e.g. not iOS or native module not linked)." };
@@ -564,8 +613,6 @@ export async function requestPermissions(): Promise<HealthKitPermissionResult> {
 
   return promiseFromInit((resolve) => {
     HK.isAvailable((err: unknown, available: boolean) => {
-      if (err) console.log("[AH] isAvailable error", String(err));
-      console.log("[AH] isAvailable available", available);
       if (err || !available) {
         resolve({ ok: false, error: err != null ? String(err) : "HealthKit is not available on this device." });
         return;
@@ -573,7 +620,7 @@ export async function requestPermissions(): Promise<HealthKitPermissionResult> {
       HK.initHealthKit(
         {
           permissions: {
-            read: W1_READ_PERMISSIONS,
+            read: [...read],
             write: [],
           },
         },

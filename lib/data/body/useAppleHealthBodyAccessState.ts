@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Linking, Platform } from "react-native";
 import {
   getBodyCompositionReadAuthStatus,
-  requestPermissions,
+  requestBodyCompositionPermissions,
 } from "@/lib/integrations/appleHealth";
 import { getAppleHealthConnected } from "@/lib/integrations/appleHealth/storage";
 import type { WeightSeriesViewModel } from "@/lib/data/useWeightSeries";
@@ -84,11 +84,11 @@ export function useAppleHealthBodyAccessState(opts: {
       await refreshAuth();
       return;
     }
-    const perm = await requestPermissions();
-    await refreshAuth();
-    if (perm.ok) {
-      await opts.syncAppleHealthBodyNow();
-    }
+  const perm = await requestBodyCompositionPermissions();
+  await refreshAuth();
+  if (perm.ok) {
+    await opts.syncAppleHealthBodyNow();
+  }
   }, [refreshAuth, opts.syncAppleHealthBodyNow]);
 
   const onOpenAppSettings = useCallback(() => {

@@ -19,10 +19,11 @@ import {
 import {
   getAppleHealthConnected,
   getAppleHealthNotAvailable,
+  enableAllImplementedAppleHealthDomains,
   setAppleHealthBodyLastCheckedAt,
-  setAppleHealthConnected,
   setLastSyncAt,
 } from "@/lib/integrations/appleHealth/storage";
+import { enableAllAppleHealthMetricSyncScopes } from "@/lib/integrations/appleHealth/appleHealthMetricSyncController";
 import { nowIso } from "@/lib/sync/throttle";
 
 const DAYS_BACK = 45;
@@ -66,8 +67,11 @@ export async function connectAppleHealthForOnboarding(args: {
     return { ok: false, reason: "permission_denied" };
   }
 
-  // Explicit connect: mark account-connected only after permission grant.
-  await setAppleHealthConnected(true).catch(() => undefined);
+  // Explicit connect: mark account-connected + all implemented domains (W1 / Connect all path).
+  await enableAllImplementedAppleHealthDomains().catch(() => undefined);
+  if (args.userUid) {
+    await enableAllAppleHealthMetricSyncScopes(args.userUid).catch(() => undefined);
+  }
 
   const token = await args.getIdToken(false);
   if (!token) {

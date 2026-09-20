@@ -36,11 +36,11 @@ export function BodyAppleHealthPermissionCard(props: BodyAppleHealthPermissionCa
 
   if (props.variant === "connect") {
     return (
-      <View style={styles.card}>
-        <Text style={styles.title}>Connect Apple Health for Body data</Text>
+      <View style={styles.card} testID="body-apple-health-permission-card">
+        <Text style={styles.title}>Connect Apple Health</Text>
         <Text style={styles.body}>
-          Oli reads Weight, Body Fat, BMI, Lean Body Mass, and resting energy (RMR) from Apple Health. Allow access so your
-          Today summary, trends, and history can stay up to date.
+          Apple Health can transport Body measurements from manual entry, scales, or other apps. The underlying measurement
+          method may not always be available. Allow access only when you are ready.
         </Text>
         <Pressable
           style={styles.primaryBtn}
@@ -48,18 +48,19 @@ export function BodyAppleHealthPermissionCard(props: BodyAppleHealthPermissionCa
           accessibilityRole="button"
           accessibilityLabel="Allow Apple Health access for body data"
         >
-          <Text style={styles.primaryBtnText}>Allow Apple Health Access</Text>
+          <Text style={styles.primaryBtnText}>Connect Apple Health</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>Apple Health access is off</Text>
+    <View style={styles.card} testID="body-apple-health-permission-card">
+      <Text style={styles.title}>Review Apple Health access</Text>
       <Text style={styles.body}>
-        Body Composition can’t read your measurements while access is turned off. You can enable it in Settings for this app,
-        or open the Health app → Sharing → Apps → Oli and turn on the body metrics you want to share.
+        Apple Health access is turned off for Body measurements. Enable it in Settings for this app, or open the Health app →
+        Sharing → Apps → Oli and turn on the body metrics you want to share. Apple Health is a transport layer, not a
+        measurement method.
       </Text>
       <Pressable
         style={styles.primaryBtn}
@@ -67,7 +68,7 @@ export function BodyAppleHealthPermissionCard(props: BodyAppleHealthPermissionCa
         accessibilityRole="button"
         accessibilityLabel="Open Settings to enable Apple Health access"
       >
-        <Text style={styles.primaryBtnText}>Open Settings</Text>
+        <Text style={styles.primaryBtnText}>Review Apple Health access</Text>
       </Pressable>
     </View>
   );

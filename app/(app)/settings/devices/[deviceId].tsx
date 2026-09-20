@@ -9,14 +9,9 @@ import * as WebBrowser from "expo-web-browser";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useOuraPresence } from "@/lib/data/useOuraPresence";
-import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBackfill";
-import { useAppleHealthStepsBackfill } from "@/lib/data/activity/useAppleHealthStepsBackfill";
 import { deriveOuraImportState } from "@/lib/integrations/oura/importState";
 import { getOuraConnectUrl, postOuraRevoke } from "@/lib/api/oura";
-import { getAppleHealthStatus } from "@/lib/api/appleHealth";
-import { resolveAppleHealthDeviceConnected } from "@/lib/integrations/appleHealth/resolveAppleHealthDeviceConnected";
-import { connectAppleHealthForOnboarding } from "@/lib/onboarding/appleHealthOnboardingConnect";
-import { getAppleHealthConnected } from "@/lib/integrations/appleHealth/storage";
+import { AppleHealthAccessSummaryScreen } from "@/lib/ui/settings/AppleHealthAccessSummaryScreen";
 
 const OURA_AUTHORIZE_PREFIX = "https://cloud.ouraring.com/oauth/authorize";
 
@@ -30,22 +25,14 @@ function getOuraReturnUrl(): string {
 
 type DeviceId = "apple_health" | "oura";
 
-type AppleHealthStatus = "loading" | "connected" | "not_connected" | "error";
-
 function DeviceDetailScreen() {
   const { deviceId } = useLocalSearchParams<{ deviceId: string }>();
   const navigation = useNavigation();
-  const { user, getIdToken } = useAuth();
+  const { getIdToken } = useAuth();
   const ouraPresence = useOuraPresence();
-
-  const [appleStatus, setAppleStatus] = useState<AppleHealthStatus>("loading");
-  const [appleLastSyncAt, setAppleLastSyncAt] = useState<string | null>(null);
 
   const [ouraConnecting, setOuraConnecting] = useState(false);
   const [ouraRevoking, setOuraRevoking] = useState(false);
-  const [appleConnecting, setAppleConnecting] = useState(false);
-  const bodyBackfill = useAppleHealthBodyBackfill();
-  const stepsBackfill = useAppleHealthStepsBackfill();
 
   const id = (deviceId ?? "") as DeviceId;
   const isAppleHealth = id === "apple_health";
@@ -56,76 +43,6 @@ function DeviceDetailScreen() {
   useEffect(() => {
     navigation.setOptions({ title });
   }, [navigation, title]);
-
-  useEffect(() => {
-    if (!isAppleHealth) return;
-    let cancelled = false;
-    (async () => {
-      if (!user) {
-        setAppleStatus("not_connected");
-        setAppleLastSyncAt(null);
-        return;
-      }
-      try {
-        const token = await getIdToken(false);
-        if (cancelled) return;
-        if (!token) {
-          setAppleStatus("not_connected");
-          setAppleLastSyncAt(null);
-          return;
-        }
-        const res = await getAppleHealthStatus(token, { cacheBust: `devices-detail:${Date.now()}` });
-        if (cancelled) return;
-        if (!res.ok) {
-          setAppleStatus("error");
-          setAppleLastSyncAt(null);
-          return;
-        }
-        const effective = await resolveAppleHealthDeviceConnected(res.json.connected);
-        if (cancelled) return;
-        setAppleStatus(effective ? "connected" : "not_connected");
-        setAppleLastSyncAt(res.json.lastSyncAt);
-      } catch {
-        if (!cancelled) {
-          setAppleStatus("error");
-          setAppleLastSyncAt(null);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isAppleHealth, user, getIdToken]);
-
-  const handleConnectAppleHealth = useCallback(async () => {
-    setAppleConnecting(true);
-    try {
-      const result = await connectAppleHealthForOnboarding({
-        getIdToken,
-        ...(user?.uid ? { userUid: user.uid } : {}),
-      });
-      if (!result.ok) {
-        if (result.reason === "permission_denied") {
-          Alert.alert(
-            "Permission needed",
-            "Allow Health access in Settings to connect Apple Health, then try again.",
-          );
-        } else if (result.reason === "unavailable" || result.reason === "not_ios") {
-          Alert.alert("Unavailable", "Apple Health is not available on this device.");
-        } else {
-          Alert.alert("Connection failed", "Could not connect Apple Health. Try again.");
-        }
-        return;
-      }
-      const connected = await getAppleHealthConnected().catch(() => false);
-      setAppleStatus(connected ? "connected" : "not_connected");
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Something went wrong";
-      Alert.alert("Connection failed", message);
-    } finally {
-      setAppleConnecting(false);
-    }
-  }, [getIdToken, user?.uid]);
 
   const handleConnectOura = useCallback(async () => {
     const token = await getIdToken(true);
@@ -193,7 +110,11 @@ function DeviceDetailScreen() {
     );
   }, [getIdToken, ouraPresence]);
 
-  if (!isAppleHealth && !isOura) {
+  if (isAppleHealth) {
+    return <AppleHealthAccessSummaryScreen />;
+  }
+
+  if (!isOura) {
     return (
       <ModuleScreenShell title="Device" subtitle="Unknown device">
         <View style={styles.body}>
@@ -205,35 +126,16 @@ function DeviceDetailScreen() {
 
   const ouraConnected = ouraPresence.status === "ready" && ouraPresence.data.connected;
   const mainStatus =
-    isOura
-      ? ouraPresence.status === "error"
-        ? "Error"
-        : ouraPresence.status === "ready"
-          ? ouraConnected
-            ? "Connected"
-            : "Not connected"
-          : "Loading…"
-      : appleStatus === "loading"
-        ? "Loading…"
-        : appleStatus === "connected"
+    ouraPresence.status === "error"
+      ? "Error"
+      : ouraPresence.status === "ready"
+        ? ouraConnected
           ? "Connected"
-          : appleStatus === "error"
-            ? "Error"
-            : "Not connected";
-
-  const appleCopy =
-    "Apple Health can provide workouts, steps, activity, HRV, sleep, and Body Composition (weight, body fat, BMI, lean mass, resting energy) from your iPhone and Apple Watch. Grant access in Body or Workouts when prompted; you can change access anytime in the Health app under Sharing → Apps → Oli.";
+          : "Not connected"
+        : "Loading…";
 
   const ouraCopy =
     "Oura can provide sleep and HRV data. When connected and synced, Oli uses Oura for sleep duration and heart rate variability in your record.";
-
-  const metricsForAppleHealth = [
-    "Steps",
-    "Activity minutes",
-    "HRV",
-    "Sleep duration",
-    "Weight & body composition",
-  ];
   const metricsForOura = ["Sleep duration", "HRV"];
 
   return (
@@ -242,269 +144,113 @@ function DeviceDetailScreen() {
         <View style={styles.group}>
           <View style={styles.row}>
             <Text style={styles.rowTitle}>{title}</Text>
-            {isOura ? (
-              <Pressable
-                style={[
-                  styles.togglePill,
-                  ouraConnected ? styles.togglePillOn : styles.togglePillOff,
-                  ouraConnecting || ouraRevoking ? styles.togglePillDisabled : null,
-                ]}
-                disabled={ouraConnecting || ouraRevoking}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  ouraConnected
-                    ? ouraRevoking
-                      ? "Disconnecting Oura…"
-                      : "Turn off Oura"
-                    : ouraConnecting
-                      ? "Connecting Oura…"
-                      : "Turn on Oura"
-                }
-                onPress={ouraConnected ? handleDisconnectOura : handleConnectOura}
-              >
-                <Text
-                  style={[
-                    styles.toggleLabel,
-                    ouraConnected ? styles.toggleLabelOn : styles.toggleLabelOff,
-                  ]}
-                >
-                  {ouraConnected ? "On" : "Off"}
-                </Text>
-              </Pressable>
-            ) : (
-              <Text style={styles.rowStatus}>{mainStatus}</Text>
-            )}
-          </View>
-        </View>
-
-        {isAppleHealth && appleStatus === "not_connected" ? (
-          <View style={styles.group}>
             <Pressable
-              style={[styles.primaryButton, appleConnecting ? styles.primaryButtonDisabled : null]}
-              disabled={appleConnecting}
-              onPress={() => {
-                void handleConnectAppleHealth();
-              }}
+              style={[
+                styles.togglePill,
+                ouraConnected ? styles.togglePillOn : styles.togglePillOff,
+                ouraConnecting || ouraRevoking ? styles.togglePillDisabled : null,
+              ]}
+              disabled={ouraConnecting || ouraRevoking}
               accessibilityRole="button"
-              accessibilityLabel="Connect Apple Health"
+              accessibilityLabel={
+                ouraConnected
+                  ? ouraRevoking
+                    ? "Disconnecting Oura…"
+                    : "Turn off Oura"
+                  : ouraConnecting
+                    ? "Connecting Oura…"
+                    : "Turn on Oura"
+              }
+              onPress={ouraConnected ? handleDisconnectOura : handleConnectOura}
             >
-              <Text style={styles.primaryButtonText}>
-                {appleConnecting ? "Connecting…" : "Connect Apple Health"}
+              <Text
+                style={[
+                  styles.toggleLabel,
+                  ouraConnected ? styles.toggleLabelOn : styles.toggleLabelOff,
+                ]}
+              >
+                {ouraConnected ? "On" : "Off"}
               </Text>
             </Pressable>
-            <Text style={styles.description}>
-              Connecting grants Health access and starts sync. Device permission alone does not connect
-              your account.
-            </Text>
           </View>
-        ) : null}
+          <Text style={styles.rowStatus}>{mainStatus}</Text>
+        </View>
 
         <View style={styles.body}>
-          <Text style={styles.description}>
-            {isOura ? ouraCopy : appleCopy}
-          </Text>
+          <Text style={styles.description}>{ouraCopy}</Text>
         </View>
 
         <View style={styles.group}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Metrics this device provides</Text>
           </View>
-          {(isOura ? metricsForOura : metricsForAppleHealth).map((m) => (
+          {metricsForOura.map((m) => (
             <View key={m} style={styles.metricRow}>
               <Text style={styles.metricText}>{m}</Text>
             </View>
           ))}
         </View>
 
-        {(isAppleHealth && appleLastSyncAt) ||
-        (isOura &&
-          ouraPresence.status === "ready" &&
-          (ouraPresence.data.lastRefreshAt ?? ouraPresence.data.lastSyncAt)) ? (
+        {ouraPresence.status === "ready" &&
+        (ouraPresence.data.lastRefreshAt ?? ouraPresence.data.lastSyncAt) ? (
           <View style={styles.group}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Sync status</Text>
             </View>
-            {isAppleHealth && appleLastSyncAt ? (
-              <View style={styles.metricRow}>
-                <Text style={styles.metricText}>
-                  Last new Apple Health data: {new Date(appleLastSyncAt).toLocaleString()}
-                </Text>
-              </View>
-            ) : isOura && ouraPresence.status === "ready" ? (
-              <>
-                <View style={styles.metricRow}>
-                  <Text style={styles.metricText}>
-                    Last refresh:{" "}
-                    {new Date(
-                      ouraPresence.data.lastRefreshAt ?? ouraPresence.data.lastSyncAt ?? "",
-                    ).toLocaleString()}
-                  </Text>
-                </View>
-                {ouraPresence.data.lastSnapshotAt ? (
-                  <View style={styles.metricRow}>
-                    <Text style={styles.metricText}>
-                      Last sleep/readiness data:{" "}
-                      {new Date(ouraPresence.data.lastSnapshotAt).toLocaleString()}
-                    </Text>
-                  </View>
-                ) : ouraPresence.data.connected ? (
-                  (() => {
-                    const importState = deriveOuraImportState({
-                      connected: ouraPresence.data.connected,
-                      lastSnapshotAt: ouraPresence.data.lastSnapshotAt,
-                      backfillStatus: ouraPresence.data.backfillStatus,
-                    });
-                    if (importState === "running") {
-                      return (
-                        <View style={styles.metricRow}>
-                          <Text style={styles.metricText}>Importing Oura history…</Text>
-                        </View>
-                      );
-                    }
-                    if (importState === "failed") {
-                      return (
-                        <View style={styles.metricRow}>
-                          <Text style={styles.metricText}>
-                            Oura import failed. Pull to refresh and try again.
-                          </Text>
-                        </View>
-                      );
-                    }
-                    if (importState === "connected_no_data") {
-                      const completedNoSnapshot =
-                        ouraPresence.data.backfillStatus === "completed" && !ouraPresence.data.lastSnapshotAt;
-                      return (
-                        <View style={styles.metricRow}>
-                          <Text style={styles.metricText}>
-                            {completedNoSnapshot
-                              ? "Connected, but no usable sleep/readiness data was imported."
-                              : "Waiting for Oura data import."}
-                          </Text>
-                        </View>
-                      );
-                    }
-                    return null;
-                  })()
-                ) : null}
-              </>
-            ) : null}
-          </View>
-        ) : null}
-
-        {isAppleHealth ? (
-          <View style={styles.group}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Body history backfill</Text>
-            </View>
-            <Pressable
-              style={[
-                styles.primaryButton,
-                bodyBackfill.state.status === "running" ? styles.primaryButtonDisabled : null,
-              ]}
-              disabled={bodyBackfill.state.status === "running"}
-              onPress={() => {
-                void bodyBackfill.start();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Backfill Apple Health body history"
-            >
-              <Text style={styles.primaryButtonText}>
-                {bodyBackfill.state.status === "running"
-                  ? "Backfilling…"
-                  : "Backfill Apple Health history"}
+            <View style={styles.metricRow}>
+              <Text style={styles.metricText}>
+                Last refresh:{" "}
+                {new Date(
+                  ouraPresence.data.lastRefreshAt ?? ouraPresence.data.lastSyncAt ?? "",
+                ).toLocaleString()}
               </Text>
-            </Pressable>
-            {bodyBackfill.state.summary ? (
-              <View style={styles.metricRow}>
-                <Text style={styles.metricText}>
-                  Chunks: {bodyBackfill.state.summary.chunkCount} • Read: {bodyBackfill.state.summary.samplesRead} • Ingested: {bodyBackfill.state.summary.samplesIngested}
-                </Text>
-              </View>
-            ) : null}
-            {bodyBackfill.state.status === "completed" ? (
-              <View style={styles.metricRow}>
-                <Text style={styles.metricText}>Backfill complete.</Text>
-              </View>
-            ) : null}
-            {bodyBackfill.state.message ? (
-              <View style={styles.metricRow}>
-                <Text style={styles.metricText}>Error: {bodyBackfill.state.message}</Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        {isAppleHealth ? (
-          <View style={styles.group}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Activity history backfill</Text>
             </View>
-            <Text style={styles.description}>
-              Steps history repairs automatically after Apple Health connects, after workout sync, and when Activity
-              detects missing days—same ingest pipeline as manual backfill. Re-running is safe and idempotent.
-            </Text>
-            {stepsBackfill.state.summary?.completedAt && stepsBackfill.state.summary.daysTotal != null ? (
+            {ouraPresence.data.lastSnapshotAt ? (
               <View style={styles.metricRow}>
                 <Text style={styles.metricText}>
-                  Last repair: {new Date(stepsBackfill.state.summary.completedAt).toLocaleString()}
-                  {stepsBackfill.state.lastTriggerSource
-                    ? ` · ${stepsBackfill.state.lastTriggerSource === "manual" ? "Manual" : stepsBackfill.state.lastTriggerSource === "sync" ? "After sync" : stepsBackfill.state.lastTriggerSource === "connection" ? "After connect" : "Activity check"}`
-                    : ""}
+                  Last sleep/readiness data:{" "}
+                  {new Date(ouraPresence.data.lastSnapshotAt).toLocaleString()}
                 </Text>
               </View>
-            ) : null}
-            {stepsBackfill.state.windowStartDay && stepsBackfill.state.windowEndDay ? (
-              <View style={styles.metricRow}>
-                <Text style={styles.metricText}>
-                  Window: {stepsBackfill.state.windowStartDay} – {stepsBackfill.state.windowEndDay}
-                </Text>
-              </View>
-            ) : null}
-            <Pressable
-              style={[
-                styles.primaryButton,
-                stepsBackfill.state.status === "running" ? styles.primaryButtonDisabled : null,
-              ]}
-              disabled={stepsBackfill.state.status === "running"}
-              onPress={() => {
-                void stepsBackfill.start();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Backfill steps history from Apple Health"
-            >
-              <Text style={styles.primaryButtonText}>
-                {stepsBackfill.state.status === "running" ? "Backfilling steps…" : "Backfill Steps History"}
-              </Text>
-            </Pressable>
-            {stepsBackfill.state.summary ? (
-              <View style={styles.metricRow}>
-                <Text style={styles.metricText}>
-                  Processed {stepsBackfill.state.summary.daysProcessed}/{stepsBackfill.state.summary.daysTotal} •
-                  Ingested {stepsBackfill.state.summary.daysIngested} • Empty (HealthKit){" "}
-                  {stepsBackfill.state.summary.daysSkippedNoData}
-                  {typeof stepsBackfill.state.summary.daysFailed === "number" &&
-                  stepsBackfill.state.summary.daysFailed > 0
-                    ? ` • Failed ${stepsBackfill.state.summary.daysFailed}`
-                    : ""}
-                </Text>
-              </View>
-            ) : null}
-            {stepsBackfill.state.summary?.lastSuccessfulDay ? (
-              <View style={styles.metricRow}>
-                <Text style={styles.metricText}>
-                  Last successful day: {stepsBackfill.state.summary.lastSuccessfulDay}
-                </Text>
-              </View>
-            ) : null}
-            {stepsBackfill.state.status === "completed" ? (
-              <View style={styles.metricRow}>
-                <Text style={styles.metricText}>Steps backfill finished.</Text>
-              </View>
-            ) : null}
-            {stepsBackfill.state.message ? (
-              <View style={styles.metricRow}>
-                <Text style={styles.metricText}>Error: {stepsBackfill.state.message}</Text>
-              </View>
+            ) : ouraPresence.data.connected ? (
+              (() => {
+                const importState = deriveOuraImportState({
+                  connected: ouraPresence.data.connected,
+                  lastSnapshotAt: ouraPresence.data.lastSnapshotAt,
+                  backfillStatus: ouraPresence.data.backfillStatus,
+                });
+                if (importState === "running") {
+                  return (
+                    <View style={styles.metricRow}>
+                      <Text style={styles.metricText}>Importing Oura history…</Text>
+                    </View>
+                  );
+                }
+                if (importState === "failed") {
+                  return (
+                    <View style={styles.metricRow}>
+                      <Text style={styles.metricText}>
+                        Oura import failed. Pull to refresh and try again.
+                      </Text>
+                    </View>
+                  );
+                }
+                if (importState === "connected_no_data") {
+                  const completedNoSnapshot =
+                    ouraPresence.data.backfillStatus === "completed" &&
+                    !ouraPresence.data.lastSnapshotAt;
+                  return (
+                    <View style={styles.metricRow}>
+                      <Text style={styles.metricText}>
+                        {completedNoSnapshot
+                          ? "Connected, but no usable sleep/readiness data was imported."
+                          : "Waiting for Oura data import."}
+                      </Text>
+                    </View>
+                  );
+                }
+                return null;
+              })()
             ) : null}
           </View>
         ) : null}
@@ -569,38 +315,6 @@ const styles = StyleSheet.create({
   toggleLabelOff: {
     color: "#3C3C43",
   },
-  primaryButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: "#007AFF",
-    borderRadius: 10,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.7,
-  },
-  primaryButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  secondaryButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: "transparent",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#8E8E93",
-  },
-  secondaryButtonDisabled: {
-    opacity: 0.7,
-  },
-  secondaryButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#3C3C43",
-  },
   body: {
     paddingHorizontal: 4,
   },
@@ -628,4 +342,3 @@ const styles = StyleSheet.create({
 });
 
 export default DeviceDetailScreen;
-

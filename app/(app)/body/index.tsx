@@ -1,27 +1,46 @@
-import React, { useEffect } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { HeaderControls } from "@/lib/ui/HeaderControls";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
-import { ErrorState } from "@/lib/ui/ScreenStates";
 import { BodyWeeklyStrip } from "@/lib/ui/body/BodyWeeklyStrip";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
-import { SYSTEM_ACCENT_OVERLAY_10 } from "@/lib/ui/theme/systemAccent";
-import { BodyAppleHealthPermissionCard } from "@/lib/ui/body/BodyAppleHealthPermissionCard";
-import { BodyTodayCard } from "@/lib/ui/body/BodyTodayCard";
-import { BodyWeeklyWeightCard } from "@/lib/ui/body/BodyWeeklyWeightCard";
-import { BodyWeightBaselineDeltaCard } from "@/lib/ui/body/BodyWeightBaselineDeltaCard";
-import { BodyYearlyWeightCard } from "@/lib/ui/body/BodyYearlyWeightCard";
+import {
+  BODY_APPLE_HEALTH_SETTINGS_HREF,
+  BodyAppleHealthConnectSheet,
+} from "@/lib/ui/body/BodyAppleHealthConnectSheet";
+import { BodyCompositionSummaryScreen } from "@/lib/ui/body/BodyCompositionSummaryScreen";
+import { WeightLogModal } from "@/lib/ui/WeightLogModal";
 import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
 import { useAppleHealthBodyAccessState } from "@/lib/data/body/useAppleHealthBodyAccessState";
 import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBackfill";
-import { useBodyWeightTrendCards } from "@/lib/data/body/useBodyWeightTrendCards";
+import { useAppleHealthBodyConnectSheet } from "@/lib/data/body/useAppleHealthBodyConnectSheet";
 import { BODY_COMPOSITION_METRIC_DETAIL_ROUTES } from "@/lib/data/body/bodyCompositionMetricRoutes";
+import {
+  applyBodyFatPrimaryView,
+  applyLeanMassPrimaryView,
+  applyWeightPrimaryView,
+} from "@/lib/body/presentation/applyBodyMetricPrimaryView";
+import {
+  BODY_COMPOSITION_SUMMARY_COPY,
+  buildBodyMetricSummaryCards,
+} from "@/lib/body/presentation/buildBodyMetricSummaryCards";
+import {
+  DEFAULT_BODY_PRIMARY_VIEW_STATE,
+  type BodyFatPrimaryView,
+  type LeanMassPrimaryView,
+  type WeightPrimaryView,
+} from "@/lib/body/presentation/bodyMetricPrimaryViews";
+import { ageYearsFromProfileDateOfBirth } from "@/lib/body/bodyCompositionShared";
+import {
+  resolveUserProfileMainForInterpretation,
+} from "@/lib/data/body/useBodyCompositionInterpretation";
+import { useUserProfileMain } from "@/lib/data/profile/useUserProfileMain";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
-import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import { UI_SCREEN_BG, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 /** @internal — tests assert on these hrefs */
 export const BODY_METRIC_DETAIL_HREFS = BODY_COMPOSITION_METRIC_DETAIL_ROUTES;
@@ -38,7 +57,22 @@ export default function BodyOverviewScreen() {
   const navigation = useNavigation();
   const { state: prefState } = usePreferences();
   const unit = prefState.preferences?.units?.mass ?? "lb";
+  const { state: profileState } = useUserProfileMain();
+  const profileMain = useMemo(
+    () => resolveUserProfileMainForInterpretation(profileState),
+    [profileState],
+  );
   const body = useBodyOverviewData();
+  const [weightLogVisible, setWeightLogVisible] = useState(false);
+  const [weightPrimaryView, setWeightPrimaryView] = useState<WeightPrimaryView>(
+    DEFAULT_BODY_PRIMARY_VIEW_STATE.weight,
+  );
+  const [bodyFatPrimaryView, setBodyFatPrimaryView] = useState<BodyFatPrimaryView>(
+    DEFAULT_BODY_PRIMARY_VIEW_STATE.bodyFat,
+  );
+  const [leanMassPrimaryView, setLeanMassPrimaryView] = useState<LeanMassPrimaryView>(
+    DEFAULT_BODY_PRIMARY_VIEW_STATE.leanMass,
+  );
   const bodyBackfill = useAppleHealthBodyBackfill(() => {
     void body.series.refetch({ cacheBust: `bodyBackfill:${Date.now()}` });
     void body.peek.refetch({ cacheBust: `bodyBackfillPeek:${Date.now()}` });
@@ -57,23 +91,32 @@ export default function BodyOverviewScreen() {
       body.hasSuccessfulBodySync || bodyBackfill.state.status === "completed",
   });
 
-  const showPermissionGate =
-    access.phase === "not_determined" ||
-    access.phase === "denied" ||
-    access.phase === "unavailable";
-  const permissionCardVariant =
-    access.phase === "unavailable"
-      ? "unavailable"
-      : access.phase === "denied"
-        ? "denied"
-        : access.phase === "loading"
-          ? "checking"
-          : "connect";
+  const refetchBodyAfterImport = useCallback(() => {
+    void body.series.refetch({ cacheBust: `bodyConnect:${Date.now()}` });
+    void body.peek.refetch({ cacheBust: `bodyConnectPeek:${Date.now()}` });
+    void body.snapshotDayPeek.refetch({ cacheBust: `bodyConnectSnapshot:${Date.now()}` });
+    void body.dayFacts.refetch({ cacheBust: `bodyConnect:${Date.now()}` });
+  }, [body.series, body.peek, body.snapshotDayPeek, body.dayFacts]);
+
+  const connectSheet = useAppleHealthBodyConnectSheet({
+    accessPhase: access.phase,
+    onDataMaybeChanged: refetchBodyAfterImport,
+    refreshAccess: access.refreshAuth,
+  });
+
+  /** Account-scoped connection chip — prefer connect-sheet transient states. */
+  const connectionActionForMetric = useCallback(
+    (metric: "weight" | "bodyFat" | "leanTissue") => {
+      const status = connectSheet.cardActionsByMetric[metric];
+      return { kind: status.kind, label: status.label };
+    },
+    [connectSheet.cardActionsByMetric],
+  );
 
   useEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("module"),
-      title: "Body Composition",
+      title: BODY_COMPOSITION_SUMMARY_COPY.pageTitle,
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
       headerRight: () => (
         <HeaderControls
@@ -95,135 +138,196 @@ export default function BodyOverviewScreen() {
     />
   ) : undefined;
 
-  const seriesLoading = body.series.status === "partial";
-  const overviewLoading = seriesLoading || body.peek.status === "partial";
-  const overviewError =
-    body.series.status === "error"
-      ? {
-          message: body.series.error,
-          requestId: body.series.requestId,
-          onRetry: () => body.series.refetch(),
-        }
-      : body.peek.status === "error"
-        ? { message: body.peek.error, requestId: body.peek.requestId, onRetry: () => body.peek.refetch() }
-        : null;
+  const seriesError = body.series.status === "error";
+  const profileSlice = useMemo(() => {
+    const sexRaw = profileMain.identity.sexAtBirth;
+    const sex =
+      sexRaw === "female" || sexRaw === "male"
+        ? sexRaw
+        : sexRaw == null
+          ? null
+          : ("unspecified" as const);
+    return {
+      heightCm: profileMain.body.heightCm ?? null,
+      ageYears: ageYearsFromProfileDateOfBirth(profileMain.identity.dateOfBirth ?? null),
+      sex,
+    };
+  }, [profileMain]);
+  const baseCards = useMemo(
+    () =>
+      buildBodyMetricSummaryCards({
+        overview: {
+          overviewDay: body.overview.overviewDay,
+          weightKg: body.overview.weightKg,
+          bodyFatPercent: body.overview.bodyFatPercent,
+          leanBodyMassKg: body.overview.leanBodyMassKg,
+          bmi: body.overview.bmi,
+          hasAnyMetric: body.overview.hasAnyMetric,
+          latestObservedAtIso: body.overview.latestObservedAtIso ?? null,
+        },
+        profile: profileSlice,
+        unit,
+        seriesError,
+      }),
+    [body.overview, profileSlice, unit, seriesError],
+  );
 
-  const trend = useBodyWeightTrendCards({
-    today: body.today,
+  const pairingEvidence = useMemo(
+    () => ({
+      weightKg: body.overview.weightKg,
+      bodyFatPercent: body.overview.bodyFatPercent,
+      leanBodyMassKg: body.overview.leanBodyMassKg,
+      overviewDay: body.overview.overviewDay,
+      latestObservedAtIso: body.overview.latestObservedAtIso ?? null,
+    }),
+    [
+      body.overview.weightKg,
+      body.overview.bodyFatPercent,
+      body.overview.leanBodyMassKg,
+      body.overview.overviewDay,
+      body.overview.latestObservedAtIso,
+    ],
+  );
+
+  const cards = useMemo(() => {
+    const [weightCard, bodyFatCard, leanCard] = baseCards;
+    const weightResolveInput = {
+      metric: "weight" as const,
+      weightKg: body.overview.weightKg,
+      bodyFatPercent: body.overview.bodyFatPercent,
+      leanBodyMassKg: body.overview.leanBodyMassKg,
+      bmi: body.overview.bmi,
+      heightCm: profileSlice.heightCm,
+      ageYears: profileSlice.ageYears,
+      sex: profileSlice.sex,
+      measurementMethod: "height_and_weight",
+      massDisplayUnit: unit,
+    };
+    return [
+      applyWeightPrimaryView({
+        card: weightCard,
+        view: weightPrimaryView,
+        resolveInput: weightResolveInput,
+      }),
+      applyBodyFatPrimaryView({
+        card: bodyFatCard,
+        view: bodyFatPrimaryView,
+        massDisplayUnit: unit,
+        evidence: pairingEvidence,
+      }),
+      applyLeanMassPrimaryView({
+        card: leanCard,
+        view: leanMassPrimaryView,
+        massDisplayUnit: unit,
+        evidence: pairingEvidence,
+      }),
+    ] as const;
+  }, [
+    baseCards,
+    body.overview,
+    profileSlice,
     unit,
-    samples: body.weightSamples ?? [],
-    overview: body.overview,
-  });
+    weightPrimaryView,
+    bodyFatPrimaryView,
+    leanMassPrimaryView,
+    pairingEvidence,
+  ]);
 
-  if (body.series.status === "error") {
-    return (
-      <ModuleScreenShell
-        title="Body Composition"
-        hideTitleChrome
-        compactHeader={BODY_SHOW_WEEKLY_CALENDAR_STRIP}
-        {...(headerContent != null ? { headerContent } : {})}
+  const measurementErrorSlot = seriesError ? (
+    <View style={styles.measurementError} testID="body-composition-measurement-error">
+      <Text style={styles.measurementErrorTitle}>Couldn’t load Body measurements</Text>
+      <Text style={styles.measurementErrorBody}>
+        Your metric cards stay visible. Try again when your connection is ready.
+      </Text>
+      <Pressable
+        style={styles.retryBtn}
+        onPress={() => body.series.refetch()}
+        accessibilityRole="button"
+        accessibilityLabel="Retry loading Body measurements"
+        testID="body-composition-measurement-retry"
       >
-        <ErrorState
-          message={body.series.error}
-          requestId={body.series.requestId}
-          onRetry={() => body.series.refetch()}
-        />
-      </ModuleScreenShell>
-    );
-  }
-
-  if (showPermissionGate) {
-    const unavailableMsg =
-      access.authSnapshot?.kind === "unavailable" ? access.authSnapshot.error : undefined;
-    return (
-      <View style={styles.root}>
-        <ModuleScreenShell
-          title="Body Composition"
-          hideTitleChrome
-          compactHeader={BODY_SHOW_WEEKLY_CALENDAR_STRIP}
-          {...(headerContent != null ? { headerContent } : {})}
-        >
-          <View style={styles.pageBody}>
-            <BodyAppleHealthPermissionCard
-              variant={permissionCardVariant}
-              {...(typeof unavailableMsg === "string" ? { unavailableMessage: unavailableMsg } : {})}
-              onAllowAccess={() => {
-                void access.onAllowAppleHealthBodyAccess();
-              }}
-              onOpenSettings={access.onOpenAppSettings}
-            />
-            {Platform.OS === "ios" ? (
-              <Pressable
-                onPress={() => router.push("/(app)/settings/devices/apple_health")}
-                style={styles.secondaryLinkWrap}
-                accessibilityRole="button"
-                accessibilityLabel="Open Apple Health device settings"
-              >
-                <Text style={styles.secondaryLink}>Apple Health in Settings</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </ModuleScreenShell>
-      </View>
-    );
-  }
-
-  const todayEmptyTitle =
-    access.phase === "granted_no_data" ? "No body measurements yet" : "No body data yet";
-  const todayEmptyDescription =
-    access.phase === "granted_no_data"
-      ? "Add a measurement in Apple Health or sync a connected source. Open Body again after your data updates."
-      : "When Apple Health has body data, your latest snapshot will appear here.";
+        <Text style={styles.retryBtnText}>Retry</Text>
+      </Pressable>
+    </View>
+  ) : body.pullRefreshError ? (
+    <View style={styles.syncBanner} testID="body-composition-pull-refresh-error">
+      <Text style={styles.syncBannerText}>{body.pullRefreshError}</Text>
+    </View>
+  ) : access.phase === "syncing" ? (
+    <View style={styles.syncBanner} testID="body-composition-sync-banner">
+      <Text style={styles.syncBannerText}>Syncing Apple Health…</Text>
+    </View>
+  ) : null;
 
   return (
     <View style={styles.root}>
       <ModuleScreenShell
-        title="Body Composition"
+        title={BODY_COMPOSITION_SUMMARY_COPY.pageTitle}
         hideTitleChrome
         compactHeader={BODY_SHOW_WEEKLY_CALENDAR_STRIP}
         {...(headerContent != null ? { headerContent } : {})}
+        refreshControl={
+          <RefreshControl
+            refreshing={body.isPullRefreshing}
+            onRefresh={() => {
+              void body.onPullToRefresh();
+            }}
+            tintColor={BODY_INDIGO}
+            accessibilityLabel="Refresh Body measurements"
+          />
+        }
       >
         <View style={styles.pageBody}>
-          {access.phase === "syncing" ? (
-            <View style={styles.syncBanner}>
-              <Text style={styles.syncBannerText}>Syncing Apple Health…</Text>
-            </View>
-          ) : null}
-
-          <BodyTodayCard
-            loading={overviewLoading}
-            error={overviewError}
-            model={trend.todayCardModel}
-            emptyTitle={todayEmptyTitle}
-            emptyDescription={todayEmptyDescription}
-            onPressRow={(href) => router.push(href as never)}
+          <BodyCompositionSummaryScreen
+            cards={cards}
+            connectionActionForMetric={connectionActionForMetric}
+            onPressCard={(href) => router.push(href as never)}
+            onPressAddWeight={() => setWeightLogVisible(true)}
+            onPressConnectionActionForMetric={(metric) => {
+              connectSheet.onPressCardConnection(metric);
+            }}
+            massDisplayUnit={unit}
+            weightPrimaryView={weightPrimaryView}
+            onChangeWeightPrimaryView={setWeightPrimaryView}
+            bodyFatPrimaryView={bodyFatPrimaryView}
+            onChangeBodyFatPrimaryView={setBodyFatPrimaryView}
+            leanMassPrimaryView={leanMassPrimaryView}
+            onChangeLeanMassPrimaryView={setLeanMassPrimaryView}
+            measurementErrorSlot={measurementErrorSlot}
           />
-
-          <BodyWeeklyWeightCard
-            loading={seriesLoading}
-            unit={unit}
-            model={trend.weekly.model}
-            weekRangeLabel={trend.weekly.weekRangeLabel}
-            canGoPrevious={trend.weekly.canGoPrevious}
-            canGoNext={trend.weekly.canGoNext}
-            onPressPrevious={trend.weekly.onPressPrevious}
-            onPressNext={trend.weekly.onPressNext}
-          />
-
-          <BodyWeightBaselineDeltaCard loading={seriesLoading} model={trend.baselineModel} />
-
-          {trend.yearly.visible ? (
-            <BodyYearlyWeightCard
-              loading={seriesLoading}
-              model={trend.yearly.model}
-              canGoPrevious={trend.yearly.canGoPrevious}
-              canGoNext={trend.yearly.canGoNext}
-              onPressPrevious={trend.yearly.onPressPrevious}
-              onPressNext={trend.yearly.onPressNext}
-            />
-          ) : null}
         </View>
       </ModuleScreenShell>
+      <BodyAppleHealthConnectSheet
+        visible={connectSheet.visible}
+        phase={connectSheet.phase}
+        activeMetric={connectSheet.activeMetric}
+        historyAttention={connectSheet.historyAttention}
+        lastSuccessfulSyncAtIso={connectSheet.lastSuccessfulSyncAtIso}
+        historyLabel={connectSheet.historyLabel}
+        statusChipLabel={connectSheet.statusChipLabel}
+        bodyScopeConnected={connectSheet.bodyScopeConnected}
+        metricSync={connectSheet.metricSync}
+        onToggleMetricSync={(metricId, enabled) => {
+          void connectSheet.onToggleMetricSync(metricId, enabled);
+        }}
+        onClose={connectSheet.close}
+        onPrimary={connectSheet.onPrimary}
+        onOpenAppleHealthSettings={() => {
+          connectSheet.close();
+          router.push(BODY_APPLE_HEALTH_SETTINGS_HREF as never);
+        }}
+      />
+      <WeightLogModal
+        visible={weightLogVisible}
+        onClose={() => setWeightLogVisible(false)}
+        onSaved={() => {
+          setWeightLogVisible(false);
+          void body.series.refetch({ cacheBust: `manualWeight:${Date.now()}` });
+          void body.peek.refetch({ cacheBust: `manualWeightPeek:${Date.now()}` });
+          void body.snapshotDayPeek.refetch({ cacheBust: `manualWeightSnapshot:${Date.now()}` });
+          void body.dayFacts.refetch({ cacheBust: `manualWeight:${Date.now()}` });
+        }}
+      />
     </View>
   );
 }
@@ -234,17 +338,42 @@ const styles = StyleSheet.create({
     backgroundColor: UI_SCREEN_BG,
     marginHorizontal: -16,
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 32,
     gap: 16,
   },
+  measurementError: {
+    gap: 8,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  measurementErrorTitle: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  measurementErrorBody: {
+    color: UI_TEXT_SECONDARY,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  retryBtn: {
+    alignSelf: "flex-start",
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  retryBtnText: {
+    color: BODY_INDIGO,
+    fontSize: 15,
+    fontWeight: "600",
+  },
   syncBanner: {
-    backgroundColor: SYSTEM_ACCENT_OVERLAY_10,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
+    backgroundColor: "rgba(58,91,219,0.1)",
   },
   syncBannerText: { fontSize: 14, fontWeight: "600", color: BODY_INDIGO },
-  secondaryLinkWrap: { alignSelf: "flex-start", paddingVertical: 4 },
-  secondaryLink: { fontSize: 15, fontWeight: "600", color: BODY_INDIGO },
 });

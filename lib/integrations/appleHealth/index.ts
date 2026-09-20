@@ -5,6 +5,9 @@
 
 export {
   requestPermissions,
+  requestBodyCompositionPermissions,
+  requestAppleHealthReadPermissions,
+  BODY_COMPOSITION_CONNECT_READ_PERMISSIONS,
   getBodyCompositionReadAuthStatus,
   pullTodaySnapshot,
   pullAnchoredWorkouts,
@@ -22,6 +25,19 @@ export {
   runAppleHealthWorkoutPhysiologyDiagnostic,
   runAppleHealthWorkoutPhysiologyEnrichment,
 } from "./healthKit";
+export {
+  APPLE_HEALTH_DOMAIN_REGISTRY,
+  APPLE_HEALTH_BODY_READ_TYPES,
+  getAppleHealthDomainDefinition,
+  listImplementedAppleHealthDomains,
+  buildAppleHealthConnectAllReadTypes,
+  assertBodyBundleExcludesUnrelatedTypes,
+} from "./appleHealthDomainRegistry";
+export type {
+  AppleHealthDomain,
+  AppleHealthDomainDefinition,
+  AppleHealthReadType,
+} from "./appleHealthDomainRegistry";
 export {
   enrichWorkoutPhysiologyForIngest,
   shouldEnableWorkoutPhysiologyV1,

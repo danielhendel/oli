@@ -61,7 +61,14 @@ export function useBodyOverviewData() {
   const dayFacts = useDailyFacts(factsDay);
   const snapshotDayPeek = useBodyOverviewSnapshotDayPeek(overviewDay);
 
-  const { isBodySyncing, syncAppleHealthBodyNow, hasSuccessfulBodySync } = useAppleHealthBodySync(() => {
+  const {
+    isBodySyncing,
+    isPullRefreshing,
+    pullRefreshError,
+    syncAppleHealthBodyNow,
+    onPullToRefresh,
+    hasSuccessfulBodySync,
+  } = useAppleHealthBodySync(() => {
     void series.refetch({ cacheBust: `appleHealthBody:${Date.now()}` });
     void peek.refetch({ cacheBust: `appleHealthPeek:${Date.now()}` });
     void snapshotDayPeek.refetch({ cacheBust: `appleHealthSnapshotPeek:${Date.now()}` });
@@ -233,7 +240,10 @@ export function useBodyOverviewData() {
     snapshotDayPeek,
     dayFacts,
     isBodySyncing,
+    isPullRefreshing,
+    pullRefreshError,
     syncAppleHealthBodyNow,
+    onPullToRefresh,
     hasSuccessfulBodySync,
     ...derived,
     overview,

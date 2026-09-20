@@ -1,15 +1,16 @@
 # Body Composition Product and Standards Specification v1
 
-**Status:** Accepted with guardrails (architecture/standards direction; Stage 3B shell authorized)
+**Status:** Accepted with guardrails (architecture/standards direction; Stage 3B shell **implemented on branch**)
 **Date:** 2026-09-18
 **Accepted:** 2026-09-18 — human approval with guardrails
-**Stage:** 3A definition complete; Stage 3B shell authorized — **runtime not begun**
+**Stage:** 3A definition complete; Stage 3B value-first shell **COMPLETE on branch** (physical `c962d36…`, 2026-09-20); Stage 3C **NOT BEGUN**
 **Authority level:** T2 product authority (subordinate to Constitution and code/CI; binding via accepted RFC/ADR)
 **Companions:**
 - Audit: `docs/90_audits/2026-09-18-body-composition-repo-truth-audit.md`
 - Evidence: `docs/90_audits/2026-09-18-body-composition-evidence-matrix.md`
 - RFC: `docs/80_rfc/RFC-body-composition-category-intelligence-v1.md` (**Accepted** 2026-09-18)
 - ADR: `docs/70_adrs/ADR-body-composition-category-intelligence-v1.md` (**Accepted** 2026-09-18)
+- Stage 3B completion: `docs/90_audits/2026-09-20-stage3b-body-composition-value-first-shell-completion.md`
 
 ---
 
@@ -407,8 +408,8 @@ These **do not block** Stage 3B shell; they **do block** official marker aggrega
 | Gate | Intent | Status |
 |------|--------|--------|
 | **3A** | Definition, evidence, audit, RFC/ADR | **Complete (docs)** — RFC/ADR Accepted 2026-09-18 |
-| **3B** | Value-first Body shell + educational reference model; no user classification | **Authorized — NOT STARTED** |
-| **3C** | Baseline-building inputs + provenance | NOT STARTED |
+| **3B** | Value-first Body shell + educational reference model; no Body Fat/Lean classification | **COMPLETE on branch** (physical `c962d36…`, 2026-09-20); Draft PR pending |
+| **3C** | Standards & reference graphs / baseline-building inputs + provenance | NOT STARTED |
 | **3D** | Facts-first marker summaries | NOT STARTED — blocked until repository gaps addressed |
 | **3E** | Approved health-protection classification (if separately authorized) | NOT STARTED — blocked |
 | **3F** | Performance-support aggregate | **Not currently approved** |
@@ -441,3 +442,29 @@ Keep unresolved scientific decisions and release gates in force.
 
 Do not begin Stage 3B runtime implementation in the Stage 3A documentation Agent.
 ```
+
+---
+
+## 20. Stage 3B local preference amendment (ACCEPTED 2026-09-20)
+
+Product leadership accepts this **narrow Stage 3B local-persistence amendment** only.
+
+### Apple Health metric sync scope
+
+| Field | Value |
+|-------|--------|
+| Storage key | `appleHealth:metricSyncScopes:{uid}` |
+| Classification | Account-keyed; device-local; non-health preference metadata; local persistence only |
+| Firestore / backend | **None** — no path, no endpoint, no cross-device promise |
+
+**Purpose:** Lets the current authenticated user choose which Apple Health metrics Oli may sync on this device.
+
+**OFF:** Stops future Oli queries/import/ingest for that metric; does **not** revoke Apple system permission; does **not** delete already imported data.
+
+**ON:** Allows Oli to use the existing governed HealthKit path for that metric; does **not** prove read access was granted; no-data remains distinct from denied access.
+
+**Lifecycle:** Isolated by UID; transient UI state cleared/invalidated on sign-out/account switch; local account lifecycle cleanup must cover the key; deletion lifecycle classification remains honest.
+
+**Not authorized by this amendment:** remote persistence; new Firestore path; new backend endpoint; cross-device sync; native permission inference.
+
+Body Fat and Lean Mass **classification** standards remain **PROPOSED / NOT IMPLEMENTED**.

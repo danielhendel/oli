@@ -88,17 +88,30 @@ export async function runAppleHealthBodyBackfill(
     };
   }
 
-  const startedAt = existing?.status === "in_progress" && !opts.forceRestart ? existing.summary.startedAt : now;
+  const startedAt =
+    (existing?.status === "in_progress" || existing?.status === "failed") && !opts.forceRestart
+      ? existing.summary.startedAt
+      : now;
   const initialCursor =
-    existing?.status === "in_progress" && existing.lastProcessedDate && !opts.forceRestart
+    (existing?.status === "in_progress" || existing?.status === "failed") &&
+    existing.lastProcessedDate &&
+    !opts.forceRestart
       ? existing.lastProcessedDate
       : targetStartDate;
 
   let cursor = initialCursor;
-  let chunkCount = existing?.status === "in_progress" && !opts.forceRestart ? existing.summary.chunkCount : 0;
-  let samplesRead = existing?.status === "in_progress" && !opts.forceRestart ? existing.summary.samplesRead : 0;
+  let chunkCount =
+    (existing?.status === "in_progress" || existing?.status === "failed") && !opts.forceRestart
+      ? existing.summary.chunkCount
+      : 0;
+  let samplesRead =
+    (existing?.status === "in_progress" || existing?.status === "failed") && !opts.forceRestart
+      ? existing.summary.samplesRead
+      : 0;
   let samplesIngested =
-    existing?.status === "in_progress" && !opts.forceRestart ? existing.summary.samplesIngested : 0;
+    (existing?.status === "in_progress" || existing?.status === "failed") && !opts.forceRestart
+      ? existing.summary.samplesIngested
+      : 0;
   const samplesSkippedDuplicate = 0;
 
   await deps.setBackfillState({
@@ -121,7 +134,12 @@ export async function runAppleHealthBodyBackfill(
 
   while (cursor < now) {
     const chunkEnd = minIso(addDaysIso(cursor, chunkDays), now);
-    const pulled = await deps.pullBodyCompositionSamples({ startDate: cursor, endDate: chunkEnd });
+    const pulled = await deps.pullBodyCompositionSamples({
+      startDate: cursor,
+      endDate: chunkEnd,
+      // Bound each chunk — unbounded pulls are a common failure mode on long histories.
+      limit: 500,
+    });
     if (!pulled.ok) {
       await deps.setBackfillState({
         status: "failed",

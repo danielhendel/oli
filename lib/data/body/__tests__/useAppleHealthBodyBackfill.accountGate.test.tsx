@@ -10,7 +10,7 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
   appleHealthBodyCompositionIdempotencyKey: jest.fn(),
   appleHealthBodyWeightIdempotencyKey: jest.fn(),
   pullBodyCompositionSamples: jest.fn(),
-  requestPermissions: (...args: unknown[]) => mockRequestPermissions(...args),
+  requestBodyCompositionPermissions: (...args: unknown[]) => mockRequestPermissions(...args),
   runAppleHealthBodyBackfill: (...args: unknown[]) => mockRunBackfill(...args),
 }));
 

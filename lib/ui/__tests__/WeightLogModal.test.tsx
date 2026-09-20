@@ -36,6 +36,7 @@ jest.mock("@/lib/navigation/refreshBus", () => ({
 }));
 
 import { WeightLogModal } from "@/lib/ui/WeightLogModal";
+import { UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 describe("WeightLogModal", () => {
   beforeEach(() => {
@@ -92,5 +93,39 @@ describe("WeightLogModal", () => {
     expect(weightInput?.props.value).toBe("160.7");
     const bfInput = inputs.find((node) => node.props.accessibilityLabel === "Body fat percentage");
     expect(bfInput?.props.value).toBe("18.5");
+  });
+
+  it("uses dark-theme readable text tokens on the sheet", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <WeightLogModal visible onClose={jest.fn()} onSaved={jest.fn()} />,
+      );
+      await Promise.resolve();
+    });
+    expect(tree.root.findByProps({ testID: "weight-log-modal-sheet" })).toBeDefined();
+    expect(UI_TEXT_PRIMARY).toBe("#F7F8FA");
+    expect(UI_TEXT_SECONDARY).toBe("#A7AFBC");
+    expect(UI_TEXT_MUTED).toBe("#6F7785");
+
+    const labels = tree.root.findAllByType("Text");
+    const weightLabel = labels.find(
+      (n) => Array.isArray(n.children) && n.children.includes("Weight"),
+    );
+    expect(weightLabel?.props.style.color).toBe(UI_TEXT_PRIMARY);
+    expect(weightLabel?.props.style.color).not.toBe("#1C1C1E");
+
+    const cancel = labels.find(
+      (n) => Array.isArray(n.children) && n.children.includes("Cancel"),
+    );
+    expect(cancel?.props.style.color).toBe(UI_TEXT_SECONDARY);
+
+    const inputs = tree.root.findAllByType(require("react-native").TextInput as React.ComponentType);
+    const weightInput = inputs.find((node) => node.props.accessibilityLabel === "Weight");
+    expect(weightInput?.props.placeholderTextColor).toBe(UI_TEXT_MUTED);
+    const inputStyle = Array.isArray(weightInput?.props.style)
+      ? Object.assign({}, ...weightInput!.props.style)
+      : weightInput?.props.style;
+    expect(inputStyle.color).toBe(UI_TEXT_PRIMARY);
   });
 });

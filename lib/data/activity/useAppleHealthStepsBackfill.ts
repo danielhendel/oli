@@ -10,7 +10,7 @@ import {
 import {
   getAppleHealthStepsBackfillState,
   setAppleHealthStepsBackfillState,
-  getAppleHealthConnected,
+  isAppleHealthDomainEnabled,
   type AppleHealthStepsBackfillState,
 } from "@/lib/integrations/appleHealth/storage";
 import { runAppleHealthStepsBackfillSerialized } from "@/lib/data/activity/appleHealthStepsBackfillMutex";
@@ -87,12 +87,12 @@ export function useAppleHealthStepsBackfill(onSynced?: () => void): {
         setState((prev) => ({ ...prev, status: "failed", message: "Sign in required." }));
         return;
       }
-      const connected = await getAppleHealthConnected().catch(() => false);
-      if (!connected) {
+      const activityEnabled = await isAppleHealthDomainEnabled("activity").catch(() => false);
+      if (!activityEnabled) {
         setState((prev) => ({
           ...prev,
           status: "failed",
-          message: "Connect Apple Health for this account before importing steps history.",
+          message: "Connect Apple Health Activity before importing steps history.",
         }));
         return;
       }

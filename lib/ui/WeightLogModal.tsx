@@ -1,4 +1,5 @@
-import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import { UI_CARD_SURFACE, UI_SCREEN_BG, UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 
 // lib/ui/WeightLogModal.tsx — Manual weight entry modal (bottom-sheet style).
 import React, { useMemo, useState, useEffect, useRef } from "react";
@@ -153,7 +154,7 @@ export function WeightLogModal({ visible, onClose, onSaved, editTarget = null }:
   return (
     <Modal visible={visible} transparent animationType="slide">
       <Pressable style={styles.overlay} onPress={onClose} accessibilityLabel="Close modal">
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()} testID="weight-log-modal-sheet">
           <View style={styles.handle} />
           <Text style={styles.title}>{editTarget ? "Edit weight" : "Log weight"}</Text>
           {editTarget?.isImported ? (
@@ -169,6 +170,7 @@ export function WeightLogModal({ visible, onClose, onSaved, editTarget = null }:
               onChangeText={setWeightText}
               keyboardType="decimal-pad"
               placeholder={unit === "lb" ? "e.g. 185.2" : "e.g. 84.0"}
+              placeholderTextColor={UI_TEXT_MUTED}
               style={[styles.input, { flex: 1 }]}
               accessibilityLabel="Weight"
             />
@@ -197,6 +199,7 @@ export function WeightLogModal({ visible, onClose, onSaved, editTarget = null }:
             onChangeText={setBodyFatText}
             keyboardType="decimal-pad"
             placeholder="e.g. 18.5"
+            placeholderTextColor={UI_TEXT_MUTED}
             style={styles.input}
             accessibilityLabel="Body fat percentage"
           />
@@ -224,7 +227,7 @@ export function WeightLogModal({ visible, onClose, onSaved, editTarget = null }:
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.58)",
     justifyContent: "flex-end",
   },
   sheet: {
@@ -234,10 +237,18 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 36,
   },
-  handle: { width: 36, height: 4, backgroundColor: "#C7C7CC", borderRadius: 2, alignSelf: "center", marginBottom: 16 },
-  title: { fontSize: 20, fontWeight: "800", color: "#1C1C1E", marginBottom: 16 },
-  importedHelp: { fontSize: 13, color: "#6E6E73", lineHeight: 18, marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: "700", color: "#1C1C1E", marginBottom: 6 },
+  handle: {
+    width: 36,
+    height: 4,
+    backgroundColor: UI_TEXT_MUTED,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
+    opacity: 0.85,
+  },
+  title: { fontSize: 20, fontWeight: "800", color: UI_TEXT_PRIMARY, marginBottom: 16 },
+  importedHelp: { fontSize: 13, color: UI_TEXT_SECONDARY, lineHeight: 18, marginBottom: 12 },
+  label: { fontSize: 13, fontWeight: "700", color: UI_TEXT_PRIMARY, marginBottom: 6 },
   row: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
   input: {
     backgroundColor: UI_SCREEN_BG,
@@ -245,16 +256,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
+    color: UI_TEXT_PRIMARY,
   },
   unitGroup: { flexDirection: "row", backgroundColor: UI_SCREEN_BG, borderRadius: 12, overflow: "hidden" },
   unitBtn: { paddingHorizontal: 14, paddingVertical: 12 },
-  unitActive: { backgroundColor: "#1C1C1E" },
-  unitText: { fontSize: 14, fontWeight: "700", color: "#1C1C1E" },
+  unitActive: { backgroundColor: BODY_INDIGO },
+  unitText: { fontSize: 14, fontWeight: "700", color: UI_TEXT_SECONDARY },
   unitTextActive: { color: "#FFFFFF" },
-  error: { color: "#B00020", fontSize: 12, marginBottom: 8 },
-  saveBtn: { backgroundColor: "#1C1C1E", borderRadius: 14, paddingVertical: 14, alignItems: "center", marginTop: 8 },
+  error: { color: "#FF8A80", fontSize: 12, marginBottom: 8 },
+  saveBtn: { backgroundColor: BODY_INDIGO, borderRadius: 14, paddingVertical: 14, alignItems: "center", marginTop: 8 },
   saveDisabled: { opacity: 0.4 },
   saveText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   cancelBtn: { alignItems: "center", paddingVertical: 14, marginTop: 8 },
-  cancelText: { fontSize: 15, color: "#6E6E73", fontWeight: "600" },
+  cancelText: { fontSize: 15, color: UI_TEXT_SECONDARY, fontWeight: "600" },
 });

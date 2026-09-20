@@ -1,43 +1,56 @@
-// lib/data/body/__tests__/useAppleHealthBodySync.permissions.test.ts
+/**
+ * Body page latest sync: Body domain gate; no auth re-prompt; no Steps dispatch.
+ */
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import React from "react";
 import renderer, { act } from "react-test-renderer";
 
-jest.mock("@/lib/integrations/appleHealth", () => ({
-  requestPermissions: jest.fn(async () => ({ ok: true as const })),
-  runAppleHealthBodySync: jest.fn(async () => ({
-    ok: true as const,
-    ingested: 0,
-    replayedOrSkipped: 0,
-    samplesRead: 0,
-  })),
-  pullBodyCompositionSamples: jest.fn(),
-  appleHealthBodyWeightIdempotencyKey: jest.fn(),
-  appleHealthBodyCompositionIdempotencyKey: jest.fn(),
+const mockSyncLatest = jest.fn(async () => ({ ok: true as const, ingested: 0 }));
+const mockIsDomainEnabled = jest.fn(async () => false);
+const mockGetLastChecked = jest.fn(async () => null);
+const mockScheduleSteps = jest.fn();
+const mockGetIdToken = jest.fn(async () => "token");
+
+jest.mock("@react-navigation/native", () => {
+  const ReactLocal = require("react") as typeof import("react");
+  return {
+    useFocusEffect: (cb: () => void | (() => void)) => {
+      ReactLocal.useEffect(() => {
+        const cleanup = cb();
+        return typeof cleanup === "function" ? cleanup : undefined;
+      }, [cb]);
+    },
+  };
+});
+
+jest.mock("@react-native-community/netinfo", () => ({
+  useNetInfo: () => ({ isConnected: true, isInternetReachable: true }),
+}));
+
+jest.mock("@/lib/data/body/connectAppleHealthBodyForComposition", () => ({
+  syncAppleHealthBodyLatestForComposition: (...a: unknown[]) => mockSyncLatest(...a),
 }));
 
 jest.mock("@/lib/data/activity/appleHealthStepsRepairCoordinator", () => ({
-  scheduleAppleHealthStepsRepair: jest.fn(),
+  scheduleAppleHealthStepsRepair: (...a: unknown[]) => mockScheduleSteps(...a),
 }));
 
-const mockGetConnected = jest.fn(async () => false);
-
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
-  getAppleHealthBodyLastCheckedAt: jest.fn(async () => null),
-  setAppleHealthBodyLastCheckedAt: jest.fn(async () => undefined),
-  getAppleHealthConnected: (...args: unknown[]) => mockGetConnected(...args),
-  setAppleHealthConnected: jest.fn(async () => undefined),
-  setLastSyncAt: jest.fn(async () => undefined),
+  getAppleHealthBodyLastCheckedAt: (...a: unknown[]) => mockGetLastChecked(...a),
+  isAppleHealthDomainEnabled: (...a: unknown[]) => mockIsDomainEnabled(...a),
 }));
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
   useAuth: () => ({
     user: { uid: "test-user" },
-    getIdToken: jest.fn(async () => "token"),
+    getIdToken: mockGetIdToken,
   }),
 }));
 
-import { requestPermissions, runAppleHealthBodySync } from "@/lib/integrations/appleHealth";
+jest.mock("@/lib/sync/throttle", () => ({
+  shouldRun: () => true,
+}));
+
 import { useAppleHealthBodySync } from "../useAppleHealthBodySync";
 
 function Host() {
@@ -45,59 +58,36 @@ function Host() {
   return null;
 }
 
-describe("useAppleHealthBodySync", () => {
-  const perm = jest.mocked(requestPermissions);
-  const sync = jest.mocked(runAppleHealthBodySync);
-
+describe("useAppleHealthBodySync permissions / domain gate", () => {
   beforeEach(() => {
-    perm.mockClear();
-    sync.mockClear();
-    mockGetConnected.mockClear();
-    mockGetConnected.mockResolvedValue(false);
-    perm.mockResolvedValue({ ok: true });
-    sync.mockResolvedValue({
-      ok: true,
-      ingested: 0,
-      replayedOrSkipped: 0,
-      samplesRead: 0,
-    });
+    jest.clearAllMocks();
+    mockSyncLatest.mockResolvedValue({ ok: true, ingested: 0 });
+    mockIsDomainEnabled.mockResolvedValue(false);
+    mockGetLastChecked.mockResolvedValue(null);
   });
 
-  it("does not call requestPermissions or sync when Apple Health is not connected", async () => {
-    mockGetConnected.mockResolvedValue(false);
+  it("does not sync when Body domain is not enabled", async () => {
+    mockIsDomainEnabled.mockResolvedValue(false);
     await act(async () => {
       renderer.create(React.createElement(Host));
     });
     await act(async () => {
-      await new Promise<void>((r) => setImmediate(r));
+      await Promise.resolve();
     });
-    expect(perm).not.toHaveBeenCalled();
-    expect(sync).not.toHaveBeenCalled();
+    expect(mockSyncLatest).not.toHaveBeenCalled();
+    expect(mockScheduleSteps).not.toHaveBeenCalled();
   });
 
-  it("calls requestPermissions before runAppleHealthBodySync when connected", async () => {
-    mockGetConnected.mockResolvedValue(true);
+  it("runs latest Body sync without Steps when Body domain enabled", async () => {
+    mockIsDomainEnabled.mockResolvedValue(true);
     await act(async () => {
       renderer.create(React.createElement(Host));
     });
     await act(async () => {
-      await new Promise<void>((r) => setImmediate(r));
+      await Promise.resolve();
     });
-    expect(perm.mock.calls.length).toBeGreaterThanOrEqual(1);
-    expect(sync.mock.calls.length).toBeGreaterThanOrEqual(1);
-    expect(perm.mock.invocationCallOrder[0]).toBeLessThan(sync.mock.invocationCallOrder[0]!);
-  });
-
-  it("does not run body sync when HealthKit permission is denied", async () => {
-    mockGetConnected.mockResolvedValue(true);
-    perm.mockResolvedValueOnce({ ok: false, error: "denied" });
-    await act(async () => {
-      renderer.create(React.createElement(Host));
-    });
-    await act(async () => {
-      await new Promise<void>((r) => setImmediate(r));
-    });
-    expect(perm).toHaveBeenCalled();
-    expect(sync).not.toHaveBeenCalled();
+    expect(mockIsDomainEnabled).toHaveBeenCalledWith("body");
+    expect(mockSyncLatest).toHaveBeenCalled();
+    expect(mockScheduleSteps).not.toHaveBeenCalled();
   });
 });

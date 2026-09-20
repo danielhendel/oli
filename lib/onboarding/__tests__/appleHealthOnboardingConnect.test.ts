@@ -7,7 +7,7 @@ jest.mock("react-native", () => ({
 const mockRequestPermissions = jest.fn();
 const mockRunSync = jest.fn();
 const mockGetConnected = jest.fn();
-const mockSetConnected = jest.fn();
+const mockEnableAll = jest.fn();
 const mockGetNotAvailable = jest.fn();
 const mockScheduleRepair = jest.fn();
 
@@ -21,7 +21,7 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
 
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getAppleHealthConnected: (...args: unknown[]) => mockGetConnected(...args),
-  setAppleHealthConnected: (...args: unknown[]) => mockSetConnected(...args),
+  enableAllImplementedAppleHealthDomains: (...args: unknown[]) => mockEnableAll(...args),
   getAppleHealthNotAvailable: (...args: unknown[]) => mockGetNotAvailable(...args),
   setAppleHealthBodyLastCheckedAt: jest.fn(async () => undefined),
   setLastSyncAt: jest.fn(async () => undefined),
@@ -42,28 +42,28 @@ describe("connectAppleHealthForOnboarding", () => {
     mockGetConnected.mockResolvedValue(false);
     mockRequestPermissions.mockResolvedValue({ ok: true });
     mockRunSync.mockResolvedValue({ ok: true, ingested: 0, replayedOrSkipped: 0, samplesRead: 0 });
-    mockSetConnected.mockResolvedValue(undefined);
+    mockEnableAll.mockResolvedValue(undefined);
   });
 
-  it("sets connected only after permissions succeed", async () => {
+  it("enables all implemented domains after permissions succeed", async () => {
     const result = await connectAppleHealthForOnboarding({
       getIdToken: async () => "token",
       userUid: "u1",
     });
     expect(result.ok).toBe(true);
     expect(mockRequestPermissions).toHaveBeenCalled();
-    expect(mockSetConnected).toHaveBeenCalledWith(true);
+    expect(mockEnableAll).toHaveBeenCalled();
     expect(mockRunSync).toHaveBeenCalled();
     expect(mockScheduleRepair).toHaveBeenCalled();
   });
 
-  it("does not set connected when permission denied", async () => {
+  it("does not enable domains when permission denied", async () => {
     mockRequestPermissions.mockResolvedValue({ ok: false, error: "denied" });
     const result = await connectAppleHealthForOnboarding({
       getIdToken: async () => "token",
     });
     expect(result).toEqual({ ok: false, reason: "permission_denied" });
-    expect(mockSetConnected).not.toHaveBeenCalled();
+    expect(mockEnableAll).not.toHaveBeenCalled();
     expect(mockRunSync).not.toHaveBeenCalled();
   });
 
@@ -74,6 +74,6 @@ describe("connectAppleHealthForOnboarding", () => {
       userUid: "u1",
     });
     expect(result.ok).toBe(true);
-    expect(mockSetConnected).toHaveBeenCalledWith(true);
+    expect(mockEnableAll).toHaveBeenCalled();
   });
 });

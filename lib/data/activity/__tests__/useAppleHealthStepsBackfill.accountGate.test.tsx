@@ -17,6 +17,8 @@ jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getAppleHealthStepsBackfillState: jest.fn(async () => null),
   setAppleHealthStepsBackfillState: jest.fn(async () => undefined),
   getAppleHealthConnected: (...args: unknown[]) => mockGetConnected(...args),
+  // Domain gate wraps connected: not connected → domain disabled.
+  isAppleHealthDomainEnabled: (...args: unknown[]) => mockGetConnected(...args),
 }));
 
 jest.mock("@/lib/data/activity/appleHealthStepsBackfillMutex", () => ({

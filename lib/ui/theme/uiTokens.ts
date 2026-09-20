@@ -82,6 +82,23 @@ export const UI_DASH_RECAP_CARD_RADIUS = 14;
 /** Dash category module rows — softer, more premium than recap. */
 export const UI_DASH_CATEGORY_CARD_RADIUS = 20;
 
+/**
+ * Apple Health / HealthKit source identity — system Health pink-red (popup / settings).
+ */
+export const UI_APPLE_HEALTH_HEART = "#FF2D55";
+/** Alias for strong accent used in popup headers and Apple Health settings identity. */
+export const UI_APPLE_HEALTH_HEART_STRONG = UI_APPLE_HEALTH_HEART;
+/**
+ * Muted Apple Health red for Body metric-card source actions — keeps identity without
+ * overpowering the metric value/chart.
+ */
+export const UI_APPLE_HEALTH_HEART_MUTED = "#C45A6A";
+/**
+ * Apple Health–like toggle ON track (system green). Used for Oli sync-scope switches —
+ * not a claim of native HealthKit permission truth.
+ */
+export const UI_APPLE_HEALTH_TOGGLE_ON = "#34C759";
+
 /** Modal scrim / overlay dim */
 export const UI_OVERLAY = T.overlay;
 

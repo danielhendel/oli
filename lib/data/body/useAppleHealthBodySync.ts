@@ -1,126 +1,162 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useNetInfo } from "@react-native-community/netinfo";
+
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { ingestRawEvent } from "@/lib/api/ingest";
 import {
-  appleHealthBodyCompositionIdempotencyKey,
-  appleHealthBodyWeightIdempotencyKey,
-  pullBodyCompositionSamples,
-  requestPermissions,
-  runAppleHealthBodySync,
-} from "@/lib/integrations/appleHealth";
+  syncAppleHealthBodyLatestForComposition,
+  type AppleHealthBodyLatestRefreshTrigger,
+} from "@/lib/data/body/connectAppleHealthBodyForComposition";
 import {
   getAppleHealthBodyLastCheckedAt,
-  getAppleHealthConnected,
-  setAppleHealthBodyLastCheckedAt,
-  setLastSyncAt,
+  isAppleHealthDomainEnabled,
 } from "@/lib/integrations/appleHealth/storage";
-import { nowIso, shouldRun } from "@/lib/sync/throttle";
+import { shouldRun } from "@/lib/sync/throttle";
 
-const BODY_SYNC_MIN_MS = 15 * 60 * 1000;
-const DAYS_BACK = 45;
-
-function isoDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString();
-}
-
-function getDeviceTimezone(): string {
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return typeof tz === "string" && tz.length ? tz : "UTC";
-  } catch {
-    return "UTC";
-  }
-}
+const BODY_PAGE_ENTRY_MIN_MS = 15 * 60 * 1000;
 
 export function useAppleHealthBodySync(onSynced?: () => void): {
   isBodySyncing: boolean;
+  /** Native pull-to-refresh spinner for the Body page. */
+  isPullRefreshing: boolean;
+  /** Safe page-level failure copy after pull; null when idle/success. */
+  pullRefreshError: string | null;
   syncAppleHealthBodyNow: () => Promise<void>;
-  /** True after at least one successful incremental body sync in this session (pull + ingest OK). */
+  onPullToRefresh: () => Promise<void>;
+  /** True after at least one successful latest Body sync in this session. */
   hasSuccessfulBodySync: boolean;
 } {
   const { user, getIdToken } = useAuth();
+  const netInfo = useNetInfo();
+  const uid = user?.uid;
   const inFlight = useRef(false);
+  const activeUid = useRef<string | undefined>(uid);
+  const sessionIdRef = useRef(0);
   const [isBodySyncing, setIsBodySyncing] = useState(false);
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const [pullRefreshError, setPullRefreshError] = useState<string | null>(null);
   const [hasSuccessfulBodySync, setHasSuccessfulBodySync] = useState(false);
-  const previousUserUid = useRef<string | undefined>(undefined);
+  const onSyncedRef = useRef(onSynced);
+  onSyncedRef.current = onSynced;
 
   useEffect(() => {
-    const uid = user?.uid;
-    if (previousUserUid.current !== uid && previousUserUid.current !== undefined) {
+    if (activeUid.current !== uid) {
+      inFlight.current = false;
+      sessionIdRef.current += 1;
+      setIsBodySyncing(false);
+      setIsPullRefreshing(false);
+      setPullRefreshError(null);
       setHasSuccessfulBodySync(false);
+      activeUid.current = uid;
     }
-    previousUserUid.current = uid;
-  }, [user?.uid]);
+  }, [uid]);
 
-  const runAppleHealthBodyIngest = useCallback(async () => {
-    // Account connection is explicit (onboarding / devices Connect). Permission alone must not sync.
-    const connected = await getAppleHealthConnected().catch(() => false);
-    if (!connected) return { ok: false as const };
+  const runLatest = useCallback(
+    async (
+      trigger: Extract<
+        AppleHealthBodyLatestRefreshTrigger,
+        "body_page_entry" | "body_page_pull_refresh"
+      >,
+      opts: { skipThrottle: boolean; showPullSpinner: boolean },
+    ) => {
+      if (inFlight.current) return;
+      if (!uid || activeUid.current !== uid) return;
 
-    const token = await getIdToken(false);
-    if (!token) return { ok: false as const };
-
-    const perm = await requestPermissions();
-    if (!perm.ok) return { ok: false as const };
-
-    const result = await runAppleHealthBodySync(
-      {
-        token,
-        startDate: isoDaysAgo(DAYS_BACK),
-        endDate: new Date().toISOString(),
-        limit: 200,
-      },
-      {
-        pullBodyCompositionSamples,
-        ingestRawEvent,
-        appleHealthBodyWeightIdempotencyKey,
-        appleHealthBodyCompositionIdempotencyKey,
-        getDeviceTimezone,
-      },
-    );
-
-    await setAppleHealthBodyLastCheckedAt(nowIso()).catch(() => undefined);
-
-    if (!result.ok) return { ok: false as const };
-    setHasSuccessfulBodySync(true);
-    await setLastSyncAt(nowIso()).catch(() => undefined);
-    onSynced?.();
-    return { ok: true as const };
-  }, [getIdToken, onSynced]);
-
-  const doSync = useCallback(
-    async (opts: { skipThrottle: boolean }) => {
-      if (!user || inFlight.current) return;
-
-      const connected = await getAppleHealthConnected().catch(() => false);
-      if (!connected) return;
-
-      if (!opts.skipThrottle) {
-        const lastChecked = await getAppleHealthBodyLastCheckedAt().catch(() => null);
-        if (!shouldRun(lastChecked, BODY_SYNC_MIN_MS)) return;
-      }
-
+      // Claim before any await so concurrent entry/pull calls coalesce.
+      const sessionId = sessionIdRef.current;
       inFlight.current = true;
-      setIsBodySyncing(true);
+      let uiBusy = false;
+
       try {
-        await runAppleHealthBodyIngest();
+        const bodyEnabled = await isAppleHealthDomainEnabled("body").catch(() => false);
+        if (!bodyEnabled || activeUid.current !== uid || sessionId !== sessionIdRef.current) {
+          return;
+        }
+
+        if (!opts.skipThrottle) {
+          const lastChecked = await getAppleHealthBodyLastCheckedAt().catch(() => null);
+          if (!shouldRun(lastChecked, BODY_PAGE_ENTRY_MIN_MS)) return;
+        }
+
+        if (netInfo.isConnected === false) {
+          if (opts.showPullSpinner) {
+            setPullRefreshError(
+              "Couldn’t refresh. Check your connection and pull down to try again.",
+            );
+          }
+          return;
+        }
+
+        uiBusy = true;
+        if (opts.showPullSpinner) {
+          setIsPullRefreshing(true);
+          setPullRefreshError(null);
+        } else {
+          setIsBodySyncing(true);
+        }
+
+        const res = await syncAppleHealthBodyLatestForComposition(
+          {
+            getIdToken,
+            ...(uid ? { uid } : {}),
+            onLatestSynced: () => {
+              if (activeUid.current !== uid) return;
+              onSyncedRef.current?.();
+            },
+          },
+          { trigger },
+        );
+        if (activeUid.current !== uid || sessionId !== sessionIdRef.current) return;
+        if (!res.ok) {
+          if (opts.showPullSpinner) {
+            setPullRefreshError(res.message);
+          }
+          return;
+        }
+        setHasSuccessfulBodySync(true);
+        setPullRefreshError(null);
+      } catch {
+        if (
+          opts.showPullSpinner &&
+          activeUid.current === uid &&
+          sessionId === sessionIdRef.current
+        ) {
+          setPullRefreshError(
+            "Couldn’t refresh. Check your connection and pull down to try again.",
+          );
+        }
       } finally {
         inFlight.current = false;
-        setIsBodySyncing(false);
+        if (uiBusy && activeUid.current === uid && sessionId === sessionIdRef.current) {
+          setIsBodySyncing(false);
+          if (opts.showPullSpinner) setIsPullRefreshing(false);
+        }
       }
     },
-    [user, runAppleHealthBodyIngest],
+    [uid, getIdToken, netInfo.isConnected],
+  );
+
+  // Connected Body page focus — silent latest-only refresh (throttled).
+  useFocusEffect(
+    useCallback(() => {
+      void runLatest("body_page_entry", { skipThrottle: false, showPullSpinner: false });
+    }, [runLatest]),
   );
 
   const syncAppleHealthBodyNow = useCallback(async () => {
-    await doSync({ skipThrottle: true });
-  }, [doSync]);
+    await runLatest("body_page_pull_refresh", { skipThrottle: true, showPullSpinner: false });
+  }, [runLatest]);
 
-  useEffect(() => {
-    void doSync({ skipThrottle: false });
-  }, [doSync, user?.uid]);
+  const onPullToRefresh = useCallback(async () => {
+    await runLatest("body_page_pull_refresh", { skipThrottle: true, showPullSpinner: true });
+  }, [runLatest]);
 
-  return { isBodySyncing, syncAppleHealthBodyNow, hasSuccessfulBodySync };
+  return {
+    isBodySyncing,
+    isPullRefreshing,
+    pullRefreshError,
+    syncAppleHealthBodyNow,
+    onPullToRefresh,
+    hasSuccessfulBodySync,
+  };
 }

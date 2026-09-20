@@ -2,9 +2,9 @@ import { InteractionManager, Platform } from "react-native";
 
 import { ingestRawEvent } from "@/lib/api/ingest";
 import {
-  getAppleHealthConnected,
   getAppleHealthStepsAutoRepairLastCompletedAt,
   getAppleHealthStepsBackfillState,
+  isAppleHealthDomainEnabled,
   setAppleHealthStepsAutoRepairLastCompletedAt,
   setAppleHealthStepsBackfillState,
   type AppleHealthStepsRepairTriggerSource,
@@ -42,7 +42,7 @@ function ingestRawEventNarrow(
 
 export type ScheduleAppleHealthStepsRepairOpts = {
   trigger: AppleHealthStepsRepairTriggerSource;
-  /** When true, skip cooldown (first repair after Health permissions / body connect). */
+  /** When true, skip cooldown (first repair after Activity/W1 Health connection). */
   bypassCooldown?: boolean;
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
   /**
@@ -84,8 +84,10 @@ async function isOutsideAutoCooldown(bypass: boolean): Promise<boolean> {
  */
 export async function executeAppleHealthStepsRepair(opts: ScheduleAppleHealthStepsRepairOpts): Promise<void> {
   if (Platform.OS !== "ios") return;
-  const connected = await getAppleHealthConnected().catch(() => false);
-  if (!connected) return;
+  // Progressive domains: Steps repair requires Activity domain enablement.
+  // Body-only connect must not unlock Steps today/yesterday/backfill.
+  const activityEnabled = await isAppleHealthDomainEnabled("activity").catch(() => false);
+  if (!activityEnabled) return;
   await runAppleHealthStepsBackfillSerialized(async () => {
     await runForcedLocalTodayAppleHealthStepsIngest({
       getIdToken: opts.getIdToken,
@@ -97,8 +99,8 @@ export async function executeAppleHealthStepsRepair(opts: ScheduleAppleHealthSte
 }
 
 async function runRepairInner(opts: ScheduleAppleHealthStepsRepairOpts): Promise<void> {
-  const connected = await getAppleHealthConnected().catch(() => false);
-  if (!connected) return;
+  const activityEnabled = await isAppleHealthDomainEnabled("activity").catch(() => false);
+  if (!activityEnabled) return;
 
   if (!(await isOutsideAutoCooldown(opts.bypassCooldown === true))) return;
 

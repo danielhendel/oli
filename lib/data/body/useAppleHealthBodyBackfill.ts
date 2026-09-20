@@ -5,7 +5,7 @@ import {
   appleHealthBodyCompositionIdempotencyKey,
   appleHealthBodyWeightIdempotencyKey,
   pullBodyCompositionSamples,
-  requestPermissions,
+  requestBodyCompositionPermissions,
   runAppleHealthBodyBackfill,
 } from "@/lib/integrations/appleHealth";
 import {
@@ -83,7 +83,7 @@ export function useAppleHealthBodyBackfill(onSynced?: () => void): {
       setState((prev) => ({ ...prev, status: "failed", message: "No auth token." }));
       return;
     }
-    const perm = await requestPermissions();
+    const perm = await requestBodyCompositionPermissions();
     if (!perm.ok) {
       setState((prev) => ({
         ...prev,

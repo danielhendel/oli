@@ -85,6 +85,7 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
 
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getAppleHealthConnected: (...args: unknown[]) => mockGetAppleHealthConnected(...args),
+  isAppleHealthDomainEnabled: jest.fn(async () => true),
   getAppleHealthStepsAutoRepairLastCompletedAt: (...args: unknown[]) =>
     mockGetAutoRepairLastCompletedAt(...args),
   getAppleHealthStepsBackfillState: (...args: unknown[]) => mockGetBackfillState(...args),
