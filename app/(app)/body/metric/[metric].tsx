@@ -1,24 +1,38 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { ScreenContainer, EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
-import { WeightRangeSelector } from "@/lib/ui/WeightRangeSelector";
-import { WeightTrendChart } from "@/lib/ui/WeightTrendChart";
+
+import {
+  bodyHistoryCalendarAccessibilityLabel,
+  bodyHistoryCalendarHref,
+  bodyHistoryListAccessibilityLabel,
+  bodyHistoryListHref,
+  bodyHistoryMetricFromDetailParam,
+  bodyMetricDetailBackAccessibilityLabel,
+  type BodyHistoryMetricFilter,
+} from "@/lib/data/body/bodyHistoryMetricFilter";
+import { BODY_METRIC_DETAIL_DEFAULT_RANGE } from "@/lib/data/body/bodyMetricDetailDefaults";
+import { useBodyMetricTrends, type BodyTrendMetric } from "@/lib/data/body/useBodyMetricTrends";
+import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
+import { resolveBodyMetricEducationalReferencePresentation } from "@/lib/body/standards/resolveEducationalReferencePresentation";
+import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
-import { formatBodyDayLabel } from "@/lib/ui/body/formatBodyDayLabel";
+import { BodyMetricDetailEducationPanel } from "@/lib/ui/body/BodyMetricDetailEducationPanel";
 import {
   formatBodyBmi,
   formatBodyLeanMass,
   formatBodyRmr,
   formatBodyWeight,
 } from "@/lib/ui/body/bodyMetricFormatting";
-import { BODY_METRIC_DETAIL_DEFAULT_RANGE } from "@/lib/data/body/bodyMetricDetailDefaults";
-import { useBodyMetricTrends, type BodyTrendMetric } from "@/lib/data/body/useBodyMetricTrends";
-import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
-import { usePreferences } from "@/lib/preferences/PreferencesProvider";
+import { formatBodyDayLabel } from "@/lib/ui/body/formatBodyDayLabel";
+import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
+import { HeaderControls } from "@/lib/ui/HeaderControls";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
-
+import { ScreenContainer, EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
+import { WeightRangeSelector } from "@/lib/ui/WeightRangeSelector";
+import { WeightTrendChart } from "@/lib/ui/WeightTrendChart";
 import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+
 const PARAM_TO_METRIC: Record<string, BodyTrendMetric> = {
   weight: "weight",
   "body-fat": "body_fat_percent",
@@ -31,13 +45,35 @@ const METRIC_TITLES: Record<BodyTrendMetric, string> = {
   weight: "Weight",
   body_fat_percent: "Body Fat",
   bmi: "BMI",
-  lean_body_mass: "Lean Body Mass",
+  lean_body_mass: "Lean Mass",
   resting_metabolic_rate: "RMR",
 };
+
+const BODY_FAT_EXTRA_LIMITATIONS = [
+  "Body fat percentage is method-dependent; Apple Health is transport, not a measurement method.",
+  "Oli does not treat ACE Essential / Athletic / Fitness / Average categories as health truth.",
+  "Exact personal placement requires a verified age-, sex-, and population-aware screening table plus a known compatible method.",
+  "Unknown-method values may display without a personal marker or classification claim.",
+] as const;
+
+const LEAN_MASS_EXTRA_LIMITATIONS = [
+  "This metric is total Lean Mass — not skeletal muscle, appendicular lean mass, ALM, or ALMI.",
+  "Do not apply EWGSOP2 or sarcopenia cutoffs to total Lean Mass alone.",
+  "Lean Mass Index (LMI) population references are manufacturer/method-specific and are not approved for unknown-method Apple Health data.",
+  "Oli does not assign Low / Typical / High population bands without verified coefficients and compatible device evidence.",
+] as const;
 
 function latestPoint(points: WeightPoint[]): WeightPoint | null {
   if (points.length === 0) return null;
   return [...points].sort((a, b) => a.observedAt.localeCompare(b.observedAt))[points.length - 1] ?? null;
+}
+
+function educationMetricKey(
+  historyMetric: BodyHistoryMetricFilter | null,
+): "bodyFat" | "leanTissue" | null {
+  if (historyMetric === "bodyFat") return "bodyFat";
+  if (historyMetric === "leanTissue") return "leanTissue";
+  return null;
 }
 
 export default function BodyMetricDetailScreen() {
@@ -48,17 +84,35 @@ export default function BodyMetricDetailScreen() {
   const unit = prefState.preferences?.units?.mass ?? "lb";
   const [range, setRange] = useState<WeightRangeKey>(BODY_METRIC_DETAIL_DEFAULT_RANGE);
 
-  const metric = typeof metricParam === "string" ? PARAM_TO_METRIC[metricParam] : undefined;
+  const metricParamKey = typeof metricParam === "string" ? metricParam : undefined;
+  const metric = metricParamKey != null ? PARAM_TO_METRIC[metricParamKey] : undefined;
+  const historyMetric = bodyHistoryMetricFromDetailParam(metricParamKey);
 
   const trends = useBodyMetricTrends(range, metric, { enabled: metric !== undefined });
 
   useEffect(() => {
-    if (!metric) return;
+    if (!metric || historyMetric == null) return;
+    const title = METRIC_TITLES[metric];
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
-      title: METRIC_TITLES[metric],
+      title,
+      headerLeft: () => (
+        <HeaderBackButton
+          onPress={() => navigation.goBack()}
+          accessibilityLabel={bodyMetricDetailBackAccessibilityLabel()}
+        />
+      ),
+      headerRight: () => (
+        <HeaderControls
+          gap={10}
+          calendarAccessibilityLabel={bodyHistoryCalendarAccessibilityLabel(historyMetric)}
+          onCalendarPress={() => router.push(bodyHistoryCalendarHref(historyMetric) as never)}
+          logAccessibilityLabel={bodyHistoryListAccessibilityLabel(historyMetric)}
+          onLogPress={() => router.push(bodyHistoryListHref(historyMetric) as never)}
+        />
+      ),
     });
-  }, [navigation, metric]);
+  }, [navigation, metric, historyMetric, router]);
 
   const points = useMemo(() => {
     if (trends.status !== "ready" || !metric) return [];
@@ -71,6 +125,23 @@ export default function BodyMetricDetailScreen() {
     }
     return trends.data.statsByMetric[metric];
   }, [trends, metric]);
+
+  const educationalModel = useMemo(() => {
+    const key = educationMetricKey(historyMetric);
+    if (key == null) return null;
+    return resolveBodyMetricEducationalReferencePresentation({
+      metric: key,
+      hasMeasuredValue: points.length > 0,
+      measurementMethod: null,
+    });
+  }, [historyMetric, points.length]);
+
+  const extraLimitations =
+    historyMetric === "bodyFat"
+      ? BODY_FAT_EXTRA_LIMITATIONS
+      : historyMetric === "leanTissue"
+        ? LEAN_MASS_EXTRA_LIMITATIONS
+        : undefined;
 
   const formatTrendValue = (value: number): string => {
     if (!metric) return String(value);
@@ -102,11 +173,12 @@ export default function BodyMetricDetailScreen() {
   }
 
   const hero = latestPoint(points);
+  const metricTitle = METRIC_TITLES[metric];
 
   return (
     <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.heroCard}>
+      <ScrollView contentContainerStyle={styles.scroll} testID="body-metric-detail-scroll">
+        <View style={styles.heroCard} testID={`body-metric-detail-hero-${metricParamKey ?? "unknown"}`}>
           <Text style={styles.heroLabel}>Latest</Text>
           {trends.status === "partial" ? (
             <LoadingState message="Loading…" />
@@ -129,7 +201,10 @@ export default function BodyMetricDetailScreen() {
           ) : trends.status === "error" ? (
             <ErrorState message={trends.error} requestId={trends.requestId} onRetry={() => trends.refetch()} />
           ) : points.length === 0 ? (
-            <EmptyState title="No trend data yet" description="Try a longer range or sync Apple Health body data." />
+            <EmptyState
+              title={`No ${metricTitle} trend data yet`}
+              description="Try a longer range or sync Apple Health body data for this metric."
+            />
           ) : (
             <View style={styles.chartContainer}>
               <WeightTrendChart
@@ -156,10 +231,19 @@ export default function BodyMetricDetailScreen() {
           </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>History</Text>
+        {historyMetric === "bodyFat" || historyMetric === "leanTissue" ? (
+          <BodyMetricDetailEducationPanel
+            model={educationalModel}
+            {...(extraLimitations != null ? { extraLimitations } : {})}
+          />
+        ) : null}
+
+        <View style={styles.card} testID="body-metric-detail-history">
+          <Text style={styles.sectionTitle}>{metricTitle} History</Text>
           {trends.status !== "ready" || historyRows.length === 0 ? (
-            <Text style={styles.placeholder}>No entries in this range</Text>
+            <Text style={styles.placeholder} testID="body-metric-detail-history-empty">
+              No {metricTitle} entries in this range
+            </Text>
           ) : (
             historyRows.map((p) => (
               <Pressable
@@ -167,7 +251,7 @@ export default function BodyMetricDetailScreen() {
                 style={({ pressed }) => [styles.historyRow, pressed && styles.historyRowPressed]}
                 onPress={() => router.push({ pathname: "/(app)/body/day/[day]", params: { day: p.dayKey } })}
                 accessibilityRole="button"
-                accessibilityLabel={`Open body day ${p.dayKey}`}
+                accessibilityLabel={`Open ${metricTitle} day ${p.dayKey}`}
               >
                 <Text style={styles.historyDate}>{formatBodyDayLabel(p.dayKey)}</Text>
                 <Text style={styles.historyValue}>{formatTrendValue(p.weightKg)}</Text>

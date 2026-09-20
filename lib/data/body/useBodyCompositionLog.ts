@@ -1,14 +1,16 @@
 import { useCallback, useMemo } from "react";
 
-import { useRawEvents } from "@/lib/data/useRawEvents";
+import type { BodyHistoryMetricFilter } from "@/lib/data/body/bodyHistoryMetricFilter";
 import { resolveBodyHistoryQueryWindow } from "@/lib/data/body/bodyHistoryRange";
-import { getDeviceTimeZone } from "@/lib/data/body/deviceTimeZone";
 import {
   buildBodyCompositionLogEntries,
+  filterBodyCompositionLogEntriesForMetric,
   type BodyCompositionLogEntry,
 } from "@/lib/data/body/bodyCompositionLogEntries";
+import { getDeviceTimeZone } from "@/lib/data/body/deviceTimeZone";
+import { useRawEvents } from "@/lib/data/useRawEvents";
 
-export function useBodyCompositionLog(): {
+export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"): {
   status: "partial" | "error" | "ready";
   entries: BodyCompositionLogEntry[];
   error: string | null;
@@ -17,11 +19,13 @@ export function useBodyCompositionLog(): {
 } {
   const tz = getDeviceTimeZone();
   const { start, end } = useMemo(() => resolveBodyHistoryQueryWindow("5Y"), []);
+  const kinds =
+    metric === "weight" ? (["weight"] as const) : (["weight", "body_composition"] as const);
   const raw = useRawEvents(
     {
       start,
       end,
-      kinds: ["weight"],
+      kinds: [...kinds],
       includePayload: true,
       limit: 100,
     },
@@ -34,8 +38,9 @@ export function useBodyCompositionLog(): {
 
   const entries = useMemo(() => {
     if (raw.status !== "ready") return [];
-    return buildBodyCompositionLogEntries(raw.data.items, tz);
-  }, [raw, tz]);
+    const all = buildBodyCompositionLogEntries(raw.data.items, tz);
+    return filterBodyCompositionLogEntriesForMetric(all, metric);
+  }, [raw, tz, metric]);
 
   if (raw.status === "error") {
     return {

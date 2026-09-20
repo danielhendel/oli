@@ -1,18 +1,30 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Platform, StyleSheet, View, type ViewToken } from "react-native";
-import { useNavigation, useRouter } from "expo-router";
-import { ScreenContainer } from "@/lib/ui/ScreenStates";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+
+import {
+  parseBodyHistoryMetricParam,
+  type BodyHistoryMetricFilter,
+} from "@/lib/data/body/bodyHistoryMetricFilter";
+import { useBodyCompositionData } from "@/lib/data/body/useBodyCompositionData";
+import { useBodyMetricTrends, type BodyTrendMetric } from "@/lib/data/body/useBodyMetricTrends";
 import { BodyMonthGrid } from "@/lib/ui/body/BodyMonthGrid";
 import { clampMonthYear, getTodayDayKeyLocal, type MonthYear } from "@/lib/ui/calendar/dateUtils";
 import { headerYearFromViewableMonthItems } from "@/lib/ui/calendar/moduleCalendarHeaderYear";
 import { useModuleCalendarYearNavigationHeader } from "@/lib/ui/calendar/useModuleCalendarYearNavigationHeader";
-import { useBodyCompositionData } from "@/lib/data/body/useBodyCompositionData";
+import { ScreenContainer } from "@/lib/ui/ScreenStates";
 import { UI_APP_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 
 type MonthModel = { key: string; monthYear: MonthYear };
 const MONTHS_BACK = 12;
 const MONTHS_FORWARD = 12;
 const CALENDAR_MONTH_ITEM_HEIGHT = 372;
+
+const FILTER_TO_TREND: Record<BodyHistoryMetricFilter, BodyTrendMetric> = {
+  weight: "weight",
+  bodyFat: "body_fat_percent",
+  leanTissue: "lean_body_mass",
+};
 
 function monthYearFromToday(): MonthYear {
   const d = getTodayDayKeyLocal();
@@ -37,6 +49,8 @@ function buildMonthRange(center: MonthYear): MonthModel[] {
 export default function BodyCalendarScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const params = useLocalSearchParams<{ metric?: string }>();
+  const historyMetric = parseBodyHistoryMetricParam(params.metric);
   const todayMonth = monthYearFromToday();
   const months = useMemo(() => buildMonthRange(todayMonth), [todayMonth.year, todayMonth.month]);
   const todayMonthIndex = MONTHS_BACK;
@@ -44,6 +58,20 @@ export default function BodyCalendarScreen() {
   const [headerYear, setHeaderYear] = useState(todayMonth.year);
 
   const body = useBodyCompositionData(new Date().toISOString().slice(0, 10), "5Y");
+  const trendMetric = FILTER_TO_TREND[historyMetric];
+  const trends = useBodyMetricTrends("5Y", trendMetric, {
+    enabled: historyMetric !== "weight",
+  });
+
+  const markedDays = useMemo(() => {
+    if (historyMetric === "weight") return body.markedDays;
+    if (trends.status !== "ready") return new Set<string>();
+    const set = new Set<string>();
+    for (const p of trends.data.byMetric[trendMetric]) {
+      set.add(p.dayKey);
+    }
+    return set;
+  }, [historyMetric, body.markedDays, trends, trendMetric]);
 
   useModuleCalendarYearNavigationHeader(navigation, headerYear);
 
@@ -75,7 +103,11 @@ export default function BodyCalendarScreen() {
   const screenEdges = ["left", "right", "bottom"] as const;
 
   return (
-    <ScreenContainer backgroundColor={UI_APP_SCREEN_BG} padded={false} edges={[...screenEdges]}>
+    <ScreenContainer
+      backgroundColor={UI_APP_SCREEN_BG}
+      padded={false}
+      edges={[...screenEdges]}
+    >
       <FlatList
         ref={flatListRef}
         data={months}
@@ -103,7 +135,7 @@ export default function BodyCalendarScreen() {
           <View style={styles.monthItem}>
             <BodyMonthGrid
               monthYear={item.monthYear}
-              markerForDay={(day) => body.markedDays.has(day)}
+              markerForDay={(day) => markedDays.has(day)}
               onDayPress={(day) => router.push({ pathname: "/(app)/body/day/[day]", params: { day } })}
             />
           </View>

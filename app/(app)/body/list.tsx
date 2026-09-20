@@ -1,7 +1,11 @@
 import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
-import { useNavigation } from "expo-router";
+import { useLocalSearchParams, useNavigation } from "expo-router";
 
+import {
+  BODY_HISTORY_METRIC_TITLES,
+  parseBodyHistoryMetricParam,
+} from "@/lib/data/body/bodyHistoryMetricFilter";
 import {
   buildBodyCompositionLogRowVm,
   type BodyCompositionLogEntry,
@@ -21,7 +25,10 @@ import { WeightLogModal, type WeightLogModalEditTarget } from "@/lib/ui/WeightLo
 
 export default function BodyCompositionLogScreen() {
   const navigation = useNavigation();
-  const log = useBodyCompositionLog();
+  const params = useLocalSearchParams<{ metric?: string }>();
+  const historyMetric = parseBodyHistoryMetricParam(params.metric);
+  const metricTitle = BODY_HISTORY_METRIC_TITLES[historyMetric];
+  const log = useBodyCompositionLog(historyMetric);
   const mutations = useBodyWeightLogMutations();
   const { state: prefState } = usePreferences();
   const unit = prefState.preferences?.units?.mass ?? "lb";
@@ -35,14 +42,16 @@ export default function BodyCompositionLogScreen() {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
       headerStyle: { backgroundColor: WORKOUTS_SCREEN_CONTENT_BG },
-      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} accessibilityLabel="Go back" />,
-      title: "Body Composition Log",
+      headerLeft: () => (
+        <HeaderBackButton onPress={() => navigation.goBack()} accessibilityLabel="Go back" />
+      ),
+      title: `${metricTitle} History`,
     });
-  }, [navigation]);
+  }, [navigation, metricTitle]);
 
   const rows = useMemo(
-    () => log.entries.map((entry) => buildBodyCompositionLogRowVm(entry, unit)),
-    [log.entries, unit],
+    () => log.entries.map((entry) => buildBodyCompositionLogRowVm(entry, unit, historyMetric)),
+    [log.entries, unit, historyMetric],
   );
 
   const closeMenu = useCallback(() => {
@@ -60,7 +69,7 @@ export default function BodyCompositionLogScreen() {
       const sourceLabel = entry.provider === "apple_health" ? "Apple Health" : "the original source";
       const message = isImported
         ? `This will hide this entry from Oli.\nThe original value remains in ${sourceLabel}.`
-        : "Delete this weight entry?";
+        : `Delete this ${metricTitle.toLowerCase()} entry?`;
       Alert.alert(isImported ? "Delete from Oli?" : "Delete entry?", message, [
         { text: "Cancel", style: "cancel" },
         {
@@ -75,10 +84,11 @@ export default function BodyCompositionLogScreen() {
         },
       ]);
     },
-    [mutations, refresh],
+    [mutations, refresh, metricTitle],
   );
 
   const onEdit = useCallback((entry: BodyCompositionLogEntry) => {
+    if (entry.weightKg == null) return;
     setEditTarget({
       rawEventId: entry.rawEventId,
       observedAtIso: entry.observedAt,
@@ -110,7 +120,7 @@ export default function BodyCompositionLogScreen() {
   if (log.status === "partial") {
     return (
       <ScreenContainer backgroundColor={WORKOUTS_SCREEN_CONTENT_BG}>
-        <LoadingState message="Loading body composition log…" />
+        <LoadingState message={`Loading ${metricTitle} history…`} />
       </ScreenContainer>
     );
   }
@@ -124,8 +134,12 @@ export default function BodyCompositionLogScreen() {
   }
 
   return (
-    <ScreenContainer backgroundColor={WORKOUTS_SCREEN_CONTENT_BG} padded={false} edges={["left", "right", "bottom"]}>
-      <View style={styles.body} testID="body-composition-log-screen">
+    <ScreenContainer
+      backgroundColor={WORKOUTS_SCREEN_CONTENT_BG}
+      padded={false}
+      edges={["left", "right", "bottom"]}
+    >
+      <View style={styles.body} testID={`body-composition-log-screen-${historyMetric}`}>
         {mutations.errorMessage ? (
           <Text style={styles.banner} accessibilityRole="alert" accessibilityLiveRegion="polite">
             {mutations.errorMessage}
@@ -138,8 +152,9 @@ export default function BodyCompositionLogScreen() {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <EmptyState
-              title="No weight entries yet"
-              description="When you log or sync body weight, entries will appear here."
+              title={`No ${metricTitle} entries yet`}
+              description={`When you log or sync ${metricTitle}, entries will appear here. Other Body metrics are not shown as a fallback.`}
+              testID="body-composition-log-empty"
             />
           }
         />
@@ -149,13 +164,19 @@ export default function BodyCompositionLogScreen() {
         anchor={menuAnchor}
         onClose={closeMenu}
         onEdit={() => {
-          if (menuEntry?.canEdit) onEdit(menuEntry);
+          if (menuEntry?.canEdit && menuEntry.weightKg != null) onEdit(menuEntry);
         }}
         onDelete={() => {
           if (menuEntry?.canDelete) onDelete(menuEntry);
         }}
-        editDisabledReason={menuEntry?.canEdit ? null : (menuEntry?.editDisabledReason ?? "Edit unavailable")}
-        deleteDisabledReason={menuEntry?.canDelete ? null : (menuEntry?.deleteDisabledReason ?? "Delete unavailable")}
+        editDisabledReason={
+          menuEntry?.canEdit && menuEntry.weightKg != null
+            ? null
+            : (menuEntry?.editDisabledReason ?? "Edit unavailable")
+        }
+        deleteDisabledReason={
+          menuEntry?.canDelete ? null : (menuEntry?.deleteDisabledReason ?? "Delete unavailable")
+        }
         deleteLabel={menuEntry?.deleteMenuLabel ?? "Delete"}
       />
       <WeightLogModal
