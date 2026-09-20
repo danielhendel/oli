@@ -11,9 +11,9 @@ import type {
 } from "@/lib/body/presentation/bodyMetricCardTypes";
 import { LB_PER_KG } from "@/lib/body/bodyCompositionShared";
 import {
-  resolveBodyFatCompositionShareGraph,
   resolveLeanMassCompositionShareGraph,
 } from "@/lib/body/presentation/resolveBodyCompositionShareGraph";
+import { resolveBodyFatNumericalReferenceChart } from "@/lib/body/presentation/resolveBodyFatNumericalReferenceChart";
 import {
   resolveBodyMetricStandardPresentation,
   type BodyMetricStandardResolveInput,
@@ -295,8 +295,6 @@ function buildBodyFatCard(input: {
   measuredAtLabel: string | null;
   seriesError: boolean;
 }): BodyMetricCardModel {
-  void input.profile;
-  void input.unit;
   const hasValue =
     input.overview.bodyFatPercent != null && Number.isFinite(input.overview.bodyFatPercent);
   const formattedValue = hasValue
@@ -304,8 +302,7 @@ function buildBodyFatCard(input: {
     : null;
   const value = hasValue ? (input.overview.bodyFatPercent as number) : null;
   const displayValue = hasValue ? (input.overview.bodyFatPercent as number).toFixed(1) : null;
-  // Landing cards stay value-first. Composition-share graph is measurement quantity only.
-  // Numerical Body Fat placement remains withheld / deferred.
+  // Gallagher numerical educational screening ranges (marker withheld).
   const pairingEvidence = {
     weightKg: input.overview.weightKg,
     bodyFatPercent: input.overview.bodyFatPercent,
@@ -313,13 +310,18 @@ function buildBodyFatCard(input: {
     overviewDay: input.overview.overviewDay,
     latestObservedAtIso: input.overview.latestObservedAtIso ?? null,
   };
-  const compositionShareGraph = input.seriesError
+  const classificationChart = input.seriesError
     ? null
-    : resolveBodyFatCompositionShareGraph({
-        evidence: pairingEvidence,
+    : resolveBodyFatNumericalReferenceChart({
+        ageYears: input.profile.ageYears,
+        sex: input.profile.sex,
+        bodyFatPercent: input.overview.bodyFatPercent,
         view: "percentage",
         massDisplayUnit: input.unit,
+        evidence: pairingEvidence,
+        measurementMethod: null,
       });
+  const referenceBar = classificationChart ? toReferenceBar(classificationChart) : null;
 
   return {
     metric: "bodyFat",
@@ -332,13 +334,13 @@ function buildBodyFatCard(input: {
     readiness: input.seriesError ? "error" : hasValue ? "partial" : "missing",
     statusLabel: "",
     referenceLabel: null,
-    referenceContextLabel: null,
-    classificationChart: null,
+    referenceContextLabel: classificationChart?.contextLabel ?? null,
+    classificationChart,
     educationalReferenceChart: null,
-    compositionShareGraph,
+    compositionShareGraph: null,
     showUnclassifiedScaffold: false,
     unclassifiedScaffoldAccessibilityLabel: null,
-    referenceBar: null,
+    referenceBar: input.seriesError ? null : referenceBar,
     heightSpecificRangeLabel: null,
     provenance: {
       transportLabel: null,
@@ -352,10 +354,10 @@ function buildBodyFatCard(input: {
     addDataHref: null,
     accessibilityLabel: input.seriesError
       ? "Body Fat. No current measurement. Couldn’t load this measurement."
-      : compositionShareGraph != null
-        ? compositionShareGraph.accessibleSummary
+      : classificationChart != null
+        ? classificationChart.accessibleSummary
         : hasValue
-          ? `Body Fat ${formattedValue}. No personal classification.${
+          ? `Body Fat ${formattedValue}. Screening reference unavailable for age or reference sex.${
               input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
             } Open body fat details.`
           : "Body Fat. No current measurement. Add measurement.",

@@ -1,16 +1,17 @@
 /**
  * Body Fat — Stage 3C educational reference standard.
  *
- * Personal classification remains PROPOSED / NOT APPROVED.
- * No Gallagher, ACE, or ACSM/NSCA numeric cutoffs are shipped as approved ranges.
- * Educational range labels are qualitative concepts only (no invented %BF thresholds).
+ * Landing-card numerical screening ranges use Gallagher et al. 2000 (version 2000.1)
+ * as a general educational screening reference. Personal classification markers remain
+ * BLOCKED until method + reference-population eligibility pass.
+ * ACE Essential/Athletic/Fitness/Average are rejected as Oli health truth.
  */
 
 import type { BodyMetricEducationalReferenceDefinition } from "@/lib/body/standards/educationalReferenceTypes";
 
 export const BODY_FAT_EDUCATIONAL_REFERENCE_STANDARD_ID =
   "body-fat-educational-reference" as const;
-export const BODY_FAT_EDUCATIONAL_REFERENCE_VERSION = "2026.3c.1" as const;
+export const BODY_FAT_EDUCATIONAL_REFERENCE_VERSION = "2026.3c.2" as const;
 
 export const BODY_FAT_EDUCATIONAL_REFERENCE_STANDARD: BodyMetricEducationalReferenceDefinition = {
   standardId: BODY_FAT_EDUCATIONAL_REFERENCE_STANDARD_ID,
@@ -24,9 +25,9 @@ export const BODY_FAT_EDUCATIONAL_REFERENCE_STANDARD: BodyMetricEducationalRefer
   educationalAuthorization: "approved_for_educational_reference_ui",
   personalClassificationAuthorization: "proposed_human_approval_required",
   applicablePopulation:
-    "Adult educational framing only. Age-, sex-, and method-specific consumer cutoffs are not authorized in Stage 3C.",
+    "Adult ages 20–79 with Female or Male reference sex. Combined African American / White Table 4 is a general educational screening reference — not universal and not ethnicity-inferred.",
   applicableMethodsSummary:
-    "Educational reference applies to method-labeled composition measurements (for example DXA or another explicitly validated method). Apple Health is a transport layer, not a measurement method.",
+    "Educational numerical ranges may display without placing a personal marker. Personal placement requires a known, standard-compatible measurement method. Apple Health is a transport layer, not a measurement method.",
   compatibleMethods: ["DXA", "method_labeled_validated_composition"],
   incompatibleMethods: [
     "unknown_method",
@@ -36,30 +37,30 @@ export const BODY_FAT_EDUCATIONAL_REFERENCE_STANDARD: BodyMetricEducationalRefer
   ],
   educationalRanges: [
     {
-      id: "lower_adiposity_context",
-      displayLabel: "Lower adiposity context",
+      id: "lower",
+      displayLabel: "Lower",
       meaning:
-        "Educational concept: relatively lower body-fat context. Very low body fat is not automatically a peak athletic claim.",
+        "Educational screening concept: below the age- and reference-sex mid-range lower edge on the Gallagher BMI-equivalent table. Not an athletic claim or prescription.",
       tone: "cool",
       numericRangeLabel: null,
       lowerBound: null,
       upperBound: null,
     },
     {
-      id: "mid_range_adiposity_context",
-      displayLabel: "Mid-range adiposity context",
+      id: "mid_range",
+      displayLabel: "Mid-range",
       meaning:
-        "Educational concept: a mid-range body-fat context on a descriptive continuum — not a verified population distribution and not a universal healthy target or peak athletic claim.",
+        "Educational screening concept: mid-range body-fat context on the Gallagher BMI-equivalent table — not a verified personal healthy target.",
       tone: "reference",
       numericRangeLabel: null,
       lowerBound: null,
       upperBound: null,
     },
     {
-      id: "higher_adiposity_context",
-      displayLabel: "Higher adiposity context",
+      id: "higher",
+      displayLabel: "Higher",
       meaning:
-        "Educational concept: relatively higher body-fat context can matter for health-protection interpretation when a verified, method-compatible standard exists.",
+        "Educational screening concept: at or above the source Elevated lower edge (landing card merges Elevated and Obesity-linked upper regions). Not a diagnosis.",
       tone: "elevated",
       numericRangeLabel: null,
       lowerBound: null,
@@ -67,7 +68,7 @@ export const BODY_FAT_EDUCATIONAL_REFERENCE_STANDARD: BodyMetricEducationalRefer
     },
   ],
   rangeMeaningSummary:
-    "These ranges are educational concepts only. Oli does not map your body-fat percentage onto them until a primary-verified, method-compatible standard is approved.",
+    "Landing-card numerical ranges are Gallagher et al. 2000 BMI-equivalent adult screening references (standard gallagher-4c-bmi-equivalent-body-fat-reference version 2000.1). They are not personal targets, diagnoses, or performance ratings. Personal markers remain withheld until method and reference-population eligibility pass.",
   evidenceCitations: [
     {
       citationId: "gallagher-2000-percent-body-fat-bmi-linked",
@@ -76,7 +77,7 @@ export const BODY_FAT_EDUCATIONAL_REFERENCE_STANDARD: BodyMetricEducationalRefer
       organization: "Am J Clin Nutr (Gallagher et al.)",
       publicationYear: 2000,
       role: "primary_candidate",
-      note: "Primary candidate for future personal classification after primary-source verification and human approval. Not authorized for runtime personal markers in Stage 3C.",
+      note: "Approved for general educational screening reference ranges on the Body Fat card (combined African American / White Table 4, three-band landing model). Personal markers not authorized without method + reference-population eligibility.",
     },
     {
       citationId: "nhanes-dxa-fat-mass-index-reference",
@@ -97,14 +98,14 @@ export const BODY_FAT_EDUCATIONAL_REFERENCE_STANDARD: BodyMetricEducationalRefer
   ],
   limitations: [
     "No WHO/CDC universal adult body-fat percentage classification is adopted.",
-    "Gallagher candidate cutoffs and consumer labels are not verified for Stage 3C runtime personal classification.",
+    "Combined African American / White Table 4 is provisional and population-sensitive; not universal; not ethnicity-inferred; separate Asian models exist in the source.",
     "Unknown-method Apple Health values cannot become device-inferred personal markers.",
     "Not a peak athletic, universal athletic, or personal rating range.",
   ],
   personalPlacementWithheldReasons: [
-    "No primary-verified Body Fat personal classification standard is approved for Body consumer UI.",
     "Personal placement requires a known, standard-compatible measurement method.",
+    "Combined-table educational ranges are not a verified personal reference-population assignment.",
     "Apple Health transport without method labeling is not sufficient for personal classification.",
-    "Commercial body-fat chart substitutes are not used as health truth.",
+    "Commercial body-fat chart substitutes (including ACE) are not used as health truth.",
   ],
 };

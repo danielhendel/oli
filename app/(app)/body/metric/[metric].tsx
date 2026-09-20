@@ -50,17 +50,19 @@ const METRIC_TITLES: Record<BodyTrendMetric, string> = {
 };
 
 const BODY_FAT_EXTRA_LIMITATIONS = [
-  "Body fat percentage is method-dependent; Apple Health is transport, not a measurement method.",
+  "Body Fat card ranges use Gallagher et al. 2000 BMI-equivalent adult screening bands (version 2000.1) as a general educational screening reference from the combined African American / White Table 4.",
+  "The source paper also reported separate Asian models; Oli does not silently choose a personal ethnic model from name, appearance, Apple Health, or account metadata.",
+  "Higher on the landing card combines the source Elevated and Obesity-linked upper regions — not a diagnosis or performance rating.",
+  "Body fat percentage is method-dependent; Apple Health is transport, not a measurement method. Personal placement stays withheld until method and reference-population eligibility pass.",
   "Oli does not treat ACE Essential / Athletic / Fitness / Average categories as health truth.",
-  "Exact personal placement requires a verified age-, sex-, and population-aware screening table plus a known compatible method.",
-  "Unknown-method values may display without a personal marker or classification claim.",
 ] as const;
 
 const LEAN_MASS_EXTRA_LIMITATIONS = [
   "This metric is total Lean Mass — not skeletal muscle, appendicular lean mass, ALM, or ALMI.",
   "Do not apply EWGSOP2 or sarcopenia cutoffs to total Lean Mass alone.",
-  "Lean Mass Index (LMI) population references are manufacturer/method-specific and are not approved for unknown-method Apple Health data.",
-  "Oli does not assign Low / Typical / High population bands without verified coefficients and compatible device evidence.",
+  "Kelly et al. 2009 NHANES Table S5 (Lean Mass/Height²) supplies ethnicity-specific LMS curves only — no approved pooled adult reference for Oli without silent ethnicity inference.",
+  "Lean Mass Index population references are Hologic/NHANES-calibration specific and are not approved for unknown-method Apple Health data.",
+  "Oli does not invent universal raw-pound Lean Mass ranges or assign Low / Mid-range / Higher numerical bands without a verified non-inferred reference population.",
 ] as const;
 
 function latestPoint(points: WeightPoint[]): WeightPoint | null {

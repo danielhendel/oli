@@ -68,15 +68,24 @@ export const LEAN_MASS_EDUCATIONAL_REFERENCE_STANDARD: BodyMetricEducationalRefe
     },
   ],
   rangeMeaningSummary:
-    "These ranges are educational concepts for total lean mass only. Oli does not map your lean mass onto clinical limb-specific cutoffs or population peak labels in Stage 3C.",
+    "Educational concepts only for total lean mass. Kelly et al. 2009 NHANES Table S5 (total LMI) was verified as ethnicity-specific LMS curves with no pooled adult reference — numerical Lower/Mid-range/Higher card ranges remain BLOCKED without silent ethnicity inference. Oli does not map your lean mass onto clinical limb-specific cutoffs or population peak labels.",
   evidenceCitations: [
+    {
+      citationId: "kelly-2009-nhanes-dxa-table-s5",
+      title:
+        "Dual Energy X-Ray Absorptiometry Body Composition Reference Values from NHANES — Table S5 Lean Mass/Height²",
+      organization: "PLoS ONE (Kelly, Wilson, Heymsfield)",
+      publicationYear: 2009,
+      role: "primary_candidate",
+      note: "Primary total-LMI candidate. Supplement DOI 10.1371/journal.pone.0007038.s025. Ethnicity-specific White/Black/Mexican American curves only; no pooled adult reference. Numerical runtime BLOCKED.",
+    },
     {
       citationId: "ewgsop2-appendicular-muscle-quantity",
       title: "Sarcopenia: revised European consensus on definition and diagnosis (EWGSOP2)",
       organization: "EWGSOP2 / Age Ageing",
       publicationYear: 2019,
-      role: "primary_candidate",
-      note: "Supports appendicular muscle-quantity constructs (ASM/ALMI), not total lean mass alone. Not authorized for Stage 3C personal markers on total lean.",
+      role: "rejected",
+      note: "Supports appendicular muscle-quantity constructs (ASM/ALMI), not total lean mass alone. Must not be applied to total lean.",
     },
     {
       citationId: "nhanes-dxa-lean-mass-population-reference",
@@ -97,14 +106,16 @@ export const LEAN_MASS_EDUCATIONAL_REFERENCE_STANDARD: BodyMetricEducationalRefe
   ],
   limitations: [
     "Total lean tissue is not skeletal muscle and is not limb-specific lean mass.",
+    "Kelly Table S5 has no approved pooled adult reference; ethnicity-specific curves must not be selected silently.",
     "Clinical ASM/ALMI cutoffs must not be applied to Apple Health or total lean mass.",
     "Clinical muscle-disease labeling requires strength and performance context — not lean mass alone.",
     "Not a peak athletic or personal performance rating rail.",
   ],
   personalPlacementWithheldReasons: [
     "No approved personal classification standard exists for total lean mass on Body consumer UI.",
+    "Numerical total-LMI ranges are blocked pending a non-inferred reference-population policy.",
     "Clinical limb-specific lean cutoffs require constructs Oli does not currently own on Body overview.",
-    "Personal placement requires a known, standard-compatible measurement method.",
+    "Personal placement requires a known, standard-compatible measurement method (Hologic/NHANES calibration for Kelly).",
     "Unknown-method transport values cannot authorize clinical or population personal markers.",
   ],
 };

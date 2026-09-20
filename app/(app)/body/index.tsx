@@ -212,6 +212,8 @@ export default function BodyOverviewScreen() {
         view: bodyFatPrimaryView,
         massDisplayUnit: unit,
         evidence: pairingEvidence,
+        ageYears: profileSlice.ageYears,
+        sex: profileSlice.sex,
       }),
       applyLeanMassPrimaryView({
         card: leanCard,

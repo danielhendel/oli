@@ -19,10 +19,8 @@ import {
   resolveCompatibleLeanMassPercentage,
   type BodyCompositionPairingEvidence,
 } from "@/lib/body/presentation/resolveCompatibleBodyCompositionDerivation";
-import {
-  resolveBodyFatCompositionShareGraph,
-  resolveLeanMassCompositionShareGraph,
-} from "@/lib/body/presentation/resolveBodyCompositionShareGraph";
+import { resolveLeanMassCompositionShareGraph } from "@/lib/body/presentation/resolveBodyCompositionShareGraph";
+import { resolveBodyFatNumericalReferenceChart } from "@/lib/body/presentation/resolveBodyFatNumericalReferenceChart";
 import { bmiFromWeightAndHeight } from "@/lib/body/standards/cdcWhoAdultBmiScreeningStandard";
 import {
   resolveWeightBmiScreeningPresentation,
@@ -91,19 +89,28 @@ export function applyBodyFatPrimaryView(input: {
   readonly view: BodyFatPrimaryView;
   readonly massDisplayUnit: BodyMassDisplayUnit;
   readonly evidence: BodyCompositionPairingEvidence;
+  readonly ageYears: number | null;
+  readonly sex: "female" | "male" | "unspecified" | null;
 }): BodyMetricCardModel {
-  const compositionShareGraph = resolveBodyFatCompositionShareGraph({
-    evidence: input.evidence,
-    view: input.view,
+  const classificationChart = resolveBodyFatNumericalReferenceChart({
+    ageYears: input.ageYears,
+    sex: input.sex,
+    bodyFatPercent: input.evidence.bodyFatPercent,
+    view: input.view === "fatMass" ? "fatMass" : "percentage",
     massDisplayUnit: input.massDisplayUnit,
+    evidence: input.evidence,
+    measurementMethod: null,
   });
 
   if (input.view === "percentage") {
     return {
       ...input.card,
-      compositionShareGraph,
+      classificationChart,
+      compositionShareGraph: null,
       showUnclassifiedScaffold: false,
-      accessibilityLabel: compositionShareGraph.accessibleSummary,
+      accessibilityLabel:
+        classificationChart?.accessibleSummary ??
+        input.card.accessibilityLabel,
     };
   }
   const derived = resolveCompatibleFatMassKg(input.evidence);
@@ -115,7 +122,8 @@ export function applyBodyFatPrimaryView(input: {
       formattedValue: null,
       value: null,
       unit: input.massDisplayUnit,
-      compositionShareGraph,
+      classificationChart,
+      compositionShareGraph: null,
       showUnclassifiedScaffold: false,
       accessibilityLabel: `Body Fat. Fat mass unavailable. ${derived.reason} Measured percentage remains available.`,
     };
@@ -129,9 +137,12 @@ export function applyBodyFatPrimaryView(input: {
     value:
       input.massDisplayUnit === "lb" ? derived.valueKg * 2.2046226218 : derived.valueKg,
     unit: input.massDisplayUnit,
-    compositionShareGraph,
+    classificationChart,
+    compositionShareGraph: null,
     showUnclassifiedScaffold: false,
-    accessibilityLabel: compositionShareGraph.accessibleSummary,
+    accessibilityLabel:
+      classificationChart?.accessibleSummary ??
+      `Body Fat ${formatted}. Open body fat details.`,
   };
 }
 
