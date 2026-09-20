@@ -202,7 +202,7 @@ Source: Mountjoy et al. Br J Sports Med 2023 — https://doi.org/10.1136/bjsport
 
 ## 10. Stage 3C numerical standards gate (2026-09-20)
 
-### 10.1 Gallagher Body Fat — APPROVED AS GENERAL EDUCATIONAL SCREENING REFERENCE
+### 10.1 Gallagher Body Fat — APPROVED FOR STAGE 3C V1
 
 | Field | Content |
 |-------|---------|
@@ -212,12 +212,13 @@ Source: Mountjoy et al. Br J Sports Med 2023 — https://doi.org/10.1136/bjsport
 | Card labels | Lower / Mid-range / Higher (Higher merges source Elevated + Obesity-linked upper regions) |
 | Population | Combined African American / White Table 4 — **general educational screening reference**; not universal; not ethnicity-inferred; separate Asian models exist in source |
 | Age / sex | Adults 20–79; Female or Male reference sex only |
-| Personal marker | **BLOCKED** unless method + reference-population eligibility pass |
+| Leadership | **APPROVED FOR STAGE 3C V1** numerical educational card reference (2026-09-20) |
+| Personal marker | **BLOCKED** — method + reference-population eligibility + Stage 3D provenance required later |
 | Mass ranges | Derived from % bounds × compatible Weight (Stage 3B pairing); no persistence |
 | Claim type | PRODUCT DECISION (educational screening ranges on card) + EVIDENCE (primary table) |
 | Rejected | ACE Essential/Athletic/Fitness/Average as Oli health truth |
 
-### 10.2 Kelly NHANES Table S5 Lean Mass — NUMERICAL RUNTIME BLOCKED
+### 10.2 Kelly NHANES Table S5 Lean Mass — NUMERICAL DEFERRED / BLOCKED; COMPOSITION-SHARE FALLBACK APPROVED
 
 | Field | Content |
 |-------|---------|
@@ -233,11 +234,14 @@ Source: Mountjoy et al. Br J Sports Med 2023 — https://doi.org/10.1136/bjsport
 | Verified rows | White male age 20 M=18.98 σ=2.50 L=-1.115; Black female age 40 M=18.12 σ=2.86 L=-0.872; Mexican American male age 60 M=19.93 σ=2.16 L=-0.492 |
 | Device | Hologic QDR 4500A / NHANES calibration — not Apple Health unknown method |
 | Runtime verdict | **LEAN MASS NUMERICAL REFERENCE BLOCKED — NO APPROVED NON-INFERRED REFERENCE POPULATION** |
-| Landing fallback | Composition-share graph (measurement proportion) — no invented lb ranges |
+| Leadership Stage 3C fallback | **COMPOSITION-SHARE VISUALIZATION APPROVED** — scientific honesty over visual symmetry |
 | Personal marker | **BLOCKED** |
+| Future dependency | Stage 3D measurement provenance + separate standards approval |
 | Claim type | EVIDENCE (table structure) + PRODUCT DECISION (hard stop; no silent ethnicity) |
 
 Prior physical candidate `050d338e62749d7920988900f25d61b847fdbad4` (composition-share for both BF/LM): **SUPERSEDED — DO NOT REUSE PHYSICAL EVIDENCE**.
+
+Leadership decision (2026-09-20): asymmetric Stage 3C v1 **APPROVED** — Body Fat numerical educational ranges + Lean Mass composition-share fallback. Physical-iPhone retest **REQUIRED**.
 
 ---
 

@@ -59,10 +59,11 @@ const BODY_FAT_EXTRA_LIMITATIONS = [
 
 const LEAN_MASS_EXTRA_LIMITATIONS = [
   "This metric is total Lean Mass — not skeletal muscle, appendicular lean mass, ALM, or ALMI.",
+  "The current Lean Mass graph shows share of total mass only — not a population reference or health rating.",
   "Do not apply EWGSOP2 or sarcopenia cutoffs to total Lean Mass alone.",
-  "Kelly et al. 2009 NHANES Table S5 (Lean Mass/Height²) supplies ethnicity-specific LMS curves only — no approved pooled adult reference for Oli without silent ethnicity inference.",
-  "Lean Mass Index population references are Hologic/NHANES-calibration specific and are not approved for unknown-method Apple Health data.",
-  "Oli does not invent universal raw-pound Lean Mass ranges or assign Low / Mid-range / Higher numerical bands without a verified non-inferred reference population.",
+  "Kelly et al. 2009 NHANES Table S5 (Lean Mass/Height²) is Hologic/NHANES method-specific and stratified by reference sex and ethnicity — Oli does not silently select a reference population.",
+  "Unknown-method Apple Health data cannot be placed on a DXA population reference.",
+  "Numerical Lean Mass reference research is deferred — not abandoned — pending Stage 3D measurement provenance and a separate non-inferred reference-population decision.",
 ] as const;
 
 function latestPoint(points: WeightPoint[]): WeightPoint | null {
