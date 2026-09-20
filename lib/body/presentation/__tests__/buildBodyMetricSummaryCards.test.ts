@@ -139,7 +139,7 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     expect(weight.classificationChart).toBeNull();
   });
 
-  it("shows Body Fat value without classification chart or personal marker", () => {
+  it("shows Body Fat educational reference without personal classification marker", () => {
     const [, bodyFat] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -155,14 +155,18 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     expect(bodyFat.formattedValue).toBe("18.0%");
     expect(bodyFat.displayValue).toBe("18.0");
     expect(bodyFat.classificationChart).toBeNull();
-    expect(bodyFat.showUnclassifiedScaffold).toBe(true);
+    expect(bodyFat.educationalReferenceChart).not.toBeNull();
+    expect(bodyFat.educationalReferenceChart!.personalMarker).toBeNull();
+    expect(bodyFat.educationalReferenceChart!.badgeLabel).toBe("Educational reference");
+    expect(bodyFat.showUnclassifiedScaffold).toBe(false);
     expect(bodyFat.referenceBar).toBeNull();
-    expect(JSON.stringify(bodyFat)).not.toMatch(
-      /BIA|Essential|Athlete|Fitness|Average|Excellence|Underfat|Healthy Body Fat|Optimal|Elite/i,
+    expect(bodyFat.educationalReferenceChart!.segments.map((s) => s.displayLabel)).not.toEqual(
+      expect.arrayContaining(["Underfat", "Healthy Body Fat", "Excess Body Fat"]),
     );
+    expect(bodyFat.educationalReferenceChart!.personalMarker).toBeNull();
   });
 
-  it("shows Lean Mass without classification chart or ASM/ALMI", () => {
+  it("shows Lean Mass educational reference without classification chart or ASM/ALMI", () => {
     const [, , lean] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -176,11 +180,14 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
       unit: "lb",
     });
     expect(lean.classificationChart).toBeNull();
-    expect(lean.showUnclassifiedScaffold).toBe(true);
+    expect(lean.educationalReferenceChart).not.toBeNull();
+    expect(lean.educationalReferenceChart!.personalMarker).toBeNull();
+    expect(lean.educationalReferenceChart!.constructLabel).toMatch(/Total lean mass/i);
+    expect(lean.showUnclassifiedScaffold).toBe(false);
     expect(lean.title).toBe("Lean Mass");
     expect(lean.accessibilityLabel).toMatch(/Total lean mass/i);
-    expect(JSON.stringify(lean)).not.toMatch(
-      /Elite|Optimal|Excellent|Weak|sarcopenia diagnosis|ALMI|ASM|Performance Rating/i,
+    expect(lean.educationalReferenceChart!.constructDescription).not.toMatch(
+      /\bALMI\b|\bASM\b|sarcopenia diagnosis/i,
     );
   });
 

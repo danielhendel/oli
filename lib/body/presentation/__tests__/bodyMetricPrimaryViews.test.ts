@@ -301,7 +301,9 @@ describe("Body Fat and Lean Mass display views", () => {
     expect(fatMass.accessibilityLabel).toMatch(/Calculated/);
     expect(fatMass.accessibilityLabel).not.toMatch(/Essential|Athletic|Fitness|Average/i);
     expect(bodyFat.classificationChart).toBeNull();
-    expect(bodyFat.showUnclassifiedScaffold).toBe(true);
+    expect(bodyFat.educationalReferenceChart).not.toBeNull();
+    expect(bodyFat.educationalReferenceChart!.personalMarker).toBeNull();
+    expect(bodyFat.showUnclassifiedScaffold).toBe(false);
   });
 
   it("Body Fat fat mass unavailable without pairing explains need for Weight", () => {
