@@ -3,7 +3,6 @@ import { Pressable, RefreshControl, StyleSheet, Text, View } from "react-native"
 import { useNavigation, useRouter } from "expo-router";
 
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { HeaderControls } from "@/lib/ui/HeaderControls";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { BodyWeeklyStrip } from "@/lib/ui/body/BodyWeeklyStrip";
@@ -114,21 +113,20 @@ export default function BodyOverviewScreen() {
   );
 
   useEffect(() => {
+    // Landing owns Total Mass / Components hierarchy only.
+    // Calendar and list/history live on metric-specific detail headers.
     navigation.setOptions({
       ...workoutsStackNavigationOptions("module"),
       title: BODY_COMPOSITION_SUMMARY_COPY.pageTitle,
-      headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
-      headerRight: () => (
-        <HeaderControls
-          gap={10}
-          calendarAccessibilityLabel="Open body calendar"
-          onCalendarPress={() => router.push("/(app)/body/calendar")}
-          logAccessibilityLabel="Open body composition log"
-          onLogPress={() => router.push("/(app)/body/list")}
+      headerLeft: () => (
+        <HeaderBackButton
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="Back to previous screen"
         />
       ),
+      headerRight: () => null,
     });
-  }, [navigation, router]);
+  }, [navigation]);
 
   const headerContent = BODY_SHOW_WEEKLY_CALENDAR_STRIP ? (
     <BodyWeeklyStrip
