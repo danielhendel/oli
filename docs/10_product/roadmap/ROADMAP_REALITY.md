@@ -15,7 +15,7 @@
 **Stage 3B merge commit:** `0124c641f119150c7ed105cef8fd0b8f7d19cd8d` (PR #220)
 **Stage 3B branch (historical):** `feat/body-composition-stage3b-value-first-shell`
 **Stage 3B physical runtime SHA:** `c962d36ef947e67e03092df9ed8207de17aef9de` (physical-iPhone **PASS**; ancestor of `main`)
-**Stage 3C branch:** `feat/body-composition-stage3c-standards-graphs-v1` (**LANDING HIERARCHY + NUMERICAL STANDARDS GATE**; prior physical `7b40ed3…` **SUPERSEDED**)
+**Stage 3C branch:** `feat/body-composition-stage3c-standards-graphs-v1` (**HIERARCHY APPROVED + COMPOSITION-SHARE**; prior physical `7b40ed3…` **SUPERSEDED**)
 **Stage 3D:** **NOT BEGUN**
 **R0 baseline:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb` (PR #211)
 **Prior Stage 1A truth freeze:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (PR #209)
@@ -81,7 +81,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **2** | Profile-only onboarding & Home category entry | Opening → About You → Home; source connection contextual in categories / Connected Devices; Home presents seven health & performance category cards; no subjective goals questionnaire |
 | **3A** | Body Composition definition & evidence audit | Repository-truth audit; evidence matrix; product/standards specification; RFC/ADR — **MERGED** (PR #219 at `b366744…`); **Accepted** 2026-09-18 with guardrails |
 | **3B** | Body Composition value-first shell | Weight / Body Fat / Lean Mass cards; approved Weight BMI screening; safe BF/Lean display derivations; metric-specific Apple Health; local metric sync scopes — **MERGED** (PR #220 at `0124c641…`; physical `c962d36…`). Weight is the only classified Body metric. Body Fat/Lean unclassified. No Body score, aggregates, schema, Insights. |
-| **3C** | Body landing hierarchy & standards gate | Total Mass → Weight; Components → Body Fat + Lean Mass; metric-specific detail headers; simplified BF/LM cards; education on detail — **HIERARCHY SHIPPING**. Gallagher BF personal placement **BLOCKED** (reference-population gate). Lean Mass LMI numerical graph **BLOCKED** (coefficients/manufacturer). Personal markers **BLOCKED**. Stage 3D **NOT BEGUN**. |
+| **3C** | Body landing hierarchy & composition-share graphs | Total Mass → Weight; Components → Body Fat + Lean Mass; metric-specific detail headers; BF/LM **share of total mass** graphs (not reference classification) — **HIERARCHY APPROVED**. Numerical BF/LM personal classification **DEFERRED**. ACE **REJECTED**. Stage 3D **NOT BEGUN**. |
 | **3D** | Body Facts and Measurement Provenance | Facts-first Body authority; measurement method; device/app provenance; uncertainty; like-with-like identity; truth consolidation; recomputability; versioning; bounded DTOs — **NOT BEGUN**. Must not auto-implement personal markers or numerical standards. |
 | **3B+** | Later Body Category Intelligence | Baseline inputs → facts-first markers → optional health classification → method-specific trends → reusable Category Intelligence — only after repository blockers and separate authorization (Stage 3D+) |
 | **3** | Analytics truth contracts | Baseline, standards registry, trend, confidence, completeness, evidence, association/causation language, versioning — **RFC/ADR before schema**. Includes unfinished-day activity presentation (do not label an in-progress day **Sedentary** from a stored zero / empty HealthKit aggregate; R1 only omitted measured-zero on Home Movement). Body Composition standards feed this stage; durable standards-registry location still UNRESOLVED before Body classification persistence. |
@@ -97,7 +97,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **Stage 3C LANDING HIERARCHY + NUMERICAL STANDARDS GATE** (`feat/body-composition-stage3c-standards-graphs-v1`; prior physical `7b40ed3…` **SUPERSEDED**). Stage 3B **MERGED** (PR #220 at `0124c641…`; physical `c962d36…`). Stage 3A **MERGED** (PR #219 at `b366744…`; Accepted 2026-09-18 with guardrails). Stage 3D **NOT BEGUN**. Weight remains the only classified Body metric; BF/LM numerical placement blocked pending leadership decision.
+**Current stage:** **Stage 3C HIERARCHY APPROVED + COMPOSITION-SHARE** (`feat/body-composition-stage3c-standards-graphs-v1`; prior physical `7b40ed3…` **SUPERSEDED**; physical retest pending). Stage 3B **MERGED** (PR #220 at `0124c641…`; physical `c962d36…`). Stage 3A **MERGED** (PR #219 at `b366744…`; Accepted 2026-09-18 with guardrails). Stage 3D **NOT BEGUN**. Weight remains the only classified Body metric; BF/LM show share-of-mass measurement graphs.
 
 **Stage 3A (MERGED — docs):**
 - Repository-truth audit; evidence matrix; product/standards specification; RFC/ADR
@@ -117,16 +117,16 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - **RG-LEGAL-01 OPEN**; **RG-SOURCE-PRIVACY-01 OPEN** (Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN); export coverage/scalability **OPEN**
 - No staging/production deploy from Stage 3B
 
-**Stage 3C (LANDING HIERARCHY + NUMERICAL STANDARDS GATE):**
+**Stage 3C (HIERARCHY APPROVED + COMPOSITION-SHARE GRAPHS):**
 
 - Branch: `feat/body-composition-stage3c-standards-graphs-v1`
 - Prior physical candidate `7b40ed3…` **SUPERSEDED**
-- Landing: Total Mass / Components hierarchy; metric-specific calendar/list; simplified BF/LM cards; education on detail
-- Body Fat: Gallagher combined-table personal placement **BLOCKED**; verdict **EDUCATIONAL_ONLY**
-- Lean Mass: LMI coefficients **BLOCKED**; verdict **BLOCKED** for numerical graph
-- Personal markers **BLOCKED**; Stage 3D **NOT BEGUN**
-- No Body score / aggregate classification / Optimal/Excellence/Elite / ACE-as-health-truth / AH→BIA / Lean→ALM/ALMI
-- Physical-iPhone retest: **REQUIRED AFTER FINAL STANDARDS DECISION**
+- Landing hierarchy **APPROVED**; BF/LM **composition-share** graphs (share of total mass)
+- Body Fat numerical personal classification: **DEFERRED**; ACE **REJECTED** as Oli health truth
+- Lean Mass numerical personal classification: **DEFERRED / BLOCKED** pending method-specific LMI
+- Personal reference markers **BLOCKED**; measurement-proportion markers allowed on share graphs
+- Stage 3D **NOT BEGUN**
+- Physical-iPhone retest: **REQUIRED**
 - **RG-LEGAL-01 OPEN**; **RG-SOURCE-PRIVACY-01 OPEN**; export coverage/scalability **OPEN**
 - No staging/production deploy from Stage 3C; no backend / Firestore standards path
 
@@ -193,8 +193,8 @@ R0 Product authority reset (docs) — MERGED (PR #211)
  → 2 Profile-only onboarding + Home category entry — **MERGED** (PR #217; physical PASS `255f710…`; RG-SOURCE-PRIVACY-01 OPEN)
  → 3A Body Composition definition & evidence audit — **MERGED** (PR #219 at `b366744…`; Accepted 2026-09-18 with guardrails)
  → 3B Body Composition value-first shell — **MERGED** (PR #220 at `0124c641…`; physical `c962d36…`)
- → 3C Body landing hierarchy + numerical standards gate — **HIERARCHY SHIPPING** (BF EDUCATIONAL_ONLY; LM numerical BLOCKED; prior physical `7b40ed3…` SUPERSEDED)
- → 3D Body Facts and Measurement Provenance — **NOT BEGUN** (must not auto-implement personal markers or numerical standards)
+ → 3C Body landing hierarchy + composition-share graphs — **HIERARCHY APPROVED** (numerical personal classification **DEFERRED**; prior physical `7b40ed3…` SUPERSEDED; physical retest pending)
+ → 3D Body Facts and Measurement Provenance — **NOT BEGUN** (must not auto-implement personal reference markers or numerical standards)
  → 3 Analytics truth contracts (RFC/ADR) — **NOT BEGUN** (Body standards feed this; registry location UNRESOLVED)
  → 3D+ Body Category Intelligence (facts/classification/trends) — **NOT BEGUN** (blocked until repository gaps + separate auth)
  → 4 Seven-domain Current State
