@@ -15,7 +15,7 @@
 **Stage 3B merge commit:** `0124c641f119150c7ed105cef8fd0b8f7d19cd8d` (PR #220)
 **Stage 3B branch (historical):** `feat/body-composition-stage3b-value-first-shell`
 **Stage 3B physical runtime SHA:** `c962d36ef947e67e03092df9ed8207de17aef9de` (physical-iPhone **PASS**; ancestor of `main`)
-**Stage 3C branch:** `feat/body-composition-stage3c-standards-graphs-v1` (**ACTIVE**)
+**Stage 3C branch:** `feat/body-composition-stage3c-standards-graphs-v1` (**FOUNDATION APPROVED — NUMERICAL STANDARDS GATE OPEN**)
 **Stage 3D:** **NOT BEGUN**
 **R0 baseline:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb` (PR #211)
 **Prior Stage 1A truth freeze:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (PR #209)
@@ -50,8 +50,9 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Ordinary API builds no longer mutate tracked checksum truth (**PR #216 merged**)
 - Stage 3A Body Composition definition audit **merged** (PR #219 at `b366744…`); RFC/ADR **Accepted** 2026-09-18 with guardrails (not implemented as classification runtime)
 - Stage 3B Body Composition value-first shell **MERGED** (PR #220 at `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`; physical PASS `c962d36ef947e67e03092df9ed8207de17aef9de`)
-- Weight remains the **only** classified Body metric; Body Fat / Lean Mass remain **unclassified** at Stage 3C start
-- Stage 3C Body standards & educational reference graphs **ACTIVE** (`feat/body-composition-stage3c-standards-graphs-v1`)
+- Weight remains the **only** classified Body metric; Body Fat / Lean Mass educational graphs **APPROVED EDUCATIONAL CONTEXT ONLY**
+- Stage 3C educational reference-graph foundation **APPROVED** (`feat/body-composition-stage3c-standards-graphs-v1` at `679c33d…`; leadership 2026-09-20)
+- Exact Body Fat / Lean Mass numerical standards **NOT APPROVED**; personal markers **BLOCKED**
 - Stage 3D Body facts-marker / Category Intelligence **NOT BEGUN**
 
 ## What does not exist yet (launch-critical under analytics-first)
@@ -62,7 +63,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Durable consent architecture (RFC/ADR approved; persistence deferred); export UI **merged** (Stage 1B); delete UI **merged** (Stage 1C); minimal onboarding **merged** (Stage 2 / PR #217)
 - Crash reporting product; production Firebase project config
 - Defensible overall score methodology (gated; not a P0 assumption)
-- Body Composition Stage 3C educational reference graphs / standards registry (ACTIVE — not complete)
+- Body Composition Stage 3C exact numerical Body Fat / Lean Mass standards (foundation approved; numerical gate open)
 - Body Composition official Body Fat/Lean Mass classification / facts-first trends (blocked; Stage 3D **not begun**)
 - Body salvage from PR #178 (deferred; do not cherry-pick)
 
@@ -80,7 +81,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **2** | Profile-only onboarding & Home category entry | Opening → About You → Home; source connection contextual in categories / Connected Devices; Home presents seven health & performance category cards; no subjective goals questionnaire |
 | **3A** | Body Composition definition & evidence audit | Repository-truth audit; evidence matrix; product/standards specification; RFC/ADR — **MERGED** (PR #219 at `b366744…`); **Accepted** 2026-09-18 with guardrails |
 | **3B** | Body Composition value-first shell | Weight / Body Fat / Lean Mass cards; approved Weight BMI screening; safe BF/Lean display derivations; metric-specific Apple Health; local metric sync scopes — **MERGED** (PR #220 at `0124c641…`; physical `c962d36…`). Weight is the only classified Body metric. Body Fat/Lean unclassified. No Body score, aggregates, schema, Insights. |
-| **3C** | Body standards & educational reference graphs | Typed versioned standards registry; educational Body Fat / Lean Mass reference graphs; exact approved labels/ranges; method/provenance eligibility; progressive-disclosure education — **ACTIVE**. No Body score, aggregate classification, Optimal/Excellence/Elite, unknown-method personal markers, AH→BIA, Lean→ALM/ALMI, Stage 3D facts-marker. |
+| **3C** | Body standards & educational reference graphs | Typed versioned standards registry; educational Body Fat / Lean Mass reference graphs; method/provenance eligibility; progressive-disclosure education — **FOUNDATION APPROVED** (SHA `679c33d…`). Body Fat / Lean Mass **EDUCATIONAL_CONTEXT_ONLY**. Exact numerical standards **NOT APPROVED**. Personal markers **BLOCKED**. No Body score, aggregate classification, Optimal/Excellence/Elite, AH→BIA, Lean→ALM/ALMI, Stage 3D facts-marker. Stage 3C **not** fully complete. |
 | **3B+** | Later Body Category Intelligence | Baseline inputs → facts-first markers → optional health classification → method-specific trends → reusable Category Intelligence — only after repository blockers and separate authorization (Stage 3D+) |
 | **3** | Analytics truth contracts | Baseline, standards registry, trend, confidence, completeness, evidence, association/causation language, versioning — **RFC/ADR before schema**. Includes unfinished-day activity presentation (do not label an in-progress day **Sedentary** from a stored zero / empty HealthKit aggregate; R1 only omitted measured-zero on Home Movement). Body Composition standards feed this stage; durable standards-registry location still UNRESOLVED before Body classification persistence. |
 | **4** | Seven-domain Current State | Body, Recovery, Movement, Strength, Cardio, Nutrition, Health; honest missing; no fabricated overall score |
@@ -95,7 +96,7 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 | **13** | Consumer launch | All approved P0 acceptance gates |
 | **14+** | Campus & platform expansion | Operations OS ADR; providers; locations; entitlements; reservations; equipment; kitchen; professional platform; multi-location continuity |
 
-**Current stage:** **Stage 3C ACTIVE** (`feat/body-composition-stage3c-standards-graphs-v1`). Stage 3B **MERGED** (PR #220 at `0124c641…`; physical `c962d36…`). Stage 3A **MERGED** (PR #219 at `b366744…`; Accepted 2026-09-18 with guardrails). Stage 3D **NOT BEGUN**. Weight remains the only classified Body metric; Body Fat / Lean Mass remain unclassified.
+**Current stage:** **Stage 3C FOUNDATION APPROVED — NUMERICAL STANDARDS GATE OPEN** (`feat/body-composition-stage3c-standards-graphs-v1` at `679c33d…`). Stage 3B **MERGED** (PR #220 at `0124c641…`; physical `c962d36…`). Stage 3A **MERGED** (PR #219 at `b366744…`; Accepted 2026-09-18 with guardrails). Stage 3D **NOT BEGUN**. Weight remains the only classified Body metric; Body Fat / Lean Mass educational graphs approved as context-only.
 
 **Stage 3A (MERGED — docs):**
 - Repository-truth audit; evidence matrix; product/standards specification; RFC/ADR
@@ -115,16 +116,20 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - **RG-LEGAL-01 OPEN**; **RG-SOURCE-PRIVACY-01 OPEN** (Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN); export coverage/scalability **OPEN**
 - No staging/production deploy from Stage 3B
 
-**Stage 3C (ACTIVE — standards & educational reference graphs):**
+**Stage 3C (FOUNDATION APPROVED — NUMERICAL STANDARDS GATE OPEN):**
 
 - Branch: `feat/body-composition-stage3c-standards-graphs-v1`
-- Baseline: `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`
-- Educational Body Fat / Lean Mass reference graphs; typed versioned standards registry
-- Body Fat / Lean Mass remain **unclassified**; no personal markers without primary-evidence eligibility
+- Foundation SHA: `679c33d0d6de365800194e8a94272227f46bc9e3` (leadership **APPROVED WITH SCIENTIFIC GUARDRAILS** 2026-09-20)
+- Body Fat educational graph: **APPROVED EDUCATIONAL CONTEXT ONLY**
+- Body Fat numerical standard: **NOT APPROVED / NOT IMPLEMENTED**
+- Body Fat personal marker: **BLOCKED**
+- Lean Mass educational graph: **APPROVED EDUCATIONAL CONTEXT ONLY**
+- Lean Mass numerical population reference: **NOT APPROVED / NOT IMPLEMENTED**
+- Lean Mass personal marker: **BLOCKED**
 - No Body score / aggregate classification / Optimal/Excellence/Elite / AH→BIA / Lean→ALM/ALMI / Stage 3D facts-marker
-- Stage 3D: **NOT BEGUN**
+- Stage 3C **not** fully complete; Stage 3D: **NOT BEGUN**
 - **RG-LEGAL-01 OPEN**; **RG-SOURCE-PRIVACY-01 OPEN**; export coverage/scalability **OPEN**
-- No staging/production deploy from Stage 3C
+- No staging/production deploy from Stage 3C; no backend / Firestore standards path
 
 **Stage 2:** **MERGED** (PR #217) at `c92ca0518366f0ef7b5e3af08e127fb623506622`.
 **Stage 1C:** **MERGED** (PR #215) at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`; physical-iPhone deletion E2E **PASS** (2026-09-04).
@@ -189,7 +194,7 @@ R0 Product authority reset (docs) — MERGED (PR #211)
  → 2 Profile-only onboarding + Home category entry — **MERGED** (PR #217; physical PASS `255f710…`; RG-SOURCE-PRIVACY-01 OPEN)
  → 3A Body Composition definition & evidence audit — **MERGED** (PR #219 at `b366744…`; Accepted 2026-09-18 with guardrails)
  → 3B Body Composition value-first shell — **MERGED** (PR #220 at `0124c641…`; physical `c962d36…`)
- → 3C Body standards & educational reference graphs — **ACTIVE** (`feat/body-composition-stage3c-standards-graphs-v1`)
+ → 3C Body standards & educational reference graphs — **FOUNDATION APPROVED** (`679c33d…`; numerical standards gate open; Stage 3C not complete)
  → 3 Analytics truth contracts (RFC/ADR) — **NOT BEGUN** (Body standards feed this; registry location UNRESOLVED)
  → 3D+ Body Category Intelligence (facts/classification/trends) — **NOT BEGUN** (blocked until repository gaps + separate auth)
  → 4 Seven-domain Current State

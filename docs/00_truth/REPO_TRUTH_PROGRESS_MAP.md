@@ -7,7 +7,7 @@
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
 **Prior Stage 1A truth freeze (historical):** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `Stage 3C — Body Composition Standards & Educational Reference Graphs` (**ACTIVE**). Stage 3B **MERGED** (PR #220). Stage 3A docs **MERGED** (PR #219). Stage 3D **NOT BEGUN**.
+**Current execution-stage label:** `Stage 3C — Body Composition Standards & Educational Reference Graphs` (**FOUNDATION APPROVED — NUMERICAL STANDARDS GATE OPEN**). Stage 3B **MERGED** (PR #220). Stage 3A docs **MERGED** (PR #219). Stage 3D **NOT BEGUN**.
 **Stage 1B:** **MERGED** (PR #214 at `3d4859e45d537813b6846ecaf4cb49222519ef80`)
 **Stage 1C:** **MERGED** (PR #215 at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`)
 **Build hygiene:** **MERGED** (PR #216 at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`)
@@ -42,7 +42,7 @@
 >
 > **Stage 3B status:** **MERGED** (PR [#220](https://github.com/danielhendel/oli/pull/220) at `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`). Physical runtime SHA `c962d36ef947e67e03092df9ed8207de17aef9de` **PASS** (product leadership 2026-09-20; ancestor of `main`). Weight CDC/WHO adult BMI screening **IMPLEMENTED** — Weight remains the **only** classified Body metric. Body Fat / Lean Mass **unclassified** at Stage 3C start (presentation + compatible derivations only). Metric-specific Apple Health popups + local `appleHealth:metricSyncScopes:{uid}` preference **IMPLEMENTED**. Backend/Firestore schema **unchanged**. Release gates remain **OPEN**.
 >
-> **Stage 3C status:** **ACTIVE** on branch `feat/body-composition-stage3c-standards-graphs-v1` (baseline `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`). Intent: defensible educational reference graphs for Body Fat and Lean Mass; typed versioned standards registry; exact approved labels/ranges; method/provenance eligibility; progressive-disclosure education. **Must not** implement Body score, aggregate Body classification, Optimal/Excellence/Elite, unknown-method personal markers, Apple Health→BIA inference, total Lean Mass→ALM/ALMI inference, sarcopenia diagnosis, RawEvent-derived official classification in UI, new Firestore standards path, Stage 3D facts-marker. Body Fat / Lean Mass remain **unclassified**. Stage 3D **NOT BEGUN**. Release gates remain **OPEN**. No production deployment.
+> **Stage 3C status:** **FOUNDATION APPROVED — NUMERICAL STANDARDS GATE OPEN** on branch `feat/body-composition-stage3c-standards-graphs-v1` (foundation SHA `679c33d0d6de365800194e8a94272227f46bc9e3`; leadership **2026-09-20 APPROVED WITH SCIENTIFIC GUARDRAILS**). Educational reference-graph foundation **APPROVED**: typed versioned registry; Body Fat / Lean Mass qualitative educational graphs; progressive disclosure; method/provenance withholding. Body Fat verdict **EDUCATIONAL_CONTEXT_ONLY**. Lean Mass verdict **EDUCATIONAL_CONTEXT_ONLY**. Exact Body Fat / Lean Mass numerical standards **NOT APPROVED / NOT IMPLEMENTED**. Personal Body Fat / Lean Mass markers **BLOCKED**. Weight remains the **only** approved personal Body classifier (CDC/WHO BMI screening). **Must not** implement Body score, aggregate Body classification, Optimal/Excellence/Elite, Gallagher/Zhu/ACE/Kelly numerical runtime ranges, Apple Health→BIA inference, total Lean Mass→ALM/ALMI inference, sarcopenia diagnosis, RawEvent-derived official classification in UI, new Firestore standards path, Stage 3D facts-marker. Stage 3C is **not** fully complete. Stage 3D **NOT BEGUN**. Release gates remain **OPEN**. No production deployment.
 
 ---
 
@@ -268,19 +268,26 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Export coverage/scalability remain **OPEN**
 - No staging or production deployment from Stage 3B
 
-## Stage 3C (ACTIVE — standards & educational reference graphs)
+## Stage 3C (FOUNDATION APPROVED — NUMERICAL STANDARDS GATE OPEN)
 
 - Branch: `feat/body-composition-stage3c-standards-graphs-v1`
 - Baseline `main`: `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`
-- Inherits Stage 3B merged shell; Weight remains **only** classified Body metric
-- Body Fat / Lean Mass remain **unclassified** at Stage 3C start
-- Primary outcome: defensible educational reference graphs (construct, ranges, population/method, evidence, why personal placement may be withheld)
-- May implement: typed versioned standards registry; educational range graphs; exact approved labels/ranges; unit translation; method/provenance eligibility; progressive-disclosure education; accessibility; tests
-- **Must not implement:** Body score; aggregate Body classification; Optimal / Excellence / Elite; universal athletic range; unknown-method personal marker; Apple Health→BIA inference; total Lean Mass→ALM/ALMI inference; sarcopenia diagnosis; RawEvent-derived official classification in UI; new Firestore standards path; direct screen Firestore writes; Stage 3D facts-marker
+- Foundation SHA: `679c33d0d6de365800194e8a94272227f46bc9e3` (leadership **APPROVED WITH SCIENTIFIC GUARDRAILS** 2026-09-20)
+- Inherits Stage 3B merged shell; Weight remains **only** classified Body metric (**APPROVED / IMPLEMENTED** personal screening)
+- Body Fat educational graph: **APPROVED EDUCATIONAL CONTEXT ONLY** (qualitative continuum; no personal marker)
+- Body Fat numerical standard: **NOT APPROVED / NOT IMPLEMENTED** (Gallagher primary candidate; Zhu secondary; ACE rejected; blocked pending primary-table verification)
+- Body Fat personal marker: **BLOCKED**
+- Lean Mass educational graph: **APPROVED EDUCATIONAL CONTEXT ONLY** (total lean construct; qualitative continuum; no personal marker)
+- Lean Mass numerical population reference: **NOT APPROVED / NOT IMPLEMENTED** (Kelly NHANES/Hologic total-LMI candidate; EWGSOP2 ALMI mismatched; blocked pending LMS verification)
+- Lean Mass personal marker: **BLOCKED**
+- Body score / aggregate Body classification / Performance·Excellence: **NOT IMPLEMENTED / NOT APPROVED**
+- Primary outcome status: educational foundation delivered; exact approved numerical labels/ranges **gate open** (not Stage 3C complete)
+- **Must not implement:** Body score; aggregate Body classification; Optimal / Excellence / Elite; universal athletic range; unknown-method personal marker; Apple Health→BIA inference; total Lean Mass→ALM/ALMI inference; sarcopenia diagnosis; RawEvent-derived official classification in UI; new Firestore standards path; direct screen Firestore writes; Stage 3D facts-marker; Gallagher/Zhu/Kelly numerical runtime without separate approval
 - Stage 3D: **NOT BEGUN**
 - Issue [#218](https://github.com/danielhendel/oli/issues/218) remains **OPEN**; **RG-SOURCE-PRIVACY-01 OPEN**; **RG-LEGAL-01 OPEN**
 - Export coverage/scalability remain **OPEN**
 - No staging or production deployment from Stage 3C
+- No backend / Firestore schema or standards path
 
 ### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
 
@@ -332,13 +339,13 @@ RG-SOURCE-PRIVACY-01 remaining OPEN does **not** block Stage 2 engineering merge
 - Defensible overall score (gated — not a P0 assumption)
 - Body salvage (PR #178 deferred)
 - Minimal onboarding / data readiness (Stage 2 **MERGED** via PR #217)
-- Body Composition Category Intelligence (Stage 3A **merged** PR #219; Stage 3B shell **merged** PR #220 at `0124c641…`, physical `c962d36…`; Stage 3C **ACTIVE**; Stage 3D **not begun**)
+- Body Composition Category Intelligence (Stage 3A **merged** PR #219; Stage 3B shell **merged** PR #220 at `0124c641…`, physical `c962d36…`; Stage 3C educational foundation **APPROVED** — numerical standards gate open; Stage 3D **not begun**)
 
-**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-authored Plan persistence, Progress outcome analytics, consent persistence; Body Composition Stage 3D+ facts/classification runtime; official Body Fat/Lean Mass classification / personal markers.
+**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-authored Plan persistence, Progress outcome analytics, consent persistence; Body Composition Stage 3D+ facts/classification runtime; official Body Fat/Lean Mass classification / personal markers; Gallagher/Zhu/Kelly numerical Body Fat/Lean Mass standards.
 
 ## In progress (not complete)
 
-- **Stage 3C Body Composition standards & educational reference graphs** — ACTIVE on `feat/body-composition-stage3c-standards-graphs-v1`; Body Fat / Lean Mass remain unclassified; Stage 3D **not begun**
+- **Stage 3C Body Composition standards & educational reference graphs** — foundation **APPROVED**; numerical Body Fat / Lean Mass standards **NOT APPROVED**; personal markers **BLOCKED**; Stage 3D **not begun**
 - **RG-SOURCE-PRIVACY-01 OPEN** (complete two-account server evidence deferred; leadership-accepted residual risk; Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN)
 - **RG-LEGAL-01 OPEN** (hosted legal/support pages not published)
 - PR #178 remains CLOSED unmerged; Body salvage disposition in Stage 3A docs only
