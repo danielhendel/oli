@@ -303,7 +303,7 @@ describe("Body Composition simplified main screen", () => {
     expect(text).not.toContain("Population, method, and evidence");
   });
 
-  it("shows populated values with CDC/WHO Weight chart and simplified BF/Lean scaffolds", () => {
+  it("shows populated values with CDC/WHO Weight chart and composition-share BF/Lean graphs", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -326,8 +326,11 @@ describe("Body Composition simplified main screen", () => {
     expect(tree.root.findAllByProps({ testID: "body-metric-chart-leanTissue" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-educational-bodyFat" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-educational-leanTissue" })).toHaveLength(0);
-    expect(tree.root.findByProps({ testID: "body-metric-scaffold-bodyFat" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-scaffold-leanTissue" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-share-bodyFat" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-share-leanTissue" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-scaffold-bodyFat" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "body-metric-scaffold-leanTissue" })).toHaveLength(0);
+    expect(text).toContain("Share of total mass");
     expect(text).not.toContain("Educational reference");
     expect(text).not.toContain("Lower adiposity context");
     expect(text).not.toContain("Mid-range lean-mass context");

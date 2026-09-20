@@ -298,11 +298,14 @@ describe("Body Fat and Lean Mass display views", () => {
     });
     expect(fatMass.displayValue).not.toBeNull();
     expect(fatMass.formattedValue).toBe(formatBodyWeight(16, "lb"));
-    expect(fatMass.accessibilityLabel).toMatch(/Calculated/);
+    expect(fatMass.compositionShareGraph!.normalizedPosition).toBeCloseTo(0.2, 5);
+    expect(fatMass.compositionShareGraph!.valueLabel).toBe(formatBodyWeight(16, "lb"));
+    expect(fatMass.accessibilityLabel).toMatch(/Share of total mass|quantity/i);
     expect(fatMass.accessibilityLabel).not.toMatch(/Essential|Athletic|Fitness|Average/i);
     expect(bodyFat.classificationChart).toBeNull();
-    expect(bodyFat.educationalReferenceChart).toBeNull();
-    expect(bodyFat.showUnclassifiedScaffold).toBe(true);
+    expect(bodyFat.compositionShareGraph).not.toBeNull();
+    expect(bodyFat.compositionShareGraph!.personalClassification).toBeNull();
+    expect(bodyFat.showUnclassifiedScaffold).toBe(false);
   });
 
   it("Body Fat fat mass unavailable without pairing explains need for Weight", () => {
@@ -336,7 +339,7 @@ describe("Body Fat and Lean Mass display views", () => {
       },
     });
     expect(pct.displayValue).toBe("75.0");
-    expect(pct.accessibilityLabel).toMatch(/Not skeletal muscle/);
+    expect(pct.accessibilityLabel).toMatch(/not skeletal muscle/i);
     expect(pct.accessibilityLabel).not.toMatch(/Optimal|High|ALMI|sarcopenia/i);
     expect(lean.classificationChart).toBeNull();
   });

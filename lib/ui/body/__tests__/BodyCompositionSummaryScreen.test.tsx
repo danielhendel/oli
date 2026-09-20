@@ -31,6 +31,14 @@ jest.mock("@/lib/ui/body/BodyMetricEducationalReferenceChart", () => {
   };
 });
 
+jest.mock("@/lib/ui/body/BodyCompositionShareChart", () => {
+  const ReactLocal = require("react");
+  return {
+    BodyCompositionShareChart: (props: { testID?: string }) =>
+      ReactLocal.createElement("View", { testID: props.testID ?? "share" }),
+  };
+});
+
 jest.mock("@/lib/ui/body/BodyMetricUnclassifiedScaffold", () => {
   const ReactLocal = require("react");
   return {

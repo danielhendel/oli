@@ -164,7 +164,7 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     expect(weight.classificationChart!.marker).not.toBeNull();
   });
 
-  it("shows Body Fat unclassified scaffold on landing without educational essays", () => {
+  it("shows Body Fat composition-share graph without classification essays", () => {
     const [, bodyFat] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -181,14 +181,20 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     expect(bodyFat.displayValue).toBe("18.0");
     expect(bodyFat.classificationChart).toBeNull();
     expect(bodyFat.educationalReferenceChart).toBeNull();
-    expect(bodyFat.showUnclassifiedScaffold).toBe(true);
+    expect(bodyFat.compositionShareGraph).not.toBeNull();
+    expect(bodyFat.compositionShareGraph!.kind).toBe("composition_share");
+    expect(bodyFat.compositionShareGraph!.personalClassification).toBeNull();
+    expect(bodyFat.compositionShareGraph!.target).toBeNull();
+    expect(bodyFat.compositionShareGraph!.caption).toBe("Share of total mass");
+    expect(bodyFat.compositionShareGraph!.normalizedPosition).toBeCloseTo(0.18, 5);
+    expect(bodyFat.showUnclassifiedScaffold).toBe(false);
     expect(bodyFat.referenceBar).toBeNull();
     expect(bodyFat.referenceContextLabel).toBeNull();
     expect(bodyFat.accessibilityLabel).not.toMatch(/Educational reference/i);
-    expect(bodyFat.accessibilityLabel).toMatch(/No personal classification/i);
+    expect(bodyFat.accessibilityLabel).toMatch(/Share of total mass|quantity/i);
   });
 
-  it("shows Lean Mass unclassified scaffold without classification chart or ASM/ALMI", () => {
+  it("shows Lean Mass composition-share graph without ASM/ALMI claims", () => {
     const [, , lean] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -203,9 +209,12 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     });
     expect(lean.classificationChart).toBeNull();
     expect(lean.educationalReferenceChart).toBeNull();
-    expect(lean.showUnclassifiedScaffold).toBe(true);
+    expect(lean.compositionShareGraph).not.toBeNull();
+    expect(lean.compositionShareGraph!.kind).toBe("composition_share");
+    expect(lean.compositionShareGraph!.personalClassification).toBeNull();
+    expect(lean.showUnclassifiedScaffold).toBe(false);
     expect(lean.title).toBe("Lean Mass");
-    expect(lean.accessibilityLabel).toMatch(/Total lean mass/i);
+    expect(lean.accessibilityLabel).toMatch(/total Lean Mass|Share of total mass/i);
     expect(lean.accessibilityLabel).not.toMatch(/\bALMI\b|\bASM\b|sarcopenia/i);
   });
 
