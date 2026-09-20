@@ -79,7 +79,7 @@ export function BodyMetricEducationalReferenceChart(
                   },
                 ]}
               >
-                <View style={[styles.bandSheen, { backgroundColor: chrome.highlight }]} />
+                <View style={[styles.bandSheen, { backgroundColor: chrome.fillHighlight }]} />
               </View>
             );
           })}

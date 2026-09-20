@@ -103,13 +103,7 @@ export function evaluatePersonalClassificationEligibility(input: {
   }
 
   const eligible =
-    input.personalStandardApproved &&
-    input.constructCompatible &&
-    methodKnown &&
-    methodKind !== "apple_health_transport_unknown_method" &&
-    methodKind !== "unlabeled_manual" &&
-    methodKind !== "absent" &&
-    methodKind !== "unknown";
+    input.personalStandardApproved && input.constructCompatible && methodKnown;
 
   return {
     eligible,
