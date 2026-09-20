@@ -1,10 +1,9 @@
 import {
-  UI_CARD_SURFACE,
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
 } from "@/lib/ui/theme/uiTokens";
 
-// lib/ui/WeightRangeSelector.tsx — Segmented range for weight trend chart.
+// lib/ui/WeightRangeSelector.tsx — Light premium period control above the hero chart.
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
@@ -43,6 +42,7 @@ export function WeightRangeSelector({ value, onChange }: WeightRangeSelectorProp
             accessibilityState={{ selected }}
             accessibilityLabel={`Range ${label}`}
             testID={`weight-range-${key}`}
+            hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
           >
             <Text style={[styles.label, selected && styles.labelActive]}>{label}</Text>
           </Pressable>
@@ -55,23 +55,23 @@ export function WeightRangeSelector({ value, onChange }: WeightRangeSelectorProp
 const styles = StyleSheet.create({
   wrapper: {
     flexDirection: "row",
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 12,
-    padding: 3,
+    alignItems: "center",
+    backgroundColor: "transparent",
+    gap: 2,
   },
   segment: {
     flex: 1,
     minHeight: 44,
-    paddingVertical: 10,
+    paddingVertical: 8,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 9,
+    borderRadius: 999,
   },
   segmentActive: {
-    backgroundColor: UI_CARD_SURFACE,
+    backgroundColor: "rgba(255,255,255,0.10)",
   },
   label: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
     color: UI_TEXT_MUTED,
   },
