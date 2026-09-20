@@ -7,7 +7,7 @@
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
 **Prior Stage 1A truth freeze (historical):** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `Stage 3C — Body Composition Qualitative Educational Graphs v1` (**V1 PRODUCT CONTRACT CLOSED — PHYSICAL RETEST PENDING**). Stage 3B **MERGED** (PR #220). Stage 3A docs **MERGED** (PR #219). Stage 3D **NOT BEGUN**.
+**Current execution-stage label:** `Stage 3C — Body Composition Landing Hierarchy + Numerical Standards Gate` (**HIERARCHY IN PROGRESS — NUMERICAL STANDARDS DECISION REQUIRED**). Prior physical candidate `7b40ed3…` **SUPERSEDED**. Stage 3B **MERGED** (PR #220). Stage 3A docs **MERGED** (PR #219). Stage 3D **NOT BEGUN**.
 **Stage 1B:** **MERGED** (PR #214 at `3d4859e45d537813b6846ecaf4cb49222519ef80`)
 **Stage 1C:** **MERGED** (PR #215 at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`)
 **Build hygiene:** **MERGED** (PR #216 at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`)
@@ -42,7 +42,7 @@
 >
 > **Stage 3B status:** **MERGED** (PR [#220](https://github.com/danielhendel/oli/pull/220) at `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`). Physical runtime SHA `c962d36ef947e67e03092df9ed8207de17aef9de` **PASS** (product leadership 2026-09-20; ancestor of `main`). Weight CDC/WHO adult BMI screening **IMPLEMENTED** — Weight remains the **only** classified Body metric. Body Fat / Lean Mass **unclassified** at Stage 3C start (presentation + compatible derivations only). Metric-specific Apple Health popups + local `appleHealth:metricSyncScopes:{uid}` preference **IMPLEMENTED**. Backend/Firestore schema **unchanged**. Release gates remain **OPEN**.
 >
-> **Stage 3C status:** **V1 PRODUCT CONTRACT CLOSED — QUALITATIVE EDUCATIONAL GRAPHS** on branch `feat/body-composition-stage3c-standards-graphs-v1` (leadership **2026-09-20**; foundation `679c33d…`; Mid-range terminology `565f889…`; docs close pending physical). Stage 3C v1 ships **qualitative** Body Fat / Lean Mass educational graphs only. Body Fat verdict **EDUCATIONAL_CONTEXT_ONLY**. Lean Mass verdict **EDUCATIONAL_CONTEXT_ONLY**. Exact Body Fat numerical standard **DEFERRED** (Gallagher primary-table verification + separate approval). Exact Lean Mass numerical standard **DEFERRED** (Kelly LMS coefficients, method/device, licensing + separate approval). Personal Body Fat / Lean Mass markers **BLOCKED**. Weight remains the **only** approved personal Body classifier (CDC/WHO BMI screening). Body score / aggregate classification / Performance·Excellence **NOT IMPLEMENTED**. **Must not** implement Gallagher/Zhu/ACE/Kelly numerical runtime, Apple Health→BIA, total Lean→ALM/ALMI, sarcopenia, RawEvent official classification, new Firestore standards path. Stage 3C engineering merge still requires physical-iPhone PASS + Draft PR + merge gate. Stage 3D (**Body Facts and Measurement Provenance**) **NOT BEGUN** and must not auto-ship personal markers or numerical standards. Release gates remain **OPEN**. No production deployment.
+> **Stage 3C status:** **LANDING HIERARCHY + NUMERICAL STANDARDS GATE** on branch `feat/body-composition-stage3c-standards-graphs-v1`. Prior physical candidate `7b40ed3c1c93ece023615573cb820f870796938b` **SUPERSEDED** (evidence must not be reused). Landing IA: **Total Mass → Weight**; **Components → Body Fat + Lean Mass**; landing calendar/list removed; metric-specific detail headers own history; BF/LM card faces simplified (neutral unclassified rail; education on detail). Weight remains the **only** approved personal Body classifier. Body Fat numerical screening (Gallagher combined AA/White table) **BLOCKED** for personal placement — reference-population default cannot be silently assigned; ethnicity inference forbidden; no approved sensitive profile field. Body Fat verdict for this redesign: **EDUCATIONAL_ONLY** (detail education retained; no ACE categories; no card essays; no personal marker). Lean Mass LMI (Kelly/Hologic or Imboden/GE) **BLOCKED** — exact LMS coefficients/tables unavailable and manufacturer mixing forbidden; Apple Health unknown-method cannot receive DXA percentiles. Lean Mass verdict: **BLOCKED** for numerical graph / personal placement. Personal Body Fat / Lean Mass markers **BLOCKED**. Stage 3D **NOT BEGUN**. No staging/production deploy. No new Firestore standards path.
 
 ---
 
@@ -268,29 +268,29 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Export coverage/scalability remain **OPEN**
 - No staging or production deployment from Stage 3B
 
-## Stage 3C (V1 PRODUCT CONTRACT CLOSED — QUALITATIVE EDUCATIONAL GRAPHS)
+## Stage 3C (LANDING HIERARCHY + NUMERICAL STANDARDS GATE)
 
 - Branch: `feat/body-composition-stage3c-standards-graphs-v1`
 - Baseline `main`: `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`
-- Runtime lineage (qualitative graphs): through `565f889429ffba4b87629dd7b7a44a49597c56cf` (Mid-range labels); docs close after
-- Leadership: Stage 3C **v1** uses qualitative educational graphs; numerical standards **deferred** (not abandoned)
-- Weight: **APPROVED / IMPLEMENTED** personal BMI screening — only personally classified Body metric
-- Body Fat educational graph: **APPROVED EDUCATIONAL CONTEXT ONLY** — labels Lower / Mid-range / Higher adiposity context; null numeric bounds; no personal marker
-- Body Fat numerical standard: **DEFERRED** — requires primary-table verification and separate approval
+- Prior physical candidate `7b40ed3c1c93ece023615573cb820f870796938b`: **SUPERSEDED** (do not reuse physical evidence)
+- Landing IA: **Total Mass → Weight**; **Components → Body Fat + Lean Mass**; landing compact calendar/list header **removed**; education moved to metric detail; BF/LM cards use neutral unclassified rail
+- Metric detail headers own calendar/list with typed `?metric=` filter (no cross-metric fallback)
+- Weight: **APPROVED / IMPLEMENTED** personal BMI screening — only personally classified Body metric (unchanged)
+- Body Fat numerical screening (Gallagher combined AA/White candidate): **BLOCKED** for personal placement — cannot silently assign combined table to all users; no ethnicity inference; no approved sensitive reference-population profile field
+- Body Fat runtime verdict this pass: **EDUCATIONAL_ONLY** (detail education; no ACE; no card essays; no personal marker)
 - Body Fat personal marker: **BLOCKED**
-- Lean Mass educational graph: **APPROVED EDUCATIONAL CONTEXT ONLY** — total lean construct; labels Lower / Mid-range / Higher lean-mass context; null numeric bounds; no personal marker
-- Lean Mass numerical population reference: **DEFERRED** — requires verified LMS coefficients, method/device compatibility, licensing, and separate approval
+- Lean Mass LMI (Kelly NHANES/Hologic or Imboden GE/Lunar): **BLOCKED** — exact coefficients/tables unavailable; manufacturers must not be mixed; AH unknown-method cannot receive DXA percentiles
+- Lean Mass runtime verdict this pass: **BLOCKED** (no invented ranges; neutral card rail; detail construct education only)
 - Lean Mass personal marker: **BLOCKED**
-- Body score / aggregate Body classification / Performance·Excellence: **NOT IMPLEMENTED / NOT APPROVED**
-- Next after Stage 3C merge: **Stage 3D — Body Facts and Measurement Provenance** (facts-first authority, method/device provenance, like-with-like). Stage 3D must **not** auto-implement personal markers or numerical standards
+- Body score / aggregate Body classification / Performance·Excellence / ACE fitness categories as health truth: **NOT IMPLEMENTED / NOT APPROVED**
+- Next after Stage 3C merge: **Stage 3D — Body Facts and Measurement Provenance** — must **not** auto-implement personal markers or numerical standards
 - Personal placement later requires **both** an approved numerical standard **and** facts-backed compatible provenance
-- **Must not implement now:** Gallagher/Zhu/Kelly numerical runtime; ACE fitness categories as health truth; AH→BIA; Lean→ALM/ALMI; sarcopenia; RawEvent official classification; new Firestore standards path; Stage 3D facts-marker
 - Stage 3D: **NOT BEGUN**
 - Issue [#218](https://github.com/danielhendel/oli/issues/218) remains **OPEN**; **RG-SOURCE-PRIVACY-01 OPEN**; **RG-LEGAL-01 OPEN**
 - Export coverage/scalability remain **OPEN**
 - No staging or production deployment from Stage 3C
 - No backend / Firestore schema or standards path
-- Physical-iPhone retest: **REQUIRED** before Draft PR / merge claim
+- Physical-iPhone retest: **REQUIRED AFTER FINAL STANDARDS DECISION** (prior `7b40ed3` evidence invalid)
 
 ### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
 
