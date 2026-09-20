@@ -3,10 +3,10 @@ import { StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricClassificationChartModel } from "@/lib/body/presentation/bodyMetricCardTypes";
 import {
-  BODY_METRIC_CHART_MARKER_BORDER,
-  BODY_METRIC_CHART_MARKER_FILL,
-  BODY_METRIC_CHART_MARKER_GLOW,
-  BODY_METRIC_CHART_MARKER_TEXT,
+  BodyChartPositionMarker,
+  BODY_CHART_MARKER_RAIL_HEIGHT,
+} from "@/lib/ui/body/BodyChartPositionMarker";
+import {
   BODY_METRIC_CHART_TRACK_BORDER,
   BODY_METRIC_CHART_TRACK_SHADOW,
   BODY_METRIC_CHART_TRACK_SHEEN,
@@ -75,8 +75,13 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
     markerSegmentIndex >= 0
       ? ((markerSegmentIndex + within) / segmentCount) * 100
       : null;
+  const activeSegment =
+    markerSegmentIndex >= 0 ? model.segments[markerSegmentIndex] : null;
+  const markerCenterFill =
+    activeSegment != null
+      ? resolveBodyMetricClassificationBandChrome(activeSegment.tone).fillStrong
+      : null;
   const isValuePosition = marker?.kind === "value_position";
-  const showValueLabel = marker?.showValueLabel === true;
 
   return (
     <View
@@ -87,54 +92,17 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
       style={styles.wrap}
     >
       <View style={styles.markerRail} importantForAccessibility="no">
-        {marker != null && markerLeftPct != null ? (
-          <View
-            pointerEvents="none"
-            accessibilityElementsHidden
-            style={[styles.markerColumn, { left: `${markerLeftPct}%` }]}
+        {marker != null && markerLeftPct != null && markerCenterFill != null ? (
+          <BodyChartPositionMarker
+            leftPercent={markerLeftPct}
+            centerFill={markerCenterFill}
             testID="body-metric-classification-marker"
-          >
-            {showValueLabel ? (
-              <View style={styles.valueCapsuleOuter}>
-                <View style={styles.valueCapsule}>
-                  <Text style={styles.valueCapsuleText} numberOfLines={1}>
-                    {marker.formattedValue}
-                  </Text>
-                </View>
-              </View>
-            ) : (
-              <View
-                style={[
-                  styles.markerKnobOuter,
-                  isValuePosition ? styles.markerKnobOuterValuePosition : null,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.markerKnob,
-                    isValuePosition ? styles.markerKnobValuePosition : null,
-                  ]}
-                  testID={
-                    isValuePosition
-                      ? "body-metric-classification-marker-value-position"
-                      : "body-metric-classification-marker-classification"
-                  }
-                />
-              </View>
-            )}
-            <View
-              style={[
-                styles.markerStem,
-                isValuePosition ? styles.markerStemValuePosition : null,
-              ]}
-            />
-            <View
-              style={[
-                styles.markerDot,
-                isValuePosition ? styles.markerDotValuePosition : null,
-              ]}
-            />
-          </View>
+            knobTestID={
+              isValuePosition
+                ? "body-metric-classification-marker-value-position"
+                : "body-metric-classification-marker-classification"
+            }
+          />
         ) : null}
       </View>
 
@@ -205,93 +173,8 @@ const styles = StyleSheet.create({
     height: 0,
   },
   markerRail: {
-    height: 22,
+    height: BODY_CHART_MARKER_RAIL_HEIGHT,
     position: "relative",
-  },
-  markerColumn: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: 100,
-    marginLeft: -50,
-    alignItems: "center",
-    zIndex: 3,
-  },
-  valueCapsuleOuter: {
-    borderRadius: 999,
-    padding: 2.5,
-    backgroundColor: BODY_METRIC_CHART_MARKER_GLOW,
-  },
-  valueCapsule: {
-    backgroundColor: BODY_METRIC_CHART_MARKER_FILL,
-    borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 4,
-    maxWidth: 96,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BODY_METRIC_CHART_MARKER_BORDER,
-    shadowColor: "#000",
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
-  },
-  valueCapsuleText: {
-    color: BODY_METRIC_CHART_MARKER_TEXT,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: -0.15,
-    textAlign: "center",
-    fontVariant: ["tabular-nums"],
-  },
-  markerKnobOuter: {
-    borderRadius: 999,
-    padding: 2,
-    backgroundColor: BODY_METRIC_CHART_MARKER_GLOW,
-  },
-  markerKnobOuterValuePosition: {
-    backgroundColor: "rgba(255,255,255,0.22)",
-  },
-  markerKnob: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: BODY_METRIC_CHART_MARKER_FILL,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BODY_METRIC_CHART_MARKER_BORDER,
-  },
-  markerKnobValuePosition: {
-    backgroundColor: "transparent",
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.92)",
-  },
-  markerStem: {
-    width: 1.5,
-    flexGrow: 1,
-    minHeight: 6,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    marginTop: 2,
-  },
-  markerStemValuePosition: {
-    backgroundColor: "rgba(255,255,255,0.72)",
-    width: 1.25,
-  },
-  markerDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: BODY_METRIC_CHART_MARKER_FILL,
-    marginTop: -1,
-    shadowColor: "#fff",
-    shadowOpacity: 0.55,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  markerDotValuePosition: {
-    backgroundColor: "rgba(255,255,255,0.88)",
-    width: 4,
-    height: 4,
-    borderRadius: 2,
   },
   trackGlow: {
     borderRadius: BODY_METRIC_SPECTRUM_RADIUS,

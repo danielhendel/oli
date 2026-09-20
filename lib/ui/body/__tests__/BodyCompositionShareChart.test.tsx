@@ -33,7 +33,7 @@ const readyModel: BodyCompositionShareGraphModel = {
 };
 
 describe("BodyCompositionShareChart", () => {
-  it("renders share caption, fill, stem marker, and no classification labels", () => {
+  it("renders share caption, fill, unified stem marker, and no classification labels", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -46,11 +46,29 @@ describe("BodyCompositionShareChart", () => {
     expect(text).not.toContain("18.2%");
     expect(text).not.toMatch(/Essential|Athletic|Fitness|Average|Optimal|Elevated|High/i);
     expect(tree.root.findByProps({ testID: "body-composition-share-marker" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-composition-share-marker-knob" })).toBeDefined();
+    const knob = tree.root.findByProps({ testID: "body-composition-share-marker-knob" });
+    expect(knob.props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ backgroundColor: "#F87171" })]),
+    );
     expect(tree.root.findByProps({ testID: "body-composition-share-fill" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-composition-share-remainder" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-composition-share-chart" }).props.accessibilityLabel).toMatch(
       /quantity, not a health/i,
+    );
+  });
+
+  it("uses Lean Mass share accent for marker center fill", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        React.createElement(BodyCompositionShareChart, {
+          model: { ...readyModel, metric: "leanMass" },
+        }),
+      );
+    });
+    const knob = tree.root.findByProps({ testID: "body-composition-share-marker-knob" });
+    expect(knob.props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ backgroundColor: "#2DD4BF" })]),
     );
   });
 

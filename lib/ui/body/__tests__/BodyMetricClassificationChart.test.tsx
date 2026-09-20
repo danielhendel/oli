@@ -123,10 +123,18 @@ describe("BodyMetricClassificationChart", () => {
     expect(
       tree.root.findByProps({ testID: "body-metric-classification-marker-classification" }),
     ).toBeDefined();
+    const { resolveBodyMetricClassificationBandChrome } = require("@/lib/ui/theme/bodyMetricClassificationChrome");
+    const expected = resolveBodyMetricClassificationBandChrome("caution").fillStrong;
+    const knob = tree.root.findByProps({
+      testID: "body-metric-classification-marker-classification",
+    });
+    expect(knob.props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ backgroundColor: expected })]),
+    );
     expect(collectText(tree)).not.toContain("170 lb");
   });
 
-  it("renders value-position marker without capsule text", () => {
+  it("renders value-position marker with Mid-range segment center fill and no capsule text", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -147,6 +155,14 @@ describe("BodyMetricClassificationChart", () => {
     expect(
       tree.root.findByProps({ testID: "body-metric-classification-marker-value-position" }),
     ).toBeDefined();
+    const { resolveBodyMetricClassificationBandChrome } = require("@/lib/ui/theme/bodyMetricClassificationChrome");
+    const expected = resolveBodyMetricClassificationBandChrome("reference").fillStrong;
+    const knob = tree.root.findByProps({
+      testID: "body-metric-classification-marker-value-position",
+    });
+    expect(knob.props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ backgroundColor: expected })]),
+    );
     expect(collectText(tree)).not.toContain("18.0%");
   });
 
