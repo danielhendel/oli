@@ -7,7 +7,7 @@
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
 **Prior Stage 1A truth freeze (historical):** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `Stage 3C — Body Hierarchy + Composition-Share Graphs` (**HIERARCHY APPROVED — COMPOSITION-SHARE PHYSICAL RETEST PENDING**). Prior physical candidate `7b40ed3…` **SUPERSEDED**. Stage 3B **MERGED** (PR #220). Stage 3A docs **MERGED** (PR #219). Stage 3D **NOT BEGUN**.
+**Current execution-stage label:** `Stage 3C — Body Fat Numerical Screening Ranges + Lean Mass Blocked` (**ASYMMETRIC — PHYSICAL RETEST BLOCKED PENDING LEADERSHIP**). Prior physical candidate `050d338e…` **SUPERSEDED**. Stage 3B **MERGED** (PR #220). Stage 3A docs **MERGED** (PR #219). Stage 3D **NOT BEGUN**.
 **Stage 1B:** **MERGED** (PR #214 at `3d4859e45d537813b6846ecaf4cb49222519ef80`)
 **Stage 1C:** **MERGED** (PR #215 at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`)
 **Build hygiene:** **MERGED** (PR #216 at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`)
@@ -42,7 +42,7 @@
 >
 > **Stage 3B status:** **MERGED** (PR [#220](https://github.com/danielhendel/oli/pull/220) at `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`). Physical runtime SHA `c962d36ef947e67e03092df9ed8207de17aef9de` **PASS** (product leadership 2026-09-20; ancestor of `main`). Weight CDC/WHO adult BMI screening **IMPLEMENTED** — Weight remains the **only** classified Body metric. Body Fat / Lean Mass **unclassified** at Stage 3C start (presentation + compatible derivations only). Metric-specific Apple Health popups + local `appleHealth:metricSyncScopes:{uid}` preference **IMPLEMENTED**. Backend/Firestore schema **unchanged**. Release gates remain **OPEN**.
 >
-> **Stage 3C status:** **LANDING HIERARCHY + COMPOSITION-SHARE GRAPHS** on branch `feat/body-composition-stage3c-standards-graphs-v1`. Prior physical candidate `7b40ed3c1c93ece023615573cb820f870796938b` **SUPERSEDED**. Landing IA **APPROVED**: Total Mass → Weight; Components → Body Fat + Lean Mass; metric-specific detail headers. Body Fat / Lean Mass landing graphs are **composition-share** (measurement proportion of total mass) — **not** reference classification. Body Fat numerical personal classification **DEFERRED** (Gallagher candidate; ACE **REJECTED** as Oli health truth). Lean Mass numerical personal classification **DEFERRED** / **BLOCKED** pending method-specific LMI coefficients (Kelly/Hologic, Imboden/GE). Personal Body Fat / Lean Mass **reference** markers **BLOCKED**. Measurement-proportion markers on share graphs are allowed. Weight remains the **only** approved personal Body classifier. Stage 3D **NOT BEGUN**. No staging/production deploy. No new Firestore standards path.
+> **Stage 3C status:** **BODY FAT NUMERICAL EDUCATIONAL RANGES + LEAN MASS NUMERICAL BLOCKED** on branch `feat/body-composition-stage3c-standards-graphs-v1`. Prior physical candidate `050d338e62749d7920988900f25d61b847fdbad4` **SUPERSEDED**. Landing IA **APPROVED**: Total Mass → Weight; Components → Body Fat + Lean Mass; metric-specific detail headers. Body Fat landing graph uses Gallagher et al. 2000 (`gallagher-4c-bmi-equivalent-body-fat-reference` / `2000.1`) Lower / Mid-range / Higher **numerical educational screening ranges** (combined AA/White Table 4); personal Body Fat **reference** marker **BLOCKED**. Lean Mass numerical ranges **BLOCKED** (Kelly Table S5 ethnicity-only; no pooled adult reference; DOC SHA-256 `43371bb…`); Lean Mass keeps composition-share fallback. ACE **REJECTED**. Weight remains the **only** approved personal Body classifier. Stage 3D **NOT BEGUN**. No staging/production deploy. No new Firestore standards path.
 
 ---
 
@@ -268,22 +268,22 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Export coverage/scalability remain **OPEN**
 - No staging or production deployment from Stage 3B
 
-## Stage 3C (LANDING HIERARCHY + COMPOSITION-SHARE GRAPHS)
+## Stage 3C (BODY FAT NUMERICAL RANGES + LEAN MASS BLOCKED)
 
 - Branch: `feat/body-composition-stage3c-standards-graphs-v1`
 - Baseline `main`: `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`
-- Prior physical candidate `7b40ed3c1c93ece023615573cb820f870796938b`: **SUPERSEDED**
+- Prior physical candidate `050d338e62749d7920988900f25d61b847fdbad4`: **SUPERSEDED — DO NOT REUSE PHYSICAL EVIDENCE**
 - Landing IA **APPROVED**: Total Mass → Weight; Components → Body Fat + Lean Mass; metric-specific calendar/list; education on detail
-- Body Fat / Lean Mass landing graphs: **composition-share** (share of total mass) — measurement-proportion markers only; **not** reference classification
+- Body Fat numerical card reference: **APPROVED AS GENERAL EDUCATIONAL SCREENING REFERENCE** (`gallagher-4c-bmi-equivalent-body-fat-reference` / `2000.1`)
+- Body Fat personal placement: **BLOCKED UNLESS METHOD AND REFERENCE ELIGIBILITY PASS**
+- Lean Mass numerical card reference: **BLOCKED** — Kelly Table S5 verified ethnicity-only; no pooled adult reference (DOC SHA-256 `43371bbccbc42af900bbd15770470414c61bac2cead2ac13b16068d64debb718`)
+- Lean Mass landing fallback: composition-share (share of total mass) — no invented raw-pound ranges
+- Lean Mass personal placement: **BLOCKED**
 - Weight: **APPROVED / IMPLEMENTED** personal BMI screening — only personally classified Body metric
-- Body Fat numerical personal classification: **DEFERRED** (Gallagher candidate; ACE categories **REJECTED** as Oli health truth)
-- Body Fat personal **reference** marker: **BLOCKED**
-- Lean Mass numerical personal classification: **DEFERRED / BLOCKED** pending method-specific LMI (Kelly Hologic / Imboden GE); EWGSOP2 **not applicable** to total lean
-- Lean Mass personal **reference** marker: **BLOCKED**
 - Body score / aggregate classification / Performance·Excellence: **NOT IMPLEMENTED**
 - Next after Stage 3C merge: **Stage 3D — Body Facts and Measurement Provenance** — must **not** auto-implement reference markers or numerical standards
 - Stage 3D: **NOT BEGUN**
-- Physical-iPhone retest: **REQUIRED** (prior `7b40ed3` evidence invalid)
+- Physical-iPhone retest: **BLOCKED PENDING LEADERSHIP DECISION** (asymmetric BF ranges / LM blocked)
 - No staging or production deployment; no backend / Firestore standards path
 
 ### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
@@ -336,13 +336,13 @@ RG-SOURCE-PRIVACY-01 remaining OPEN does **not** block Stage 2 engineering merge
 - Defensible overall score (gated — not a P0 assumption)
 - Body salvage (PR #178 deferred)
 - Minimal onboarding / data readiness (Stage 2 **MERGED** via PR #217)
-- Body Composition Category Intelligence (Stage 3A **merged** PR #219; Stage 3B shell **merged** PR #220 at `0124c641…`, physical `c962d36…`; Stage 3C v1 qualitative educational graphs **product-closed** — numerical standards **deferred**; physical retest pending; Stage 3D **not begun**)
+- Body Composition Category Intelligence (Stage 3A **merged** PR #219; Stage 3B shell **merged** PR #220 at `0124c641…`, physical `c962d36…`; Stage 3C Body Fat Gallagher numerical educational ranges + Lean Mass numerical **BLOCKED**; prior physical `050d338…` SUPERSEDED; physical retest blocked pending leadership; Stage 3D **not begun**)
 
-**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-authored Plan persistence, Progress outcome analytics, consent persistence; Body Composition Stage 3D+ facts/classification runtime; official Body Fat/Lean Mass classification / personal markers; Gallagher/Zhu/Kelly numerical Body Fat/Lean Mass standards (deferred).
+**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-authored Plan persistence, Progress outcome analytics, consent persistence; Body Composition Stage 3D+ facts/classification runtime; official Body Fat/Lean Mass personal markers; Lean Mass numerical LMI ranges (Kelly Table S5 pooled reference unavailable).
 
 ## In progress (not complete)
 
-- **Stage 3C Body Composition qualitative educational graphs v1** — product contract closed; physical-iPhone retest **REQUIRED**; Draft PR / merge gate pending; numerical Body Fat / Lean Mass standards **DEFERRED**; personal markers **BLOCKED**; Stage 3D **not begun**
+- **Stage 3C Body Fat numerical educational ranges (asymmetric)** — Lean Mass numerical **BLOCKED**; physical retest **BLOCKED PENDING LEADERSHIP**; Draft PR / merge gate pending; personal markers **BLOCKED**; Stage 3D **not begun**
 - **RG-SOURCE-PRIVACY-01 OPEN** (complete two-account server evidence deferred; leadership-accepted residual risk; Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN)
 - **RG-LEGAL-01 OPEN** (hosted legal/support pages not published)
 - PR #178 remains CLOSED unmerged; Body salvage disposition in Stage 3A docs only
