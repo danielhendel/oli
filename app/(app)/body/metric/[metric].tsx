@@ -1,37 +1,33 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 
 import {
-  bodyHistoryCalendarAccessibilityLabel,
-  bodyHistoryCalendarHref,
-  bodyHistoryListAccessibilityLabel,
-  bodyHistoryListHref,
+  buildBodyMetricTrendDetailModel,
+  type BodyMetricTrendDetailModel,
+} from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
+import { resolveBodyMetricEducationalReferencePresentation } from "@/lib/body/standards/resolveEducationalReferencePresentation";
+import {
   bodyHistoryMetricFromDetailParam,
-  bodyMetricDetailBackAccessibilityLabel,
   type BodyHistoryMetricFilter,
 } from "@/lib/data/body/bodyHistoryMetricFilter";
 import { BODY_METRIC_DETAIL_DEFAULT_RANGE } from "@/lib/data/body/bodyMetricDetailDefaults";
 import { useBodyMetricTrends, type BodyTrendMetric } from "@/lib/data/body/useBodyMetricTrends";
-import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
-import { resolveBodyMetricEducationalReferencePresentation } from "@/lib/body/standards/resolveEducationalReferencePresentation";
+import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
-import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import { BodyMetricDetailEducationPanel } from "@/lib/ui/body/BodyMetricDetailEducationPanel";
+import { BodyMetricManualEntrySheet } from "@/lib/ui/body/BodyMetricManualEntrySheet";
+import { BodyMetricTrendDetailView } from "@/lib/ui/body/BodyMetricTrendDetailView";
 import {
   formatBodyBmi,
   formatBodyLeanMass,
   formatBodyRmr,
   formatBodyWeight,
 } from "@/lib/ui/body/bodyMetricFormatting";
-import { formatBodyDayLabel } from "@/lib/ui/body/formatBodyDayLabel";
-import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
-import { HeaderControls } from "@/lib/ui/HeaderControls";
-import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
-import { ScreenContainer, EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
-import { WeightRangeSelector } from "@/lib/ui/WeightRangeSelector";
-import { WeightTrendChart } from "@/lib/ui/WeightTrendChart";
-import { UI_CARD_SURFACE, UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import { useBodyMetricDetailHeader } from "@/lib/ui/headers/useBodyMetricDetailHeader";
+import { ScreenContainer, ErrorState } from "@/lib/ui/ScreenStates";
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
+import type { BodyMetricManualEntryMetric } from "@/lib/body/presentation/bodyMetricManualEntryValidation";
 
 const PARAM_TO_METRIC: Record<string, BodyTrendMetric> = {
   weight: "weight",
@@ -66,11 +62,6 @@ const LEAN_MASS_EXTRA_LIMITATIONS = [
   "Numerical Lean Mass reference research is deferred — not abandoned — pending Stage 3D measurement provenance and a separate non-inferred reference-population decision.",
 ] as const;
 
-function latestPoint(points: WeightPoint[]): WeightPoint | null {
-  if (points.length === 0) return null;
-  return [...points].sort((a, b) => a.observedAt.localeCompare(b.observedAt))[points.length - 1] ?? null;
-}
-
 function educationMetricKey(
   historyMetric: BodyHistoryMetricFilter | null,
 ): "bodyFat" | "leanTissue" | null {
@@ -79,43 +70,34 @@ function educationMetricKey(
   return null;
 }
 
+function manualEntryMetricFor(
+  historyMetric: BodyHistoryMetricFilter | null,
+): BodyMetricManualEntryMetric | null {
+  if (historyMetric === "weight") return "weight";
+  if (historyMetric === "bodyFat") return "bodyFat";
+  if (historyMetric === "leanTissue") return "leanMass";
+  return null;
+}
+
 export default function BodyMetricDetailScreen() {
   const { metric: metricParam } = useLocalSearchParams<{ metric: string }>();
-  const navigation = useNavigation();
-  const router = useRouter();
   const { state: prefState } = usePreferences();
   const unit = prefState.preferences?.units?.mass ?? "lb";
   const [range, setRange] = useState<WeightRangeKey>(BODY_METRIC_DETAIL_DEFAULT_RANGE);
+  const [manualEntryOpen, setManualEntryOpen] = useState(false);
+  const previousReadyRef = useRef<BodyMetricTrendDetailModel | null>(null);
 
   const metricParamKey = typeof metricParam === "string" ? metricParam : undefined;
   const metric = metricParamKey != null ? PARAM_TO_METRIC[metricParamKey] : undefined;
   const historyMetric = bodyHistoryMetricFromDetailParam(metricParamKey);
+  const metricTitle = metric != null ? METRIC_TITLES[metric] : "Metric";
+
+  useBodyMetricDetailHeader({
+    title: metricTitle,
+    historyMetric: historyMetric ?? "weight",
+  });
 
   const trends = useBodyMetricTrends(range, metric, { enabled: metric !== undefined });
-
-  useEffect(() => {
-    if (!metric || historyMetric == null) return;
-    const title = METRIC_TITLES[metric];
-    navigation.setOptions({
-      ...workoutsStackNavigationOptions("detail"),
-      title,
-      headerLeft: () => (
-        <HeaderBackButton
-          onPress={() => navigation.goBack()}
-          accessibilityLabel={bodyMetricDetailBackAccessibilityLabel()}
-        />
-      ),
-      headerRight: () => (
-        <HeaderControls
-          gap={10}
-          calendarAccessibilityLabel={bodyHistoryCalendarAccessibilityLabel(historyMetric)}
-          onCalendarPress={() => router.push(bodyHistoryCalendarHref(historyMetric) as never)}
-          logAccessibilityLabel={bodyHistoryListAccessibilityLabel(historyMetric)}
-          onLogPress={() => router.push(bodyHistoryListHref(historyMetric) as never)}
-        />
-      ),
-    });
-  }, [navigation, metric, historyMetric, router]);
 
   const points = useMemo(() => {
     if (trends.status !== "ready" || !metric) return [];
@@ -128,6 +110,24 @@ export default function BodyMetricDetailScreen() {
     }
     return trends.data.statsByMetric[metric];
   }, [trends, metric]);
+
+  const model = useMemo(
+    () =>
+      buildBodyMetricTrendDetailModel({
+        range,
+        points,
+        stats,
+        trendsStatus: trends.status,
+        errorMessage: trends.status === "error" ? trends.error : null,
+      }),
+    [range, points, stats, trends],
+  );
+
+  useEffect(() => {
+    if (model.status === "ready" || model.status === "insufficient") {
+      previousReadyRef.current = model;
+    }
+  }, [model]);
 
   const educationalModel = useMemo(() => {
     const key = educationMetricKey(historyMetric);
@@ -163,11 +163,9 @@ export default function BodyMetricDetailScreen() {
     return "";
   };
 
-  const historyRows = useMemo(() => {
-    return [...points].sort((a, b) => b.observedAt.localeCompare(a.observedAt));
-  }, [points]);
+  const entryMetric = manualEntryMetricFor(historyMetric);
 
-  if (!metric) {
+  if (!metric || historyMetric == null) {
     return (
       <ScreenContainer>
         <ErrorState message="Unknown metric" />
@@ -175,130 +173,63 @@ export default function BodyMetricDetailScreen() {
     );
   }
 
-  const hero = latestPoint(points);
-  const metricTitle = METRIC_TITLES[metric];
-
   return (
     <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.scroll} testID="body-metric-detail-scroll">
-        <View style={styles.heroCard} testID={`body-metric-detail-hero-${metricParamKey ?? "unknown"}`}>
-          <Text style={styles.heroLabel}>Latest</Text>
-          {trends.status === "partial" ? (
-            <LoadingState message="Loading…" />
-          ) : trends.status === "error" ? (
-            <ErrorState message={trends.error} requestId={trends.requestId} onRetry={() => trends.refetch()} />
-          ) : hero == null ? (
-            <Text style={styles.heroEmpty}>—</Text>
-          ) : (
-            <>
-              <Text style={styles.heroValue}>{formatTrendValue(hero.weightKg)}</Text>
-              <Text style={styles.heroSub}>{formatBodyDayLabel(hero.dayKey)}</Text>
-            </>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <WeightRangeSelector value={range} onChange={setRange} />
-          {trends.status === "partial" ? (
-            <LoadingState message="Loading chart…" />
-          ) : trends.status === "error" ? (
-            <ErrorState message={trends.error} requestId={trends.requestId} onRetry={() => trends.refetch()} />
-          ) : points.length === 0 ? (
-            <EmptyState
-              title={`No ${metricTitle} trend data yet`}
-              description="Try a longer range or sync Apple Health body data for this metric."
-            />
-          ) : (
-            <View style={styles.chartContainer}>
-              <WeightTrendChart
-                points={points}
-                unitLabel={chartUnitLabel()}
-                valueKind={metric === "weight" || metric === "lean_body_mass" ? "mass" : "generic"}
-                formatValue={(v) => {
-                  const label = formatTrendValue(v);
-                  const suffix = chartUnitLabel();
-                  return suffix ? label.replace(` ${suffix}`, "") : label;
-                }}
-                range={range}
-                accentColor={BODY_INDIGO}
-              />
-            </View>
-          )}
-          <View style={styles.statsRow}>
-            <Text style={styles.statText}>
-              Change {stats.change != null ? formatTrendValue(stats.change) : "—"}
-            </Text>
-            <Text style={styles.statText}>Avg {stats.avg != null ? formatTrendValue(stats.avg) : "—"}</Text>
-            <Text style={styles.statText}>High {stats.high != null ? formatTrendValue(stats.high) : "—"}</Text>
-            <Text style={styles.statText}>Low {stats.low != null ? formatTrendValue(stats.low) : "—"}</Text>
-          </View>
-        </View>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        testID="body-metric-detail-scroll"
+        keyboardShouldPersistTaps="handled"
+      >
+        <BodyMetricTrendDetailView
+          metricTitle={metricTitle}
+          model={model}
+          range={range}
+          onChangeRange={setRange}
+          formatValue={formatTrendValue}
+          unitLabel={chartUnitLabel()}
+          valueKind={metric === "weight" || metric === "lean_body_mass" ? "mass" : "generic"}
+          onRetry={() => trends.refetch()}
+          {...(entryMetric != null
+            ? { onPressAddMeasurement: () => setManualEntryOpen(true) }
+            : {})}
+          retainChartWhileLoading
+          previousReadyModel={previousReadyRef.current}
+        />
 
         {historyMetric === "bodyFat" || historyMetric === "leanTissue" ? (
-          <BodyMetricDetailEducationPanel
-            model={educationalModel}
-            {...(extraLimitations != null ? { extraLimitations } : {})}
-          />
+          <View style={styles.educationWrap}>
+            <BodyMetricDetailEducationPanel
+              model={educationalModel}
+              {...(extraLimitations != null ? { extraLimitations } : {})}
+            />
+          </View>
         ) : null}
-
-        <View style={styles.card} testID="body-metric-detail-history">
-          <Text style={styles.sectionTitle}>{metricTitle} History</Text>
-          {trends.status !== "ready" || historyRows.length === 0 ? (
-            <Text style={styles.placeholder} testID="body-metric-detail-history-empty">
-              No {metricTitle} entries in this range
-            </Text>
-          ) : (
-            historyRows.map((p) => (
-              <Pressable
-                key={`${p.observedAt}-${p.dayKey}-${p.sourceId}`}
-                style={({ pressed }) => [styles.historyRow, pressed && styles.historyRowPressed]}
-                onPress={() => router.push({ pathname: "/(app)/body/day/[day]", params: { day: p.dayKey } })}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${metricTitle} day ${p.dayKey}`}
-              >
-                <Text style={styles.historyDate}>{formatBodyDayLabel(p.dayKey)}</Text>
-                <Text style={styles.historyValue}>{formatTrendValue(p.weightKg)}</Text>
-              </Pressable>
-            ))
-          )}
-        </View>
       </ScrollView>
+
+      {entryMetric != null ? (
+        <BodyMetricManualEntrySheet
+          visible={manualEntryOpen}
+          metric={entryMetric}
+          onClose={() => setManualEntryOpen(false)}
+          onSaved={() => {
+            setManualEntryOpen(false);
+            trends.refetch({ cacheBust: `manualMetric:${Date.now()}` });
+          }}
+        />
+      ) : null}
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 40, gap: 16, backgroundColor: UI_SCREEN_BG },
-  heroCard: {
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: 12,
-    padding: 20,
-    gap: 8,
+  scroll: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 40,
+    gap: 20,
+    backgroundColor: UI_SCREEN_BG,
   },
-  heroLabel: { fontSize: 14, fontWeight: "600", color: "#6E6E73" },
-  heroValue: { fontSize: 34, fontWeight: "700", color: "#1C1C1E" },
-  heroSub: { fontSize: 15, fontWeight: "500", color: "#3C3C43" },
-  heroEmpty: { fontSize: 28, fontWeight: "600", color: "#AEAEB2" },
-  card: {
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
+  educationWrap: {
+    marginTop: 4,
   },
-  sectionTitle: { fontSize: 17, fontWeight: "700", color: "#1C1C1E" },
-  chartContainer: { height: 200, width: "100%" },
-  statsRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  statText: { fontSize: 13, color: "#3C3C43", fontWeight: "600" },
-  placeholder: { fontSize: 15, color: "#8E8E93" },
-  historyRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E5EA",
-  },
-  historyRowPressed: { opacity: 0.7 },
-  historyDate: { fontSize: 14, fontWeight: "500", color: "#6E6E73" },
-  historyValue: { fontSize: 15, fontWeight: "600", color: "#1C1C1E" },
 });

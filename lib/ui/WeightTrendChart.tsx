@@ -1,6 +1,11 @@
-import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_CARD_SURFACE,
+  UI_TEXT_MUTED,
+  UI_TEXT_PRIMARY,
+  UI_TEXT_SECONDARY,
+} from "@/lib/ui/theme/uiTokens";
 
-// lib/ui/WeightTrendChart.tsx — Weight trend chart (react-native-svg). Graphite styling; tooltip on press/drag.
+// lib/ui/WeightTrendChart.tsx — Weight trend chart (react-native-svg). Dark Oli styling; tooltip on press/drag.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, LayoutChangeEvent } from "react-native";
@@ -10,29 +15,26 @@ import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
 const PADDING = { left: 44, right: 8, top: 8, bottom: 44 };
 const Y_LABEL_FONT_SIZE = 11;
-const Y_LABEL_COLOR = "#4A4A4F";
+const Y_LABEL_COLOR = UI_TEXT_MUTED;
 /** Minimum vertical gap (px) between High and Low labels to avoid overlap. */
 const Y_LABEL_MIN_GAP_PX = 16;
 const X_LABEL_FONT_SIZE = 11;
-const CHART_HEIGHT = 180;
+const CHART_HEIGHT = 220;
 const DOT_R = 5;
-const CROSSHAIR_COLOR = "#8E8E93";
+const CROSSHAIR_COLOR = "rgba(255,255,255,0.35)";
 
 const ACCENT_BLUE = SYSTEM_ACCENT;
-const LINE_WIDTH = 2;
-const GRID_COLOR = "#E5E5EA";
-const AREA_OPACITY = 0.25;
+const LINE_WIDTH = 2.25;
+const GRID_COLOR = "rgba(255,255,255,0.08)";
+const AREA_OPACITY = 0.22;
 /** Lighter fill below actual low line (same hue as area, lower opacity). */
-const BASE_FILL_OPACITY = 0.08;
+const BASE_FILL_OPACITY = 0.06;
 /** Minimum Y-axis span to reduce visual exaggeration (in user units, converted to kg for domain). */
 const MIN_SPAN_LB = 12;
 const MIN_SPAN_KG = 5.5;
 const MIN_PAD_LB = 2;
 const MIN_PAD_KG = 0.9;
 const LBS_PER_KG = 2.2046226218;
-/** Soft floor: extend baseline down so blue fill reaches ~145 lb (or equivalent kg). */
-const DISPLAY_FLOOR_LB = 145;
-const DISPLAY_FLOOR_KG = DISPLAY_FLOOR_LB / LBS_PER_KG;
 /** Max points used to draw path/area/dots; touch and tooltip still use full data. */
 const MAX_RENDER_POINTS = 80;
 
@@ -283,6 +285,9 @@ export type WeightTrendChartProps = {
   valueKind?: "mass" | "generic";
   accentColor?: string;
   onChartError?: (message: string) => void;
+  /** Always mark the chronologically latest observation (not a classification). */
+  emphasizeLatestPoint?: boolean;
+  accessibilityLabel?: string;
 };
 
 type ProcessedPoint = {
@@ -301,6 +306,8 @@ export function WeightTrendChart({
   valueKind = "mass",
   accentColor = ACCENT_BLUE,
   onChartError,
+  emphasizeLatestPoint = false,
+  accessibilityLabel = "Weight trend chart",
 }: WeightTrendChartProps) {
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -384,8 +391,7 @@ export function WeightTrendChart({
       }
       dMin = Math.max(0, dMin);
     }
-    if (valueKind === "mass" && unitLabel === "lb" && dMin * LBS_PER_KG > DISPLAY_FLOOR_LB) dMin = DISPLAY_FLOOR_LB / LBS_PER_KG;
-    if (valueKind === "mass" && unitLabel === "kg" && dMin > DISPLAY_FLOOR_KG) dMin = DISPLAY_FLOOR_KG;
+    // Observation-driven domain only — no artificial display floor / healthy band.
     dMin = Math.max(0, dMin);
     const count = processed.filter((p) => p.weightKg < dMin || p.weightKg > dMax).length;
     return { displayMin: dMin, displayMax: dMax, outlierCount: count };
@@ -508,8 +514,9 @@ export function WeightTrendChart({
         setTouchX(null);
         setSelectedIndex(null);
       }}
-      accessibilityRole="none"
-      accessibilityLabel="Weight trend chart"
+      accessibilityRole="image"
+      accessibilityLabel={accessibilityLabel}
+      testID="weight-trend-chart"
     >
       {layout && layout.width > 0 && (
         <Svg width={layout.width} height={CHART_HEIGHT} style={styles.svg}>
@@ -529,16 +536,16 @@ export function WeightTrendChart({
           {/* Dashed horizontal guide lines at actual data High/Low (behind area/line) */}
           {!isSparseLabels && (
             <>
-              <Path
+                  <Path
                 d={`M ${PADDING.left} ${yHigh} L ${layout.width - PADDING.right} ${yHigh}`}
-                stroke="#C7C7CC"
+                stroke="rgba(255,255,255,0.18)"
                 strokeWidth={1}
                 strokeDasharray="4 4"
                 fill="none"
               />
               <Path
                 d={`M ${PADDING.left} ${yLow} L ${layout.width - PADDING.right} ${yLow}`}
-                stroke="#C7C7CC"
+                stroke="rgba(255,255,255,0.18)"
                 strokeWidth={1}
                 strokeDasharray="4 4"
                 fill="none"
@@ -548,7 +555,7 @@ export function WeightTrendChart({
           {isSparseLabels && (
             <Path
               d={`M ${PADDING.left} ${yHigh} L ${layout.width - PADDING.right} ${yHigh}`}
-              stroke="#C7C7CC"
+              stroke="rgba(255,255,255,0.18)"
               strokeWidth={1}
               strokeDasharray="4 4"
               fill="none"
@@ -622,6 +629,17 @@ export function WeightTrendChart({
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
+            />
+          ) : null}
+          {/* Latest observation marker (always on when requested) */}
+          {emphasizeLatestPoint && pointsWithCoords.length > 0 ? (
+            <Circle
+              cx={pointsWithCoords[pointsWithCoords.length - 1]!.cx}
+              cy={pointsWithCoords[pointsWithCoords.length - 1]!.cy}
+              r={DOT_R}
+              fill={accentColor}
+              stroke="#FFFFFF"
+              strokeWidth={1.5}
             />
           ) : null}
           {/* Dot marker: only while touching (selection active); no persistent dots */}
@@ -727,11 +745,11 @@ const styles = StyleSheet.create({
     padding: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 3,
-    borderWidth: 1,
-    borderColor: "#E5E5EA",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.12)",
   },
   tooltipAbove: {
     bottom: CHART_HEIGHT + 8,
@@ -741,28 +759,28 @@ const styles = StyleSheet.create({
   },
   tooltipDate: {
     fontSize: 12,
-    color: "#6E6E73",
+    color: UI_TEXT_SECONDARY,
     marginBottom: 2,
   },
   tooltipValue: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#1C1C1E",
+    color: UI_TEXT_PRIMARY,
   },
   tooltipSource: {
     fontSize: 12,
-    color: "#6E6E73",
+    color: UI_TEXT_MUTED,
     marginTop: 4,
   },
   outlierNote: {
     fontSize: 11,
-    color: "#6E6E73",
+    color: UI_TEXT_MUTED,
     marginTop: 6,
     fontStyle: "italic",
   },
   sparseNote: {
     fontSize: 11,
-    color: "#6E6E73",
+    color: UI_TEXT_MUTED,
     marginTop: 6,
   },
 });

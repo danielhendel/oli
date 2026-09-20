@@ -1,4 +1,8 @@
-import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_CARD_SURFACE,
+  UI_TEXT_MUTED,
+  UI_TEXT_PRIMARY,
+} from "@/lib/ui/theme/uiTokens";
 
 // lib/ui/WeightRangeSelector.tsx — Segmented range for weight trend chart.
 import React from "react";
@@ -23,19 +27,27 @@ export type WeightRangeSelectorProps = {
 
 export function WeightRangeSelector({ value, onChange }: WeightRangeSelectorProps) {
   return (
-    <View style={styles.wrapper}>
-      {RANGES.map(({ key, label }) => (
-        <Pressable
-          key={key}
-          onPress={() => onChange(key)}
-          style={[styles.segment, value === key && styles.segmentActive]}
-          accessibilityRole="button"
-          accessibilityState={{ selected: value === key }}
-          accessibilityLabel={`Range ${label}`}
-        >
-          <Text style={[styles.label, value === key && styles.labelActive]}>{label}</Text>
-        </Pressable>
-      ))}
+    <View
+      style={styles.wrapper}
+      accessibilityRole="tablist"
+      testID="weight-range-selector"
+    >
+      {RANGES.map(({ key, label }) => {
+        const selected = value === key;
+        return (
+          <Pressable
+            key={key}
+            onPress={() => onChange(key)}
+            style={[styles.segment, selected && styles.segmentActive]}
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+            accessibilityLabel={`Range ${label}`}
+            testID={`weight-range-${key}`}
+          >
+            <Text style={[styles.label, selected && styles.labelActive]}>{label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -43,17 +55,28 @@ export function WeightRangeSelector({ value, onChange }: WeightRangeSelectorProp
 const styles = StyleSheet.create({
   wrapper: {
     flexDirection: "row",
-    backgroundColor: "#E5E5EA",
-    borderRadius: 10,
-    padding: 4,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 12,
+    padding: 3,
   },
   segment: {
     flex: 1,
-    paddingVertical: 8,
+    minHeight: 44,
+    paddingVertical: 10,
     alignItems: "center",
-    borderRadius: 8,
+    justifyContent: "center",
+    borderRadius: 9,
   },
-  segmentActive: { backgroundColor: UI_CARD_SURFACE, shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 } },
-  label: { fontSize: 13, fontWeight: "600", color: "#6E6E73" },
-  labelActive: { color: "#1C1C1E", fontWeight: "700" },
+  segmentActive: {
+    backgroundColor: UI_CARD_SURFACE,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: UI_TEXT_MUTED,
+  },
+  labelActive: {
+    color: UI_TEXT_PRIMARY,
+    fontWeight: "700",
+  },
 });
