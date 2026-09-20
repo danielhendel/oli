@@ -219,10 +219,12 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     expect(lean.compositionShareGraph).not.toBeNull();
     expect(lean.compositionShareGraph!.kind).toBe("composition_share");
     expect(lean.compositionShareGraph!.personalClassification).toBeNull();
+    expect(lean.compositionShareGraph!.caption).toBe("Share of total mass");
     expect(lean.showUnclassifiedScaffold).toBe(false);
     expect(lean.title).toBe("Lean Mass");
     expect(lean.accessibilityLabel).toMatch(/total Lean Mass|Share of total mass/i);
-    expect(lean.accessibilityLabel).not.toMatch(/\bALMI\b|\bASM\b|sarcopenia/i);
+    expect(lean.accessibilityLabel).not.toMatch(/\bALMI\b|\bASM\b|sarcopenia|Optimal|Excellence|Elite/i);
+    expect(JSON.stringify(lean)).not.toMatch(/"Lower"|"Mid-range"|"Higher"/);
   });
 
   it("does not invent Body score or aggregate rails", () => {
