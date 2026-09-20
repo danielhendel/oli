@@ -307,8 +307,10 @@ describe("Body Fat and Lean Mass display views", () => {
       "Mid-range",
       "Higher",
     ]);
-    expect(fatMass.classificationChart!.marker).toBeNull();
+    expect(fatMass.classificationChart!.marker).not.toBeNull();
+    expect(fatMass.classificationChart!.marker!.kind).toBe("value_position");
     expect(fatMass.accessibilityLabel).toMatch(/screening reference/i);
+    expect(fatMass.accessibilityLabel).toMatch(/not an approved personal classification/i);
     expect(fatMass.accessibilityLabel).not.toMatch(/Essential|Athletic|Fitness|Average/i);
     expect(bodyFat.classificationChart).not.toBeNull();
     expect(bodyFat.compositionShareGraph).toBeNull();

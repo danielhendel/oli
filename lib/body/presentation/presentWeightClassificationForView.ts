@@ -76,7 +76,9 @@ export function presentWeightClassificationChartForView(input: {
     presentation.markerLabel != null &&
     markerFormattedValue != null
       ? {
+          kind: "classification" as const,
           formattedValue: markerFormattedValue,
+          showValueLabel: false,
           segmentId: presentation.classifiedId,
           withinSegmentPosition: presentation.withinSegmentPosition,
           accessibleLabel: presentation.markerLabel,

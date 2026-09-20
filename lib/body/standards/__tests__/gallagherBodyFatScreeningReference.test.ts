@@ -169,7 +169,7 @@ describe("resolveBodyFatNumericalReferenceChart", () => {
     overviewDay: "2026-09-20",
   };
 
-  it("builds Lower / Mid-range / Higher percent ranges and withholds marker", () => {
+  it("builds Lower / Mid-range / Higher percent ranges with value-position marker only", () => {
     const chart = resolveBodyFatNumericalReferenceChart({
       ageYears: 45,
       sex: "male",
@@ -184,10 +184,28 @@ describe("resolveBodyFatNumericalReferenceChart", () => {
     expect(chart!.standardVersion).toBe(GALLAGHER_BODY_FAT_SCREENING_VERSION);
     expect(chart!.segments.map((s) => s.label)).toEqual(["Lower", "Mid-range", "Higher"]);
     expect(chart!.segments.map((s) => s.formattedRange)).toEqual(["<11%", "11–<22%", "≥22%"]);
-    expect(chart!.marker).toBeNull();
+    expect(chart!.marker).not.toBeNull();
+    expect(chart!.marker!.kind).toBe("value_position");
+    expect(chart!.marker!.showValueLabel).toBe(false);
+    expect(chart!.marker!.segmentId).toBe("mid_range");
     expect(chart!.accessibleSummary).toMatch(/screening reference/i);
-    expect(chart!.accessibleSummary).toMatch(/No personal placement/i);
+    expect(chart!.accessibleSummary).toMatch(/not an approved personal classification/i);
     expect(chart!.accessibleSummary).not.toMatch(/Essential|Athletic|Optimal|Excellence/i);
+  });
+
+  it("withholds value-position marker when percent is missing", () => {
+    const chart = resolveBodyFatNumericalReferenceChart({
+      ageYears: 45,
+      sex: "male",
+      bodyFatPercent: null,
+      view: "percentage",
+      massDisplayUnit: "lb",
+      evidence: { ...evidence, bodyFatPercent: null },
+      measurementMethod: null,
+    });
+    expect(chart).not.toBeNull();
+    expect(chart!.marker).toBeNull();
+    expect(chart!.segments.map((s) => s.label)).toEqual(["Lower", "Mid-range", "Higher"]);
   });
 
   it("translates mass ranges from compatible Weight and does not invent zero", () => {
@@ -201,7 +219,8 @@ describe("resolveBodyFatNumericalReferenceChart", () => {
       measurementMethod: "apple_health",
     });
     expect(chart).not.toBeNull();
-    expect(chart!.marker).toBeNull();
+    expect(chart!.marker).not.toBeNull();
+    expect(chart!.marker!.kind).toBe("value_position");
     const expected = GALLAGHER_COMBINED_AA_WHITE_TABLE.find(
       (t) => t.sex === "male" && t.ageBandId === "40_59",
     )!.bands.map((band) =>

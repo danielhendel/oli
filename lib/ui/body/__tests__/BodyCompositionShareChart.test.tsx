@@ -33,7 +33,7 @@ const readyModel: BodyCompositionShareGraphModel = {
 };
 
 describe("BodyCompositionShareChart", () => {
-  it("renders share caption, fill, marker, and no classification labels", () => {
+  it("renders share caption, fill, stem marker, and no classification labels", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -42,9 +42,11 @@ describe("BodyCompositionShareChart", () => {
     });
     const text = collectText(tree);
     expect(text).toContain("Share of total mass");
-    expect(text).toContain("18.2%");
+    // Value remains on the card face — chart marker is stem/knob only.
+    expect(text).not.toContain("18.2%");
     expect(text).not.toMatch(/Essential|Athletic|Fitness|Average|Optimal|Elevated|High/i);
     expect(tree.root.findByProps({ testID: "body-composition-share-marker" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-composition-share-marker-knob" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-composition-share-fill" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-composition-share-remainder" })).toBeDefined();
     expect(tree.root.findByProps({ testID: "body-composition-share-chart" }).props.accessibilityLabel).toMatch(

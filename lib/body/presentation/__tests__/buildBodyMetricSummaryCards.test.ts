@@ -192,12 +192,15 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
       "21–<33%",
       "≥33%",
     ]);
-    expect(bodyFat.classificationChart!.marker).toBeNull();
+    expect(bodyFat.classificationChart!.marker).not.toBeNull();
+    expect(bodyFat.classificationChart!.marker!.kind).toBe("value_position");
+    expect(bodyFat.classificationChart!.marker!.showValueLabel).toBe(false);
     expect(bodyFat.showUnclassifiedScaffold).toBe(false);
     expect(bodyFat.referenceBar).not.toBeNull();
     expect(bodyFat.referenceContextLabel).toBe("Screening reference");
     expect(bodyFat.accessibilityLabel).not.toMatch(/Educational reference/i);
     expect(bodyFat.accessibilityLabel).toMatch(/screening reference/i);
+    expect(bodyFat.accessibilityLabel).toMatch(/not an approved personal classification/i);
     expect(bodyFat.accessibilityLabel).not.toMatch(/Essential|Athletic|Optimal|Excellence/i);
   });
 

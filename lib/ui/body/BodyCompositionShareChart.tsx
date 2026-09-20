@@ -6,7 +6,6 @@ import {
   BODY_METRIC_CHART_MARKER_BORDER,
   BODY_METRIC_CHART_MARKER_FILL,
   BODY_METRIC_CHART_MARKER_GLOW,
-  BODY_METRIC_CHART_MARKER_TEXT,
   BODY_METRIC_CHART_TRACK_BORDER,
   BODY_METRIC_CHART_TRACK_SHADOW,
   BODY_METRIC_SPECTRUM_HEIGHT,
@@ -24,10 +23,12 @@ const ACCENT = {
   bodyFat: {
     fill: "rgba(244, 140, 140, 0.78)",
     highlight: "rgba(254, 205, 211, 0.45)",
+    knob: "rgba(254, 226, 226, 0.95)",
   },
   leanMass: {
     fill: "rgba(45, 212, 191, 0.72)",
     highlight: "rgba(153, 246, 228, 0.42)",
+    knob: "rgba(204, 251, 241, 0.95)",
   },
 } as const;
 
@@ -45,7 +46,7 @@ export function BodyCompositionShareChart(props: BodyCompositionShareChartProps)
     model.normalizedPosition != null && Number.isFinite(model.normalizedPosition)
       ? Math.max(0, Math.min(1, model.normalizedPosition))
       : null;
-  const showMarker = position != null && model.valueLabel != null;
+  const showMarker = position != null;
   const fillPct = position != null ? position * 100 : 0;
 
   return (
@@ -64,13 +65,14 @@ export function BodyCompositionShareChart(props: BodyCompositionShareChartProps)
             style={[styles.markerColumn, { left: `${fillPct}%` }]}
             testID="body-composition-share-marker"
           >
-            <View style={styles.valueCapsuleOuter}>
-              <View style={styles.valueCapsule}>
-                <Text style={styles.valueCapsuleText} numberOfLines={1}>
-                  {model.valueLabel}
-                </Text>
-              </View>
+            <View style={styles.markerKnobOuter}>
+              <View
+                style={[styles.markerKnob, { backgroundColor: accent.knob }]}
+                testID="body-composition-share-marker-knob"
+              />
             </View>
+            <View style={styles.markerStem} />
+            <View style={[styles.markerDot, { backgroundColor: accent.knob }]} />
           </View>
         ) : null}
       </View>
@@ -129,42 +131,46 @@ export function BodyCompositionShareChart(props: BodyCompositionShareChartProps)
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: 8,
+    gap: 6,
   },
   markerRail: {
-    height: 40,
+    height: 22,
     position: "relative",
   },
   markerColumn: {
     position: "absolute",
     top: 0,
-    width: 1,
-    alignItems: "center",
-  },
-  valueCapsuleOuter: {
-    position: "absolute",
     bottom: 0,
-    transform: [{ translateX: -28 }],
-    shadowColor: BODY_METRIC_CHART_MARKER_GLOW,
-    shadowOpacity: 0.55,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    width: 100,
+    marginLeft: -50,
+    alignItems: "center",
+    zIndex: 3,
   },
-  valueCapsule: {
-    minWidth: 56,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  markerKnobOuter: {
     borderRadius: 999,
-    backgroundColor: BODY_METRIC_CHART_MARKER_FILL,
+    padding: 2,
+    backgroundColor: BODY_METRIC_CHART_MARKER_GLOW,
+  },
+  markerKnob: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: BODY_METRIC_CHART_MARKER_BORDER,
-    alignItems: "center",
   },
-  valueCapsuleText: {
-    color: BODY_METRIC_CHART_MARKER_TEXT,
-    fontSize: 12,
-    fontWeight: "700",
+  markerStem: {
+    width: 1.5,
+    flexGrow: 1,
+    minHeight: 6,
+    backgroundColor: "rgba(255,255,255,0.88)",
+    marginTop: 2,
+  },
+  markerDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginTop: -1,
+    backgroundColor: BODY_METRIC_CHART_MARKER_FILL,
   },
   trackGlow: {
     borderRadius: BODY_METRIC_SPECTRUM_RADIUS,
@@ -203,6 +209,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     textAlign: "center",
-    marginTop: 2,
+    marginTop: 0,
   },
 });

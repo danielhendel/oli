@@ -22,7 +22,14 @@ export type BodyMetricClassificationChartSegment = {
 };
 
 export type BodyMetricClassificationChartMarker = {
+  /**
+   * `classification` = approved personal screening placement (Weight).
+   * `value_position` = displayed-value indicator only (Body Fat educational chart).
+   */
+  readonly kind: "classification" | "value_position";
   readonly formattedValue: string;
+  /** Landing charts hide capsule text — value already appears on the card face. */
+  readonly showValueLabel: boolean;
   readonly segmentId: string;
   /** 0–1 within the classified segment; null for open-ended stable placement. */
   readonly withinSegmentPosition: number | null;

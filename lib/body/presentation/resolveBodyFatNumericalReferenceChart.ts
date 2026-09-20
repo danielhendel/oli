@@ -3,15 +3,16 @@
  * Pure — no UI, Firebase, or HealthKit.
  *
  * Stage 3C: ranges display as general educational screening reference.
- * Personal marker remains withheld — combined AA/White table is not a verified
- * personal reference-population assignment, and Apple Health transport alone is
- * not a compatible measurement method.
+ * Official personal classification remains withheld. A value-position indicator
+ * may show where the current displayed measurement sits on the educational rail.
  */
 
 import type { BodyMetricClassificationChartModel } from "@/lib/body/presentation/bodyMetricCardTypes";
 import type { BodyMassDisplayUnit } from "@/lib/body/presentation/bodyMetricPrimaryViews";
+import { buildClassificationChartMarker } from "@/lib/body/presentation/resolveChartValueSegmentPlacement";
 import {
   resolveBodyFatWeightPairing,
+  resolveCompatibleFatMassKg,
   type BodyCompositionPairingEvidence,
 } from "@/lib/body/presentation/resolveCompatibleBodyCompositionDerivation";
 import {
@@ -24,6 +25,7 @@ import {
   formatGallagherPercentRangeAccessible,
   lookupGallagherCombinedTable,
 } from "@/lib/body/standards/gallagherBodyFatScreeningReference";
+import { formatBodyWeight } from "@/lib/ui/body/bodyMetricFormatting";
 
 export type BodyFatNumericalReferenceView = "percentage" | "fatMass";
 
@@ -34,19 +36,19 @@ export type ResolveBodyFatNumericalReferenceInput = {
   readonly view: BodyFatNumericalReferenceView;
   readonly massDisplayUnit: BodyMassDisplayUnit;
   readonly evidence: BodyCompositionPairingEvidence;
-  /** Reserved for future marker eligibility; Apple Health transport alone is insufficient. */
+  /** Reserved for future official marker eligibility; Apple Health transport alone is insufficient. */
   readonly measurementMethod: string | null;
 };
 
 /**
  * Builds a Weight-compatible classification chart model (3 segments).
  * Returns null when age/sex applicability fails (reference unavailable).
- * Marker is always null under current Stage 3C eligibility policy.
+ * Official personal classification marker remains withheld; value-position
+ * indicator may appear for the current displayed measurement only.
  */
 export function resolveBodyFatNumericalReferenceChart(
   input: ResolveBodyFatNumericalReferenceInput,
 ): BodyMetricClassificationChartModel | null {
-  void input.bodyFatPercent;
   void input.measurementMethod;
 
   const lookup = lookupGallagherCombinedTable({
@@ -110,14 +112,50 @@ export function resolveBodyFatNumericalReferenceChart(
       ? " A compatible Weight measurement is needed to calculate Body Fat mass reference ranges."
       : "";
 
+  let marker = null as ReturnType<typeof buildClassificationChartMarker>;
+  if (input.view === "percentage") {
+    const pct = input.bodyFatPercent;
+    if (pct != null && Number.isFinite(pct) && pct >= 0 && pct <= 100) {
+      const face = `${pct.toFixed(1)}%`;
+      marker = buildClassificationChartMarker({
+        kind: "value_position",
+        value: pct,
+        segments,
+        formattedValue: face,
+        accessibleLabel: `Current displayed Body Fat ${face} indicated on the educational reference. This is not an approved personal classification.`,
+      });
+    }
+  } else if (massWeightKg != null) {
+    const derived = resolveCompatibleFatMassKg(input.evidence);
+    if (derived.status === "ready") {
+      // Position uses percent domain so segment bounds stay consistent; label is mass.
+      const pct = input.bodyFatPercent;
+      if (pct != null && Number.isFinite(pct) && pct >= 0 && pct <= 100) {
+        const massLabel = formatBodyWeight(derived.valueKg, input.massDisplayUnit);
+        marker = buildClassificationChartMarker({
+          kind: "value_position",
+          value: pct,
+          segments,
+          formattedValue: massLabel,
+          accessibleLabel: `Current displayed Body Fat mass ${massLabel} indicated on the educational reference. This is not an approved personal classification.`,
+        });
+      }
+    }
+  }
+
+  const markerNote =
+    marker != null
+      ? " A current-value indicator is shown for the displayed measurement only — not an approved personal classification."
+      : " No personal placement is shown because the measurement method or reference population is not verified.";
+
   return {
     standardId: GALLAGHER_BODY_FAT_SCREENING_STANDARD_ID,
     standardVersion: GALLAGHER_BODY_FAT_SCREENING_VERSION,
     contextLabel: "Screening reference",
     segments,
-    marker: null,
+    marker,
     accessibleSummary:
-      `Body Fat screening reference. ${rangeAnnouncement} No personal placement is shown because the measurement method or reference population is not verified. ${GALLAGHER_GENERAL_REFERENCE_LIMITATION}.${massNote}`
+      `Body Fat screening reference. ${rangeAnnouncement}${markerNote} ${GALLAGHER_GENERAL_REFERENCE_LIMITATION}.${massNote}`
         .replace(/\s+/g, " ")
         .trim(),
   };

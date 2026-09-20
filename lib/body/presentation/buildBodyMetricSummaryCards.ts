@@ -92,7 +92,9 @@ function toClassificationChart(
     presentation.markerLabel != null &&
     presentation.markerFormattedValue != null
       ? {
+          kind: "classification" as const,
           formattedValue: presentation.markerFormattedValue,
+          showValueLabel: false,
           segmentId: presentation.classifiedId,
           withinSegmentPosition: presentation.withinSegmentPosition,
           accessibleLabel: presentation.markerLabel,

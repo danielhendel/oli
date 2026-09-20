@@ -153,9 +153,9 @@ function connectionAccessibility(
 
 /**
  * Premium Body metric card shell — value-first hierarchy with integrated chart region.
- * Weight uses BMI screening classification; Body Fat may use Gallagher numerical
- * screening ranges (marker withheld); Lean Mass uses composition-share until a
- * verified pooled LMI standard exists.
+ * Weight uses BMI screening classification (marker stem without redundant value bubble).
+ * Body Fat may use Gallagher educational ranges with a value-position indicator only.
+ * Lean Mass uses composition-share with a quantity marker (no population ranges).
  */
 export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const { model } = props;
@@ -487,8 +487,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   valueBlock: {
-    marginTop: 10,
-    marginBottom: 4,
+    marginTop: 8,
+    marginBottom: 0,
   },
   valueRow: {
     flexDirection: "row",
@@ -508,11 +508,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   chartRegion: {
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: 4,
+    marginBottom: 2,
   },
   actionBlock: {
-    marginTop: 4,
+    marginTop: 2,
   },
   actionDivider: {
     height: StyleSheet.hairlineWidth,

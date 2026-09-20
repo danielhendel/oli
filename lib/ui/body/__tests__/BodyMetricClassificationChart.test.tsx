@@ -108,7 +108,9 @@ describe("BodyMetricClassificationChart", () => {
         React.createElement(BodyMetricClassificationChart, {
           model: baseModel({
             marker: {
+              kind: "classification",
               formattedValue: "170 lb",
+              showValueLabel: false,
               segmentId: "overweight",
               withinSegmentPosition: 0.4,
               accessibleLabel: "Overweight",
@@ -118,7 +120,34 @@ describe("BodyMetricClassificationChart", () => {
       );
     });
     expect(tree.root.findByProps({ testID: "body-metric-classification-marker" })).toBeDefined();
-    expect(collectText(tree)).toContain("170 lb");
+    expect(
+      tree.root.findByProps({ testID: "body-metric-classification-marker-classification" }),
+    ).toBeDefined();
+    expect(collectText(tree)).not.toContain("170 lb");
+  });
+
+  it("renders value-position marker without capsule text", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        React.createElement(BodyMetricClassificationChart, {
+          model: baseModel({
+            marker: {
+              kind: "value_position",
+              formattedValue: "18.0%",
+              showValueLabel: false,
+              segmentId: "healthy_weight",
+              withinSegmentPosition: 0.5,
+              accessibleLabel: "Current displayed value indicated",
+            },
+          }),
+        }),
+      );
+    });
+    expect(
+      tree.root.findByProps({ testID: "body-metric-classification-marker-value-position" }),
+    ).toBeDefined();
+    expect(collectText(tree)).not.toContain("18.0%");
   });
 
   it("supports variable segment counts", () => {
@@ -182,7 +211,9 @@ describe("BodyMetricClassificationChart", () => {
       }),
       baseModel({
         marker: {
+          kind: "classification",
           formattedValue: "1",
+          showValueLabel: false,
           segmentId: "missing",
           withinSegmentPosition: 0.5,
           accessibleLabel: "x",
