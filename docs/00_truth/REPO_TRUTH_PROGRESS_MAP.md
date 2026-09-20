@@ -280,6 +280,7 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Lean Mass numerical reference: **DEFERRED / BLOCKED** — no approved pooled non-inferred reference; Hologic/NHANES method-specific; Apple Health method unknown; no sensitive reference-population profile field
 - Lean Mass Stage 3C fallback: **COMPOSITION-SHARE VISUALIZATION** **APPROVED**
 - Weight: **APPROVED / IMPLEMENTED** personal BMI screening — only personally classified Body metric
+- Weight detail: single hero longitudinal trend (no duplicate Latest/History cards); Weight card retains “Where am I?” classification; detail owns “How am I changing?”
 - Body score / aggregate classification / Performance·Excellence: **NOT IMPLEMENTED**
 - Next after Stage 3C merge: **Stage 3D — Body Facts and Measurement Provenance** — must **not** auto-implement reference markers or numerical standards
 - Stage 3D: **NOT BEGUN**

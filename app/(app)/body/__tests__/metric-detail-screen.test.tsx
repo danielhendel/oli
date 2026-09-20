@@ -36,12 +36,19 @@ jest.mock("expo-router", () => ({
 }));
 
 jest.mock("@/lib/ui/WeightTrendChart", () => ({
-  WeightTrendChart: (props: { emphasizeLatestPoint?: boolean; accessibilityLabel?: string }) => {
+  WeightTrendChart: (props: {
+    emphasizeLatestPoint?: boolean;
+    accessibilityLabel?: string;
+    chartHeight?: number;
+    accentColor?: string;
+  }) => {
     const ReactLocal = require("react");
     return ReactLocal.createElement("View", {
       testID: "chart",
       emphasizeLatestPoint: props.emphasizeLatestPoint === true,
       accessibilityLabel: props.accessibilityLabel,
+      chartHeight: props.chartHeight,
+      accentColor: props.accentColor,
     });
   },
 }));
@@ -226,6 +233,27 @@ describe("Body metric detail — Weight trend redesign", () => {
     expect(text).not.toMatch(/\bLatest\b/);
     expect(text).not.toMatch(/Weight History/);
     expect(tree.root.findByProps({ testID: "chart" }).props.emphasizeLatestPoint).toBe(true);
+    expect(tree.root.findByProps({ testID: "chart" }).props.chartHeight).toBe(300);
+  });
+
+  it("shows value-first summary with signed Change and no judgment colors", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(React.createElement(MetricScreen));
+    });
+    const change = tree.root.findByProps({ testID: "body-metric-trend-stat-change" });
+    const changeText = change
+      .findAllByType("Text")
+      .flatMap((n) => n.children)
+      .filter((x) => typeof x === "string")
+      .join(" ");
+    expect(changeText).toMatch(/−2\.2 lb|−2\.2/);
+    expect(changeText).toMatch(/Change/);
+    // Value appears before label in the accessibility/render order of StatCell.
+    expect(changeText.indexOf("−")).toBeLessThan(changeText.indexOf("Change"));
+    const summaryA11y = tree.root.findByProps({ testID: "body-metric-trend-detail" }).props
+      .accessibilityLabel as string;
+    expect(summaryA11y).not.toMatch(/healthy|improved|worsened|good|bad/i);
   });
 
   it("range selector changes range without Apple Health side effects", async () => {
