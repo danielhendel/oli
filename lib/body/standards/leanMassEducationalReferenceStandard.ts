@@ -47,10 +47,10 @@ export const LEAN_MASS_EDUCATIONAL_REFERENCE_STANDARD: BodyMetricEducationalRefe
       upperBound: null,
     },
     {
-      id: "typical_lean_mass_context",
-      displayLabel: "Typical lean-mass context",
+      id: "mid_range_lean_mass_context",
+      displayLabel: "Mid-range lean-mass context",
       meaning:
-        "Educational concept: a mid-range total lean mass context relative to a future verified population or clinical standard — not a peak athletic rating.",
+        "Educational concept: a mid-range total lean mass context on a descriptive continuum — not a verified population distribution and not a peak athletic rating.",
       tone: "reference",
       numericRangeLabel: null,
       lowerBound: null,

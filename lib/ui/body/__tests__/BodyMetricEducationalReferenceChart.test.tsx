@@ -39,7 +39,9 @@ describe("BodyMetricEducationalReferenceChart", () => {
     expect(text).toMatch(/Educational reference/i);
     expect(text).toMatch(/Body fat percentage/i);
     expect(text).toMatch(/Higher adiposity context/i);
-    expect(text).not.toMatch(/You are here|Optimal|Excellence|Elite|Underfat/i);
+    expect(text).toMatch(/Mid-range adiposity context/i);
+    expect(text).not.toMatch(/\bTypical\b/);
+    expect(text).not.toMatch(/You are here|Optimal|Excellence|Elite|Underfat|Healthy|Athletic/i);
     expect(tree.root.findAllByProps({ testID: "body-metric-classification-marker" })).toHaveLength(0);
 
     act(() => {
@@ -72,6 +74,8 @@ describe("BodyMetricEducationalReferenceChart", () => {
     const text = collectText(tree);
     expect(text).toMatch(/Total lean mass/i);
     expect(text).toMatch(/not identical to skeletal muscle/i);
-    expect(text).not.toMatch(/You are here|Optimal|Excellence|Elite/i);
+    expect(text).toMatch(/Mid-range lean-mass context/i);
+    expect(text).not.toMatch(/\bTypical\b/);
+    expect(text).not.toMatch(/You are here|Optimal|Excellence|Elite|Healthy|Athletic|Sarcopenic/i);
   });
 });

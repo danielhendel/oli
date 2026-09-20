@@ -35,6 +35,8 @@ describe("Stage 3C educational reference standards", () => {
         expect(range.numericRangeLabel).toBeNull();
         expect(range.lowerBound).toBeNull();
         expect(range.upperBound).toBeNull();
+        expect(range.displayLabel).toMatch(/Mid-range|Lower|Higher/);
+        expect(range.displayLabel).not.toMatch(/\bTypical\b|Healthy|Optimal|Athletic|Elite|Excellence/i);
       }
     }
     expect(

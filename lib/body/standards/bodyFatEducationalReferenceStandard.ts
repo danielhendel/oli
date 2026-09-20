@@ -36,31 +36,31 @@ export const BODY_FAT_EDUCATIONAL_REFERENCE_STANDARD: BodyMetricEducationalRefer
   ],
   educationalRanges: [
     {
-      id: "higher_adiposity_context",
-      displayLabel: "Higher adiposity context",
+      id: "lower_adiposity_context",
+      displayLabel: "Lower adiposity context",
       meaning:
-        "Educational concept: relatively higher body-fat context can matter for health-protection interpretation when a verified, method-compatible standard exists.",
-      tone: "elevated",
+        "Educational concept: relatively lower body-fat context. Very low body fat is not automatically a peak athletic claim.",
+      tone: "cool",
       numericRangeLabel: null,
       lowerBound: null,
       upperBound: null,
     },
     {
-      id: "typical_adiposity_context",
-      displayLabel: "Typical adiposity context",
+      id: "mid_range_adiposity_context",
+      displayLabel: "Mid-range adiposity context",
       meaning:
-        "Educational concept: a mid-range body-fat context relative to a future verified standard — not a universal healthy target or peak athletic claim.",
+        "Educational concept: a mid-range body-fat context on a descriptive continuum — not a verified population distribution and not a universal healthy target or peak athletic claim.",
       tone: "reference",
       numericRangeLabel: null,
       lowerBound: null,
       upperBound: null,
     },
     {
-      id: "lower_adiposity_context",
-      displayLabel: "Lower adiposity context",
+      id: "higher_adiposity_context",
+      displayLabel: "Higher adiposity context",
       meaning:
-        "Educational concept: relatively lower body-fat context. Very low body fat is not automatically a peak athletic claim.",
-      tone: "cool",
+        "Educational concept: relatively higher body-fat context can matter for health-protection interpretation when a verified, method-compatible standard exists.",
+      tone: "elevated",
       numericRangeLabel: null,
       lowerBound: null,
       upperBound: null,
