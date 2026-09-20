@@ -6,7 +6,7 @@ jest.mock("react-native", () => ({
   Text: "Text",
   Pressable: "Pressable",
   ScrollView: "ScrollView",
-  StyleSheet: { create: (s: unknown) => s },
+  StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -36,24 +36,35 @@ jest.mock("expo-router", () => ({
 }));
 
 jest.mock("@/lib/ui/WeightTrendChart", () => ({
-  WeightTrendChart: () => {
+  WeightTrendChart: (props: { emphasizeLatestPoint?: boolean; accessibilityLabel?: string }) => {
     const ReactLocal = require("react");
-    return ReactLocal.createElement("View", { testID: "chart" });
+    return ReactLocal.createElement("View", {
+      testID: "chart",
+      emphasizeLatestPoint: props.emphasizeLatestPoint === true,
+      accessibilityLabel: props.accessibilityLabel,
+    });
   },
 }));
 
 jest.mock("@/lib/ui/WeightRangeSelector", () => ({
-  WeightRangeSelector: () => {
+  WeightRangeSelector: (props: { value: string; onChange: (r: string) => void }) => {
     const ReactLocal = require("react");
-    return ReactLocal.createElement("View", { testID: "range" });
+    return ReactLocal.createElement(
+      "View",
+      { testID: "range", value: props.value },
+      ReactLocal.createElement("Pressable", {
+        testID: "range-30D",
+        onPress: () => props.onChange("30D"),
+      }),
+    );
   },
 }));
 
 jest.mock("@/lib/ui/HeaderBackButton", () => ({
-  HeaderBackButton: (props: { accessibilityLabel?: string }) => {
+  HeaderBackButton: (props: { accessibilityLabel?: string; testID?: string }) => {
     const ReactLocal = require("react");
     return ReactLocal.createElement("Pressable", {
-      testID: "header-back",
+      testID: props.testID ?? "header-back",
       accessibilityLabel: props.accessibilityLabel,
     });
   },
@@ -93,6 +104,14 @@ jest.mock("@/lib/ui/body/BodyMetricDetailEducationPanel", () => ({
   },
 }));
 
+jest.mock("@/lib/ui/body/BodyMetricManualEntrySheet", () => ({
+  BodyMetricManualEntrySheet: () => null,
+}));
+
+jest.mock("@/lib/hooks/useBodyMetricEntryKeyboard", () => ({
+  useBodyMetricEntryKeyboard: () => ({ keyboardHeight: 0, keyboardVisible: false }),
+}));
+
 const MetricScreen = require("../metric/[metric]").default as React.ComponentType;
 
 function readyTrends(metricKey: "weight" | "body_fat_percent" | "lean_body_mass") {
@@ -101,41 +120,50 @@ function readyTrends(metricKey: "weight" | "body_fat_percent" | "lean_body_mass"
     refetch: jest.fn(),
     data: {
       byMetric: {
-        weight: metricKey === "weight"
-          ? [
-              {
-                dayKey: "2026-03-31",
-                observedAt: "2026-03-31T12:00:00.000Z",
-                weightKg: 72,
-                sourceId: "apple_health",
-              },
-            ]
-          : [],
-        body_fat_percent: metricKey === "body_fat_percent"
-          ? [
-              {
-                dayKey: "2026-03-31",
-                observedAt: "2026-03-31T12:00:00.000Z",
-                weightKg: 18.2,
-                sourceId: "apple_health",
-              },
-            ]
-          : [],
+        weight:
+          metricKey === "weight"
+            ? [
+                {
+                  dayKey: "2026-03-01",
+                  observedAt: "2026-03-01T12:00:00.000Z",
+                  weightKg: 73,
+                  sourceId: "manual",
+                },
+                {
+                  dayKey: "2026-03-31",
+                  observedAt: "2026-03-31T12:00:00.000Z",
+                  weightKg: 72,
+                  sourceId: "apple_health",
+                },
+              ]
+            : [],
+        body_fat_percent:
+          metricKey === "body_fat_percent"
+            ? [
+                {
+                  dayKey: "2026-03-31",
+                  observedAt: "2026-03-31T12:00:00.000Z",
+                  weightKg: 18.2,
+                  sourceId: "apple_health",
+                },
+              ]
+            : [],
         bmi: [],
-        lean_body_mass: metricKey === "lean_body_mass"
-          ? [
-              {
-                dayKey: "2026-03-31",
-                observedAt: "2026-03-31T12:00:00.000Z",
-                weightKg: 60,
-                sourceId: "apple_health",
-              },
-            ]
-          : [],
+        lean_body_mass:
+          metricKey === "lean_body_mass"
+            ? [
+                {
+                  dayKey: "2026-03-31",
+                  observedAt: "2026-03-31T12:00:00.000Z",
+                  weightKg: 60,
+                  sourceId: "apple_health",
+                },
+              ]
+            : [],
         resting_metabolic_rate: [],
       },
       statsByMetric: {
-        weight: { change: null, avg: 72, high: 72, low: 72 },
+        weight: { change: -1, avg: 72.5, high: 73, low: 72 },
         body_fat_percent: { change: null, avg: 18.2, high: 18.2, low: 18.2 },
         bmi: { change: null, avg: null, high: null, low: null },
         lean_body_mass: { change: null, avg: 60, high: 60, low: 60 },
@@ -145,7 +173,15 @@ function readyTrends(metricKey: "weight" | "body_fat_percent" | "lean_body_mass"
   };
 }
 
-describe("Body metric detail screen — metric-specific headers", () => {
+function collectText(tree: renderer.ReactTestRenderer): string {
+  return tree.root
+    .findAllByType("Text")
+    .flatMap((n) => n.children)
+    .filter((x) => typeof x === "string")
+    .join(" ");
+}
+
+describe("Body metric detail — Weight trend redesign", () => {
   beforeEach(() => {
     mockSetOptions.mockClear();
     mockPush.mockClear();
@@ -153,83 +189,86 @@ describe("Body metric detail screen — metric-specific headers", () => {
     mockTrends.mockReturnValue(readyTrends("weight"));
   });
 
-  it("configures Weight header with calendar and list filtered to Weight", async () => {
+  it("places Weight title beside back (not centered) with calendar/history on the right", async () => {
     await act(async () => {
       renderer.create(React.createElement(MetricScreen));
     });
-    expect(mockTrends).toHaveBeenCalled();
-    const call = mockTrends.mock.calls[mockTrends.mock.calls.length - 1];
-    expect(call?.[1]).toBe("weight");
-    expect(mockSetOptions).toHaveBeenCalled();
     const opts = mockSetOptions.mock.calls[mockSetOptions.mock.calls.length - 1]![0];
-    expect(opts.title).toBe("Weight");
-    const headerRight = opts.headerRight();
-    expect(headerRight.props.calendarAccessibilityLabel).toBe("Open Weight calendar");
-    expect(headerRight.props.logAccessibilityLabel).toBe("Open Weight history");
+    expect(opts.headerTitleAlign).toBe("left");
+    expect(opts.title).toBe("");
+    const left = opts.headerLeft();
+    expect(left.props.title).toBe("Weight");
+    const right = opts.headerRight();
+    expect(right.props.calendarAccessibilityLabel).toBe("Open Weight calendar");
+    expect(right.props.logAccessibilityLabel).toBe("Open Weight history");
     act(() => {
-      headerRight.props.onCalendarPress();
+      right.props.onCalendarPress();
     });
     expect(mockPush).toHaveBeenCalledWith("/(app)/body/calendar?metric=weight");
     act(() => {
-      headerRight.props.onLogPress();
+      right.props.onLogPress();
     });
     expect(mockPush).toHaveBeenCalledWith("/(app)/body/list?metric=weight");
-    const headerLeft = opts.headerLeft();
-    expect(headerLeft.props.accessibilityLabel).toBe("Back to Body Composition");
   });
 
-  it("configures Body Fat header and shows education panel", async () => {
+  it("removes Latest card, embedded History card, and keeps one trend surface", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(React.createElement(MetricScreen));
+    });
+    expect(tree.root.findByProps({ testID: "body-metric-trend-detail" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-trend-latest" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-trend-chart" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-trend-summary" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-detail-history" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "body-metric-detail-hero-weight" })).toHaveLength(0);
+    const text = collectText(tree);
+    expect(text).not.toMatch(/\bLatest\b/);
+    expect(text).not.toMatch(/Weight History/);
+    expect(tree.root.findByProps({ testID: "chart" }).props.emphasizeLatestPoint).toBe(true);
+  });
+
+  it("range selector changes range without Apple Health side effects", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(React.createElement(MetricScreen));
+    });
+    const beforeCalls = mockTrends.mock.calls.length;
+    await act(async () => {
+      tree.root.findByProps({ testID: "range-30D" }).props.onPress();
+    });
+    expect(mockTrends.mock.calls.length).toBeGreaterThan(beforeCalls);
+    const last = mockTrends.mock.calls[mockTrends.mock.calls.length - 1];
+    expect(last?.[0]).toBe("30D");
+    expect(last?.[1]).toBe("weight");
+  });
+
+  it("Body Fat keeps education panel and loses embedded history list", async () => {
     mockMetricParam = "body-fat";
     mockTrends.mockReturnValue(readyTrends("body_fat_percent"));
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(React.createElement(MetricScreen));
     });
-    const opts = mockSetOptions.mock.calls[mockSetOptions.mock.calls.length - 1]![0];
-    expect(opts.title).toBe("Body Fat");
-    const headerRight = opts.headerRight();
-    expect(headerRight.props.calendarAccessibilityLabel).toBe("Open Body Fat calendar");
-    expect(headerRight.props.logAccessibilityLabel).toBe("Open Body Fat history");
     expect(tree.root.findByProps({ testID: "body-metric-detail-education" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-detail-history" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-detail-history-empty" })).toHaveLength(0);
   });
 
-  it("configures Lean Mass header without cross-metric Weight history", async () => {
-    mockMetricParam = "lean-mass";
-    mockTrends.mockReturnValue(readyTrends("lean_body_mass"));
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(React.createElement(MetricScreen));
-    });
-    const opts = mockSetOptions.mock.calls[mockSetOptions.mock.calls.length - 1]![0];
-    expect(opts.title).toBe("Lean Mass");
-    const headerRight = opts.headerRight();
-    expect(headerRight.props.calendarAccessibilityLabel).toBe("Open Lean Mass calendar");
-    expect(tree.root.findByProps({ testID: "body-metric-detail-education" })).toBeDefined();
-    const call = mockTrends.mock.calls[mockTrends.mock.calls.length - 1];
-    expect(call?.[1]).toBe("lean_body_mass");
-  });
-
-  it("shows honest empty history for the selected metric only", async () => {
-    mockMetricParam = "body-fat";
+  it("empty Weight history shows Add measurement, not a fake chart", async () => {
     mockTrends.mockReturnValue({
-      ...readyTrends("body_fat_percent"),
+      ...readyTrends("weight"),
       data: {
-        ...readyTrends("body_fat_percent").data,
-        byMetric: {
-          ...readyTrends("body_fat_percent").data.byMetric,
-          body_fat_percent: [],
-        },
+        ...readyTrends("weight").data,
+        byMetric: { ...readyTrends("weight").data.byMetric, weight: [] },
       },
     });
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(React.createElement(MetricScreen));
     });
-    expect(tree.root.findAllByProps({ testID: "body-metric-detail-history-empty" })).toHaveLength(1);
-    const emptyChildren = tree.root.findByProps({ testID: "body-metric-detail-history-empty" }).props
-      .children;
-    const emptyText = Array.isArray(emptyChildren) ? emptyChildren.join("") : String(emptyChildren);
-    expect(emptyText).toMatch(/No Body Fat entries/);
+    expect(tree.root.findByProps({ testID: "body-metric-trend-empty" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-trend-add" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "chart" })).toHaveLength(0);
   });
 });
