@@ -290,16 +290,17 @@ describe("Body Composition simplified main screen", () => {
       tree = renderer.create(React.createElement(Screen));
     });
     const text = collectText(tree);
-    expect(text).not.toContain("Educational reference");
+    // Stage 3C metric cards may show an "Educational reference" badge on Body Fat / Lean Mass.
+    // The prior Stage 3B dense landing (Health Protection / Performance Support rails) must stay gone.
     expect(text).not.toContain("Health Protection");
     expect(text).not.toContain("Performance Support");
     expect(text).not.toContain("Evidence levels");
     expect(text).not.toContain("Central Adiposity");
     expect(text).not.toMatch(/Body score|Optimized|Excellence/i);
-    // Weight may show a CDC/WHO screening marker; Body Fat / Lean must not invent markers.
+    // Weight may show a CDC/WHO screening marker; Body Fat / Lean must not invent personal markers.
   });
 
-  it("shows populated values with CDC/WHO Weight chart and no BF/Lean classification graph", () => {
+  it("shows populated values with CDC/WHO Weight chart and educational BF/Lean graphs", () => {
     mockHook.mockReturnValue(buildPopulatedBody());
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -320,8 +321,11 @@ describe("Body Composition simplified main screen", () => {
     expect(tree.root.findByProps({ testID: "body-metric-chart-weight" })).toBeDefined();
     expect(tree.root.findAllByProps({ testID: "body-metric-chart-bodyFat" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-chart-leanTissue" })).toHaveLength(0);
-    expect(tree.root.findByProps({ testID: "body-metric-scaffold-bodyFat" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-scaffold-leanTissue" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-educational-bodyFat" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-educational-leanTissue" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-scaffold-bodyFat" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: "body-metric-scaffold-leanTissue" })).toHaveLength(0);
+    expect(text).toContain("Educational reference");
     expect(text).toContain("Connected");
     expect(text).toContain("Add measurement");
   });
