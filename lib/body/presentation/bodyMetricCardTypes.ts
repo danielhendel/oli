@@ -4,6 +4,7 @@
  */
 
 import type { BodyMetricClassificationTone } from "@/lib/ui/theme/bodyMetricClassificationChrome";
+import type { BodyMetricEducationalReferencePresentationModel } from "@/lib/body/standards/educationalReferenceTypes";
 
 export type BodyMetricClassificationChartSegment = {
   readonly id: string;
@@ -102,8 +103,13 @@ export type BodyMetricCardModel = {
   /** Visual classification chart when an approved standard applies. */
   readonly classificationChart: BodyMetricClassificationChartModel | null;
   /**
+   * Stage 3C educational reference graph (Body Fat / Lean Mass).
+   * Never includes a personal marker.
+   */
+  readonly educationalReferenceChart: BodyMetricEducationalReferencePresentationModel | null;
+  /**
    * When true, render a premium unclassified visual scaffold (no labels/marker).
-   * Used for Body Fat / Lean Tissue until standards are approved.
+   * Used when neither classification nor educational reference chart applies.
    */
   readonly showUnclassifiedScaffold: boolean;
   /** Accessibility for unclassified scaffold. */

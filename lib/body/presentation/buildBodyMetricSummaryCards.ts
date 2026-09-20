@@ -14,6 +14,7 @@ import {
   resolveBodyMetricStandardPresentation,
   type BodyMetricStandardResolveInput,
 } from "@/lib/body/standards/resolveBodyMetricStandardPresentation";
+import { resolveBodyMetricEducationalReferencePresentation } from "@/lib/body/standards/resolveEducationalReferencePresentation";
 import type { BodyMetricClassificationTone } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 import {
   formatBodyLeanMass,
@@ -259,6 +260,7 @@ function buildWeightCard(input: {
     referenceLabel: null,
     referenceContextLabel: presentation?.contextLabel ?? null,
     classificationChart: input.seriesError ? null : classificationChart,
+    educationalReferenceChart: null,
     showUnclassifiedScaffold: false,
     unclassifiedScaffoldAccessibilityLabel: null,
     referenceBar: input.seriesError ? null : referenceBar,
@@ -298,6 +300,13 @@ function buildBodyFatCard(input: {
     : null;
   const value = hasValue ? (input.overview.bodyFatPercent as number) : null;
   const displayValue = hasValue ? (input.overview.bodyFatPercent as number).toFixed(1) : null;
+  const educationalReferenceChart = input.seriesError
+    ? null
+    : resolveBodyMetricEducationalReferencePresentation({
+        metric: "bodyFat",
+        hasMeasuredValue: hasValue,
+        measurementMethod: null,
+      });
   const scaffoldA11y =
     "Body Fat visual reference only. No approved classification standard. No personal marker.";
 
@@ -312,9 +321,10 @@ function buildBodyFatCard(input: {
     readiness: input.seriesError ? "error" : hasValue ? "partial" : "missing",
     statusLabel: "",
     referenceLabel: null,
-    referenceContextLabel: null,
+    referenceContextLabel: educationalReferenceChart?.badgeLabel ?? null,
     classificationChart: null,
-    showUnclassifiedScaffold: !input.seriesError,
+    educationalReferenceChart,
+    showUnclassifiedScaffold: !input.seriesError && educationalReferenceChart == null,
     unclassifiedScaffoldAccessibilityLabel: scaffoldA11y,
     referenceBar: null,
     heightSpecificRangeLabel: null,
@@ -330,11 +340,13 @@ function buildBodyFatCard(input: {
     addDataHref: null,
     accessibilityLabel: input.seriesError
       ? "Body Fat. No current measurement. Couldn’t load this measurement."
-      : hasValue
-        ? `Body Fat ${formattedValue}. No approved classification. Method unknown.${
-            input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
-          } Open body fat details.`
-        : "Body Fat. No current measurement. Add measurement.",
+      : educationalReferenceChart != null
+        ? educationalReferenceChart.accessibleSummary
+        : hasValue
+          ? `Body Fat ${formattedValue}. No approved classification. Method unknown.${
+              input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
+            } Open body fat details.`
+          : "Body Fat. No current measurement. Add measurement.",
     featured: true,
   };
 }
@@ -358,6 +370,13 @@ function buildLeanTissueCard(input: {
   const displayValue = hasValue
     ? formatMassFaceValue(input.overview.leanBodyMassKg as number, input.unit)
     : null;
+  const educationalReferenceChart = input.seriesError
+    ? null
+    : resolveBodyMetricEducationalReferencePresentation({
+        metric: "leanTissue",
+        hasMeasuredValue: hasValue,
+        measurementMethod: null,
+      });
   const scaffoldA11y =
     "Lean Mass visual reference only. Total lean mass. No approved classification standard. No personal marker.";
 
@@ -372,9 +391,10 @@ function buildLeanTissueCard(input: {
     readiness: input.seriesError ? "error" : hasValue ? "partial" : "missing",
     statusLabel: "",
     referenceLabel: null,
-    referenceContextLabel: null,
+    referenceContextLabel: educationalReferenceChart?.badgeLabel ?? null,
     classificationChart: null,
-    showUnclassifiedScaffold: !input.seriesError,
+    educationalReferenceChart,
+    showUnclassifiedScaffold: !input.seriesError && educationalReferenceChart == null,
     unclassifiedScaffoldAccessibilityLabel: scaffoldA11y,
     referenceBar: null,
     heightSpecificRangeLabel: null,
@@ -390,11 +410,13 @@ function buildLeanTissueCard(input: {
     addDataHref: null,
     accessibilityLabel: input.seriesError
       ? "Lean Mass. No current measurement. Couldn’t load this measurement."
-      : hasValue
-        ? `Lean Mass ${formattedValue}. Total lean mass. No approved classification.${
-            input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
-          } Open lean mass details.`
-        : "Lean Mass. No current measurement. Add measurement.",
+      : educationalReferenceChart != null
+        ? educationalReferenceChart.accessibleSummary
+        : hasValue
+          ? `Lean Mass ${formattedValue}. Total lean mass. No approved classification.${
+              input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
+            } Open lean mass details.`
+          : "Lean Mass. No current measurement. Add measurement.",
     featured: true,
   };
 }

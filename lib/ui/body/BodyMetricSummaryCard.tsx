@@ -9,6 +9,7 @@ import type {
 } from "@/lib/body/presentation/bodyMetricPrimaryViews";
 import { BodyAppleHealthSourceIcon } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
 import { BodyMetricClassificationChart } from "@/lib/ui/body/BodyMetricClassificationChart";
+import { BodyMetricEducationalReferenceChart } from "@/lib/ui/body/BodyMetricEducationalReferenceChart";
 import { BodyMetricUnclassifiedScaffold } from "@/lib/ui/body/BodyMetricUnclassifiedScaffold";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import {
@@ -151,13 +152,17 @@ function connectionAccessibility(
 
 /**
  * Premium Body metric card shell — value-first hierarchy with integrated chart region.
- * Weight may include an approved classification chart; Body Fat / Lean Mass use unclassified scaffolds.
+ * Weight may include an approved classification chart; Body Fat / Lean Mass use
+ * Stage 3C educational reference graphs (no personal marker) or unclassified scaffolds.
  */
 export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const { model } = props;
   const chart = model.classificationChart;
+  const educational = model.educationalReferenceChart;
   const showChart = chart != null && chart.segments.length > 0;
-  const showScaffold = !showChart && model.showUnclassifiedScaffold;
+  const showEducational =
+    !showChart && educational != null && educational.segments.length > 0;
+  const showScaffold = !showChart && !showEducational && model.showUnclassifiedScaffold;
   const valueText = model.displayValue ?? "—";
   const valueA11y =
     model.formattedValue != null ? model.formattedValue : "No current measurement";
@@ -307,6 +312,13 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
           <BodyMetricClassificationChart
             model={chart}
             testID={`body-metric-chart-${model.metric}`}
+          />
+        ) : null}
+
+        {showEducational && educational != null ? (
+          <BodyMetricEducationalReferenceChart
+            model={educational}
+            testID={`body-metric-educational-${model.metric}`}
           />
         ) : null}
 
