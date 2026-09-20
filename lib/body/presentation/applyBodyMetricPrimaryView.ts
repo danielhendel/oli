@@ -19,6 +19,10 @@ import {
   resolveCompatibleLeanMassPercentage,
   type BodyCompositionPairingEvidence,
 } from "@/lib/body/presentation/resolveCompatibleBodyCompositionDerivation";
+import {
+  resolveBodyFatCompositionShareGraph,
+  resolveLeanMassCompositionShareGraph,
+} from "@/lib/body/presentation/resolveBodyCompositionShareGraph";
 import { bmiFromWeightAndHeight } from "@/lib/body/standards/cdcWhoAdultBmiScreeningStandard";
 import {
   resolveWeightBmiScreeningPresentation,
@@ -88,8 +92,19 @@ export function applyBodyFatPrimaryView(input: {
   readonly massDisplayUnit: BodyMassDisplayUnit;
   readonly evidence: BodyCompositionPairingEvidence;
 }): BodyMetricCardModel {
+  const compositionShareGraph = resolveBodyFatCompositionShareGraph({
+    evidence: input.evidence,
+    view: input.view,
+    massDisplayUnit: input.massDisplayUnit,
+  });
+
   if (input.view === "percentage") {
-    return input.card;
+    return {
+      ...input.card,
+      compositionShareGraph,
+      showUnclassifiedScaffold: false,
+      accessibilityLabel: compositionShareGraph.accessibleSummary,
+    };
   }
   const derived = resolveCompatibleFatMassKg(input.evidence);
   if (derived.status !== "ready") {
@@ -100,6 +115,8 @@ export function applyBodyFatPrimaryView(input: {
       formattedValue: null,
       value: null,
       unit: input.massDisplayUnit,
+      compositionShareGraph,
+      showUnclassifiedScaffold: false,
       accessibilityLabel: `Body Fat. Fat mass unavailable. ${derived.reason} Measured percentage remains available.`,
     };
   }
@@ -112,7 +129,9 @@ export function applyBodyFatPrimaryView(input: {
     value:
       input.massDisplayUnit === "lb" ? derived.valueKg * 2.2046226218 : derived.valueKg,
     unit: input.massDisplayUnit,
-    accessibilityLabel: `Body Fat fat mass ${formatted}. ${derived.provenanceLabel}. No approved classification.`,
+    compositionShareGraph,
+    showUnclassifiedScaffold: false,
+    accessibilityLabel: compositionShareGraph.accessibleSummary,
   };
 }
 
@@ -122,8 +141,19 @@ export function applyLeanMassPrimaryView(input: {
   readonly massDisplayUnit: BodyMassDisplayUnit;
   readonly evidence: BodyCompositionPairingEvidence;
 }): BodyMetricCardModel {
+  const compositionShareGraph = resolveLeanMassCompositionShareGraph({
+    evidence: input.evidence,
+    view: input.view,
+    massDisplayUnit: input.massDisplayUnit,
+  });
+
   if (input.view === "mass") {
-    return input.card;
+    return {
+      ...input.card,
+      compositionShareGraph,
+      showUnclassifiedScaffold: false,
+      accessibilityLabel: compositionShareGraph.accessibleSummary,
+    };
   }
   const derived = resolveCompatibleLeanMassPercentage(input.evidence);
   if (derived.status !== "ready" || derived.percent == null) {
@@ -135,6 +165,8 @@ export function applyLeanMassPrimaryView(input: {
       formattedValue: null,
       value: null,
       unit: "%",
+      compositionShareGraph,
+      showUnclassifiedScaffold: false,
       accessibilityLabel: `Lean Mass. Percentage unavailable. ${reason} Measured mass remains available.`,
     };
   }
@@ -146,6 +178,8 @@ export function applyLeanMassPrimaryView(input: {
     formattedValue: `${face}%`,
     value: derived.percent,
     unit: "%",
-    accessibilityLabel: `Lean Mass ${face}%. ${derived.provenanceLabel}. Not skeletal muscle percentage. No approved classification.`,
+    compositionShareGraph,
+    showUnclassifiedScaffold: false,
+    accessibilityLabel: compositionShareGraph.accessibleSummary,
   };
 }

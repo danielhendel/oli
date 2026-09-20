@@ -8,6 +8,7 @@ import type {
   WeightPrimaryView,
 } from "@/lib/body/presentation/bodyMetricPrimaryViews";
 import { BodyAppleHealthSourceIcon } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
+import { BodyCompositionShareChart } from "@/lib/ui/body/BodyCompositionShareChart";
 import { BodyMetricClassificationChart } from "@/lib/ui/body/BodyMetricClassificationChart";
 import { BodyMetricEducationalReferenceChart } from "@/lib/ui/body/BodyMetricEducationalReferenceChart";
 import { BodyMetricUnclassifiedScaffold } from "@/lib/ui/body/BodyMetricUnclassifiedScaffold";
@@ -153,16 +154,19 @@ function connectionAccessibility(
 /**
  * Premium Body metric card shell — value-first hierarchy with integrated chart region.
  * Weight may include an approved classification chart; Body Fat / Lean Mass use a
- * restrained unclassified rail on the landing card (education lives on metric detail).
+ * composition-share measurement graph (not a reference classification).
  */
 export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const { model } = props;
   const chart = model.classificationChart;
   const educational = model.educationalReferenceChart;
+  const share = model.compositionShareGraph;
   const showChart = chart != null && chart.segments.length > 0;
+  const showShare = !showChart && share != null;
   const showEducational =
-    !showChart && educational != null && educational.segments.length > 0;
-  const showScaffold = !showChart && !showEducational && model.showUnclassifiedScaffold;
+    !showChart && !showShare && educational != null && educational.segments.length > 0;
+  const showScaffold =
+    !showChart && !showShare && !showEducational && model.showUnclassifiedScaffold;
   const valueText = model.displayValue ?? "—";
   const valueA11y =
     model.formattedValue != null ? model.formattedValue : "No current measurement";
@@ -312,6 +316,13 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
           <BodyMetricClassificationChart
             model={chart}
             testID={`body-metric-chart-${model.metric}`}
+          />
+        ) : null}
+
+        {showShare && share != null ? (
+          <BodyCompositionShareChart
+            model={share}
+            testID={`body-metric-share-${model.metric}`}
           />
         ) : null}
 

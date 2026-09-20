@@ -4,6 +4,7 @@
  */
 
 import type { BodyMetricClassificationTone } from "@/lib/ui/theme/bodyMetricClassificationChrome";
+import type { BodyCompositionShareGraphModel } from "@/lib/body/presentation/bodyCompositionShareGraphTypes";
 import type { BodyMetricEducationalReferencePresentationModel } from "@/lib/body/standards/educationalReferenceTypes";
 
 export type BodyMetricClassificationChartSegment = {
@@ -103,13 +104,18 @@ export type BodyMetricCardModel = {
   /** Visual classification chart when an approved standard applies. */
   readonly classificationChart: BodyMetricClassificationChartModel | null;
   /**
-   * Stage 3C educational reference graph (Body Fat / Lean Mass).
-   * Never includes a personal marker.
+   * Stage 3C educational reference graph (Body Fat / Lean Mass detail).
+   * Never includes a personal classification marker.
    */
   readonly educationalReferenceChart: BodyMetricEducationalReferencePresentationModel | null;
   /**
+   * Stage 3C composition-share graph (Body Fat / Lean Mass landing).
+   * Measurement-proportion only — not a reference classification.
+   */
+  readonly compositionShareGraph: BodyCompositionShareGraphModel | null;
+  /**
    * When true, render a premium unclassified visual scaffold (no labels/marker).
-   * Used when neither classification nor educational reference chart applies.
+   * Used when neither classification, composition share, nor educational chart applies.
    */
   readonly showUnclassifiedScaffold: boolean;
   /** Accessibility for unclassified scaffold. */
