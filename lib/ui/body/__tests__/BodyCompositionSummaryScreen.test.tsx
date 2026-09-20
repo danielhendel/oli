@@ -58,7 +58,7 @@ function collectText(test: renderer.ReactTestRenderer): string {
 const baseScreenProps = {
   connectionAction: { kind: "sync_now" as const, label: "Sync now" },
   onPressCard: jest.fn(),
-  onPressAddWeight: jest.fn(),
+  onPressAddMeasurementForMetric: jest.fn(),
   onPressConnectionAction: jest.fn(),
   massDisplayUnit: "lb" as const,
   weightPrimaryView: "mass" as const,
@@ -144,5 +144,35 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     expect(
       tree.root.findByProps({ testID: "body-metric-view-weight-mass" }).props.accessibilityLabel,
     ).toMatch(/kilograms/i);
+  });
+
+  it("routes Add measurement to the owning metric only", () => {
+    const onPressAddMeasurementForMetric = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        React.createElement(BodyCompositionSummaryScreen, {
+          ...baseScreenProps,
+          cards,
+          onPressAddMeasurementForMetric,
+        }),
+      );
+    });
+    act(() => {
+      tree.root.findByProps({ testID: "body-metric-add-weight" }).props.onPress({ stopPropagation: jest.fn() });
+    });
+    act(() => {
+      tree.root.findByProps({ testID: "body-metric-add-bodyFat" }).props.onPress({ stopPropagation: jest.fn() });
+    });
+    act(() => {
+      tree.root.findByProps({ testID: "body-metric-add-leanTissue" }).props.onPress({
+        stopPropagation: jest.fn(),
+      });
+    });
+    expect(onPressAddMeasurementForMetric.mock.calls.map((c) => c[0])).toEqual([
+      "weight",
+      "bodyFat",
+      "leanTissue",
+    ]);
   });
 });

@@ -134,6 +134,10 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
 }));
 
+jest.mock("@/lib/ui/body/BodyMetricManualEntrySheet", () => ({
+  BodyMetricManualEntrySheet: () => null,
+}));
+
 jest.mock("@/lib/ui/WeightLogModal", () => ({
   WeightLogModal: () => null,
 }));

@@ -3,6 +3,7 @@ import renderer, { act } from "react-test-renderer";
 
 const mockReset = jest.fn();
 const mockUpdateEntry = jest.fn();
+const mockLogWeight = jest.fn();
 
 jest.mock("@/lib/hooks/useBodyWeightLogMutations", () => ({
   useBodyWeightLogMutations: () => ({
@@ -28,11 +29,16 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
 }));
 
 jest.mock("@/lib/api/usersMe", () => ({
-  logWeight: jest.fn().mockResolvedValue({ ok: true }),
+  logWeight: (...args: unknown[]) => mockLogWeight(...args),
+  logBodyComposition: jest.fn(),
 }));
 
 jest.mock("@/lib/navigation/refreshBus", () => ({
   emitRefresh: jest.fn(),
+}));
+
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 20, left: 0, right: 0 }),
 }));
 
 import { WeightLogModal } from "@/lib/ui/WeightLogModal";
@@ -42,6 +48,7 @@ describe("WeightLogModal", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUpdateEntry.mockResolvedValue({ ok: true });
+    mockLogWeight.mockResolvedValue({ ok: true });
   });
 
   it("does not loop updates when rendered closed", async () => {
@@ -70,7 +77,7 @@ describe("WeightLogModal", () => {
     expect(mockReset).toHaveBeenCalledTimes(1);
   });
 
-  it("initializes fields from edit target when opening", async () => {
+  it("initializes weight from edit target and omits Body Fat field", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(
@@ -91,11 +98,14 @@ describe("WeightLogModal", () => {
     const inputs = tree.root.findAllByType(require("react-native").TextInput as React.ComponentType);
     const weightInput = inputs.find((node) => node.props.accessibilityLabel === "Weight");
     expect(weightInput?.props.value).toBe("160.7");
-    const bfInput = inputs.find((node) => node.props.accessibilityLabel === "Body fat percentage");
-    expect(bfInput?.props.value).toBe("18.5");
+    const bfInput = inputs.find(
+      (node) => node.props.accessibilityLabel === "Body fat percentage",
+    );
+    expect(bfInput).toBeUndefined();
+    expect(tree.root.findAllByProps({ children: "Body fat % (optional)" })).toHaveLength(0);
   });
 
-  it("uses dark-theme readable text tokens on the sheet", async () => {
+  it("uses dark-theme readable text tokens on the premium sheet shell", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(
@@ -103,7 +113,7 @@ describe("WeightLogModal", () => {
       );
       await Promise.resolve();
     });
-    expect(tree.root.findByProps({ testID: "weight-log-modal-sheet" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-entry-sheet-panel" })).toBeDefined();
     expect(UI_TEXT_PRIMARY).toBe("#F7F8FA");
     expect(UI_TEXT_SECONDARY).toBe("#A7AFBC");
     expect(UI_TEXT_MUTED).toBe("#6F7785");
@@ -112,8 +122,7 @@ describe("WeightLogModal", () => {
     const weightLabel = labels.find(
       (n) => Array.isArray(n.children) && n.children.includes("Weight"),
     );
-    expect(weightLabel?.props.style.color).toBe(UI_TEXT_PRIMARY);
-    expect(weightLabel?.props.style.color).not.toBe("#1C1C1E");
+    expect(weightLabel?.props.style.color).toBe(UI_TEXT_SECONDARY);
 
     const cancel = labels.find(
       (n) => Array.isArray(n.children) && n.children.includes("Cancel"),
@@ -127,5 +136,17 @@ describe("WeightLogModal", () => {
       ? Object.assign({}, ...weightInput!.props.style)
       : weightInput?.props.style;
     expect(inputStyle.color).toBe(UI_TEXT_PRIMARY);
+  });
+
+  it("disables save until weight is valid", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <WeightLogModal visible onClose={jest.fn()} onSaved={jest.fn()} />,
+      );
+      await Promise.resolve();
+    });
+    const save = tree.root.findByProps({ testID: "body-metric-entry-sheet-save" });
+    expect(save.props.disabled).toBe(true);
   });
 });
