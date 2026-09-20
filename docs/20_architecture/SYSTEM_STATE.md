@@ -1,7 +1,7 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-09-20 (Stage 3C educational graph foundation **APPROVED WITH SCIENTIFIC GUARDRAILS** at `679c33d…` — Body Fat / Lean Mass **EDUCATIONAL_CONTEXT_ONLY**; numerical standards **NOT APPROVED**; personal markers **BLOCKED**; Stage 3D **NOT BEGUN**; Stage 3B **MERGED** PR #220 at `0124c641…`; Stage 3A **MERGED** PR #219 at `b366744…`; Stage 2 **MERGED** PR #217; **RG-SOURCE-PRIVACY-01 OPEN**; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
+**Last updated:** 2026-09-20 (Stage 3C v1 **PRODUCT CONTRACT CLOSED** — qualitative educational graphs; Body Fat / Lean Mass **EDUCATIONAL_CONTEXT_ONLY**; numerical standards **DEFERRED**; personal markers **BLOCKED**; physical retest pending; Stage 3D **NOT BEGUN**; Stage 3B **MERGED** PR #220 at `0124c641…`; Stage 3A **MERGED** PR #219 at `b366744…`; Stage 2 **MERGED** PR #217; **RG-SOURCE-PRIVACY-01 OPEN**; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
 **Merged `main` SHA:** `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`
 **Stage 2 merge commit:** `c92ca0518366f0ef7b5e3af08e127fb623506622`
 **Stage 2 final implementation head:** `2e8cbb7b83b7c2b311e5dccc2bcfda23b5ce6ffc` (ancestor of `main`)
@@ -9,8 +9,8 @@
 **Stage 3A merge commit:** `b366744007bf771a0796f8499e9be224d226e6b6` (PR #219; RFC/ADR Accepted; classification runtime not implemented)
 **Stage 3B merge commit:** `0124c641f119150c7ed105cef8fd0b8f7d19cd8d` (PR #220)
 **Stage 3B physical runtime SHA:** `c962d36ef947e67e03092df9ed8207de17aef9de` (**PASS**; ancestor of `main`)
-**Stage 3C branch:** `feat/body-composition-stage3c-standards-graphs-v1` (**FOUNDATION APPROVED — NUMERICAL STANDARDS GATE OPEN** at `679c33d0d6de365800194e8a94272227f46bc9e3`)
-**Stage 3D:** **NOT BEGUN**
+**Stage 3C branch:** `feat/body-composition-stage3c-standards-graphs-v1` (**V1 PRODUCT CONTRACT CLOSED — QUALITATIVE EDUCATIONAL GRAPHS**; runtime through `565f889…`)
+**Stage 3D:** **NOT BEGUN** (Body Facts and Measurement Provenance — after Stage 3C merge; no auto personal markers / numerical standards)
 **Staging (historical Stage 2):** Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`
 **Staging (historical Stage 1C):** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep ACTIVE; Firestore TTL `accountDeletions.expireAt` ACTIVE
 **Staging export (historical E2E):** Function `onAccountExportRequested` 4 GiB / 540 s
@@ -124,7 +124,7 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 | Production Firebase project config | Release-hardening gap |
 | Current State / What Oli Sees / Plan persistence / Progress analytics | **Not** implemented |
 | Body salvage (PR #178) | CLOSED unmerged; disposition only in Stage 3A docs |
-| Body Composition Category Intelligence | Stage 3A **MERGED** (PR #219 at `b366744…`; Accepted 2026-09-18 with guardrails; RFC/ADR Accepted). Stage 3B value-first shell **MERGED** (PR #220 at `0124c641…`; physical `c962d36…`). Weight is the only classified Body metric. Stage 3C educational foundation **APPROVED** at `679c33d…` — Body Fat / Lean Mass **EDUCATIONAL_CONTEXT_ONLY**; numerical standards **NOT APPROVED**; personal markers **BLOCKED**. Stage 3D **NOT BEGUN**. Official Body Fat/Lean Mass classification/trends **blocked** |
+| Body Composition Category Intelligence | Stage 3A **MERGED** (PR #219). Stage 3B shell **MERGED** (PR #220; physical `c962d36…`). Weight only personal classifier. Stage 3C v1 **PRODUCT CONTRACT CLOSED** — qualitative Body Fat / Lean Mass educational graphs (**EDUCATIONAL_CONTEXT_ONLY**); numerical standards **DEFERRED**; personal markers **BLOCKED**. Stage 3D Body Facts/Provenance **NOT BEGUN**. Official classification/trends **blocked** |
 | Build checksum hygiene | Merged (PR #216) — ordinary API builds do not mutate tracked checksum truth |
 | Production deploy | **none** |
 
@@ -170,7 +170,7 @@ Home · Today · Plan · Progress · You
 | Progress | Execution, adherence, outcomes, trends, analysis | History + Weekly Progress; no outcome analytics product |
 | You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export UI merged (Stage 1B); delete UI and local lifecycle merged (Stage 1C) |
 
-**Next ownership/product work:** Stage **3C** numerical standards verification gate (foundation **APPROVED** at `679c33d…`; Body Fat / Lean Mass **EDUCATIONAL_CONTEXT_ONLY**; exact numerical standards **NOT APPROVED**; personal markers **BLOCKED**). Stage 3C is **not** fully complete. Stage 3D **not begun**. **RG-SOURCE-PRIVACY-01** remains OPEN and blocks external TestFlight / production / public release. Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN. **RG-LEGAL-01 OPEN**. Export coverage/scalability OPEN. No staging or production deployment from Stage 3C. No backend / Firestore standards path.
+**Next ownership/product work:** Stage **3C** qualitative educational graphs v1 — product contract closed; **physical-iPhone retest REQUIRED** before Draft PR / merge. Numerical Body Fat / Lean Mass standards **DEFERRED**. Personal markers **BLOCKED**. After Stage 3C merge: Stage **3D** Body Facts and Measurement Provenance (**NOT BEGUN**; must not auto-implement markers or numerical standards). **RG-SOURCE-PRIVACY-01** remains OPEN and blocks external TestFlight / production / public release. Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN. **RG-LEGAL-01 OPEN**. Export coverage/scalability OPEN. No staging or production deployment from Stage 3C. No backend / Firestore standards path.
 
 ---
 
