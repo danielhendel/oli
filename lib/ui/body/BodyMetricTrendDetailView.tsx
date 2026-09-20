@@ -10,7 +10,6 @@ import { WeightRangeSelector } from "@/lib/ui/WeightRangeSelector";
 import { WeightTrendChart } from "@/lib/ui/WeightTrendChart";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import {
-  UI_CARD_ELEVATED_BORDER,
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
@@ -34,6 +33,8 @@ export type BodyMetricTrendDetailViewProps = {
   range: WeightRangeKey;
   onChangeRange: (range: WeightRangeKey) => void;
   formatValue: (valueKg: number) => string;
+  /** Format a signed change (kg delta) — neutral, no judgment color. */
+  formatChange?: (deltaKg: number) => string;
   unitLabel: string;
   valueKind: "mass" | "generic";
   onRetry?: () => void;
@@ -46,15 +47,15 @@ export type BodyMetricTrendDetailViewProps = {
 function StatCell(props: { label: string; value: string; testID: string }) {
   return (
     <View style={styles.statCell} testID={props.testID}>
-      <Text style={styles.statLabel}>{props.label}</Text>
       <Text style={styles.statValue}>{props.value}</Text>
+      <Text style={styles.statLabel}>{props.label}</Text>
     </View>
   );
 }
 
 /**
- * Single longitudinal trend surface for Body metric detail (Weight-first Stage 3C).
- * No Latest card, no embedded History list — chart + range + compact summary only.
+ * Hero longitudinal trend surface for Body metric detail.
+ * Chart lives on the page canvas — no heavy card chrome around the plot.
  */
 export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps) {
   const displayModel =
@@ -66,10 +67,12 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
       ? props.previousReadyModel
       : props.model;
 
+  const formatChange = props.formatChange ?? props.formatValue;
+
   const latestLabel =
     displayModel.latest != null ? props.formatValue(displayModel.latest.valueKg) : null;
   const changeLabel =
-    displayModel.change != null ? props.formatValue(displayModel.change) : null;
+    displayModel.change != null ? formatChange(displayModel.change) : null;
   const averageLabel =
     displayModel.average != null ? props.formatValue(displayModel.average) : null;
   const highLabel =
@@ -113,7 +116,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
         <View style={styles.emptyBlock} testID="body-metric-trend-empty">
           <EmptyState
             title={`No ${props.metricTitle} history yet`}
-            description={`Add ${props.metricTitle} measurements to see your trend over time.`}
+            description={`Log ${props.metricTitle} measurements to see your trend over time.`}
           />
           {props.onPressAddMeasurement ? (
             <Pressable
@@ -132,7 +135,12 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
       {displayModel.latest != null &&
       (displayModel.status === "ready" || displayModel.status === "insufficient") ? (
         <View style={styles.latestBlock} testID="body-metric-trend-latest">
-          <Text style={styles.latestValue}>{latestLabel}</Text>
+          <Text
+            style={styles.latestValue}
+            accessibilityLabel={`Latest ${latestLabel ?? ""}`}
+          >
+            {latestLabel}
+          </Text>
           <Text style={styles.latestDate}>
             {formatBodyDayLabel(displayModel.latest.dayKey)}
           </Text>
@@ -155,6 +163,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
             accentColor={BODY_INDIGO}
             emphasizeLatestPoint
             accessibilityLabel={a11y}
+            chartHeight={300}
           />
           {displayModel.status === "insufficient" ? (
             <Text style={styles.insufficientNote} testID="body-metric-trend-insufficient">
@@ -195,16 +204,17 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
 
 const styles = StyleSheet.create({
   root: {
-    gap: 14,
+    gap: 0,
   },
   latestBlock: {
-    gap: 2,
+    marginTop: 20,
+    gap: 4,
   },
   latestValue: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 34,
+    fontSize: 40,
     fontWeight: "700",
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
   },
   latestDate: {
     color: UI_TEXT_SECONDARY,
@@ -212,40 +222,38 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   chartWrap: {
-    minHeight: 220,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: UI_CARD_ELEVATED_BORDER,
-    backgroundColor: "rgba(0,0,0,0.18)",
-    paddingHorizontal: 8,
-    paddingTop: 10,
-    paddingBottom: 6,
+    marginTop: 16,
+    minHeight: 300,
+    // No card chrome — plot sits on the page canvas.
+    backgroundColor: "transparent",
   },
   summaryRow: {
+    marginTop: 18,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 8,
   },
   statCell: {
     flexGrow: 1,
     flexBasis: "22%",
     minWidth: 72,
-    gap: 2,
-    paddingVertical: 8,
+    gap: 3,
+    paddingVertical: 4,
+  },
+  statValue: {
+    color: UI_TEXT_PRIMARY,
+    fontSize: 17,
+    fontWeight: "700",
+    letterSpacing: -0.2,
   },
   statLabel: {
     color: UI_TEXT_MUTED,
     fontSize: 12,
-    fontWeight: "600",
-  },
-  statValue: {
-    color: UI_TEXT_PRIMARY,
-    fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   emptyBlock: {
     gap: 12,
-    paddingVertical: 8,
+    paddingVertical: 20,
   },
   addBtn: {
     minHeight: 48,
@@ -263,7 +271,6 @@ const styles = StyleSheet.create({
     color: UI_TEXT_MUTED,
     fontSize: 12,
     fontWeight: "500",
-    paddingHorizontal: 8,
-    paddingBottom: 6,
+    marginTop: 8,
   },
 });

@@ -5,35 +5,36 @@ import {
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 
-// lib/ui/WeightTrendChart.tsx — Weight trend chart (react-native-svg). Dark Oli styling; tooltip on press/drag.
+// lib/ui/WeightTrendChart.tsx — Weight trend chart (react-native-svg). Dark Oli hero styling.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, LayoutChangeEvent } from "react-native";
-import Svg, { Circle, Path, Rect, Text as SvgText } from "react-native-svg";
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient,
+  Path,
+  Stop,
+  Text as SvgText,
+} from "react-native-svg";
+import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
 import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
 
-const PADDING = { left: 44, right: 8, top: 8, bottom: 44 };
+const PADDING = { left: 40, right: 10, top: 12, bottom: 36 };
 const Y_LABEL_FONT_SIZE = 11;
 const Y_LABEL_COLOR = UI_TEXT_MUTED;
 /** Minimum vertical gap (px) between High and Low labels to avoid overlap. */
 const Y_LABEL_MIN_GAP_PX = 16;
 const X_LABEL_FONT_SIZE = 11;
-const CHART_HEIGHT = 220;
-const DOT_R = 5;
-const CROSSHAIR_COLOR = "rgba(255,255,255,0.35)";
+/** Hero chart height — visually dominant on Weight detail. */
+const DEFAULT_CHART_HEIGHT = 300;
+const DOT_R = 5.5;
+const CROSSHAIR_COLOR = "rgba(255,255,255,0.28)";
 
 const ACCENT_BLUE = SYSTEM_ACCENT;
-const LINE_WIDTH = 2.25;
-const GRID_COLOR = "rgba(255,255,255,0.08)";
-const AREA_OPACITY = 0.22;
-/** Lighter fill below actual low line (same hue as area, lower opacity). */
-const BASE_FILL_OPACITY = 0.06;
-/** Minimum Y-axis span to reduce visual exaggeration (in user units, converted to kg for domain). */
-const MIN_SPAN_LB = 12;
-const MIN_SPAN_KG = 5.5;
-const MIN_PAD_LB = 2;
-const MIN_PAD_KG = 0.9;
+const LINE_WIDTH = 2.75;
+const GRID_COLOR = "rgba(255,255,255,0.05)";
 const LBS_PER_KG = 2.2046226218;
 /** Max points used to draw path/area/dots; touch and tooltip still use full data. */
 const MAX_RENDER_POINTS = 80;
@@ -288,6 +289,8 @@ export type WeightTrendChartProps = {
   /** Always mark the chronologically latest observation (not a classification). */
   emphasizeLatestPoint?: boolean;
   accessibilityLabel?: string;
+  /** Hero plot height in points. */
+  chartHeight?: number;
 };
 
 type ProcessedPoint = {
@@ -308,7 +311,9 @@ export function WeightTrendChart({
   onChartError,
   emphasizeLatestPoint = false,
   accessibilityLabel = "Weight trend chart",
+  chartHeight: chartHeightProp = DEFAULT_CHART_HEIGHT,
 }: WeightTrendChartProps) {
+  const CHART_HEIGHT = chartHeightProp;
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [touchX, setTouchX] = useState<number | null>(null);
@@ -356,46 +361,12 @@ export function WeightTrendChart({
   const minT = Math.min(...processed.map((p) => p.x));
   const maxT = Math.max(...processed.map((p) => p.x));
   const rangeT = maxT - minT || 1;
-  const minW = Math.min(...processed.map((p) => p.weightKg));
-  const maxW = Math.max(...processed.map((p) => p.weightKg));
 
-  /** Robust Y-domain: p05–p95 with 2% padding; then enforce minimum span/padding to reduce visual exaggeration. */
-  const { displayMin, displayMax, outlierCount } = (() => {
-    const n = processed.length;
-    let dMin: number;
-    let dMax: number;
-    if (n < 3) {
-      dMin = Math.max(0, minW);
-      dMax = maxW;
-    } else {
-      const sorted = [...processed.map((p) => p.weightKg)].sort((a, b) => a - b);
-      const p05 = sorted[Math.floor((n - 1) * 0.05)] ?? minW;
-      const p95 = sorted[Math.floor((n - 1) * 0.95)] ?? maxW;
-      const range = p95 - p05 || 0.1;
-      const padding = 0.02 * range;
-      dMin = p05 - padding;
-      dMax = p95 + padding;
-
-      const spanMinKg = valueKind === "mass" && unitLabel === "lb" ? MIN_SPAN_LB / LBS_PER_KG : MIN_SPAN_KG;
-      const padMinKg = valueKind === "mass" && unitLabel === "lb" ? MIN_PAD_LB / LBS_PER_KG : MIN_PAD_KG;
-      const currentSpanKg = dMax - dMin;
-      const midKg = (dMin + dMax) / 2;
-      if (currentSpanKg < spanMinKg) {
-        dMin = midKg - spanMinKg / 2;
-        dMax = midKg + spanMinKg / 2;
-      } else {
-        const padBottom = midKg - dMin;
-        const padTop = dMax - midKg;
-        if (padBottom < padMinKg) dMin = midKg - padMinKg;
-        if (padTop < padMinKg) dMax = midKg + padMinKg;
-      }
-      dMin = Math.max(0, dMin);
-    }
-    // Observation-driven domain only — no artificial display floor / healthy band.
-    dMin = Math.max(0, dMin);
-    const count = processed.filter((p) => p.weightKg < dMin || p.weightKg > dMax).length;
-    return { displayMin: dMin, displayMax: dMax, outlierCount: count };
-  })();
+  const { displayMin, displayMax, outlierCount } = resolveWeightTrendYDomain({
+    valuesKg: processed.map((p) => p.weightKg),
+    valueKind,
+    unitLabel,
+  });
 
   const rangeDisplay = displayMax - displayMin || 0.1;
 
@@ -505,7 +476,7 @@ export function WeightTrendChart({
 
   return (
     <View
-      style={styles.container}
+      style={[styles.container, { minHeight: CHART_HEIGHT }]}
       onLayout={onLayout}
       onStartShouldSetResponder={() => true}
       onResponderGrant={(e) => handleTouch(e.nativeEvent)}
@@ -520,9 +491,15 @@ export function WeightTrendChart({
     >
       {layout && layout.width > 0 && (
         <Svg width={layout.width} height={CHART_HEIGHT} style={styles.svg}>
-          {/* Minimal grid: horizontal lines only */}
-          {[0.25, 0.5, 0.75].map((frac) => {
-            const y = PADDING.top + chartHeight * (1 - frac);
+          <Defs>
+            <LinearGradient id="weightTrendAreaFill" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor={accentColor} stopOpacity="0.22" />
+              <Stop offset="100%" stopColor={accentColor} stopOpacity="0.02" />
+            </LinearGradient>
+          </Defs>
+          {/* Extremely subtle horizontal grid — 3 lines */}
+          {[0.33, 0.66, 1].map((frac) => {
+            const y = PADDING.top + chartHeight * frac;
             return (
               <Path
                 key={frac}
@@ -533,35 +510,7 @@ export function WeightTrendChart({
               />
             );
           })}
-          {/* Dashed horizontal guide lines at actual data High/Low (behind area/line) */}
-          {!isSparseLabels && (
-            <>
-                  <Path
-                d={`M ${PADDING.left} ${yHigh} L ${layout.width - PADDING.right} ${yHigh}`}
-                stroke="rgba(255,255,255,0.18)"
-                strokeWidth={1}
-                strokeDasharray="4 4"
-                fill="none"
-              />
-              <Path
-                d={`M ${PADDING.left} ${yLow} L ${layout.width - PADDING.right} ${yLow}`}
-                stroke="rgba(255,255,255,0.18)"
-                strokeWidth={1}
-                strokeDasharray="4 4"
-                fill="none"
-              />
-            </>
-          )}
-          {isSparseLabels && (
-            <Path
-              d={`M ${PADDING.left} ${yHigh} L ${layout.width - PADDING.right} ${yHigh}`}
-              stroke="rgba(255,255,255,0.18)"
-              strokeWidth={1}
-              strokeDasharray="4 4"
-              fill="none"
-            />
-          )}
-          {/* Y-axis labels: exact actual values (one decimal); hide Low if too close to High */}
+          {/* Y-axis labels at observed high/low — muted, no decorative dashed guides */}
           {!isSparseLabels && (
             <>
               <SvgText
@@ -600,25 +549,9 @@ export function WeightTrendChart({
               {singleValueLabel}
             </SvgText>
           )}
-          {/* Base tint below low dashed line (lighter blue) */}
-          {processed.length > 0 && (
-            <Rect
-              x={PADDING.left}
-              y={yLow}
-              width={layout.width - PADDING.left - PADDING.right}
-              height={Math.max(0, baselineY - yLow)}
-              fill={accentColor}
-              fillOpacity={BASE_FILL_OPACITY}
-            />
-          )}
-          {/* Area fill under line — render before line so line stays on top */}
+          {/* Soft area fill under line */}
           {areaD ? (
-            <Path
-              d={areaD}
-              fill={accentColor}
-              fillOpacity={AREA_OPACITY}
-              stroke="none"
-            />
+            <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
           ) : null}
           {/* Line */}
           {pathD ? (
@@ -631,7 +564,7 @@ export function WeightTrendChart({
               strokeLinejoin="round"
             />
           ) : null}
-          {/* Latest observation marker (always on when requested) */}
+          {/* Latest observation marker */}
           {emphasizeLatestPoint && pointsWithCoords.length > 0 ? (
             <Circle
               cx={pointsWithCoords[pointsWithCoords.length - 1]!.cx}
@@ -639,10 +572,10 @@ export function WeightTrendChart({
               r={DOT_R}
               fill={accentColor}
               stroke="#FFFFFF"
-              strokeWidth={1.5}
+              strokeWidth={2}
             />
           ) : null}
-          {/* Dot marker: only while touching (selection active); no persistent dots */}
+          {/* Touch selection marker */}
           {touchX != null && selected != null &&
             (selected.isClipped ? (
               <Circle
@@ -657,7 +590,6 @@ export function WeightTrendChart({
             ) : (
               <Circle cx={selected.cx} cy={selected.cy} r={DOT_R} fill={accentColor} opacity={1} />
             ))}
-          {/* Crosshair at selected x */}
           {touchX != null && selected != null && (
             <Path
               d={`M ${selected.cx} ${PADDING.top} L ${selected.cx} ${PADDING.top + chartHeight}`}
@@ -667,7 +599,6 @@ export function WeightTrendChart({
               fill="none"
             />
           )}
-          {/* X-axis time labels (data-extent only; first/last at plot edges so no clipping) */}
           {layout &&
             xAxisTicks.map((tick, i) => {
               const isFirst = i === 0;
@@ -698,7 +629,7 @@ export function WeightTrendChart({
           {outlierCount} outlier(s) clipped for readability
         </Text>
       )}
-      {isSparse && (
+      {isSparse && n < 2 && (
         <Text style={styles.sparseNote} accessibilityLabel="Not enough weigh-ins in this range">
           Not enough weigh-ins in this range
         </Text>
@@ -708,7 +639,9 @@ export function WeightTrendChart({
         <View
           style={[
             styles.tooltip,
-            selected.cy <= CHART_HEIGHT / 2 ? styles.tooltipBelow : styles.tooltipAbove,
+            selected.cy <= CHART_HEIGHT / 2
+              ? [styles.tooltipBelow, { top: CHART_HEIGHT + 8 }]
+              : [styles.tooltipAbove, { bottom: CHART_HEIGHT + 8 }],
           ]}
           pointerEvents="none"
           accessibilityLiveRegion="polite"
@@ -731,7 +664,7 @@ export function WeightTrendChart({
 
 const styles = StyleSheet.create({
   container: {
-    minHeight: CHART_HEIGHT,
+    minHeight: DEFAULT_CHART_HEIGHT,
   },
   svg: {
     backgroundColor: "transparent",
@@ -751,12 +684,8 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(255,255,255,0.12)",
   },
-  tooltipAbove: {
-    bottom: CHART_HEIGHT + 8,
-  },
-  tooltipBelow: {
-    top: CHART_HEIGHT + 8,
-  },
+  tooltipAbove: {},
+  tooltipBelow: {},
   tooltipDate: {
     fontSize: 12,
     color: UI_TEXT_SECONDARY,

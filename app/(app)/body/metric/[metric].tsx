@@ -23,6 +23,7 @@ import {
   formatBodyLeanMass,
   formatBodyRmr,
   formatBodyWeight,
+  formatBodyWeightChange,
 } from "@/lib/ui/body/bodyMetricFormatting";
 import { useBodyMetricDetailHeader } from "@/lib/ui/headers/useBodyMetricDetailHeader";
 import { ScreenContainer, ErrorState } from "@/lib/ui/ScreenStates";
@@ -155,6 +156,28 @@ export default function BodyMetricDetailScreen() {
     return formatBodyRmr(value);
   };
 
+  const formatTrendChange = (delta: number): string => {
+    if (!metric) return String(delta);
+    if (metric === "weight" || metric === "lean_body_mass") {
+      return formatBodyWeightChange(delta, unit);
+    }
+    if (metric === "body_fat_percent") {
+      if (!Number.isFinite(delta)) return "—";
+      const mag = `${Math.abs(delta).toFixed(1)}%`;
+      if (delta > 0) return `+${mag}`;
+      if (delta < 0) return `−${mag}`;
+      return mag;
+    }
+    if (metric === "bmi") {
+      if (!Number.isFinite(delta)) return "—";
+      const mag = Math.abs(delta).toFixed(1);
+      if (delta > 0) return `+${mag}`;
+      if (delta < 0) return `−${mag}`;
+      return mag;
+    }
+    return formatTrendValue(delta);
+  };
+
   const chartUnitLabel = (): string => {
     if (!metric) return "";
     if (metric === "weight" || metric === "lean_body_mass") return unit;
@@ -186,6 +209,7 @@ export default function BodyMetricDetailScreen() {
           range={range}
           onChangeRange={setRange}
           formatValue={formatTrendValue}
+          formatChange={formatTrendChange}
           unitLabel={chartUnitLabel()}
           valueKind={metric === "weight" || metric === "lean_body_mass" ? "mass" : "generic"}
           onRetry={() => trends.refetch()}
