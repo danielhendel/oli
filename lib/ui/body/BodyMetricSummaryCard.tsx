@@ -152,8 +152,8 @@ function connectionAccessibility(
 
 /**
  * Premium Body metric card shell — value-first hierarchy with integrated chart region.
- * Weight may include an approved classification chart; Body Fat / Lean Mass use
- * Stage 3C educational reference graphs (no personal marker) or unclassified scaffolds.
+ * Weight may include an approved classification chart; Body Fat / Lean Mass use a
+ * restrained unclassified rail on the landing card (education lives on metric detail).
  */
 export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const { model } = props;
