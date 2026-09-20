@@ -12,7 +12,8 @@ import {
   BodyAppleHealthConnectSheet,
 } from "@/lib/ui/body/BodyAppleHealthConnectSheet";
 import { BodyCompositionSummaryScreen } from "@/lib/ui/body/BodyCompositionSummaryScreen";
-import { WeightLogModal } from "@/lib/ui/WeightLogModal";
+import { BodyMetricManualEntrySheet } from "@/lib/ui/body/BodyMetricManualEntrySheet";
+import type { BodyMetricManualEntryMetric } from "@/lib/body/presentation/bodyMetricManualEntryValidation";
 import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
 import { useAppleHealthBodyAccessState } from "@/lib/data/body/useAppleHealthBodyAccessState";
 import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBackfill";
@@ -62,7 +63,8 @@ export default function BodyOverviewScreen() {
     [profileState],
   );
   const body = useBodyOverviewData();
-  const [weightLogVisible, setWeightLogVisible] = useState(false);
+  const [manualEntryMetric, setManualEntryMetric] =
+    useState<BodyMetricManualEntryMetric | null>(null);
   const [weightPrimaryView, setWeightPrimaryView] = useState<WeightPrimaryView>(
     DEFAULT_BODY_PRIMARY_VIEW_STATE.weight,
   );
@@ -282,7 +284,11 @@ export default function BodyOverviewScreen() {
             cards={cards}
             connectionActionForMetric={connectionActionForMetric}
             onPressCard={(href) => router.push(href as never)}
-            onPressAddWeight={() => setWeightLogVisible(true)}
+            onPressAddMeasurementForMetric={(metric) => {
+              if (metric === "weight") setManualEntryMetric("weight");
+              else if (metric === "bodyFat") setManualEntryMetric("bodyFat");
+              else if (metric === "leanTissue") setManualEntryMetric("leanMass");
+            }}
             onPressConnectionActionForMetric={(metric) => {
               connectSheet.onPressCardConnection(metric);
             }}
@@ -317,15 +323,17 @@ export default function BodyOverviewScreen() {
           router.push(BODY_APPLE_HEALTH_SETTINGS_HREF as never);
         }}
       />
-      <WeightLogModal
-        visible={weightLogVisible}
-        onClose={() => setWeightLogVisible(false)}
+      <BodyMetricManualEntrySheet
+        visible={manualEntryMetric != null}
+        metric={manualEntryMetric}
+        onClose={() => setManualEntryMetric(null)}
         onSaved={() => {
-          setWeightLogVisible(false);
-          void body.series.refetch({ cacheBust: `manualWeight:${Date.now()}` });
-          void body.peek.refetch({ cacheBust: `manualWeightPeek:${Date.now()}` });
-          void body.snapshotDayPeek.refetch({ cacheBust: `manualWeightSnapshot:${Date.now()}` });
-          void body.dayFacts.refetch({ cacheBust: `manualWeight:${Date.now()}` });
+          const bust = `manualBody:${Date.now()}`;
+          setManualEntryMetric(null);
+          void body.series.refetch({ cacheBust: bust });
+          void body.peek.refetch({ cacheBust: `${bust}:peek` });
+          void body.snapshotDayPeek.refetch({ cacheBust: `${bust}:snapshot` });
+          void body.dayFacts.refetch({ cacheBust: bust });
         }}
       />
     </View>

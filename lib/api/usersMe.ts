@@ -8,6 +8,11 @@ import { apiGetZodAuthed } from "@/lib/api/validate";
 import { apiPutZodAuthed } from "@/lib/api/validate";
 import { manualWeightIdempotencyKey } from "@/lib/events/manualWeight";
 import {
+  manualBodyCompositionIdempotencyKey,
+  type ManualBodyCompositionMetric,
+  type ManualBodyCompositionPayload,
+} from "@/lib/events/manualBodyComposition";
+import {
   manualStrengthWorkoutIdempotencyKey,
   type ManualStrengthWorkoutPayload,
 } from "@/lib/events/manualStrengthWorkout";
@@ -143,6 +148,43 @@ export const logWeight = async (
     timeoutMs: 15000,
     noStore: true,
     idempotencyKey: manualWeightIdempotencyKey(clean),
+  });
+};
+
+/**
+ * Manual Body Fat % or Lean Mass via kind `body_composition` (existing RawEvent contract).
+ * One metric per call — matches Stage 3C metric-specific landing sheets.
+ */
+export const logBodyComposition = async (
+  payload: ManualBodyCompositionPayload,
+  metric: ManualBodyCompositionMetric,
+  idToken: string,
+): Promise<ApiResult<IngestAcceptedResponseDto>> => {
+  const clean: ManualBodyCompositionPayload = {
+    time: payload.time,
+    timezone: payload.timezone,
+    ...(payload.day ? { day: payload.day } : {}),
+    ...(payload.bodyFatPercent !== undefined
+      ? { bodyFatPercent: payload.bodyFatPercent }
+      : {}),
+    ...(payload.leanBodyMassKg !== undefined
+      ? { leanBodyMassKg: payload.leanBodyMassKg }
+      : {}),
+  };
+
+  const ingestBody = {
+    provider: "manual" as const,
+    kind: "body_composition" as const,
+    observedAt: clean.time,
+    sourceId: "manual",
+    timeZone: clean.timezone,
+    payload: clean,
+  };
+
+  return apiPostZodAuthed("/ingest", ingestBody, idToken, ingestAcceptedResponseDtoSchema, {
+    timeoutMs: 15000,
+    noStore: true,
+    idempotencyKey: manualBodyCompositionIdempotencyKey(clean, metric),
   });
 };
 

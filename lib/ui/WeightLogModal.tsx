@@ -1,15 +1,22 @@
-import { UI_CARD_SURFACE, UI_SCREEN_BG, UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
-import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
+// lib/ui/WeightLogModal.tsx — Manual weight entry / edit (weight-only).
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-// lib/ui/WeightLogModal.tsx — Manual weight entry modal (bottom-sheet style).
-import React, { useMemo, useState, useEffect, useRef } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet, Modal } from "react-native";
-import { usePreferences } from "@/lib/preferences/PreferencesProvider";
-import { useAuth } from "@/lib/auth/AuthProvider";
 import { logWeight } from "@/lib/api/usersMe";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import {
+  MANUAL_ENTRY_SAVE_ERROR_MESSAGE,
+  isValidManualWeightValue,
+  manualEntryValidationMessage,
+  parseManualEntryDecimal,
+} from "@/lib/body/presentation/bodyMetricManualEntryValidation";
 import { buildManualWeightPayload } from "@/lib/events/manualWeight";
-import { emitRefresh } from "@/lib/navigation/refreshBus";
 import { useBodyWeightLogMutations } from "@/lib/hooks/useBodyWeightLogMutations";
+import { emitRefresh } from "@/lib/navigation/refreshBus";
+import { usePreferences } from "@/lib/preferences/PreferencesProvider";
+import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
+import { BodyMetricEntrySheetShell } from "@/lib/ui/body/BodyMetricEntrySheetShell";
+import { UI_TEXT_MUTED, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 const LBS_PER_KG = 2.2046226218;
 
@@ -26,6 +33,7 @@ export type WeightLogModalEditTarget = {
   rawEventId: string;
   observedAtIso: string;
   weightKg: number;
+  /** Retained for caller compatibility; Body Fat is not edited on this sheet. */
   bodyFatPercent: number | null;
   isImported?: boolean;
   importedSourceLabel?: string;
@@ -38,20 +46,28 @@ export type WeightLogModalProps = {
   editTarget?: WeightLogModalEditTarget | null;
 };
 
-export function WeightLogModal({ visible, onClose, onSaved, editTarget = null }: WeightLogModalProps) {
+/**
+ * Weight-only manual entry / correction sheet.
+ * Body Fat and Lean Mass use {@link BodyMetricManualEntrySheet} from their cards.
+ */
+export function WeightLogModal({
+  visible,
+  onClose,
+  onSaved,
+  editTarget = null,
+}: WeightLogModalProps) {
   const { user, initializing, getIdToken } = useAuth();
   const { updateEntry, reset: resetMutations } = useBodyWeightLogMutations();
   const { state: prefState } = usePreferences();
   const prevVisibleRef = useRef(visible);
+  const inputRef = useRef<TextInput>(null);
   const [unit, setUnit] = useState<"lb" | "kg">("lb");
   const [unitTouched, setUnitTouched] = useState(false);
   const [weightText, setWeightText] = useState("");
-  const [bodyFatText, setBodyFatText] = useState("");
   const [status, setStatus] = useState<
     | { state: "idle" }
     | { state: "saving" }
     | { state: "error"; message: string }
-    | { state: "saved" }
   >({ state: "idle" });
 
   useEffect(() => {
@@ -66,40 +82,37 @@ export function WeightLogModal({ visible, onClose, onSaved, editTarget = null }:
 
     if (wasVisible && !visible) {
       setWeightText("");
-      setBodyFatText("");
       setStatus((current) => (current.state === "idle" ? current : { state: "idle" }));
       resetMutations();
       return;
     }
 
-    if (!visible || !editTarget) return;
+    if (!visible) return;
 
-    const massUnit = prefState.preferences?.units?.mass ?? unit;
-    const displayKg = editTarget.weightKg;
-    const display = massUnit === "lb" ? displayKg * LBS_PER_KG : displayKg;
-    setWeightText(display.toFixed(1).replace(/\.0$/, ""));
-    setBodyFatText(
-      editTarget.bodyFatPercent != null && Number.isFinite(editTarget.bodyFatPercent)
-        ? String(editTarget.bodyFatPercent)
-        : "",
-    );
+    if (editTarget) {
+      const massUnit = prefState.preferences?.units?.mass ?? unit;
+      const display = massUnit === "lb" ? editTarget.weightKg * LBS_PER_KG : editTarget.weightKg;
+      setWeightText(display.toFixed(1).replace(/\.0$/, ""));
+    } else if (!wasVisible) {
+      setWeightText("");
+      const t = setTimeout(() => inputRef.current?.focus(), 350);
+      return () => clearTimeout(t);
+    }
+    return undefined;
   }, [visible, editTarget, prefState.preferences?.units?.mass, unit, resetMutations]);
 
   const parsed = useMemo(() => {
-    const w = Number(weightText);
-    const bfRaw = bodyFatText.trim() === "" ? null : Number(bodyFatText);
-    const weightOk = Number.isFinite(w) && w > 0;
-    const bfOk = bfRaw === null || (Number.isFinite(bfRaw) && bfRaw >= 0 && bfRaw <= 100);
-    const weightLbs = weightOk ? (unit === "lb" ? w : w * LBS_PER_KG) : null;
-    const weightKg = weightOk ? (unit === "kg" ? w : w / LBS_PER_KG) : null;
-    return { weightOk, bfOk, weightLbs, weightKg, bodyFatPercent: bfRaw };
-  }, [weightText, bodyFatText, unit]);
+    const w = parseManualEntryDecimal(weightText);
+    const weightOk = w != null && isValidManualWeightValue(w);
+    const weightLbs = weightOk && w != null ? (unit === "lb" ? w : w * LBS_PER_KG) : null;
+    const weightKg = weightOk && w != null ? (unit === "kg" ? w : w / LBS_PER_KG) : null;
+    return { weightOk, weightLbs, weightKg };
+  }, [weightText, unit]);
 
   const canSave =
     !initializing &&
     Boolean(user) &&
     parsed.weightOk &&
-    parsed.bfOk &&
     parsed.weightLbs != null &&
     parsed.weightKg != null &&
     status.state !== "saving";
@@ -110,7 +123,7 @@ export function WeightLogModal({ visible, onClose, onSaved, editTarget = null }:
     try {
       const token = await getIdToken(false);
       if (!token) {
-        setStatus({ state: "error", message: "No auth token" });
+        setStatus({ state: "error", message: MANUAL_ENTRY_SAVE_ERROR_MESSAGE });
         return;
       }
       const time = editTarget?.observedAtIso ?? new Date().toISOString();
@@ -120,11 +133,10 @@ export function WeightLogModal({ visible, onClose, onSaved, editTarget = null }:
           rawEventId: editTarget.rawEventId,
           observedAtIso: time,
           weightLbs: parsed.weightLbs,
-          bodyFatPercent: parsed.bodyFatPercent,
           timezone,
         });
         if (!res.ok) {
-          setStatus({ state: "error", message: res.message });
+          setStatus({ state: "error", message: MANUAL_ENTRY_SAVE_ERROR_MESSAGE });
           return;
         }
       } else {
@@ -132,141 +144,154 @@ export function WeightLogModal({ visible, onClose, onSaved, editTarget = null }:
           time,
           timezone,
           weightLbs: parsed.weightLbs,
-          ...(parsed.bodyFatPercent != null ? { bodyFatPercent: parsed.bodyFatPercent } : {}),
         });
         const res = await logWeight(payload, token);
         if (!res.ok) {
-          setStatus({ state: "error", message: res.error });
+          setStatus({ state: "error", message: MANUAL_ENTRY_SAVE_ERROR_MESSAGE });
           return;
         }
         emitRefresh("commandCenter", `${Date.now()}`, { optimisticWeightKg: parsed.weightKg });
       }
-      setStatus({ state: "saved" });
       onSaved();
       onClose();
-    } catch (e) {
-      setStatus({ state: "error", message: e instanceof Error ? e.message : "Unknown error" });
+    } catch {
+      setStatus({ state: "error", message: MANUAL_ENTRY_SAVE_ERROR_MESSAGE });
     }
   };
 
   if (!visible) return null;
 
+  const unitA11y =
+    unit === "lb" ? "Weight unit, pounds selected" : "Weight unit, kilograms selected";
+  const errorMessage =
+    status.state === "error"
+      ? status.message
+      : weightText.trim().length > 0 && !parsed.weightOk
+        ? manualEntryValidationMessage("weight")
+        : null;
+
+  const helpText = editTarget?.isImported
+    ? `Editing creates an Oli correction and does not modify ${
+        editTarget.importedSourceLabel ?? "the original source"
+      }.`
+    : null;
+
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <Pressable style={styles.overlay} onPress={onClose} accessibilityLabel="Close modal">
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()} testID="weight-log-modal-sheet">
-          <View style={styles.handle} />
-          <Text style={styles.title}>{editTarget ? "Edit weight" : "Log weight"}</Text>
-          {editTarget?.isImported ? (
-            <Text style={styles.importedHelp}>
-              Editing creates an Oli correction and does not modify{" "}
-              {editTarget.importedSourceLabel ?? "the original source"}.
-            </Text>
-          ) : null}
-          <Text style={styles.label}>Weight</Text>
-          <View style={styles.row}>
-            <TextInput
-              value={weightText}
-              onChangeText={setWeightText}
-              keyboardType="decimal-pad"
-              placeholder={unit === "lb" ? "e.g. 185.2" : "e.g. 84.0"}
-              placeholderTextColor={UI_TEXT_MUTED}
-              style={[styles.input, { flex: 1 }]}
-              accessibilityLabel="Weight"
-            />
-            <View style={styles.unitGroup}>
-              <Pressable
-                onPress={() => { setUnitTouched(true); setUnit("lb"); }}
-                style={[styles.unitBtn, unit === "lb" && styles.unitActive]}
-                accessibilityRole="button"
-                accessibilityLabel="Pounds"
-              >
-                <Text style={[styles.unitText, unit === "lb" && styles.unitTextActive]}>lb</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => { setUnitTouched(true); setUnit("kg"); }}
-                style={[styles.unitBtn, unit === "kg" && styles.unitActive]}
-                accessibilityRole="button"
-                accessibilityLabel="Kilograms"
-              >
-                <Text style={[styles.unitText, unit === "kg" && styles.unitTextActive]}>kg</Text>
-              </Pressable>
-            </View>
-          </View>
-          <Text style={styles.label}>Body fat % (optional)</Text>
-          <TextInput
-            value={bodyFatText}
-            onChangeText={setBodyFatText}
-            keyboardType="decimal-pad"
-            placeholder="e.g. 18.5"
-            placeholderTextColor={UI_TEXT_MUTED}
-            style={styles.input}
-            accessibilityLabel="Body fat percentage"
-          />
-          {status.state === "error" ? <Text style={styles.error}>{status.message}</Text> : null}
+    <BodyMetricEntrySheetShell
+      visible={visible}
+      title={editTarget ? "Edit weight" : "Log Weight"}
+      onClose={onClose}
+      onSave={() => void onSave()}
+      canSave={canSave}
+      saving={status.state === "saving"}
+      primaryLabel={editTarget ? "Save changes" : "Save measurement"}
+      errorMessage={errorMessage}
+      helpText={helpText}
+      testID="weight-log-modal"
+    >
+      <Text style={styles.fieldLabel}>Weight</Text>
+      <View style={styles.inputRow}>
+        <TextInput
+          ref={inputRef}
+          value={weightText}
+          onChangeText={(text) => {
+            setWeightText(text);
+            if (status.state === "error") setStatus({ state: "idle" });
+          }}
+          keyboardType="decimal-pad"
+          placeholder={unit === "lb" ? "e.g. 185.2" : "e.g. 84.0"}
+          placeholderTextColor={UI_TEXT_MUTED}
+          style={styles.input}
+          accessibilityLabel="Weight"
+          testID="weight-log-modal-input"
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            if (canSave) void onSave();
+          }}
+        />
+        <View
+          style={styles.unitGroup}
+          accessibilityRole="radiogroup"
+          accessibilityLabel="Weight unit"
+        >
           <Pressable
-            onPress={() => void onSave()}
-            disabled={!canSave}
-            style={[styles.saveBtn, !canSave && styles.saveDisabled]}
-            accessibilityRole="button"
-            accessibilityLabel="Save"
+            onPress={() => {
+              setUnitTouched(true);
+              setUnit("lb");
+            }}
+            style={[styles.unitBtn, unit === "lb" && styles.unitActive]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: unit === "lb" }}
+            accessibilityLabel={unit === "lb" ? unitA11y : "Pounds"}
+            testID="weight-log-modal-unit-lb"
           >
-            <Text style={styles.saveText}>
-              {status.state === "saving" ? "Saving…" : editTarget ? "Save changes" : "Save"}
-            </Text>
+            <Text style={[styles.unitText, unit === "lb" && styles.unitTextActive]}>lb</Text>
           </Pressable>
-          <Pressable onPress={onClose} style={styles.cancelBtn} accessibilityRole="button" accessibilityLabel="Cancel">
-            <Text style={styles.cancelText}>Cancel</Text>
+          <Pressable
+            onPress={() => {
+              setUnitTouched(true);
+              setUnit("kg");
+            }}
+            style={[styles.unitBtn, unit === "kg" && styles.unitActive]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: unit === "kg" }}
+            accessibilityLabel={
+              unit === "kg" ? "Weight unit, kilograms selected" : "Kilograms"
+            }
+            testID="weight-log-modal-unit-kg"
+          >
+            <Text style={[styles.unitText, unit === "kg" && styles.unitTextActive]}>kg</Text>
           </Pressable>
-        </Pressable>
-      </Pressable>
-    </Modal>
+        </View>
+      </View>
+    </BodyMetricEntrySheetShell>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.58)",
-    justifyContent: "flex-end",
+  fieldLabel: {
+    color: UI_TEXT_SECONDARY,
+    fontSize: 13,
+    fontWeight: "600",
   },
-  sheet: {
-    backgroundColor: UI_CARD_SURFACE,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 36,
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
-  handle: {
-    width: 36,
-    height: 4,
-    backgroundColor: UI_TEXT_MUTED,
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 16,
-    opacity: 0.85,
-  },
-  title: { fontSize: 20, fontWeight: "800", color: UI_TEXT_PRIMARY, marginBottom: 16 },
-  importedHelp: { fontSize: 13, color: UI_TEXT_SECONDARY, lineHeight: 18, marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: "700", color: UI_TEXT_PRIMARY, marginBottom: 6 },
-  row: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
   input: {
-    backgroundColor: UI_SCREEN_BG,
-    borderRadius: 12,
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingVertical: 10,
+    fontSize: 18,
+    fontWeight: "600",
     color: UI_TEXT_PRIMARY,
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
-  unitGroup: { flexDirection: "row", backgroundColor: UI_SCREEN_BG, borderRadius: 12, overflow: "hidden" },
-  unitBtn: { paddingHorizontal: 14, paddingVertical: 12 },
-  unitActive: { backgroundColor: BODY_INDIGO },
-  unitText: { fontSize: 14, fontWeight: "700", color: UI_TEXT_SECONDARY },
-  unitTextActive: { color: "#FFFFFF" },
-  error: { color: "#FF8A80", fontSize: 12, marginBottom: 8 },
-  saveBtn: { backgroundColor: BODY_INDIGO, borderRadius: 14, paddingVertical: 14, alignItems: "center", marginTop: 8 },
-  saveDisabled: { opacity: 0.4 },
-  saveText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
-  cancelBtn: { alignItems: "center", paddingVertical: 14, marginTop: 8 },
-  cancelText: { fontSize: 15, color: UI_TEXT_SECONDARY, fontWeight: "600" },
+  unitGroup: {
+    flexDirection: "row",
+    borderRadius: 10,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  unitBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unitActive: {
+    backgroundColor: BODY_INDIGO,
+  },
+  unitText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: UI_TEXT_SECONDARY,
+  },
+  unitTextActive: {
+    color: "#FFFFFF",
+  },
 });

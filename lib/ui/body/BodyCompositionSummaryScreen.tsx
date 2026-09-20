@@ -27,7 +27,10 @@ export type BodyCompositionSummaryScreenProps = {
   /** @deprecated Prefer connectionActionForMetric. */
   connectionAction?: BodyCompositionConnectionAction;
   onPressCard: (href: string) => void;
-  onPressAddWeight: () => void;
+  /** Opens metric-specific manual entry (Weight / Body Fat / Lean Mass only). */
+  onPressAddMeasurementForMetric?: (metric: BodyMetricCardModel["metric"]) => void;
+  /** @deprecated Prefer onPressAddMeasurementForMetric. */
+  onPressAddWeight?: () => void;
   onPressConnectionAction?: () => void;
   onPressConnectionActionForMetric?: (metric: BodyMetricCardModel["metric"]) => void;
   /** User mass-unit preference — display only; toggles do not mutate it. */
@@ -67,7 +70,15 @@ function renderCard(
       key={card.metric}
       model={card}
       onPress={() => props.onPressCard(card.detailHref)}
-      onPressAddMeasurement={props.onPressAddWeight}
+      onPressAddMeasurement={() => {
+        if (props.onPressAddMeasurementForMetric) {
+          props.onPressAddMeasurementForMetric(card.metric);
+          return;
+        }
+        if (card.metric === "weight") {
+          props.onPressAddWeight?.();
+        }
+      }}
       connectionAction={connectionAction}
       onPressConnectionAction={() => {
         if (props.onPressConnectionActionForMetric) {
