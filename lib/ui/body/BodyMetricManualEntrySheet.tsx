@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { logBodyComposition, logWeight } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -117,11 +117,12 @@ export function BodyMetricManualEntrySheet(props: BodyMetricManualEntrySheetProp
     if (visible && !wasVisible) {
       setValueText("");
       setStatus({ state: "idle" });
-      const t = setTimeout(() => inputRef.current?.focus(), 350);
-      return () => clearTimeout(t);
     }
-    return undefined;
   }, [visible]);
+
+  const focusField = () => {
+    inputRef.current?.focus();
+  };
 
   const copy = metric != null ? METRIC_COPY[metric] : null;
 
@@ -233,6 +234,7 @@ export function BodyMetricManualEntrySheet(props: BodyMetricManualEntrySheetProp
       saving={status.state === "saving"}
       errorMessage={errorMessage}
       testID={`body-metric-manual-entry-${metric}`}
+      onPresented={focusField}
     >
       <Text style={styles.fieldLabel}>{copy.fieldLabel}</Text>
       <View style={styles.inputRow}>
@@ -250,8 +252,9 @@ export function BodyMetricManualEntrySheet(props: BodyMetricManualEntrySheetProp
           accessibilityLabel={copy.accessibilityLabel}
           testID={`body-metric-manual-entry-input-${metric}`}
           returnKeyType="done"
+          blurOnSubmit
           onSubmitEditing={() => {
-            if (canSave) void onSave();
+            Keyboard.dismiss();
           }}
         />
         {usesMassUnit ? (

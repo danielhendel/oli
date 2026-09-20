@@ -32,6 +32,10 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 20, left: 0, right: 0 }),
 }));
 
+jest.mock("@/lib/hooks/useBodyMetricEntryKeyboard", () => ({
+  useBodyMetricEntryKeyboard: () => ({ keyboardHeight: 0, keyboardVisible: false }),
+}));
+
 import { BodyMetricManualEntrySheet } from "@/lib/ui/body/BodyMetricManualEntrySheet";
 
 function findInput(

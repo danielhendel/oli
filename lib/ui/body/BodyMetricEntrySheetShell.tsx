@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
-  KeyboardAvoidingView,
+  Dimensions,
+  Keyboard,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +11,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useBodyMetricEntryKeyboard } from "@/lib/hooks/useBodyMetricEntryKeyboard";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
+import { resolveBodyMetricEntrySheetLayout } from "@/lib/ui/body/bodyMetricEntrySheetLayout";
 import {
   UI_CARD_ELEVATED_BORDER,
   UI_CARD_SURFACE,
@@ -35,66 +37,98 @@ export type BodyMetricEntrySheetShellProps = {
   testID?: string;
   /** Optional subtitle / imported correction help. */
   helpText?: string | null;
+  /** Called after the modal presentation animation completes (preferred autofocus hook). */
+  onPresented?: () => void;
 };
 
 /**
  * Shared premium bottom-sheet shell for Body metric manual entry.
- * Visual family matches {@link BodyAppleHealthConnectSheet}.
+ *
+ * Two intentional states:
+ * - Resting: content-height sheet, safe-area padding once, no dead gap
+ * - Editing: single keyboard-height bottom inset (no KeyboardAvoidingView)
  */
 export function BodyMetricEntrySheetShell(props: BodyMetricEntrySheetShellProps) {
   const insets = useSafeAreaInsets();
+  const { keyboardHeight } = useBodyMetricEntryKeyboard(props.visible);
   const primaryLabel = props.primaryLabel ?? "Save measurement";
   const savingLabel = props.savingLabel ?? "Saving…";
+
+  const layout = useMemo(() => {
+    const windowHeight = Dimensions.get("window").height;
+    return resolveBodyMetricEntrySheetLayout({
+      keyboardHeight,
+      safeAreaBottom: insets.bottom,
+      windowHeight,
+    });
+  }, [keyboardHeight, insets.bottom]);
+
+  const onRequestClose = () => {
+    Keyboard.dismiss();
+    props.onClose();
+  };
 
   return (
     <Modal
       visible={props.visible}
       transparent
       animationType="slide"
-      onRequestClose={props.onClose}
+      onRequestClose={onRequestClose}
+      onShow={() => {
+        props.onPresented?.();
+      }}
       testID={props.testID ?? "body-metric-entry-sheet"}
     >
       <View style={styles.root} accessibilityViewIsModal>
         <Pressable
           style={styles.backdrop}
-          onPress={props.onClose}
+          onPress={onRequestClose}
           accessibilityLabel="Dismiss measurement entry"
           accessibilityRole="button"
         />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          keyboardVerticalOffset={0}
-          style={styles.keyboardWrap}
+        <View
+          style={[
+            styles.sheet,
+            {
+              paddingBottom: layout.bottomPadding,
+              ...(layout.maxHeight != null ? { maxHeight: layout.maxHeight } : null),
+            },
+          ]}
+          onStartShouldSetResponder={() => true}
+          testID="body-metric-entry-sheet-panel"
+          // Expose layout state for focused tests without brittle pixels.
+          accessibilityHint={
+            layout.keyboardVisible ? "keyboard-editing" : "keyboard-resting"
+          }
         >
-          <View
-            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
-            onStartShouldSetResponder={() => true}
-            testID="body-metric-entry-sheet-panel"
+          <View style={styles.handle} accessibilityElementsHidden />
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            contentContainerStyle={styles.scrollContent}
+            style={styles.scroll}
+            testID="body-metric-entry-sheet-scroll"
           >
-            <View style={styles.handle} accessibilityElementsHidden />
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.scrollContent}
-              bounces={false}
+            <Text
+              style={styles.title}
+              accessibilityRole="header"
+              testID="body-metric-entry-sheet-title"
             >
-              <Text
-                style={styles.title}
-                accessibilityRole="header"
-                testID="body-metric-entry-sheet-title"
-              >
-                {props.title}
+              {props.title}
+            </Text>
+            {props.helpText ? (
+              <Text style={styles.helpText} testID="body-metric-entry-sheet-help">
+                {props.helpText}
               </Text>
-              {props.helpText ? (
-                <Text style={styles.helpText} testID="body-metric-entry-sheet-help">
-                  {props.helpText}
-                </Text>
-              ) : null}
+            ) : null}
 
-              <View style={styles.groupSurface} testID="body-metric-entry-sheet-group">
-                {props.children}
-              </View>
+            <View style={styles.groupSurface} testID="body-metric-entry-sheet-group">
+              {props.children}
+            </View>
 
+            <View style={styles.errorSlot} testID="body-metric-entry-sheet-error-slot">
               {props.errorMessage ? (
                 <Text
                   style={styles.error}
@@ -105,10 +139,13 @@ export function BodyMetricEntrySheetShell(props: BodyMetricEntrySheetShellProps)
                   {props.errorMessage}
                 </Text>
               ) : null}
-            </ScrollView>
+            </View>
 
             <Pressable
-              onPress={props.onSave}
+              onPress={() => {
+                Keyboard.dismiss();
+                props.onSave();
+              }}
               disabled={!props.canSave}
               style={({ pressed }) => [
                 styles.primaryBtn,
@@ -126,7 +163,7 @@ export function BodyMetricEntrySheetShell(props: BodyMetricEntrySheetShellProps)
             </Pressable>
 
             <Pressable
-              onPress={props.onClose}
+              onPress={onRequestClose}
               style={styles.secondaryBtn}
               accessibilityRole="button"
               accessibilityLabel="Cancel"
@@ -134,8 +171,8 @@ export function BodyMetricEntrySheetShell(props: BodyMetricEntrySheetShellProps)
             >
               <Text style={styles.secondaryLabel}>Cancel</Text>
             </Pressable>
-          </View>
-        </KeyboardAvoidingView>
+          </ScrollView>
+        </View>
       </View>
     </Modal>
   );
@@ -150,9 +187,6 @@ const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
   },
-  keyboardWrap: {
-    width: "100%",
-  },
   sheet: {
     backgroundColor: UI_CARD_SURFACE,
     borderTopLeftRadius: UI_DASH_CATEGORY_CARD_RADIUS,
@@ -161,7 +195,9 @@ const styles = StyleSheet.create({
     borderColor: UI_CARD_ELEVATED_BORDER,
     paddingHorizontal: 20,
     paddingTop: 10,
-    maxHeight: "88%",
+    // Resting height is content-driven — no percentage minHeight.
+    flexGrow: 0,
+    flexShrink: 1,
   },
   handle: {
     alignSelf: "center",
@@ -171,9 +207,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.22)",
     marginBottom: 14,
   },
+  scroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
   scrollContent: {
     gap: 14,
-    paddingBottom: 10,
+    paddingBottom: 4,
+    flexGrow: 0,
   },
   title: {
     color: UI_TEXT_PRIMARY,
@@ -196,6 +237,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 10,
   },
+  errorSlot: {
+    minHeight: 18,
+  },
   error: {
     color: "#FF8A80",
     fontSize: 13,
@@ -203,7 +247,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   primaryBtn: {
-    marginTop: 8,
     minHeight: 48,
     borderRadius: 14,
     backgroundColor: BODY_INDIGO,
@@ -226,7 +269,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
   },
   secondaryLabel: {
     color: UI_TEXT_SECONDARY,

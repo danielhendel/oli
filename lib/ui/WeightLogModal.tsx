@@ -1,6 +1,6 @@
 // lib/ui/WeightLogModal.tsx — Manual weight entry / edit (weight-only).
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { logWeight } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -95,11 +95,15 @@ export function WeightLogModal({
       setWeightText(display.toFixed(1).replace(/\.0$/, ""));
     } else if (!wasVisible) {
       setWeightText("");
-      const t = setTimeout(() => inputRef.current?.focus(), 350);
-      return () => clearTimeout(t);
     }
     return undefined;
   }, [visible, editTarget, prefState.preferences?.units?.mass, unit, resetMutations]);
+
+  const focusField = () => {
+    if (!editTarget) {
+      inputRef.current?.focus();
+    }
+  };
 
   const parsed = useMemo(() => {
     const w = parseManualEntryDecimal(weightText);
@@ -188,6 +192,7 @@ export function WeightLogModal({
       errorMessage={errorMessage}
       helpText={helpText}
       testID="weight-log-modal"
+      onPresented={focusField}
     >
       <Text style={styles.fieldLabel}>Weight</Text>
       <View style={styles.inputRow}>
@@ -205,8 +210,9 @@ export function WeightLogModal({
           accessibilityLabel="Weight"
           testID="weight-log-modal-input"
           returnKeyType="done"
+          blurOnSubmit
           onSubmitEditing={() => {
-            if (canSave) void onSave();
+            Keyboard.dismiss();
           }}
         />
         <View
