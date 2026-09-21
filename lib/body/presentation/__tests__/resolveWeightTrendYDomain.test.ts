@@ -1,25 +1,27 @@
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 
 describe("resolveWeightTrendYDomain", () => {
-  it("returns a padded domain around observed min/max (not zero)", () => {
+  it("uses clean 5 lb axis domain for mass/lb", () => {
     const domain = resolveWeightTrendYDomain({
-      valuesKg: [73.5, 74.0, 75.5, 74.3],
+      valuesKg: [162.1 / 2.2046226218, 166.5 / 2.2046226218],
       valueKind: "mass",
       unitLabel: "lb",
     });
-    expect(domain.displayMin).toBeGreaterThan(0);
-    expect(domain.displayMin).toBeLessThan(73.5);
-    expect(domain.displayMax).toBeGreaterThan(75.5);
+    // Domain snaps to 160–170 lb in kg.
+    expect(domain.displayMin * 2.2046226218).toBeCloseTo(160, 5);
+    expect(domain.displayMax * 2.2046226218).toBeCloseTo(170, 5);
   });
 
-  it("enforces a minimum span so tiny changes are not exaggerated", () => {
+  it("uses clean 2 kg axis domain for mass/kg", () => {
     const domain = resolveWeightTrendYDomain({
-      valuesKg: [74.0, 74.05, 74.1],
+      valuesKg: [73.2, 75.8],
       valueKind: "mass",
-      unitLabel: "lb",
+      unitLabel: "kg",
     });
-    const spanLb = (domain.displayMax - domain.displayMin) * 2.2046226218;
-    expect(spanLb).toBeGreaterThanOrEqual(11.5);
+    expect(domain.displayMin % 2).toBe(0);
+    expect(domain.displayMax % 2).toBe(0);
+    expect(domain.displayMin).toBeLessThanOrEqual(72);
+    expect(domain.displayMax).toBeGreaterThanOrEqual(76);
   });
 
   it("handles one point without inventing a zero floor", () => {
@@ -32,13 +34,23 @@ describe("resolveWeightTrendYDomain", () => {
     expect(domain.displayMax).toBeGreaterThan(domain.displayMin);
   });
 
+  it("pads generic metrics without mass steps", () => {
+    const domain = resolveWeightTrendYDomain({
+      valuesKg: [18.2, 19.1],
+      valueKind: "generic",
+      unitLabel: "%",
+    });
+    expect(domain.displayMin).toBeLessThan(18.2);
+    expect(domain.displayMax).toBeGreaterThan(19.1);
+  });
+
   it("ignores non-finite / non-positive values", () => {
     const domain = resolveWeightTrendYDomain({
       valuesKg: [0, Number.NaN, 74, 75],
       valueKind: "mass",
       unitLabel: "kg",
     });
-    expect(domain.displayMin).toBeLessThan(74);
-    expect(domain.displayMax).toBeGreaterThan(75);
+    expect(domain.displayMin).toBeLessThanOrEqual(74);
+    expect(domain.displayMax).toBeGreaterThanOrEqual(75);
   });
 });
