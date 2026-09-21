@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricTrendDetailModel } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
 import { buildBodyMetricTrendAccessibilitySummary } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
+import { buildObservedDateExtent } from "@/lib/body/presentation/buildObservedDateExtent";
+import { formatWeightTrendCurrentDate } from "@/lib/body/presentation/formatWeightTrendDates";
 import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
-import { formatBodyDayLabel } from "@/lib/ui/body/formatBodyDayLabel";
 import { WeightTrendStatsPanel } from "@/lib/ui/body/WeightTrendStatsPanel";
 import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { WeightRangeSelector } from "@/lib/ui/WeightRangeSelector";
@@ -27,6 +28,18 @@ const RANGE_LABELS: Record<WeightRangeKey, string> = {
   "3Y": "the past 3 years",
   "5Y": "the past 5 years",
   All: "all time",
+};
+
+const RANGE_SHORT: Record<WeightRangeKey, string> = {
+  "7D": "7D",
+  "30D": "30D",
+  "90D": "90D",
+  "6M": "6M",
+  "1Y": "1Y",
+  YTD: "YTD",
+  "3Y": "3Y",
+  "5Y": "5Y",
+  All: "All",
 };
 
 export type BodyMetricTrendDetailViewProps = {
@@ -73,6 +86,11 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
   const lowLabel =
     displayModel.low != null ? props.formatValue(displayModel.low) : null;
 
+  const observedExtent = useMemo(
+    () => buildObservedDateExtent(displayModel.points),
+    [displayModel.points],
+  );
+
   const a11y = buildBodyMetricTrendAccessibilitySummary({
     metricTitle: props.metricTitle,
     rangeLabel: RANGE_LABELS[props.range] ?? props.range,
@@ -87,6 +105,10 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
   const showTrend =
     displayModel.latest != null &&
     (displayModel.status === "ready" || displayModel.status === "insufficient");
+
+  const rangeShort = RANGE_SHORT[props.range] ?? props.range;
+  const changeDisplay = changeLabel ?? "—";
+  const changePeriodLabel = `${rangeShort} change`;
 
   return (
     <View
@@ -130,16 +152,27 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
       ) : null}
 
       {showTrend ? (
-        <View style={styles.latestBlock} testID="body-metric-trend-latest">
-          <Text
-            style={styles.latestValue}
-            accessibilityLabel={`Latest ${latestLabel ?? ""}`}
+        <View style={styles.currentRow} testID="body-metric-trend-latest">
+          <View style={styles.currentLeft}>
+            <Text
+              style={styles.latestValue}
+              accessibilityLabel={`Latest ${latestLabel ?? ""}`}
+            >
+              {latestLabel}
+            </Text>
+            <Text style={styles.latestDate}>
+              {formatWeightTrendCurrentDate(displayModel.latest!.dayKey)}
+            </Text>
+          </View>
+          <View
+            style={styles.currentRight}
+            testID="body-metric-trend-period-change"
+            accessible
+            accessibilityLabel={`${RANGE_LABELS[props.range] ?? props.range} change, ${changeDisplay}`}
           >
-            {latestLabel}
-          </Text>
-          <Text style={styles.latestDate}>
-            {formatBodyDayLabel(displayModel.latest!.dayKey)}
-          </Text>
+            <Text style={styles.changeValue}>{changeDisplay}</Text>
+            <Text style={styles.changePeriod}>{changePeriodLabel}</Text>
+          </View>
         </View>
       ) : null}
 
@@ -159,6 +192,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
             emphasizeLatestPoint
             accessibilityLabel={a11y}
             chartHeight={320}
+            observedExtent={observedExtent}
           />
           {displayModel.status === "insufficient" ? (
             <Text style={styles.insufficientNote} testID="body-metric-trend-insufficient">
@@ -172,12 +206,6 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
         <View style={styles.statsWrap}>
           <WeightTrendStatsPanel
             rows={[
-              {
-                key: "change",
-                label: "Change",
-                value: changeLabel ?? "—",
-                testID: "body-metric-trend-stat-change",
-              },
               {
                 key: "average",
                 label: "Average",
@@ -208,9 +236,21 @@ const styles = StyleSheet.create({
   root: {
     gap: 0,
   },
-  latestBlock: {
+  currentRow: {
     marginTop: 22,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  currentLeft: {
+    flexShrink: 1,
     gap: 4,
+  },
+  currentRight: {
+    alignItems: "flex-end",
+    gap: 4,
+    paddingTop: 6,
   },
   latestValue: {
     color: UI_TEXT_PRIMARY,
@@ -221,6 +261,17 @@ const styles = StyleSheet.create({
   latestDate: {
     color: UI_TEXT_SECONDARY,
     fontSize: 15,
+    fontWeight: "500",
+  },
+  changeValue: {
+    color: UI_TEXT_PRIMARY,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  changePeriod: {
+    color: UI_TEXT_MUTED,
+    fontSize: 13,
     fontWeight: "500",
   },
   chartWrap: {

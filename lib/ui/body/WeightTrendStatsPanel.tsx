@@ -10,7 +10,7 @@ import {
 } from "@/lib/ui/theme/uiTokens";
 
 export type WeightTrendStatsRow = {
-  readonly key: "change" | "average" | "high" | "low";
+  readonly key: "average" | "high" | "low";
   readonly label: string;
   readonly value: string;
   readonly testID: string;
