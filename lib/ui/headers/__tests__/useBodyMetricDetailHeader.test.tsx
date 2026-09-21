@@ -30,6 +30,7 @@ describe("BodyMetricDetailHeaderLeft", () => {
     expect(cluster.props.style.flexDirection).toBe("row");
     const back = tree.root.findByProps({ testID: "body-metric-detail-header-back" });
     expect(back.props.accessibilityLabel).toBe("Back to Body Composition");
+    expect(back.props.style).toMatchObject({ marginLeft: 0 });
     const title = tree.root.findByProps({ testID: "body-metric-detail-header-title" });
     expect(title.props.children).toBe("Weight");
     expect(title.props.accessibilityRole).toBe("header");

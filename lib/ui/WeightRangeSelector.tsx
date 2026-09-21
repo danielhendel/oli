@@ -1,13 +1,9 @@
-import {
-  UI_TEXT_MUTED,
-  UI_TEXT_PRIMARY,
-} from "@/lib/ui/theme/uiTokens";
-import { SYSTEM_ACCENT_OVERLAY_10 } from "@/lib/ui/theme/systemAccent";
-
-// lib/ui/WeightRangeSelector.tsx — Light premium period control above the hero chart.
+// lib/ui/WeightRangeSelector.tsx — Period control matching Weight-card lb/BMI segmented chrome.
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
+
 import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
+import { bodySegmentedControlStyles } from "@/lib/ui/body/bodySegmentedControlChrome";
 
 const RANGES: { key: WeightRangeKey; label: string }[] = [
   { key: "7D", label: "7D" },
@@ -28,7 +24,7 @@ export type WeightRangeSelectorProps = {
 export function WeightRangeSelector({ value, onChange }: WeightRangeSelectorProps) {
   return (
     <View
-      style={styles.wrapper}
+      style={[bodySegmentedControlStyles.track, styles.track]}
       accessibilityRole="tablist"
       testID="weight-range-selector"
     >
@@ -38,14 +34,27 @@ export function WeightRangeSelector({ value, onChange }: WeightRangeSelectorProp
           <Pressable
             key={key}
             onPress={() => onChange(key)}
-            style={[styles.segment, selected && styles.segmentActive]}
+            style={[
+              bodySegmentedControlStyles.segment,
+              selected && bodySegmentedControlStyles.segmentActive,
+            ]}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             accessibilityLabel={`Range ${label}`}
             testID={`weight-range-${key}`}
-            hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
+            hitSlop={{ top: 4, bottom: 4, left: 1, right: 1 }}
           >
-            <Text style={[styles.label, selected && styles.labelActive]}>{label}</Text>
+            <Text
+              style={[
+                bodySegmentedControlStyles.text,
+                selected && bodySegmentedControlStyles.textActive,
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              {label}
+            </Text>
           </Pressable>
         );
       })}
@@ -54,30 +63,7 @@ export function WeightRangeSelector({ value, onChange }: WeightRangeSelectorProp
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "transparent",
-    gap: 2,
-  },
-  segment: {
-    flex: 1,
-    minHeight: 44,
-    paddingVertical: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 999,
-  },
-  segmentActive: {
-    backgroundColor: SYSTEM_ACCENT_OVERLAY_10,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: UI_TEXT_MUTED,
-  },
-  labelActive: {
-    color: UI_TEXT_PRIMARY,
-    fontWeight: "700",
+  track: {
+    width: "100%",
   },
 });

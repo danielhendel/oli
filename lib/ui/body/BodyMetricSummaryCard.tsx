@@ -8,6 +8,7 @@ import type {
   WeightPrimaryView,
 } from "@/lib/body/presentation/bodyMetricPrimaryViews";
 import { BodyAppleHealthSourceIcon } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
+import { bodySegmentedControlStyles } from "@/lib/ui/body/bodySegmentedControlChrome";
 import { BodyCompositionShareChart } from "@/lib/ui/body/BodyCompositionShareChart";
 import { BodyMetricClassificationChart } from "@/lib/ui/body/BodyMetricClassificationChart";
 import { BodyMetricEducationalReferenceChart } from "@/lib/ui/body/BodyMetricEducationalReferenceChart";
@@ -63,13 +64,17 @@ function SegmentedViewControl<T extends string>(props: {
   testID: string;
 }) {
   return (
-    <View style={styles.unitToggle} testID={props.testID} accessibilityRole="tablist">
+    <View style={bodySegmentedControlStyles.track} testID={props.testID} accessibilityRole="tablist">
       {props.options.map((option) => {
         const selected = props.selected === option.id;
         return (
           <Pressable
             key={option.id}
-            style={[styles.unitToggleSeg, selected && styles.unitToggleSegActive]}
+            style={[
+              bodySegmentedControlStyles.segment,
+              bodySegmentedControlStyles.segmentComfortable,
+              selected && bodySegmentedControlStyles.segmentActive,
+            ]}
             onPress={(e) => {
               e.stopPropagation?.();
               if (!selected) props.onChange(option.id);
@@ -83,7 +88,12 @@ function SegmentedViewControl<T extends string>(props: {
             }
             testID={`${props.testID}-${option.id}`}
           >
-            <Text style={[styles.unitToggleText, selected && styles.unitToggleTextActive]}>
+            <Text
+              style={[
+                bodySegmentedControlStyles.text,
+                selected && bodySegmentedControlStyles.textActive,
+              ]}
+            >
               {option.label}
             </Text>
           </Pressable>
@@ -452,33 +462,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-  },
-  unitToggle: {
-    flexDirection: "row",
-    backgroundColor: "rgba(120,120,128,0.16)",
-    borderRadius: 8,
-    padding: 2,
-    minHeight: 44,
-    alignItems: "center",
-  },
-  unitToggleSeg: {
-    minWidth: 40,
-    minHeight: 40,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  unitToggleSegActive: {
-    backgroundColor: UI_CARD_SURFACE,
-  },
-  unitToggleText: {
-    color: UI_TEXT_SECONDARY,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  unitToggleTextActive: {
-    color: UI_TEXT_PRIMARY,
   },
   chevron: {
     color: UI_TEXT_MUTED,

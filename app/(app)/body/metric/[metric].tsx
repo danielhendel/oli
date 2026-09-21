@@ -190,14 +190,14 @@ export default function BodyMetricDetailScreen() {
 
   if (!metric || historyMetric == null) {
     return (
-      <ScreenContainer>
+      <ScreenContainer edges={[]} padded={false}>
         <ErrorState message="Unknown metric" />
       </ScreenContainer>
     );
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer edges={[]} padded={false}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         testID="body-metric-detail-scroll"
@@ -248,7 +248,8 @@ export default function BodyMetricDetailScreen() {
 const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    // Header already owns top Safe Area — keep only a tight content rhythm.
+    paddingTop: 4,
     paddingBottom: 40,
     gap: 20,
     backgroundColor: UI_SCREEN_BG,

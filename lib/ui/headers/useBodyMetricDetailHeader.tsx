@@ -61,6 +61,9 @@ export function useBodyMetricDetailHeader(props: BodyMetricDetailHeaderProps): v
       headerTitleAlign: "left",
       title: "",
       headerTitle: () => null,
+      // Compact native bar — avoid extra left inset stacking with HeaderBackButton margin.
+      headerLeftContainerStyle: { paddingHorizontal: 0 },
+      headerRightContainerStyle: { paddingRight: 10 },
       headerLeft: () => (
         <BodyMetricDetailHeaderLeft
           title={props.title}
@@ -91,7 +94,8 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   back: {
-    marginLeft: 8,
+    // HeaderBackButton already applies marginLeft: 12 — do not stack another inset.
+    marginLeft: 0,
   },
   title: {
     color: UI_TEXT_PRIMARY,
