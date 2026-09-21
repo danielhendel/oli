@@ -2,6 +2,7 @@ import {
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
 } from "@/lib/ui/theme/uiTokens";
+import { SYSTEM_ACCENT_OVERLAY_10 } from "@/lib/ui/theme/systemAccent";
 
 // lib/ui/WeightRangeSelector.tsx — Light premium period control above the hero chart.
 import React from "react";
@@ -68,7 +69,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   segmentActive: {
-    backgroundColor: "rgba(255,255,255,0.10)",
+    backgroundColor: SYSTEM_ACCENT_OVERLAY_10,
   },
   label: {
     fontSize: 13,

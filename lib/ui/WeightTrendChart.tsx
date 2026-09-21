@@ -17,25 +17,29 @@ import Svg, {
   Stop,
   Text as SvgText,
 } from "react-native-svg";
+import { buildWeightAxisTicks } from "@/lib/body/presentation/buildWeightAxisTicks";
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
-import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
+import {
+  SYSTEM_ACCENT_LUMINOUS,
+  SYSTEM_ACCENT_LUMINOUS_GLOW,
+  SYSTEM_ACCENT_NAVY_DEPTH,
+} from "@/lib/ui/theme/systemAccent";
 
-const PADDING = { left: 40, right: 10, top: 12, bottom: 36 };
+const PADDING = { left: 40, right: 10, top: 14, bottom: 36 };
 const Y_LABEL_FONT_SIZE = 11;
 const Y_LABEL_COLOR = UI_TEXT_MUTED;
-/** Minimum vertical gap (px) between High and Low labels to avoid overlap. */
-const Y_LABEL_MIN_GAP_PX = 16;
 const X_LABEL_FONT_SIZE = 11;
 /** Hero chart height — visually dominant on Weight detail. */
-const DEFAULT_CHART_HEIGHT = 300;
+const DEFAULT_CHART_HEIGHT = 320;
 const DOT_R = 5.5;
+const DOT_GLOW_R = 11;
 const CROSSHAIR_COLOR = "rgba(255,255,255,0.28)";
 
-const ACCENT_BLUE = SYSTEM_ACCENT;
-const LINE_WIDTH = 2.75;
-const GRID_COLOR = "rgba(255,255,255,0.05)";
-const LBS_PER_KG = 2.2046226218;
+const ACCENT_BLUE = SYSTEM_ACCENT_LUMINOUS;
+const LINE_WIDTH = 2.85;
+const LINE_GLOW_WIDTH = 7;
+const GRID_COLOR = "rgba(140,168,220,0.10)";
 /** Max points used to draw path/area/dots; touch and tooltip still use full data. */
 const MAX_RENDER_POINTS = 80;
 
@@ -368,6 +372,15 @@ export function WeightTrendChart({
     unitLabel,
   });
 
+  const massAxis =
+    valueKind === "mass" && (unitLabel === "lb" || unitLabel === "kg")
+      ? buildWeightAxisTicks({
+          minKg: Math.min(...processed.map((p) => p.weightKg)),
+          maxKg: Math.max(...processed.map((p) => p.weightKg)),
+          unit: unitLabel,
+        })
+      : null;
+
   const rangeDisplay = displayMax - displayMin || 0.1;
 
   /** X-axis: linear scale from tMs (Date.parse(observedAt)) domain to screen; eliminates same-day vertical stacking. */
@@ -411,27 +424,13 @@ export function WeightTrendChart({
 
   const baselineY = PADDING.top + chartHeight;
 
-  /** Actual data min/max (kg) from current points; used for Y labels and dashed guide lines. */
+  /** Generic (non-mass) fallback labels at observed high/low. */
   const actualMinW =
     processed.length > 0 ? Math.min(...processed.map((p) => p.weightKg)) : displayMin;
   const actualMaxW =
     processed.length > 0 ? Math.max(...processed.map((p) => p.weightKg)) : displayMax;
-  const clampedHigh = Math.max(displayMin, Math.min(displayMax, actualMaxW));
-  const clampedLow = Math.max(displayMin, Math.min(displayMax, actualMinW));
-  const yHigh = toChartY(clampedHigh);
-  const yLow = toChartY(clampedLow);
-  /** Exact values, one decimal; no unit suffix. */
-  const highLabel =
-    valueKind === "mass" && unitLabel === "lb"
-      ? (actualMaxW * LBS_PER_KG).toFixed(1)
-      : actualMaxW.toFixed(1);
-  const lowLabel =
-    valueKind === "mass" && unitLabel === "lb"
-      ? (actualMinW * LBS_PER_KG).toFixed(1)
-      : actualMinW.toFixed(1);
-  const isSparseLabels = processed.length < 2;
-  const singleValueLabel = isSparseLabels ? highLabel : null;
-  const labelsTooClose = Math.abs(yHigh - yLow) < Y_LABEL_MIN_GAP_PX;
+  const genericHighLabel = actualMaxW.toFixed(1);
+  const genericLowLabel = actualMinW.toFixed(1);
 
   /** X-axis: data extents only (trust-first). */
   const dataStartMs = minT;
@@ -449,6 +448,14 @@ export function WeightTrendChart({
     !isSparse && renderPoints.length >= 2
       ? `${pathD} L ${renderPoints[renderPoints.length - 1]!.cx} ${baselineY} L ${renderPoints[0]!.cx} ${baselineY} Z`
       : "";
+
+  const yAxisTicks =
+    massAxis?.status === "ready"
+      ? massAxis.ticks
+      : [
+          { valueKg: actualMaxW, label: genericHighLabel },
+          { valueKg: actualMinW, label: genericLowLabel },
+        ].filter((t, i, arr) => i === 0 || t.label !== arr[0]!.label);
 
   /** Nearest-point selection by tMs (timestamp); touch X is mapped to data time then compared to each point's x (observedAt ms). */
   const handleTouch = useCallback(
@@ -474,6 +481,11 @@ export function WeightTrendChart({
   const selected = selectedIndex != null ? pointsWithCoords[selectedIndex] ?? null : null;
   const selPoint = selectedIndex != null ? processed[selectedIndex] ?? null : null;
 
+  const latestPt =
+    emphasizeLatestPoint && pointsWithCoords.length > 0
+      ? pointsWithCoords[pointsWithCoords.length - 1]!
+      : null;
+
   return (
     <View
       style={[styles.container, { minHeight: CHART_HEIGHT }]}
@@ -493,16 +505,17 @@ export function WeightTrendChart({
         <Svg width={layout.width} height={CHART_HEIGHT} style={styles.svg}>
           <Defs>
             <LinearGradient id="weightTrendAreaFill" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor={accentColor} stopOpacity="0.22" />
-              <Stop offset="100%" stopColor={accentColor} stopOpacity="0.02" />
+              <Stop offset="0%" stopColor={accentColor} stopOpacity="0.26" />
+              <Stop offset="45%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.10" />
+              <Stop offset="100%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.01" />
             </LinearGradient>
           </Defs>
-          {/* Extremely subtle horizontal grid — 3 lines */}
-          {[0.33, 0.66, 1].map((frac) => {
-            const y = PADDING.top + chartHeight * frac;
+          {/* Horizontal grid aligned to Y-axis ticks */}
+          {yAxisTicks.map((tick) => {
+            const y = toChartY(tick.valueKg);
             return (
               <Path
-                key={frac}
+                key={`grid-${tick.label}`}
                 d={`M ${PADDING.left} ${y} L ${layout.width - PADDING.right} ${y}`}
                 stroke={GRID_COLOR}
                 strokeWidth={1}
@@ -510,48 +523,37 @@ export function WeightTrendChart({
               />
             );
           })}
-          {/* Y-axis labels at observed high/low — muted, no decorative dashed guides */}
-          {!isSparseLabels && (
-            <>
+          {/* Clean Y-axis tick labels */}
+          {yAxisTicks.map((tick) => {
+            const y = toChartY(tick.valueKg);
+            return (
               <SvgText
+                key={`ylab-${tick.label}`}
                 x={4}
-                y={yHigh}
+                y={y}
                 fontSize={Y_LABEL_FONT_SIZE}
                 fill={Y_LABEL_COLOR}
                 textAnchor="start"
                 alignmentBaseline="middle"
               >
-                {highLabel}
+                {tick.label}
               </SvgText>
-              {!labelsTooClose && (
-                <SvgText
-                  x={4}
-                  y={yLow}
-                  fontSize={Y_LABEL_FONT_SIZE}
-                  fill={Y_LABEL_COLOR}
-                  textAnchor="start"
-                  alignmentBaseline="middle"
-                >
-                  {lowLabel}
-                </SvgText>
-              )}
-            </>
-          )}
-          {isSparseLabels && singleValueLabel != null && (
-            <SvgText
-              x={4}
-              y={yHigh}
-              fontSize={Y_LABEL_FONT_SIZE}
-              fill={Y_LABEL_COLOR}
-              textAnchor="start"
-              alignmentBaseline="middle"
-            >
-              {singleValueLabel}
-            </SvgText>
-          )}
+            );
+          })}
           {/* Soft area fill under line */}
           {areaD ? (
             <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
+          ) : null}
+          {/* Soft luminous halo under the crisp line */}
+          {pathD ? (
+            <Path
+              d={pathD}
+              stroke={SYSTEM_ACCENT_LUMINOUS_GLOW}
+              strokeWidth={LINE_GLOW_WIDTH}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           ) : null}
           {/* Line */}
           {pathD ? (
@@ -564,16 +566,24 @@ export function WeightTrendChart({
               strokeLinejoin="round"
             />
           ) : null}
-          {/* Latest observation marker */}
-          {emphasizeLatestPoint && pointsWithCoords.length > 0 ? (
-            <Circle
-              cx={pointsWithCoords[pointsWithCoords.length - 1]!.cx}
-              cy={pointsWithCoords[pointsWithCoords.length - 1]!.cy}
-              r={DOT_R}
-              fill={accentColor}
-              stroke="#FFFFFF"
-              strokeWidth={2}
-            />
+          {/* Latest observation marker — white ring + luminous center + soft glow */}
+          {latestPt != null ? (
+            <>
+              <Circle
+                cx={latestPt.cx}
+                cy={latestPt.cy}
+                r={DOT_GLOW_R}
+                fill={SYSTEM_ACCENT_LUMINOUS_GLOW}
+              />
+              <Circle
+                cx={latestPt.cx}
+                cy={latestPt.cy}
+                r={DOT_R}
+                fill={accentColor}
+                stroke="#FFFFFF"
+                strokeWidth={2.25}
+              />
+            </>
           ) : null}
           {/* Touch selection marker */}
           {touchX != null && selected != null &&

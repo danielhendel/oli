@@ -5,10 +5,12 @@ import type { BodyMetricTrendDetailModel } from "@/lib/body/presentation/buildBo
 import { buildBodyMetricTrendAccessibilitySummary } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
 import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
 import { formatBodyDayLabel } from "@/lib/ui/body/formatBodyDayLabel";
+import { WeightTrendStatsPanel } from "@/lib/ui/body/WeightTrendStatsPanel";
 import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { WeightRangeSelector } from "@/lib/ui/WeightRangeSelector";
 import { WeightTrendChart } from "@/lib/ui/WeightTrendChart";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
+import { SYSTEM_ACCENT_LUMINOUS } from "@/lib/ui/theme/systemAccent";
 import {
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
@@ -43,15 +45,6 @@ export type BodyMetricTrendDetailViewProps = {
   retainChartWhileLoading?: boolean;
   previousReadyModel?: BodyMetricTrendDetailModel | null;
 };
-
-function StatCell(props: { label: string; value: string; testID: string }) {
-  return (
-    <View style={styles.statCell} testID={props.testID}>
-      <Text style={styles.statValue}>{props.value}</Text>
-      <Text style={styles.statLabel}>{props.label}</Text>
-    </View>
-  );
-}
 
 /**
  * Hero longitudinal trend surface for Body metric detail.
@@ -90,6 +83,10 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
     lowLabel,
     status: displayModel.status,
   });
+
+  const showTrend =
+    displayModel.latest != null &&
+    (displayModel.status === "ready" || displayModel.status === "insufficient");
 
   return (
     <View
@@ -132,8 +129,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
         </View>
       ) : null}
 
-      {displayModel.latest != null &&
-      (displayModel.status === "ready" || displayModel.status === "insufficient") ? (
+      {showTrend ? (
         <View style={styles.latestBlock} testID="body-metric-trend-latest">
           <Text
             style={styles.latestValue}
@@ -142,13 +138,12 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
             {latestLabel}
           </Text>
           <Text style={styles.latestDate}>
-            {formatBodyDayLabel(displayModel.latest.dayKey)}
+            {formatBodyDayLabel(displayModel.latest!.dayKey)}
           </Text>
         </View>
       ) : null}
 
-      {displayModel.points.length > 0 &&
-      (displayModel.status === "ready" || displayModel.status === "insufficient") ? (
+      {displayModel.points.length > 0 && showTrend ? (
         <View style={styles.chartWrap} testID="body-metric-trend-chart">
           <WeightTrendChart
             points={[...displayModel.points]}
@@ -160,10 +155,10 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
               return suffix ? label.replace(` ${suffix}`, "") : label;
             }}
             range={props.range}
-            accentColor={BODY_INDIGO}
+            accentColor={SYSTEM_ACCENT_LUMINOUS}
             emphasizeLatestPoint
             accessibilityLabel={a11y}
-            chartHeight={300}
+            chartHeight={320}
           />
           {displayModel.status === "insufficient" ? (
             <Text style={styles.insufficientNote} testID="body-metric-trend-insufficient">
@@ -173,28 +168,35 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
         </View>
       ) : null}
 
-      {displayModel.latest != null &&
-      (displayModel.status === "ready" || displayModel.status === "insufficient") ? (
-        <View style={styles.summaryRow} testID="body-metric-trend-summary">
-          <StatCell
-            label="Change"
-            value={changeLabel ?? "—"}
-            testID="body-metric-trend-stat-change"
-          />
-          <StatCell
-            label="Average"
-            value={averageLabel ?? "—"}
-            testID="body-metric-trend-stat-average"
-          />
-          <StatCell
-            label="High"
-            value={highLabel ?? "—"}
-            testID="body-metric-trend-stat-high"
-          />
-          <StatCell
-            label="Low"
-            value={lowLabel ?? "—"}
-            testID="body-metric-trend-stat-low"
+      {showTrend ? (
+        <View style={styles.statsWrap}>
+          <WeightTrendStatsPanel
+            rows={[
+              {
+                key: "change",
+                label: "Change",
+                value: changeLabel ?? "—",
+                testID: "body-metric-trend-stat-change",
+              },
+              {
+                key: "average",
+                label: "Average",
+                value: averageLabel ?? "—",
+                testID: "body-metric-trend-stat-average",
+              },
+              {
+                key: "high",
+                label: "High",
+                value: highLabel ?? "—",
+                testID: "body-metric-trend-stat-high",
+              },
+              {
+                key: "low",
+                label: "Low",
+                value: lowLabel ?? "—",
+                testID: "body-metric-trend-stat-low",
+              },
+            ]}
           />
         </View>
       ) : null}
@@ -207,7 +209,7 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   latestBlock: {
-    marginTop: 20,
+    marginTop: 22,
     gap: 4,
   },
   latestValue: {
@@ -222,34 +224,12 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   chartWrap: {
-    marginTop: 16,
-    minHeight: 300,
-    // No card chrome — plot sits on the page canvas.
+    marginTop: 14,
+    minHeight: 320,
     backgroundColor: "transparent",
   },
-  summaryRow: {
-    marginTop: 18,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  statCell: {
-    flexGrow: 1,
-    flexBasis: "22%",
-    minWidth: 72,
-    gap: 3,
-    paddingVertical: 4,
-  },
-  statValue: {
-    color: UI_TEXT_PRIMARY,
-    fontSize: 17,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-  },
-  statLabel: {
-    color: UI_TEXT_MUTED,
-    fontSize: 12,
-    fontWeight: "500",
+  statsWrap: {
+    marginTop: 24,
   },
   emptyBlock: {
     gap: 12,

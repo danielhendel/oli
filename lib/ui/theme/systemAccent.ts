@@ -6,10 +6,24 @@
  */
 export const SYSTEM_ACCENT = "#3A5BDB";
 
+/**
+ * Brighter electric blue for luminous Weight hero trend line on dark canvas.
+ * Same family as {@link SYSTEM_ACCENT}; not a second brand color.
+ */
+export const SYSTEM_ACCENT_LUMINOUS = "#5B8CFF";
+
+/** Deep navy stop for Weight trend area gradients (fades toward canvas). */
+export const SYSTEM_ACCENT_NAVY_DEPTH = "#152048";
+
 /** RGB components for `SYSTEM_ACCENT` (#3A5BDB → 58, 91, 219). */
 const R = 58;
 const G = 91;
 const B = 219;
+
+/** RGB for luminous accent (#5B8CFF → 91, 140, 255). */
+const LR = 91;
+const LG = 140;
+const LB = 255;
 
 /** Inner disk wash (~14% opacity) — Body / Nutrition ring fills. */
 export const SYSTEM_ACCENT_FILL_14 = `rgba(${R}, ${G}, ${B}, 0.14)`;
@@ -30,6 +44,9 @@ export const SYSTEM_ACCENT_MIXED_MARK = "#2D4BB3";
 
 /** Selected row / subtle highlight on white (e.g. gym picker, overflow menus). */
 export const SYSTEM_ACCENT_OVERLAY_08 = `rgba(${R}, ${G}, ${B}, 0.08)`;
+
+/** Soft halo under Weight trend line (~22% luminous). */
+export const SYSTEM_ACCENT_LUMINOUS_GLOW = `rgba(${LR}, ${LG}, ${LB}, 0.22)`;
 
 /**
  * Second numeric series (e.g. volume vs load) — cool neutral slate (not accent blue, not success green).
