@@ -18,6 +18,8 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 import { buildWeightAxisTicks } from "@/lib/body/presentation/buildWeightAxisTicks";
+import type { ObservedDateExtent } from "@/lib/body/presentation/buildObservedDateExtent";
+import { formatWeightTrendObservedAxisLabels } from "@/lib/body/presentation/formatWeightTrendDates";
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
 import {
@@ -160,128 +162,6 @@ function parseTimestampMs(iso: string): number | null {
   return Number.isFinite(ms) ? ms : null;
 }
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-type XTick = { tMs: number; label: string; anchor: "start" | "middle" | "end" };
-
-/** X-axis ticks from actual data extents only (trust-first; no labels where there is no data). */
-function ticksForRangeUsingData(
-  range: WeightRangeKey,
-  dataStartMs: number,
-  dataEndMs: number,
-  processedLength: number,
-): XTick[] {
-  if (processedLength < 2) return [];
-  const ticks: XTick[] = [];
-
-  if (range === "3Y" || range === "5Y" || range === "All") {
-    ticks.push(
-      {
-        tMs: dataStartMs,
-        label: new Date(dataStartMs).toLocaleDateString(undefined, { year: "numeric" }),
-        anchor: "start",
-      },
-      {
-        tMs: dataEndMs,
-        label: new Date(dataEndMs).toLocaleDateString(undefined, { year: "numeric" }),
-        anchor: "end",
-      },
-    );
-    return ticks;
-  }
-
-  if (range === "1Y" || range === "YTD") {
-    const midT = dataStartMs + (dataEndMs - dataStartMs) / 2;
-    const triple = [dataStartMs, midT, dataEndMs] as const;
-    triple.forEach((tMs, i) => {
-      ticks.push({
-        tMs,
-        label: new Date(tMs).toLocaleDateString(undefined, { month: "short" }),
-        anchor: i === 0 ? "start" : i === 2 ? "end" : "middle",
-      });
-    });
-    return ticks;
-  }
-
-  if (range === "6M") {
-    const start = new Date(dataStartMs);
-    start.setDate(1);
-    start.setHours(0, 0, 0, 0);
-    let t = start.getTime();
-    if (t < dataStartMs) {
-      start.setMonth(start.getMonth() + 1);
-      t = start.getTime();
-    }
-    const monthTicks: { tMs: number; label: string }[] = [];
-    while (t <= dataEndMs) {
-      monthTicks.push({
-        tMs: t,
-        label: new Date(t).toLocaleDateString(undefined, { month: "short" }),
-      });
-      start.setMonth(start.getMonth() + 1);
-      t = start.getTime();
-    }
-    if (monthTicks.length === 0) return [];
-    let toShow = monthTicks;
-    if (monthTicks.length > 6) {
-      const step = Math.max(1, Math.floor((monthTicks.length - 1) / 4));
-      toShow = [monthTicks[0]!];
-      for (let i = step; i < monthTicks.length - 1; i += step) toShow.push(monthTicks[i]!);
-      toShow.push(monthTicks[monthTicks.length - 1]!);
-    }
-    toShow.forEach(({ tMs, label }, i) => {
-      ticks.push({
-        tMs,
-        label,
-        anchor: i === 0 ? "start" : i === toShow.length - 1 ? "end" : "middle",
-      });
-    });
-    return ticks;
-  }
-
-  if (range === "30D" || range === "90D") {
-    const midT = dataStartMs + (dataEndMs - dataStartMs) / 2;
-    const triple = [dataStartMs, midT, dataEndMs] as const;
-    triple.forEach((tMs, i) => {
-      ticks.push({
-        tMs,
-        label: new Date(tMs).toLocaleDateString(undefined, {
-          month: "short",
-          day: "numeric",
-        }),
-        anchor: i === 0 ? "start" : i === 2 ? "end" : "middle",
-      });
-    });
-    return ticks;
-  }
-
-  if (range === "7D") {
-    const spanDays = (dataEndMs - dataStartMs) / MS_PER_DAY;
-    if (spanDays > 8) return [];
-    const dStart = new Date(dataStartMs);
-    dStart.setHours(0, 0, 0, 0);
-    const startDayMs = dStart.getTime();
-    const dEnd = new Date(dataEndMs);
-    dEnd.setHours(0, 0, 0, 0);
-    const endDayMs = dEnd.getTime();
-    const dayTicks: XTick[] = [];
-    let t = startDayMs;
-    while (t <= endDayMs) {
-      dayTicks.push({
-        tMs: t,
-        label: new Date(t).toLocaleDateString(undefined, { weekday: "short" }),
-        anchor: dayTicks.length === 0 ? "start" : "middle",
-      });
-      t += MS_PER_DAY;
-    }
-    if (dayTicks.length > 0) dayTicks[dayTicks.length - 1]!.anchor = "end";
-    if (dayTicks.length < 4) return [];
-    return dayTicks;
-  }
-
-  return ticks;
-}
-
 export type WeightTrendChartProps = {
   points: WeightPoint[];
   unitLabel: string;
@@ -295,6 +175,8 @@ export type WeightTrendChartProps = {
   accessibilityLabel?: string;
   /** Hero plot height in points. */
   chartHeight?: number;
+  /** Actual observed first/last timestamps — drives X-axis endpoint labels. */
+  observedExtent?: ObservedDateExtent | null;
 };
 
 type ProcessedPoint = {
@@ -316,6 +198,7 @@ export function WeightTrendChart({
   emphasizeLatestPoint = false,
   accessibilityLabel = "Weight trend chart",
   chartHeight: chartHeightProp = DEFAULT_CHART_HEIGHT,
+  observedExtent = null,
 }: WeightTrendChartProps) {
   const CHART_HEIGHT = chartHeightProp;
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
@@ -436,11 +319,27 @@ export function WeightTrendChart({
   const dataStartMs = minT;
   const dataEndMs = maxT;
 
-  /** X-axis ticks from actual data extents; no labels if insufficient data. */
-  const xAxisTicks = useMemo(
-    () => ticksForRangeUsingData(range, dataStartMs, dataEndMs, processed.length),
-    [range, dataStartMs, dataEndMs, processed.length],
-  );
+  const observedAxisLabels = useMemo(() => {
+    const firstDay =
+      observedExtent?.firstDayKey ??
+      (Number.isFinite(dataStartMs)
+        ? new Date(dataStartMs).toISOString().slice(0, 10)
+        : null);
+    const lastDay =
+      observedExtent?.lastDayKey ??
+      (Number.isFinite(dataEndMs)
+        ? new Date(dataEndMs).toISOString().slice(0, 10)
+        : null);
+    if (!firstDay || !lastDay) return null;
+    return formatWeightTrendObservedAxisLabels({
+      firstDayKey: firstDay,
+      lastDayKey: lastDay,
+    });
+  }, [observedExtent, dataStartMs, dataEndMs]);
+
+  // Keep selected range available for callers; axis labels are observation-driven.
+  void range;
+
   const xAxisY = PADDING.top + chartHeight + 18;
 
   /** Area fill only when >= 3 points; sparse windows must not show filled triangle. */
@@ -609,29 +508,39 @@ export function WeightTrendChart({
               fill="none"
             />
           )}
-          {layout &&
-            xAxisTicks.map((tick, i) => {
-              const isFirst = i === 0;
-              const isLast = i === xAxisTicks.length - 1;
-              const x =
-                isFirst
-                  ? PADDING.left
-                  : isLast
-                    ? layout.width - PADDING.right
-                    : toChartX(tick.tMs);
-              return (
-                <SvgText
-                  key={`${tick.tMs}-${i}`}
-                  x={x}
-                  y={xAxisY}
-                  fontSize={X_LABEL_FONT_SIZE}
-                  fill={Y_LABEL_COLOR}
-                  textAnchor={tick.anchor}
-                >
-                  {tick.label}
-                </SvgText>
-              );
-            })}
+          {layout && observedAxisLabels?.kind === "range" ? (
+            <>
+              <SvgText
+                x={PADDING.left}
+                y={xAxisY}
+                fontSize={X_LABEL_FONT_SIZE}
+                fill={Y_LABEL_COLOR}
+                textAnchor="start"
+              >
+                {observedAxisLabels.startLabel}
+              </SvgText>
+              <SvgText
+                x={layout.width - PADDING.right}
+                y={xAxisY}
+                fontSize={X_LABEL_FONT_SIZE}
+                fill={Y_LABEL_COLOR}
+                textAnchor="end"
+              >
+                {observedAxisLabels.endLabel}
+              </SvgText>
+            </>
+          ) : null}
+          {layout && observedAxisLabels?.kind === "single" ? (
+            <SvgText
+              x={(PADDING.left + layout.width - PADDING.right) / 2}
+              y={xAxisY}
+              fontSize={X_LABEL_FONT_SIZE}
+              fill={Y_LABEL_COLOR}
+              textAnchor="middle"
+            >
+              {observedAxisLabels.label}
+            </SvgText>
+          ) : null}
         </Svg>
       )}
       {outlierCount > 0 && (
