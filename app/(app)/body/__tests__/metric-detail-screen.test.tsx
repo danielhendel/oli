@@ -233,24 +233,25 @@ describe("Body metric detail — Weight trend redesign", () => {
     expect(text).not.toMatch(/\bLatest\b/);
     expect(text).not.toMatch(/Weight History/);
     expect(tree.root.findByProps({ testID: "chart" }).props.emphasizeLatestPoint).toBe(true);
-    expect(tree.root.findByProps({ testID: "chart" }).props.chartHeight).toBe(300);
+    expect(tree.root.findByProps({ testID: "chart" }).props.chartHeight).toBe(320);
   });
 
-  it("shows value-first summary with signed Change and no judgment colors", async () => {
+  it("shows full-width grouped stats with signed Change and no judgment colors", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(React.createElement(MetricScreen));
     });
+    const summary = tree.root.findByProps({ testID: "body-metric-trend-summary" });
+    expect(summary).toBeDefined();
     const change = tree.root.findByProps({ testID: "body-metric-trend-stat-change" });
-    const changeText = change
-      .findAllByType("Text")
-      .flatMap((n) => n.children)
-      .filter((x) => typeof x === "string")
-      .join(" ");
-    expect(changeText).toMatch(/−2\.2 lb|−2\.2/);
-    expect(changeText).toMatch(/Change/);
-    // Value appears before label in the accessibility/render order of StatCell.
-    expect(changeText.indexOf("−")).toBeLessThan(changeText.indexOf("Change"));
+    expect(change.props.accessibilityLabel).toMatch(/Change/);
+    expect(change.props.accessibilityLabel).toMatch(/−2\.2 lb|−2\.2/);
+    // Label-left / value-right: Change precedes the signed value in a11y.
+    const a11y = String(change.props.accessibilityLabel);
+    expect(a11y.indexOf("Change")).toBeLessThan(a11y.indexOf("−"));
+    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-average" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-high" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-low" })).toBeDefined();
     const summaryA11y = tree.root.findByProps({ testID: "body-metric-trend-detail" }).props
       .accessibilityLabel as string;
     expect(summaryA11y).not.toMatch(/healthy|improved|worsened|good|bad/i);
