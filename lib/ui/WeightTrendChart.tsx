@@ -155,7 +155,7 @@ export type WeightTrendChartInspectPoint = {
 };
 
 export type WeightTrendChartProps = {
-  points: WeightPoint[];
+  points: readonly WeightPoint[];
   unitLabel: string;
   formatValue: (weightKg: number) => string;
   range: WeightRangeKey;
