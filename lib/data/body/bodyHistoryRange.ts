@@ -43,6 +43,30 @@ export function addDaysToDayKey(dayKey: string, delta: number): string {
 }
 
 /**
+ * Local-calendar month arithmetic with day clamp (e.g. Jan 31 − 1 month → Dec 31;
+ * Mar 31 − 1 month → Feb 28/29). Prefer this over approximating 6M ≈ 182 days.
+ */
+export function addMonthsToDayKey(dayKey: string, deltaMonths: number): string {
+  const parts = dayKey.split("-").map(Number);
+  const y0 = parts[0] ?? 0;
+  const m0 = parts[1] ?? 1;
+  const d0 = parts[2] ?? 1;
+  const totalMonths = y0 * 12 + (m0 - 1) + deltaMonths;
+  const y = Math.floor(totalMonths / 12);
+  const m = totalMonths - y * 12; // 0-11
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  const day = Math.min(d0, lastDay);
+  const mm = String(m + 1).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  return `${y}-${mm}-${dd}`;
+}
+
+/** Local-calendar year arithmetic (leap-day safe via {@link addMonthsToDayKey}). */
+export function addYearsToDayKey(dayKey: string, deltaYears: number): string {
+  return addMonthsToDayKey(dayKey, deltaYears * 12);
+}
+
+/**
  * Calendar year-to-date window for `anchorDayKey` (local YYYY-MM-DD):
  * `[year-01-01, anchorDay + RAW_EVENTS_QUERY_END_DAY_BUFFER]` — same end-buffer rule as other bounded ranges.
  */
@@ -68,41 +92,52 @@ export function rollingLookbackWindowForAnchorDay(
 }
 
 /**
+ * Inclusive requested-period start dayKey for a finite range, anchored on `anchorDayKey`.
+ * Matches chart/query lookback horizons (calendar months/years for 6M+).
+ */
+export function requestedStartDayKeyForAnchor(
+  range: Exclude<WeightRangeKey, "All">,
+  anchorDayKey: string,
+): string {
+  switch (range) {
+    case "7D":
+      return addDaysToDayKey(anchorDayKey, -7);
+    case "30D":
+      return addDaysToDayKey(anchorDayKey, -30);
+    case "90D":
+      return addDaysToDayKey(anchorDayKey, -90);
+    case "6M":
+      return addMonthsToDayKey(anchorDayKey, -6);
+    case "1Y":
+      return addYearsToDayKey(anchorDayKey, -1);
+    case "YTD": {
+      const y = Number(anchorDayKey.slice(0, 4));
+      const year = Number.isFinite(y) && y >= 1 ? y : Number(getTodayDayKey().slice(0, 4));
+      return `${year}-01-01`;
+    }
+    case "3Y":
+      return addYearsToDayKey(anchorDayKey, -3);
+    case "5Y":
+      return addYearsToDayKey(anchorDayKey, -5);
+    default:
+      return addDaysToDayKey(anchorDayKey, -30);
+  }
+}
+
+/**
  * Calendar day window [start, end] for raw-events `start`/`end` query params, or `"all"` for legacy unbounded pagination.
  */
 export function rangeToStartEnd(range: WeightRangeKey): { start: string; end: string } | "all" {
   if (range === "All") return "all";
   const today = getTodayDayKey();
   const end = addDaysToDayKey(today, RAW_EVENTS_QUERY_END_DAY_BUFFER);
-  let start: string;
-  switch (range) {
-    case "7D":
-      start = addDaysToDayKey(today, -7);
-      break;
-    case "30D":
-      start = addDaysToDayKey(today, -30);
-      break;
-    case "90D":
-      start = addDaysToDayKey(today, -90);
-      break;
-    case "6M":
-      start = addDaysToDayKey(today, -182);
-      break;
-    case "1Y":
-      start = addDaysToDayKey(today, -365);
-      break;
-    case "YTD":
-      return ytdBoundsForAnchorDay(today);
-    case "3Y":
-      start = addDaysToDayKey(today, -1095);
-      break;
-    case "5Y":
-      start = addDaysToDayKey(today, -1825);
-      break;
-    default:
-      start = addDaysToDayKey(today, -30);
+  if (range === "YTD") {
+    return ytdBoundsForAnchorDay(today);
   }
-  return { start, end };
+  return {
+    start: requestedStartDayKeyForAnchor(range, today),
+    end,
+  };
 }
 
 /** Finite window for Body chart/trends (never unbounded). */
