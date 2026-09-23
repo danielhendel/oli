@@ -61,6 +61,12 @@ const readyModel: BodyMetricTrendDetailModel = {
       sourceId: "apple_health",
     },
     {
+      dayKey: "2026-09-12",
+      observedAt: "2026-09-12T12:00:00.000Z",
+      weightKg: 75.5,
+      sourceId: "apple_health",
+    },
+    {
       dayKey: "2026-09-21",
       observedAt: "2026-09-21T12:00:00.000Z",
       weightKg: 73,
@@ -73,8 +79,8 @@ const readyModel: BodyMetricTrendDetailModel = {
     dayKey: "2026-09-21",
   },
   change: -1,
-  average: 73.5,
-  high: 74,
+  average: 74.166,
+  high: 75.5,
   low: 73,
   status: "ready",
   errorMessage: null,
@@ -114,31 +120,69 @@ function collectText(tree: renderer.ReactTestRenderer): string {
     .join(" ");
 }
 
+function mount(model: BodyMetricTrendDetailModel = readyModel) {
+  let tree!: renderer.ReactTestRenderer;
+  act(() => {
+    tree = renderer.create(
+      React.createElement(BodyMetricTrendDetailView, {
+        metricTitle: "Weight",
+        model,
+        range: "30D",
+        onChangeRange: jest.fn(),
+        formatValue: (kg: number) => `${kg.toFixed(1)} kg`,
+        formatChange: (d: number) => `${d.toFixed(1)} kg`,
+        unitLabel: "kg",
+        valueKind: "mass",
+      }),
+    );
+  });
+  return tree;
+}
+
 describe("BodyMetricTrendDetailView — hero inspection", () => {
   beforeEach(() => {
     chartPropsRef.current = null;
   });
 
-  it("idle hero shows change chip; inspection replaces it and release restores", () => {
-    let tree!: renderer.ReactTestRenderer;
+  it("idle hero shows latest Weight and change chip", () => {
+    const tree = mount();
+    const text = collectText(tree);
+    expect(text).toMatch(/73\.0 kg/);
+    expect(tree.root.findByProps({ testID: "body-metric-trend-period-change" })).toBeDefined();
+    expect(text).toMatch(/30D change/);
+    expect(tree.root.findAllByProps({ testID: "body-metric-trend-inspection-chip" })).toHaveLength(
+      0,
+    );
+  });
+
+  it("inspection callback selects point B → hero shows B value/date/source", () => {
+    const tree = mount();
+    expect(chartPropsRef.current?.onInspectChange).toEqual(expect.any(Function));
+
     act(() => {
-      tree = renderer.create(
-        React.createElement(BodyMetricTrendDetailView, {
-          metricTitle: "Weight",
-          model: readyModel,
-          range: "30D",
-          onChangeRange: jest.fn(),
-          formatValue: (kg: number) => `${kg.toFixed(1)} kg`,
-          formatChange: (d: number) => `${d.toFixed(1)} kg`,
-          unitLabel: "kg",
-          valueKind: "mass",
-        }),
-      );
+      (chartPropsRef.current!.onInspectChange as (p: unknown) => void)({
+        observedAt: "2026-09-12T12:00:00.000Z",
+        dayKey: "2026-09-12",
+        weightKg: 75.5,
+        sourceId: "apple_health",
+      });
     });
 
+    const text = collectText(tree);
+    expect(text).toMatch(/75\.5 kg/);
+    expect(text).toMatch(/Sat, Sep 12/);
+    expect(text).toMatch(/Historical/);
+    expect(text).toMatch(/Apple Health/);
+    expect(tree.root.findByProps({ testID: "body-metric-trend-inspection-chip" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-trend-period-change" })).toHaveLength(0);
+    // Coverage footer stays range-level, not scrub date.
+    expect(text).toMatch(/Sep 1, 2026/);
+    expect(text).toMatch(/Sep 21, 2026/);
+  });
+
+  it("idle → active → release restores latest Weight and change chip", () => {
+    const tree = mount();
     expect(tree.root.findByProps({ testID: "body-metric-trend-period-change" })).toBeDefined();
-    expect(collectText(tree)).toMatch(/30D change/);
-    expect(chartPropsRef.current?.onInspectChange).toEqual(expect.any(Function));
 
     act(() => {
       (chartPropsRef.current!.onInspectChange as (p: unknown) => void)({
@@ -150,14 +194,52 @@ describe("BodyMetricTrendDetailView — hero inspection", () => {
     });
 
     expect(tree.root.findByProps({ testID: "body-metric-trend-inspection-chip" })).toBeDefined();
-    expect(collectText(tree)).toMatch(/Historical/);
-    expect(collectText(tree)).toMatch(/Apple Health/);
-    expect(tree.root.findAllByProps({ testID: "body-metric-trend-period-change" })).toHaveLength(0);
+    expect(collectText(tree)).toMatch(/74\.0 kg/);
 
     act(() => {
       (chartPropsRef.current!.onInspectChange as (p: unknown) => void)(null);
     });
     expect(tree.root.findByProps({ testID: "body-metric-trend-period-change" })).toBeDefined();
+    expect(collectText(tree)).toMatch(/73\.0 kg/);
+    expect(collectText(tree)).toMatch(/30D change/);
+  });
+
+  it("parent re-render with new points array identity does not clear active inspection", () => {
+    const tree = mount();
+
+    act(() => {
+      (chartPropsRef.current!.onInspectChange as (p: unknown) => void)({
+        observedAt: "2026-09-12T12:00:00.000Z",
+        dayKey: "2026-09-12",
+        weightKg: 75.5,
+        sourceId: "apple_health",
+      });
+    });
+    expect(tree.root.findByProps({ testID: "body-metric-trend-inspection-chip" })).toBeDefined();
+
+    const sameContentNewIdentity: BodyMetricTrendDetailModel = {
+      ...readyModel,
+      points: readyModel.points.map((p) => ({ ...p })),
+    };
+
+    act(() => {
+      tree.update(
+        React.createElement(BodyMetricTrendDetailView, {
+          metricTitle: "Weight",
+          model: sameContentNewIdentity,
+          range: "30D",
+          onChangeRange: jest.fn(),
+          formatValue: (kg: number) => `${kg.toFixed(1)} kg`,
+          formatChange: (d: number) => `${d.toFixed(1)} kg`,
+          unitLabel: "kg",
+          valueKind: "mass",
+        }),
+      );
+    });
+
+    expect(tree.root.findByProps({ testID: "body-metric-trend-inspection-chip" })).toBeDefined();
+    expect(collectText(tree)).toMatch(/75\.5 kg/);
+    expect(collectText(tree)).toMatch(/Sat, Sep 12/);
   });
 
   it("range switch resets inspection via onChangeRange wrapper", () => {
@@ -192,5 +274,59 @@ describe("BodyMetricTrendDetailView — hero inspection", () => {
     });
     expect(onChangeRange).toHaveBeenCalledWith("90D");
     expect(tree.root.findByProps({ testID: "body-metric-trend-period-change" })).toBeDefined();
+  });
+
+  it("data refresh that drops selected point resets inspection safely", () => {
+    const tree = mount();
+
+    act(() => {
+      (chartPropsRef.current!.onInspectChange as (p: unknown) => void)({
+        observedAt: "2026-09-12T12:00:00.000Z",
+        dayKey: "2026-09-12",
+        weightKg: 75.5,
+        sourceId: "apple_health",
+      });
+    });
+    expect(tree.root.findByProps({ testID: "body-metric-trend-inspection-chip" })).toBeDefined();
+
+    const refreshed: BodyMetricTrendDetailModel = {
+      ...readyModel,
+      points: [readyModel.points[0]!, readyModel.points[2]!],
+      average: 73.5,
+      high: 74,
+      low: 73,
+      observedExtent: {
+        firstObservedAt: "2026-09-01T12:00:00.000Z",
+        lastObservedAt: "2026-09-21T12:00:00.000Z",
+        firstDayKey: "2026-09-01",
+        lastDayKey: "2026-09-21",
+      },
+    };
+
+    act(() => {
+      tree.update(
+        React.createElement(BodyMetricTrendDetailView, {
+          metricTitle: "Weight",
+          model: refreshed,
+          range: "30D",
+          onChangeRange: jest.fn(),
+          formatValue: (kg: number) => `${kg.toFixed(1)} kg`,
+          formatChange: (d: number) => `${d.toFixed(1)} kg`,
+          unitLabel: "kg",
+          valueKind: "mass",
+        }),
+      );
+    });
+
+    expect(tree.root.findByProps({ testID: "body-metric-trend-period-change" })).toBeDefined();
+    expect(collectText(tree)).toMatch(/73\.0 kg/);
+    expect(tree.root.findAllByProps({ testID: "body-metric-trend-inspection-chip" })).toHaveLength(
+      0,
+    );
+  });
+
+  it("passes chart points by reference (no per-render copy)", () => {
+    mount();
+    expect(chartPropsRef.current?.points).toBe(readyModel.points);
   });
 });
