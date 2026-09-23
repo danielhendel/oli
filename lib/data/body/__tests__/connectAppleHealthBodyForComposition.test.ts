@@ -29,6 +29,19 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
   runAppleHealthBodyBackfill: (...a: unknown[]) => mockBackfill(...a),
 }));
 
+jest.mock("@/lib/integrations/appleHealth/diagnoseAppleHealthWeightHistoryExtent", () => ({
+  diagnoseAppleHealthWeightHistoryExtent: jest.fn(async () => ({
+    metric: "weight",
+    queryStart: "t0",
+    queryEnd: "t1",
+    oldestObservedAt: null,
+    newestObservedAt: null,
+    samplesApprox: "0",
+    ok: true,
+    safeErrorCode: null,
+  })),
+}));
+
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getAppleHealthConnected: jest.fn(async () => false),
   getAppleHealthNotAvailable: jest.fn(async () => false),

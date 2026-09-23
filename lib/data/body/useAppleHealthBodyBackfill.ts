@@ -93,7 +93,7 @@ export function useAppleHealthBodyBackfill(onSynced?: () => void): {
       return;
     }
     const res = await runAppleHealthBodyBackfill(
-      { token },
+      { token, forceRestart: true },
       {
         nowIso,
         pullBodyCompositionSamples,

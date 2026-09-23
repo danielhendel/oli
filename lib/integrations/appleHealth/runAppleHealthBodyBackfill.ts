@@ -21,6 +21,45 @@ export function isoYearsAgoFromNow(years: number, nowIso: string): string {
   return d.toISOString();
 }
 
+/** How many chunks a full forward scan from `targetStartDate` to `nowIso` requires. */
+export function expectedBodyBackfillChunkCount(
+  targetStartDate: string,
+  nowIso: string,
+  chunkDays: number,
+): number {
+  const startMs = Date.parse(targetStartDate);
+  const nowMs = Date.parse(nowIso);
+  if (!Number.isFinite(startMs) || !Number.isFinite(nowMs) || nowMs <= startMs) return 1;
+  const days = (nowMs - startMs) / 86_400_000;
+  return Math.max(1, Math.ceil(days / Math.max(1, chunkDays)));
+}
+
+/**
+ * Detect corrupt / premature "completed" checkpoints that never scanned the
+ * full backfill horizon (e.g. marked complete after only a couple of chunks).
+ */
+export function isBodyBackfillCompletionImplausible(args: {
+  readonly targetStartDate: string;
+  readonly nowIso: string;
+  readonly chunkDays: number;
+  readonly chunkCount: number;
+}): boolean {
+  const expected = expectedBodyBackfillChunkCount(
+    args.targetStartDate,
+    args.nowIso,
+    args.chunkDays,
+  );
+  const minAcceptable = Math.max(2, Math.floor(expected * 0.5));
+  return args.chunkCount < minAcceptable;
+}
+
+function logBodyHistoryDev(fields: Record<string, string | number | boolean | null>): void {
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    // eslint-disable-next-line no-console
+    console.info("[AH_BODY_HISTORY]", { operation: "body_backfill", ...fields });
+  }
+}
+
 export type RunAppleHealthBodyBackfillDeps = {
   nowIso: () => string;
   pullBodyCompositionSamples: (opts: {
@@ -74,7 +113,29 @@ export async function runAppleHealthBodyBackfill(
   const chunkDays = Math.max(1, opts.chunkDays ?? APPLE_HEALTH_BODY_BACKFILL_CHUNK_DAYS);
   const existing = await deps.getBackfillState();
 
-  if (!opts.forceRestart && existing?.status === "completed") {
+  const forceRestart =
+    opts.forceRestart === true ||
+    (existing?.status === "completed" &&
+      isBodyBackfillCompletionImplausible({
+        targetStartDate: existing.targetStartDate || targetStartDate,
+        nowIso: now,
+        chunkDays,
+        chunkCount: existing.summary.chunkCount,
+      }));
+
+  if (forceRestart && existing?.status === "completed" && opts.forceRestart !== true) {
+    logBodyHistoryDev({
+      phase: "force_restart_implausible_complete",
+      chunkCount: existing.summary.chunkCount,
+      expectedChunks: expectedBodyBackfillChunkCount(
+        existing.targetStartDate || targetStartDate,
+        now,
+        chunkDays,
+      ),
+    });
+  }
+
+  if (!forceRestart && existing?.status === "completed") {
     return {
       ok: true,
       status: "already_completed",
@@ -89,30 +150,32 @@ export async function runAppleHealthBodyBackfill(
   }
 
   const startedAt =
-    (existing?.status === "in_progress" || existing?.status === "failed") && !opts.forceRestart
+    (existing?.status === "in_progress" || existing?.status === "failed") && !forceRestart
       ? existing.summary.startedAt
       : now;
   const initialCursor =
     (existing?.status === "in_progress" || existing?.status === "failed") &&
     existing.lastProcessedDate &&
-    !opts.forceRestart
+    !forceRestart
       ? existing.lastProcessedDate
       : targetStartDate;
 
   let cursor = initialCursor;
   let chunkCount =
-    (existing?.status === "in_progress" || existing?.status === "failed") && !opts.forceRestart
+    (existing?.status === "in_progress" || existing?.status === "failed") && !forceRestart
       ? existing.summary.chunkCount
       : 0;
   let samplesRead =
-    (existing?.status === "in_progress" || existing?.status === "failed") && !opts.forceRestart
+    (existing?.status === "in_progress" || existing?.status === "failed") && !forceRestart
       ? existing.summary.samplesRead
       : 0;
   let samplesIngested =
-    (existing?.status === "in_progress" || existing?.status === "failed") && !opts.forceRestart
+    (existing?.status === "in_progress" || existing?.status === "failed") && !forceRestart
       ? existing.summary.samplesIngested
       : 0;
   const samplesSkippedDuplicate = 0;
+  let oldestObservedAt: string | null = null;
+  let newestObservedAt: string | null = null;
 
   await deps.setBackfillState({
     status: "in_progress",
@@ -191,6 +254,13 @@ export async function runAppleHealthBodyBackfill(
       return { ok: false, error: ingested.error, requestId: ingested.requestId };
     }
 
+    for (const sample of pulled.data) {
+      const at = sample.observedAt;
+      if (typeof at !== "string" || at.length === 0) continue;
+      if (oldestObservedAt == null || at < oldestObservedAt) oldestObservedAt = at;
+      if (newestObservedAt == null || at > newestObservedAt) newestObservedAt = at;
+    }
+
     chunkCount += 1;
     samplesRead += ingested.samplesRead;
     samplesIngested += ingested.ingested;
@@ -231,6 +301,14 @@ export async function runAppleHealthBodyBackfill(
       samplesSkippedDuplicate,
       lastProcessedDate: cursor,
     },
+  });
+  logBodyHistoryDev({
+    phase: "completed",
+    chunkCount,
+    samplesReadBucket: samplesRead > 0 ? "nonzero" : "zero",
+    oldestObservedAt,
+    newestObservedAt,
+    targetStartDate,
   });
   return {
     ok: true,

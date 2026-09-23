@@ -101,11 +101,17 @@ export {
 export {
   runAppleHealthBodyBackfill,
   isoYearsAgoFromNow,
+  expectedBodyBackfillChunkCount,
+  isBodyBackfillCompletionImplausible,
   APPLE_HEALTH_BODY_BACKFILL_YEARS,
   APPLE_HEALTH_BODY_BACKFILL_CHUNK_DAYS,
   type RunAppleHealthBodyBackfillDeps,
   type RunAppleHealthBodyBackfillResult,
 } from "./runAppleHealthBodyBackfill";
+export {
+  diagnoseAppleHealthWeightHistoryExtent,
+  type AppleHealthWeightHistoryExtentDiagnostic,
+} from "./diagnoseAppleHealthWeightHistoryExtent";
 export {
   runAppleHealthStepsBackfill,
   APPLE_HEALTH_STEPS_BACKFILL_TRAILING_LOCAL_DAYS,

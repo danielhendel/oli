@@ -41,6 +41,7 @@ import {
   type BodyAppleHealthMetricId,
 } from "@/lib/body/presentation/bodyAppleHealthMetricRegistry";
 import { nowIso } from "@/lib/sync/throttle";
+import { diagnoseAppleHealthWeightHistoryExtent } from "@/lib/integrations/appleHealth/diagnoseAppleHealthWeightHistoryExtent";
 
 async function bodySyncIncludeForUid(uid: string | undefined) {
   if (!uid) return undefined;
@@ -297,6 +298,10 @@ export async function connectAppleHealthBodyForComposition(
     samplesBucket: backfill.samplesIngested > 0 ? "nonzero" : "zero",
   });
 
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    void diagnoseAppleHealthWeightHistoryExtent();
+  }
+
   const samplesIngested = syncResult.ingested + (backfill.samplesIngested ?? 0);
   const phase = samplesIngested > 0 ? "upToDate" : "connectedNoData";
   deps.onPhase?.(phase);
@@ -339,8 +344,11 @@ export async function resumeAppleHealthBodyHistoryImport(
   }
 
   deps.onPhase?.("importingEarlier");
+  const existing = await getAppleHealthBodyBackfillState().catch(() => null);
+  // Explicit resume after a prior "completed" marker must re-scan (false-complete repair).
+  const forceRestart = existing?.status === "completed";
   const backfill = await runAppleHealthBodyBackfill(
-    { token },
+    { token, ...(forceRestart ? { forceRestart: true as const } : {}) },
     {
       nowIso,
       pullBodyCompositionSamples: scopedBodyPull(deps.uid),
