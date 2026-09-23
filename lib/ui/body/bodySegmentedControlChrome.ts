@@ -23,10 +23,13 @@ export const bodySegmentedControlStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  /** Slightly wider padding for 2-option card toggles (lb/BMI). */
+  /**
+   * Minimum width for 2-option card toggles (lb / BMI / kg / %).
+   * Wide enough that “BMI” stays on one line at supported Dynamic Type sizes.
+   */
   segmentComfortable: {
-    minWidth: 40,
-    paddingHorizontal: 10,
+    minWidth: 58,
+    paddingHorizontal: 12,
     flexGrow: 0,
     flexShrink: 0,
   },
