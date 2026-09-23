@@ -13,6 +13,8 @@ function pt(day: string, kg: number, at = `${day}T12:00:00.000Z`): WeightPoint {
   };
 }
 
+const ANCHOR = "2026-09-21";
+
 describe("buildBodyMetricTrendDetailModel", () => {
   it("maps partial and error honestly", () => {
     expect(
@@ -21,6 +23,7 @@ describe("buildBodyMetricTrendDetailModel", () => {
         points: [],
         stats: { change: null, avg: null, high: null, low: null },
         trendsStatus: "partial",
+        anchorDayKey: ANCHOR,
       }).status,
     ).toBe("partial");
 
@@ -30,6 +33,7 @@ describe("buildBodyMetricTrendDetailModel", () => {
       stats: { change: null, avg: null, high: null, low: null },
       trendsStatus: "error",
       errorMessage: "network",
+      anchorDayKey: ANCHOR,
     });
     expect(err.status).toBe("error");
     expect(err.errorMessage).toMatch(/network|Couldn’t|Try again/i);
@@ -41,6 +45,7 @@ describe("buildBodyMetricTrendDetailModel", () => {
       points: [pt("2026-09-01", 0), pt("2026-09-02", Number.NaN)],
       stats: { change: null, avg: null, high: null, low: null },
       trendsStatus: "ready",
+      anchorDayKey: ANCHOR,
     });
     expect(model.status).toBe("missing");
     expect(model.latest).toBeNull();
@@ -52,6 +57,7 @@ describe("buildBodyMetricTrendDetailModel", () => {
       points: [pt("2026-09-16", 74.3)],
       stats: { change: null, avg: 74.3, high: 74.3, low: 74.3 },
       trendsStatus: "ready",
+      anchorDayKey: ANCHOR,
     });
     expect(model.status).toBe("insufficient");
     expect(model.latest?.valueKg).toBe(74.3);
@@ -61,24 +67,80 @@ describe("buildBodyMetricTrendDetailModel", () => {
     expect(model.low).toBe(74.3);
   });
 
-  it("multiple points expose change/average/high/low from stats", () => {
+  it("complete 1Y coverage exposes change from baseline at requested start", () => {
     const points = [
-      pt("2026-09-01", 73),
-      pt("2026-09-10", 75.5),
-      pt("2026-09-16", 74.3),
+      pt("2025-09-21", 73),
+      pt("2026-01-10", 75.5),
+      pt("2026-09-21", 74.3),
     ];
     const model = buildBodyMetricTrendDetailModel({
       range: "1Y",
       points,
-      stats: { change: 1.3, avg: 74.2666, high: 75.5, low: 73 },
+      stats: { change: 99, avg: 99, high: 99, low: 99 },
       trendsStatus: "ready",
+      anchorDayKey: ANCHOR,
     });
     expect(model.status).toBe("ready");
-    expect(model.latest?.dayKey).toBe("2026-09-16");
-    expect(model.change).toBe(1.3);
+    expect(model.latest?.dayKey).toBe("2026-09-21");
+    expect(model.change).toBeCloseTo(1.3, 5);
     expect(model.high).toBe(75.5);
     expect(model.low).toBe(73);
+    expect(model.changeUnavailableDueToPartialCoverage).toBe(false);
     expect(model.sameDayPolicy).toBe("all_observations_by_observedAt");
+  });
+
+  it("partial 1Y coverage withholds Change but keeps Avg/High/Low from plotted points", () => {
+    const points = [
+      pt("2026-01-01", 73),
+      pt("2026-06-01", 75),
+      pt("2026-09-21", 74.3),
+    ];
+    const model = buildBodyMetricTrendDetailModel({
+      range: "1Y",
+      points,
+      stats: { change: 1.3, avg: 74, high: 75, low: 73 },
+      trendsStatus: "ready",
+      anchorDayKey: ANCHOR,
+    });
+    expect(model.change).toBeNull();
+    expect(model.changeUnavailableDueToPartialCoverage).toBe(true);
+    expect(model.average).toBeCloseTo((73 + 75 + 74.3) / 3, 5);
+    expect(model.high).toBe(75);
+    expect(model.low).toBe(73);
+    expect(model.observedExtent?.firstDayKey).toBe("2026-01-01");
+    expect(model.observedExtent?.lastDayKey).toBe("2026-09-21");
+  });
+
+  it("excludes out-of-range points from plot and Avg/High/Low", () => {
+    const points = [
+      pt("2025-08-10", 70),
+      pt("2025-09-21", 73),
+      pt("2026-09-21", 74.3),
+    ];
+    const model = buildBodyMetricTrendDetailModel({
+      range: "1Y",
+      points,
+      stats: { change: null, avg: null, high: null, low: null },
+      trendsStatus: "ready",
+      anchorDayKey: ANCHOR,
+    });
+    expect(model.points.map((p) => p.dayKey)).toEqual(["2025-09-21", "2026-09-21"]);
+    expect(model.low).toBe(73);
+    expect(model.high).toBe(74.3);
+    expect(model.points.every((p) => p.dayKey !== "2025-08-10")).toBe(true);
+  });
+
+  it("All uses earliest-to-latest Change when >=2 points", () => {
+    const points = [pt("2025-08-10", 70), pt("2026-09-21", 74.3)];
+    const model = buildBodyMetricTrendDetailModel({
+      range: "All",
+      points,
+      stats: { change: null, avg: null, high: null, low: null },
+      trendsStatus: "ready",
+      anchorDayKey: ANCHOR,
+    });
+    expect(model.change).toBeCloseTo(4.3, 5);
+    expect(model.changeUnavailableDueToPartialCoverage).toBe(false);
   });
 
   it("keeps same-day observations ordered by observedAt (no average invent)", () => {
@@ -91,25 +153,56 @@ describe("buildBodyMetricTrendDetailModel", () => {
       points,
       stats: { change: 0.8, avg: 74.4, high: 74.8, low: 74.0 },
       trendsStatus: "ready",
+      anchorDayKey: ANCHOR,
     });
     expect(model.points).toHaveLength(2);
     expect(model.latest?.valueKg).toBe(74.8);
     expect(model.points[0]!.weightKg).toBe(74.0);
   });
 
-  it("accessibility summary avoids judgment language", () => {
+  it("accessibility summary avoids judgment language and explains partial Change", () => {
     const copy = buildBodyMetricTrendAccessibilitySummary({
       metricTitle: "Weight",
       rangeLabel: "the past year",
       latestLabel: "163.8 lb",
-      changeLabel: "1.3 lb",
+      changeLabel: null,
       averageLabel: "164.0 lb",
       highLabel: "166.5 lb",
       lowLabel: "162.1 lb",
       status: "ready",
+      changeUnavailableDueToPartialCoverage: true,
+      observedCoverageLabel: "Jan 1 – Sep 21",
     });
     expect(copy).toMatch(/Weight trend for the past year/);
-    expect(copy).toMatch(/Latest 163\.8 lb/);
+    expect(copy).toMatch(/unavailable because a full period/i);
+    expect(copy).toMatch(/data shown from Jan 1 – Sep 21/);
     expect(copy).not.toMatch(/healthy|unhealthy|improved|worsened/i);
+  });
+
+  it("switching ranges rebuilds one coherent presentation (no stale 1Y Change)", () => {
+    const points = [
+      pt("2025-09-21", 73),
+      pt("2026-06-23", 74),
+      pt("2026-09-21", 74.3),
+    ];
+    const oneY = buildBodyMetricTrendDetailModel({
+      range: "1Y",
+      points,
+      stats: { change: null, avg: null, high: null, low: null },
+      trendsStatus: "ready",
+      anchorDayKey: ANCHOR,
+    });
+    const ninety = buildBodyMetricTrendDetailModel({
+      range: "90D",
+      points,
+      stats: { change: null, avg: null, high: null, low: null },
+      trendsStatus: "ready",
+      anchorDayKey: ANCHOR,
+    });
+    expect(oneY.change).toBeCloseTo(1.3, 5);
+    expect(ninety.points.map((p) => p.dayKey)).toEqual(["2026-06-23", "2026-09-21"]);
+    expect(ninety.change).toBeCloseTo(0.3, 5);
+    expect(ninety.observedExtent?.firstDayKey).toBe("2026-06-23");
+    expect(ninety.average).not.toBe(oneY.average);
   });
 });

@@ -119,6 +119,11 @@ jest.mock("@/lib/hooks/useBodyMetricEntryKeyboard", () => ({
   useBodyMetricEntryKeyboard: () => ({ keyboardHeight: 0, keyboardVisible: false }),
 }));
 
+jest.mock("@/lib/time/dayKey", () => ({
+  getTodayDayKey: () => "2026-03-31",
+  ymdInTimeZoneFromIso: jest.requireActual("@/lib/time/dayKey").ymdInTimeZoneFromIso,
+}));
+
 const MetricScreen = require("../metric/[metric]").default as React.ComponentType;
 
 function readyTrends(metricKey: "weight" | "body_fat_percent" | "lean_body_mass") {
@@ -130,6 +135,12 @@ function readyTrends(metricKey: "weight" | "body_fat_percent" | "lean_body_mass"
         weight:
           metricKey === "weight"
             ? [
+                {
+                  dayKey: "2025-03-31",
+                  observedAt: "2025-03-31T12:00:00.000Z",
+                  weightKg: 73,
+                  sourceId: "manual",
+                },
                 {
                   dayKey: "2026-03-01",
                   observedAt: "2026-03-01T12:00:00.000Z",
@@ -170,7 +181,7 @@ function readyTrends(metricKey: "weight" | "body_fat_percent" | "lean_body_mass"
         resting_metabolic_rate: [],
       },
       statsByMetric: {
-        weight: { change: -1, avg: 72.5, high: 73, low: 72 },
+        weight: { change: -1, avg: 72.666, high: 73, low: 72 },
         body_fat_percent: { change: null, avg: 18.2, high: 18.2, low: 18.2 },
         bmi: { change: null, avg: null, high: null, low: null },
         lean_body_mass: { change: null, avg: 60, high: 60, low: 60 },
@@ -254,7 +265,8 @@ describe("Body metric detail — Weight trend redesign", () => {
     expect(tree.root.findByProps({ testID: "body-metric-trend-stat-low" })).toBeDefined();
     const text = collectText(tree);
     expect(text).toMatch(/Tue, Mar 31/);
-    expect(text).toMatch(/1Y change|90D change|change/i);
+    expect(text).toMatch(/1Y change/);
+    expect(tree.root.findByProps({ testID: "body-metric-trend-observed-coverage" })).toBeDefined();
     const summaryA11y = tree.root.findByProps({ testID: "body-metric-trend-detail" }).props
       .accessibilityLabel as string;
     expect(summaryA11y).not.toMatch(/healthy|improved|worsened|good|bad/i);
