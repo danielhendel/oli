@@ -1,13 +1,10 @@
 import {
-  UI_CARD_SURFACE,
   UI_TEXT_MUTED,
-  UI_TEXT_PRIMARY,
-  UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
 
 // lib/ui/WeightTrendChart.tsx — Weight trend chart (react-native-svg). Dark Oli hero styling.
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, LayoutChangeEvent } from "react-native";
 import Svg, {
   Circle,
@@ -144,20 +141,18 @@ function monotonePathD(points: { cx: number; cy: number }[]): string {
   return path;
 }
 
-/** Safe, display-only source labels. Never show tokens or secrets. */
-function sourceLabel(sourceId: string): string {
-  if (sourceId === "apple_health") return "Apple Health";
-  if (sourceId === "manual") return "Manual";
-  if (typeof sourceId === "string" && sourceId.length <= 20 && /^[a-zA-Z0-9_-]+$/.test(sourceId))
-    return sourceId;
-  return "—";
-}
-
 /** Parse ISO timestamp to ms; null if invalid. Used for X-axis so each entry has a unique position (no same-day stacking). */
 function parseTimestampMs(iso: string): number | null {
   const ms = Date.parse(iso);
   return Number.isFinite(ms) ? ms : null;
 }
+
+export type WeightTrendChartInspectPoint = {
+  readonly observedAt: string;
+  readonly dayKey: string;
+  readonly weightKg: number;
+  readonly sourceId: string;
+};
 
 export type WeightTrendChartProps = {
   points: WeightPoint[];
@@ -172,6 +167,11 @@ export type WeightTrendChartProps = {
   accessibilityLabel?: string;
   /** Hero plot height in points. */
   chartHeight?: number;
+  /**
+   * Fixed-hero inspection callback. Fired with the nearest point while scrubbing,
+   * and `null` on release. Floating tooltips are intentionally not rendered.
+   */
+  onInspectChange?: (point: WeightTrendChartInspectPoint | null) => void;
 };
 
 type ProcessedPoint = {
@@ -179,13 +179,14 @@ type ProcessedPoint = {
   y: number;
   weightKg: number;
   observedAt: string;
+  dayKey: string;
   sourceId: string;
 };
 
 export function WeightTrendChart({
   points,
   unitLabel,
-  formatValue,
+  formatValue: _formatValue,
   range,
   valueKind = "mass",
   accentColor = ACCENT_BLUE,
@@ -193,11 +194,15 @@ export function WeightTrendChart({
   emphasizeLatestPoint = false,
   accessibilityLabel = "Weight trend chart",
   chartHeight: chartHeightProp = DEFAULT_CHART_HEIGHT,
+  onInspectChange,
 }: WeightTrendChartProps) {
+  void _formatValue;
   const CHART_HEIGHT = chartHeightProp;
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [touchX, setTouchX] = useState<number | null>(null);
+  const onInspectRef = useRef(onInspectChange);
+  onInspectRef.current = onInspectChange;
+  const lastInspectedAtRef = useRef<string | null>(null);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -214,6 +219,7 @@ export function WeightTrendChart({
         y: 0,
         weightKg: p.weightKg,
         observedAt: p.observedAt,
+        dayKey: p.dayKey,
         sourceId: p.sourceId,
       });
     }
@@ -227,6 +233,12 @@ export function WeightTrendChart({
   useEffect(() => {
     if (error && onChartError) onChartError(error);
   }, [error, onChartError]);
+
+  useEffect(() => {
+    setSelectedIndex(null);
+    lastInspectedAtRef.current = null;
+    onInspectRef.current?.(null);
+  }, [range, points]);
 
   if (points.length === 0) {
     return null;
@@ -331,7 +343,6 @@ export function WeightTrendChart({
     (ev: { locationX: number }) => {
       if (chartWidth <= 0 || pointsWithCoords.length === 0) return;
       const x = ev.locationX;
-      setTouchX(x);
       const tMsAtTouch = minT + ((x - PADDING.left) / chartWidth) * rangeT;
       let best = 0;
       let bestDist = Math.abs(pointsWithCoords[0]!.x - tMsAtTouch);
@@ -343,15 +354,30 @@ export function WeightTrendChart({
         }
       }
       setSelectedIndex(best);
+      const pt = pointsWithCoords[best]!;
+      if (lastInspectedAtRef.current !== pt.observedAt) {
+        lastInspectedAtRef.current = pt.observedAt;
+        onInspectRef.current?.({
+          observedAt: pt.observedAt,
+          dayKey: pt.dayKey,
+          weightKg: pt.weightKg,
+          sourceId: pt.sourceId,
+        });
+      }
     },
     [chartWidth, rangeT, minT, pointsWithCoords],
   );
 
+  const clearInspection = useCallback(() => {
+    setSelectedIndex(null);
+    lastInspectedAtRef.current = null;
+    onInspectRef.current?.(null);
+  }, []);
+
   const selected = selectedIndex != null ? pointsWithCoords[selectedIndex] ?? null : null;
-  const selPoint = selectedIndex != null ? processed[selectedIndex] ?? null : null;
 
   const latestPt =
-    emphasizeLatestPoint && pointsWithCoords.length > 0
+    emphasizeLatestPoint && pointsWithCoords.length > 0 && selectedIndex == null
       ? pointsWithCoords[pointsWithCoords.length - 1]!
       : null;
 
@@ -362,10 +388,8 @@ export function WeightTrendChart({
       onStartShouldSetResponder={() => true}
       onResponderGrant={(e) => handleTouch(e.nativeEvent)}
       onResponderMove={(e) => handleTouch(e.nativeEvent)}
-      onResponderRelease={() => {
-        setTouchX(null);
-        setSelectedIndex(null);
-      }}
+      onResponderRelease={clearInspection}
+      onResponderTerminate={clearInspection}
       accessibilityRole="image"
       accessibilityLabel={accessibilityLabel}
       testID="weight-trend-chart"
@@ -454,30 +478,32 @@ export function WeightTrendChart({
               />
             </>
           ) : null}
-          {/* Touch selection marker */}
-          {touchX != null && selected != null &&
-            (selected.isClipped ? (
+          {/* Inspection: vertical guide + primary selected point (no floating tooltip). */}
+          {selected != null ? (
+            <>
+              <Path
+                d={`M ${selected.cx} ${PADDING.top} L ${selected.cx} ${PADDING.top + chartHeight}`}
+                stroke={CROSSHAIR_COLOR}
+                strokeWidth={1}
+                strokeDasharray="4 2"
+                fill="none"
+              />
               <Circle
                 cx={selected.cx}
                 cy={selected.cy}
-                r={DOT_R}
-                fill="none"
-                stroke={accentColor}
-                strokeWidth={2}
-                opacity={1}
+                r={DOT_GLOW_R + 1}
+                fill={SYSTEM_ACCENT_LUMINOUS_GLOW}
               />
-            ) : (
-              <Circle cx={selected.cx} cy={selected.cy} r={DOT_R} fill={accentColor} opacity={1} />
-            ))}
-          {touchX != null && selected != null && (
-            <Path
-              d={`M ${selected.cx} ${PADDING.top} L ${selected.cx} ${PADDING.top + chartHeight}`}
-              stroke={CROSSHAIR_COLOR}
-              strokeWidth={1}
-              strokeDasharray="4 2"
-              fill="none"
-            />
-          )}
+              <Circle
+                cx={selected.cx}
+                cy={selected.cy}
+                r={DOT_R + 1.5}
+                fill={accentColor}
+                stroke="#FFFFFF"
+                strokeWidth={2.5}
+              />
+            </>
+          ) : null}
         </Svg>
       )}
       {outlierCount > 0 && (
@@ -490,30 +516,6 @@ export function WeightTrendChart({
           Not enough weigh-ins in this range
         </Text>
       )}
-      {/* Tooltip card (View over SVG) — never block the selected point; position above or below */}
-      {selPoint && selected && (
-        <View
-          style={[
-            styles.tooltip,
-            selected.cy <= CHART_HEIGHT / 2
-              ? [styles.tooltipBelow, { top: CHART_HEIGHT + 8 }]
-              : [styles.tooltipAbove, { bottom: CHART_HEIGHT + 8 }],
-          ]}
-          pointerEvents="none"
-          accessibilityLiveRegion="polite"
-          accessibilityLabel={`${new Date(selPoint.observedAt).toLocaleString()}, ${formatValue(selPoint.weightKg)}${unitLabel ? ` ${unitLabel}` : ""}${selPoint.sourceId ? `, ${sourceLabel(selPoint.sourceId)}` : ""}`}
-        >
-          <Text style={styles.tooltipDate}>
-            {new Date(selPoint.observedAt).toLocaleString()}
-          </Text>
-          <Text style={styles.tooltipValue}>
-            {formatValue(selPoint.weightKg)}{unitLabel ? ` ${unitLabel}` : ""}
-          </Text>
-          {selPoint.sourceId ? (
-            <Text style={styles.tooltipSource}>{sourceLabel(selPoint.sourceId)}</Text>
-          ) : null}
-        </View>
-      )}
     </View>
   );
 }
@@ -524,38 +526,6 @@ const styles = StyleSheet.create({
   },
   svg: {
     backgroundColor: "transparent",
-  },
-  tooltip: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: 10,
-    padding: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.12)",
-  },
-  tooltipAbove: {},
-  tooltipBelow: {},
-  tooltipDate: {
-    fontSize: 12,
-    color: UI_TEXT_SECONDARY,
-    marginBottom: 2,
-  },
-  tooltipValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: UI_TEXT_PRIMARY,
-  },
-  tooltipSource: {
-    fontSize: 12,
-    color: UI_TEXT_MUTED,
-    marginTop: 4,
   },
   outlierNote: {
     fontSize: 11,

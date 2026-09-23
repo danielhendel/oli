@@ -32,12 +32,13 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
 jest.mock("@/lib/integrations/appleHealth/diagnoseAppleHealthWeightHistoryExtent", () => ({
   diagnoseAppleHealthWeightHistoryExtent: jest.fn(async () => ({
     metric: "weight",
-    queryStart: "t0",
-    queryEnd: "t1",
     oldestObservedAt: null,
     newestObservedAt: null,
-    samplesApprox: "0",
-    ok: true,
+    sampleCountBucket: "0",
+    pagesOrChunks: 0,
+    scanStart: "t0",
+    scanEnd: "t1",
+    status: "empty",
     safeErrorCode: null,
   })),
 }));

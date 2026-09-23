@@ -1,8 +1,13 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricTrendDetailModel } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
 import { buildBodyMetricTrendAccessibilitySummary } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
+import {
+  buildWeightTrendInspection,
+  WEIGHT_TREND_INSPECTION_IDLE,
+  type WeightTrendInspection,
+} from "@/lib/body/presentation/buildWeightTrendInspection";
 import {
   formatWeightTrendCurrentDate,
   formatWeightTrendObservedCoverageLabel,
@@ -12,7 +17,10 @@ import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
 import { WeightTrendStatsPanel } from "@/lib/ui/body/WeightTrendStatsPanel";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { WeightRangeSelector } from "@/lib/ui/WeightRangeSelector";
-import { WeightTrendChart } from "@/lib/ui/WeightTrendChart";
+import {
+  WeightTrendChart,
+  type WeightTrendChartInspectPoint,
+} from "@/lib/ui/WeightTrendChart";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import {
   SYSTEM_ACCENT_LUMINOUS,
@@ -68,8 +76,13 @@ export type BodyMetricTrendDetailViewProps = {
 /**
  * Hero longitudinal trend surface for Body metric detail.
  * Chart lives on the page canvas — no heavy card chrome around the plot.
+ * Chart inspection uses the fixed hero region (no floating tooltip).
  */
 export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps) {
+  const [inspection, setInspection] = useState<WeightTrendInspection>(
+    WEIGHT_TREND_INSPECTION_IDLE,
+  );
+
   const displayModel =
     props.model.status === "partial" &&
     props.retainChartWhileLoading &&
@@ -78,6 +91,10 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
       props.previousReadyModel.status === "insufficient")
       ? props.previousReadyModel
       : props.model;
+
+  useEffect(() => {
+    setInspection(WEIGHT_TREND_INSPECTION_IDLE);
+  }, [props.range, displayModel.points]);
 
   const formatChange = props.formatChange ?? props.formatValue;
 
@@ -101,17 +118,28 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
     });
   }, [displayModel.observedExtent]);
 
+  const inspecting = inspection.status === "active";
+  const heroValueLabel = inspecting ? inspection.formattedValue : latestLabel;
+  const heroDateLabel = inspecting
+    ? inspection.formattedTime
+      ? `${inspection.formattedDate} · ${inspection.formattedTime}`
+      : inspection.formattedDate
+    : displayModel.latest != null
+      ? formatWeightTrendCurrentDate(displayModel.latest.dayKey)
+      : null;
+
   const a11y = buildBodyMetricTrendAccessibilitySummary({
     metricTitle: props.metricTitle,
     rangeLabel: RANGE_LABELS[props.range] ?? props.range,
-    latestLabel,
-    changeLabel,
+    latestLabel: inspecting ? inspection.formattedValue : latestLabel,
+    changeLabel: inspecting ? null : changeLabel,
     averageLabel,
     highLabel,
     lowLabel,
     status: displayModel.status,
-    changeUnavailableDueToPartialCoverage:
-      displayModel.changeUnavailableDueToPartialCoverage,
+    changeUnavailableDueToPartialCoverage: inspecting
+      ? false
+      : displayModel.changeUnavailableDueToPartialCoverage,
     observedCoverageLabel,
   });
 
@@ -124,15 +152,45 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
   const changePeriodLabel =
     props.range === "All" ? "All-time change" : `${rangeShort} change`;
 
+  const handleInspectChange = useCallback(
+    (point: WeightTrendChartInspectPoint | null) => {
+      if (point == null) {
+        setInspection(WEIGHT_TREND_INSPECTION_IDLE);
+        return;
+      }
+      const sameDayPointCount = displayModel.points.filter((p) => p.dayKey === point.dayKey)
+        .length;
+      setInspection(
+        buildWeightTrendInspection({
+          point,
+          formatValue: props.formatValue,
+          sameDayPointCount,
+          metricTitle: props.metricTitle,
+        }),
+      );
+    },
+    [displayModel.points, props.formatValue, props.metricTitle],
+  );
+
+  const handleChangeRange = useCallback(
+    (next: WeightRangeKey) => {
+      setInspection(WEIGHT_TREND_INSPECTION_IDLE);
+      props.onChangeRange(next);
+    },
+    [props],
+  );
+
   return (
     <View
       style={styles.root}
       testID="body-metric-trend-detail"
       accessible
       accessibilityRole="summary"
-      accessibilityLabel={a11y}
+      accessibilityLabel={
+        inspecting && inspection.status === "active" ? inspection.accessibilityLabel : a11y
+      }
     >
-      <WeightRangeSelector value={props.range} onChange={props.onChangeRange} />
+      <WeightRangeSelector value={props.range} onChange={handleChangeRange} />
 
       {props.model.status === "partial" && displayModel === props.model ? (
         <LoadingState message="Loading chart…" />
@@ -176,27 +234,47 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
           <View style={styles.currentLeft}>
             <Text
               style={styles.latestValue}
-              accessibilityLabel={`Latest ${latestLabel ?? ""}`}
+              accessibilityLabel={
+                inspecting && inspection.status === "active"
+                  ? inspection.accessibilityLabel
+                  : `Latest ${heroValueLabel ?? ""}`
+              }
             >
-              {latestLabel}
+              {heroValueLabel}
             </Text>
-            <Text style={styles.latestDate}>
-              {formatWeightTrendCurrentDate(displayModel.latest!.dayKey)}
-            </Text>
+            <Text style={styles.latestDate}>{heroDateLabel}</Text>
           </View>
-          <View
-            style={styles.changeChip}
-            testID="body-metric-trend-period-change"
-            accessible
-            accessibilityLabel={
-              displayModel.changeUnavailableDueToPartialCoverage
-                ? `${changePeriodLabel} unavailable`
-                : `${changePeriodLabel}, ${changeDisplay}`
-            }
-          >
-            <Text style={styles.changeValue}>{changeDisplay}</Text>
-            <Text style={styles.changePeriod}>{changePeriodLabel}</Text>
-          </View>
+          {inspecting && inspection.status === "active" ? (
+            <View
+              style={styles.changeChip}
+              testID="body-metric-trend-inspection-chip"
+              accessible
+              accessibilityLabel={
+                inspection.sourceLabel
+                  ? `Historical, ${inspection.sourceLabel}`
+                  : "Historical"
+              }
+            >
+              <Text style={styles.changeValue}>Historical</Text>
+              {inspection.sourceLabel ? (
+                <Text style={styles.changePeriod}>{inspection.sourceLabel}</Text>
+              ) : null}
+            </View>
+          ) : (
+            <View
+              style={styles.changeChip}
+              testID="body-metric-trend-period-change"
+              accessible
+              accessibilityLabel={
+                displayModel.changeUnavailableDueToPartialCoverage
+                  ? `${changePeriodLabel} unavailable`
+                  : `${changePeriodLabel}, ${changeDisplay}`
+              }
+            >
+              <Text style={styles.changeValue}>{changeDisplay}</Text>
+              <Text style={styles.changePeriod}>{changePeriodLabel}</Text>
+            </View>
+          )}
         </View>
       ) : null}
 
@@ -216,6 +294,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
             emphasizeLatestPoint
             accessibilityLabel={a11y}
             chartHeight={320}
+            onInspectChange={handleInspectChange}
           />
           {observedCoverageLabel ? (
             <Text

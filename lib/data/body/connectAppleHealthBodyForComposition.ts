@@ -344,6 +344,10 @@ export async function resumeAppleHealthBodyHistoryImport(
   }
 
   deps.onPhase?.("importingEarlier");
+  // DEV physical proof: emit HealthKit Weight extent before resume/re-scan.
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    await diagnoseAppleHealthWeightHistoryExtent();
+  }
   const existing = await getAppleHealthBodyBackfillState().catch(() => null);
   // Explicit resume after a prior "completed" marker must re-scan (false-complete repair).
   const forceRestart = existing?.status === "completed";
@@ -373,6 +377,10 @@ export async function resumeAppleHealthBodyHistoryImport(
       alreadyConnected: true,
       safeErrorCode: "history_batch_failed",
     };
+  }
+
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    await diagnoseAppleHealthWeightHistoryExtent();
   }
 
   deps.onLatestSynced?.();
