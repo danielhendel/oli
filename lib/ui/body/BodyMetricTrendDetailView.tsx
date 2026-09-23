@@ -3,8 +3,10 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricTrendDetailModel } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
 import { buildBodyMetricTrendAccessibilitySummary } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
-import { buildObservedDateExtent } from "@/lib/body/presentation/buildObservedDateExtent";
-import { formatWeightTrendCurrentDate } from "@/lib/body/presentation/formatWeightTrendDates";
+import {
+  formatWeightTrendCurrentDate,
+  formatWeightTrendObservedCoverageLabel,
+} from "@/lib/body/presentation/formatWeightTrendDates";
 import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
 import { WeightTrendStatsPanel } from "@/lib/ui/body/WeightTrendStatsPanel";
 import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
@@ -86,10 +88,14 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
   const lowLabel =
     displayModel.low != null ? props.formatValue(displayModel.low) : null;
 
-  const observedExtent = useMemo(
-    () => buildObservedDateExtent(displayModel.points),
-    [displayModel.points],
-  );
+  const observedCoverageLabel = useMemo(() => {
+    const extent = displayModel.observedExtent;
+    if (extent?.firstDayKey == null || extent.lastDayKey == null) return null;
+    return formatWeightTrendObservedCoverageLabel({
+      firstDayKey: extent.firstDayKey,
+      lastDayKey: extent.lastDayKey,
+    });
+  }, [displayModel.observedExtent]);
 
   const a11y = buildBodyMetricTrendAccessibilitySummary({
     metricTitle: props.metricTitle,
@@ -100,6 +106,9 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
     highLabel,
     lowLabel,
     status: displayModel.status,
+    changeUnavailableDueToPartialCoverage:
+      displayModel.changeUnavailableDueToPartialCoverage,
+    observedCoverageLabel,
   });
 
   const showTrend =
@@ -108,7 +117,8 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
 
   const rangeShort = RANGE_SHORT[props.range] ?? props.range;
   const changeDisplay = changeLabel ?? "—";
-  const changePeriodLabel = `${rangeShort} change`;
+  const changePeriodLabel =
+    props.range === "All" ? "All-time change" : `${rangeShort} change`;
 
   return (
     <View
@@ -152,7 +162,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
       ) : null}
 
       {showTrend ? (
-        <View style={styles.currentRow} testID="body-metric-trend-latest">
+        <View style={styles.heroSummary} testID="body-metric-trend-latest">
           <View style={styles.currentLeft}>
             <Text
               style={styles.latestValue}
@@ -168,7 +178,11 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
             style={styles.currentRight}
             testID="body-metric-trend-period-change"
             accessible
-            accessibilityLabel={`${RANGE_LABELS[props.range] ?? props.range} change, ${changeDisplay}`}
+            accessibilityLabel={
+              displayModel.changeUnavailableDueToPartialCoverage
+                ? `${changePeriodLabel} unavailable`
+                : `${changePeriodLabel}, ${changeDisplay}`
+            }
           >
             <Text style={styles.changeValue}>{changeDisplay}</Text>
             <Text style={styles.changePeriod}>{changePeriodLabel}</Text>
@@ -192,8 +206,16 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
             emphasizeLatestPoint
             accessibilityLabel={a11y}
             chartHeight={320}
-            observedExtent={observedExtent}
           />
+          {observedCoverageLabel ? (
+            <Text
+              style={styles.observedCoverage}
+              testID="body-metric-trend-observed-coverage"
+              accessibilityLabel={`${props.metricTitle} data shown from ${observedCoverageLabel}`}
+            >
+              {observedCoverageLabel}
+            </Text>
+          ) : null}
           {displayModel.status === "insufficient" ? (
             <Text style={styles.insufficientNote} testID="body-metric-trend-insufficient">
               More measurements are needed to show a trend.
@@ -236,12 +258,13 @@ const styles = StyleSheet.create({
   root: {
     gap: 0,
   },
-  currentRow: {
+  heroSummary: {
     marginTop: 22,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 16,
+    paddingVertical: 4,
   },
   currentLeft: {
     flexShrink: 1,
@@ -249,14 +272,14 @@ const styles = StyleSheet.create({
   },
   currentRight: {
     alignItems: "flex-end",
+    justifyContent: "center",
     gap: 4,
-    paddingTop: 6,
   },
   latestValue: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 40,
+    fontSize: 48,
     fontWeight: "700",
-    letterSpacing: -0.8,
+    letterSpacing: -0.9,
   },
   latestDate: {
     color: UI_TEXT_SECONDARY,
@@ -265,9 +288,9 @@ const styles = StyleSheet.create({
   },
   changeValue: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: "700",
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
   changePeriod: {
     color: UI_TEXT_MUTED,
@@ -279,8 +302,16 @@ const styles = StyleSheet.create({
     minHeight: 320,
     backgroundColor: "transparent",
   },
+  observedCoverage: {
+    marginTop: 12,
+    marginBottom: 4,
+    textAlign: "center",
+    color: UI_TEXT_MUTED,
+    fontSize: 12,
+    fontWeight: "500",
+  },
   statsWrap: {
-    marginTop: 24,
+    marginTop: 20,
   },
   emptyBlock: {
     gap: 12,

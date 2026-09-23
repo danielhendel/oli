@@ -18,8 +18,6 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 import { buildWeightAxisTicks } from "@/lib/body/presentation/buildWeightAxisTicks";
-import type { ObservedDateExtent } from "@/lib/body/presentation/buildObservedDateExtent";
-import { formatWeightTrendObservedAxisLabels } from "@/lib/body/presentation/formatWeightTrendDates";
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
 import {
@@ -28,10 +26,9 @@ import {
   SYSTEM_ACCENT_NAVY_DEPTH,
 } from "@/lib/ui/theme/systemAccent";
 
-const PADDING = { left: 40, right: 10, top: 14, bottom: 36 };
+const PADDING = { left: 40, right: 10, top: 14, bottom: 18 };
 const Y_LABEL_FONT_SIZE = 11;
 const Y_LABEL_COLOR = UI_TEXT_MUTED;
-const X_LABEL_FONT_SIZE = 11;
 /** Hero chart height — visually dominant on Weight detail. */
 const DEFAULT_CHART_HEIGHT = 320;
 const DOT_R = 5.5;
@@ -175,8 +172,6 @@ export type WeightTrendChartProps = {
   accessibilityLabel?: string;
   /** Hero plot height in points. */
   chartHeight?: number;
-  /** Actual observed first/last timestamps — drives X-axis endpoint labels. */
-  observedExtent?: ObservedDateExtent | null;
 };
 
 type ProcessedPoint = {
@@ -198,7 +193,6 @@ export function WeightTrendChart({
   emphasizeLatestPoint = false,
   accessibilityLabel = "Weight trend chart",
   chartHeight: chartHeightProp = DEFAULT_CHART_HEIGHT,
-  observedExtent = null,
 }: WeightTrendChartProps) {
   const CHART_HEIGHT = chartHeightProp;
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
@@ -315,32 +309,8 @@ export function WeightTrendChart({
   const genericHighLabel = actualMaxW.toFixed(1);
   const genericLowLabel = actualMinW.toFixed(1);
 
-  /** X-axis: data extents only (trust-first). */
-  const dataStartMs = minT;
-  const dataEndMs = maxT;
-
-  const observedAxisLabels = useMemo(() => {
-    const firstDay =
-      observedExtent?.firstDayKey ??
-      (Number.isFinite(dataStartMs)
-        ? new Date(dataStartMs).toISOString().slice(0, 10)
-        : null);
-    const lastDay =
-      observedExtent?.lastDayKey ??
-      (Number.isFinite(dataEndMs)
-        ? new Date(dataEndMs).toISOString().slice(0, 10)
-        : null);
-    if (!firstDay || !lastDay) return null;
-    return formatWeightTrendObservedAxisLabels({
-      firstDayKey: firstDay,
-      lastDayKey: lastDay,
-    });
-  }, [observedExtent, dataStartMs, dataEndMs]);
-
-  // Keep selected range available for callers; axis labels are observation-driven.
+  // Keep selected range available for callers; observed coverage lives under the chart.
   void range;
-
-  const xAxisY = PADDING.top + chartHeight + 18;
 
   /** Area fill only when >= 3 points; sparse windows must not show filled triangle. */
   const areaD =
@@ -508,39 +478,6 @@ export function WeightTrendChart({
               fill="none"
             />
           )}
-          {layout && observedAxisLabels?.kind === "range" ? (
-            <>
-              <SvgText
-                x={PADDING.left}
-                y={xAxisY}
-                fontSize={X_LABEL_FONT_SIZE}
-                fill={Y_LABEL_COLOR}
-                textAnchor="start"
-              >
-                {observedAxisLabels.startLabel}
-              </SvgText>
-              <SvgText
-                x={layout.width - PADDING.right}
-                y={xAxisY}
-                fontSize={X_LABEL_FONT_SIZE}
-                fill={Y_LABEL_COLOR}
-                textAnchor="end"
-              >
-                {observedAxisLabels.endLabel}
-              </SvgText>
-            </>
-          ) : null}
-          {layout && observedAxisLabels?.kind === "single" ? (
-            <SvgText
-              x={(PADDING.left + layout.width - PADDING.right) / 2}
-              y={xAxisY}
-              fontSize={X_LABEL_FONT_SIZE}
-              fill={Y_LABEL_COLOR}
-              textAnchor="middle"
-            >
-              {observedAxisLabels.label}
-            </SvgText>
-          ) : null}
         </Svg>
       )}
       {outlierCount > 0 && (

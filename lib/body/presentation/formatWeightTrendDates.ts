@@ -65,13 +65,37 @@ export type WeightTrendObservedAxisLabels =
     };
 
 /**
- * Format observed start/end for the chart footer.
- * Cross-year → `MMM d, yyyy`; same year → `MMM d`; same day → single centered date.
+ * Format observed start/end as separate labels (legacy split axis).
+ * Prefer {@link formatWeightTrendObservedCoverageLabel} for the chart footer.
  */
 export function formatWeightTrendObservedAxisLabels(args: {
   readonly firstDayKey: string;
   readonly lastDayKey: string;
 }): WeightTrendObservedAxisLabels | null {
+  const coverage = formatWeightTrendObservedCoverageLabel(args);
+  if (coverage == null) return null;
+  if (args.firstDayKey === args.lastDayKey) {
+    return { kind: "single", label: coverage };
+  }
+  const sep = " – ";
+  const idx = coverage.indexOf(sep);
+  if (idx < 0) return { kind: "single", label: coverage };
+  return {
+    kind: "range",
+    startLabel: coverage.slice(0, idx),
+    endLabel: coverage.slice(idx + sep.length),
+  };
+}
+
+/**
+ * One centered chart-footer string from actual plotted first/last dayKeys.
+ * Same year → `MMM d – MMM d`; cross-year → `MMM d, yyyy – MMM d, yyyy`;
+ * single day → `MMM d, yyyy`.
+ */
+export function formatWeightTrendObservedCoverageLabel(args: {
+  readonly firstDayKey: string;
+  readonly lastDayKey: string;
+}): string | null {
   const start = parseDayKeyParts(args.firstDayKey);
   const end = parseDayKeyParts(args.lastDayKey);
   if (!start || !end) return null;
@@ -80,23 +104,12 @@ export function formatWeightTrendObservedAxisLabels(args: {
   const endMonth = MONTH_SHORT[end.monthIndex] ?? "";
 
   if (args.firstDayKey === args.lastDayKey) {
-    return {
-      kind: "single",
-      label: `${startMonth} ${start.day}, ${start.year}`,
-    };
+    return `${startMonth} ${start.day}, ${start.year}`;
   }
 
   if (start.year !== end.year) {
-    return {
-      kind: "range",
-      startLabel: `${startMonth} ${start.day}, ${start.year}`,
-      endLabel: `${endMonth} ${end.day}, ${end.year}`,
-    };
+    return `${startMonth} ${start.day}, ${start.year} – ${endMonth} ${end.day}, ${end.year}`;
   }
 
-  return {
-    kind: "range",
-    startLabel: `${startMonth} ${start.day}`,
-    endLabel: `${endMonth} ${end.day}`,
-  };
+  return `${startMonth} ${start.day} – ${endMonth} ${end.day}`;
 }
