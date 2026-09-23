@@ -42,6 +42,13 @@ function weekdayFromDayKey(dayKey: string): string {
   return WEEKDAY_SHORT[d.getUTCDay()] ?? "";
 }
 
+function formatDayKeyMmmDYyyy(dayKey: string): string | null {
+  const parts = parseDayKeyParts(dayKey);
+  if (!parts) return null;
+  const month = MONTH_SHORT[parts.monthIndex] ?? "";
+  return `${month} ${parts.day}, ${parts.year}`;
+}
+
 /**
  * Current-value date under Weight: `Wed, Sep 16` (EEE, MMM d).
  */
@@ -89,27 +96,23 @@ export function formatWeightTrendObservedAxisLabels(args: {
 
 /**
  * One centered chart-footer string from actual plotted first/last dayKeys.
- * Same year → `MMM d – MMM d`; cross-year → `MMM d, yyyy – MMM d, yyyy`;
- * single day → `MMM d, yyyy`.
+ * Always includes year on both endpoints: `MMM d, yyyy – MMM d, yyyy`.
+ * Single day → `MMM d, yyyy`.
  */
 export function formatWeightTrendObservedCoverageLabel(args: {
   readonly firstDayKey: string;
   readonly lastDayKey: string;
 }): string | null {
-  const start = parseDayKeyParts(args.firstDayKey);
-  const end = parseDayKeyParts(args.lastDayKey);
-  if (!start || !end) return null;
-
-  const startMonth = MONTH_SHORT[start.monthIndex] ?? "";
-  const endMonth = MONTH_SHORT[end.monthIndex] ?? "";
+  const startLabel = formatDayKeyMmmDYyyy(args.firstDayKey);
+  const endLabel = formatDayKeyMmmDYyyy(args.lastDayKey);
+  if (!startLabel || !endLabel) return null;
 
   if (args.firstDayKey === args.lastDayKey) {
-    return `${startMonth} ${start.day}, ${start.year}`;
+    return startLabel;
   }
 
-  if (start.year !== end.year) {
-    return `${startMonth} ${start.day}, ${start.year} – ${endMonth} ${end.day}, ${end.year}`;
-  }
-
-  return `${startMonth} ${start.day} – ${endMonth} ${end.day}`;
+  return `${startLabel} – ${endLabel}`;
 }
+
+/** Chart-footer copy when the selected period has no valid plotted points. */
+export const WEIGHT_TREND_NO_DATA_AVAILABLE = "No data available";

@@ -6,14 +6,18 @@ import { buildBodyMetricTrendAccessibilitySummary } from "@/lib/body/presentatio
 import {
   formatWeightTrendCurrentDate,
   formatWeightTrendObservedCoverageLabel,
+  WEIGHT_TREND_NO_DATA_AVAILABLE,
 } from "@/lib/body/presentation/formatWeightTrendDates";
 import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
 import { WeightTrendStatsPanel } from "@/lib/ui/body/WeightTrendStatsPanel";
-import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
+import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { WeightRangeSelector } from "@/lib/ui/WeightRangeSelector";
 import { WeightTrendChart } from "@/lib/ui/WeightTrendChart";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
-import { SYSTEM_ACCENT_LUMINOUS } from "@/lib/ui/theme/systemAccent";
+import {
+  SYSTEM_ACCENT_LUMINOUS,
+  SYSTEM_ACCENT_NAVY_DEPTH,
+} from "@/lib/ui/theme/systemAccent";
 import {
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
@@ -143,10 +147,16 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
 
       {displayModel.status === "missing" ? (
         <View style={styles.emptyBlock} testID="body-metric-trend-empty">
-          <EmptyState
-            title={`No ${props.metricTitle} history yet`}
-            description={`Log ${props.metricTitle} measurements to see your trend over time.`}
-          />
+          <Text
+            style={styles.noDataPrimary}
+            testID="body-metric-trend-no-data"
+            accessibilityRole="text"
+          >
+            {WEIGHT_TREND_NO_DATA_AVAILABLE}
+          </Text>
+          <Text style={styles.noDataSecondary}>
+            {`No ${props.metricTitle} measurements were found in this period.`}
+          </Text>
           {props.onPressAddMeasurement ? (
             <Pressable
               style={styles.addBtn}
@@ -175,7 +185,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
             </Text>
           </View>
           <View
-            style={styles.currentRight}
+            style={styles.changeChip}
             testID="body-metric-trend-period-change"
             accessible
             accessibilityLabel={
@@ -270,10 +280,17 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     gap: 4,
   },
-  currentRight: {
-    alignItems: "flex-end",
+  changeChip: {
+    alignItems: "center",
     justifyContent: "center",
-    gap: 4,
+    gap: 2,
+    minWidth: 108,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: SYSTEM_ACCENT_NAVY_DEPTH,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(91, 140, 255, 0.28)",
   },
   latestValue: {
     color: UI_TEXT_PRIMARY,
@@ -288,14 +305,16 @@ const styles = StyleSheet.create({
   },
   changeValue: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "700",
     letterSpacing: -0.4,
+    textAlign: "center",
   },
   changePeriod: {
-    color: UI_TEXT_MUTED,
-    fontSize: 13,
+    color: "rgba(168, 188, 230, 0.78)",
+    fontSize: 12,
     fontWeight: "500",
+    textAlign: "center",
   },
   chartWrap: {
     marginTop: 14,
@@ -314,12 +333,28 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   emptyBlock: {
-    gap: 12,
-    paddingVertical: 20,
+    gap: 10,
+    paddingVertical: 36,
+    alignItems: "center",
+  },
+  noDataPrimary: {
+    color: UI_TEXT_PRIMARY,
+    fontSize: 17,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  noDataSecondary: {
+    color: UI_TEXT_MUTED,
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+    paddingHorizontal: 24,
   },
   addBtn: {
+    marginTop: 8,
     minHeight: 48,
     borderRadius: 14,
+    paddingHorizontal: 20,
     backgroundColor: BODY_INDIGO,
     alignItems: "center",
     justifyContent: "center",
