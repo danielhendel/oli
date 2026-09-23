@@ -36,7 +36,7 @@ const ACCENT_BLUE = SYSTEM_ACCENT_LUMINOUS;
 const LINE_WIDTH = 2.85;
 const LINE_GLOW_WIDTH = 7;
 const GRID_COLOR = "rgba(140,168,220,0.10)";
-/** Max points used to draw path/area/dots; touch and tooltip still use full data. */
+/** Max points used to draw path/area/dots; touch/inspection still use full data. */
 const MAX_RENDER_POINTS = 80;
 
 /** Largest-Triangle-Three-Buckets downsampling for time-series; keeps first/last and picks middle points for best visual fidelity. */
@@ -209,6 +209,19 @@ export function WeightTrendChart({
     setLayout({ width, height });
   }, []);
 
+  /**
+   * Content identity for reset — NOT array reference.
+   * Parent re-renders (e.g. hero inspection state) must not clear scrub state
+   * when the underlying observations are unchanged.
+   */
+  const pointsContentKey = useMemo(
+    () =>
+      points
+        .map((p) => `${p.observedAt}\0${p.weightKg}\0${p.dayKey}\0${p.sourceId}`)
+        .join("|"),
+    [points],
+  );
+
   const { processed, error } = useMemo(() => {
     const valid: ProcessedPoint[] = [];
     for (const p of points) {
@@ -238,7 +251,7 @@ export function WeightTrendChart({
     setSelectedIndex(null);
     lastInspectedAtRef.current = null;
     onInspectRef.current?.(null);
-  }, [range, points]);
+  }, [range, pointsContentKey]);
 
   if (points.length === 0) {
     return null;
@@ -291,7 +304,7 @@ export function WeightTrendChart({
     };
   });
 
-  /** Downsample for rendering only; touch/tooltip still use full pointsWithCoords. */
+  /** Downsample for rendering only; touch/inspection still use full pointsWithCoords. */
   const renderPoints = downsampleLTTB(pointsWithCoords, MAX_RENDER_POINTS);
 
   const n = processed.length;

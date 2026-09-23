@@ -92,9 +92,28 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
       ? props.previousReadyModel
       : props.model;
 
+  /** Content key — avoid resetting inspection on array identity churn alone. */
+  const pointsContentKey = useMemo(
+    () =>
+      displayModel.points
+        .map((p) => `${p.observedAt}\0${p.weightKg}\0${p.dayKey}\0${p.sourceId}`)
+        .join("|"),
+    [displayModel.points],
+  );
+
   useEffect(() => {
     setInspection(WEIGHT_TREND_INSPECTION_IDLE);
-  }, [props.range, displayModel.points]);
+  }, [props.range, pointsContentKey]);
+
+  useEffect(() => {
+    if (inspection.status !== "active") return;
+    const stillPresent = displayModel.points.some(
+      (p) => p.observedAt === inspection.pointId,
+    );
+    if (!stillPresent) {
+      setInspection(WEIGHT_TREND_INSPECTION_IDLE);
+    }
+  }, [displayModel.points, inspection]);
 
   const formatChange = props.formatChange ?? props.formatValue;
 
@@ -152,6 +171,15 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
   const changePeriodLabel =
     props.range === "All" ? "All-time change" : `${rangeShort} change`;
 
+  const chartFormatValue = useCallback(
+    (v: number) => {
+      const label = props.formatValue(v);
+      const suffix = props.unitLabel;
+      return suffix ? label.replace(` ${suffix}`, "") : label;
+    },
+    [props.formatValue, props.unitLabel],
+  );
+
   const handleInspectChange = useCallback(
     (point: WeightTrendChartInspectPoint | null) => {
       if (point == null) {
@@ -177,7 +205,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
       setInspection(WEIGHT_TREND_INSPECTION_IDLE);
       props.onChangeRange(next);
     },
-    [props],
+    [props.onChangeRange],
   );
 
   return (
@@ -281,14 +309,10 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
       {displayModel.points.length > 0 && showTrend ? (
         <View style={styles.chartWrap} testID="body-metric-trend-chart">
           <WeightTrendChart
-            points={[...displayModel.points]}
+            points={displayModel.points}
             unitLabel={props.unitLabel}
             valueKind={props.valueKind}
-            formatValue={(v) => {
-              const label = props.formatValue(v);
-              const suffix = props.unitLabel;
-              return suffix ? label.replace(` ${suffix}`, "") : label;
-            }}
+            formatValue={chartFormatValue}
             range={props.range}
             accentColor={SYSTEM_ACCENT_LUMINOUS}
             emphasizeLatestPoint
