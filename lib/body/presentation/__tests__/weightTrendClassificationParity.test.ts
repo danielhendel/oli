@@ -16,6 +16,7 @@ import {
 import {
   BODY_METRIC_CLASSIFICATION_FILL_STRONG_TOKENS,
   resolveBodyMetricClassificationBandChrome,
+  resolveWeightClassificationSegmentVisual,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
 const HEIGHT_CM = 170;
@@ -69,8 +70,12 @@ describe("Weight card ↔ trend chart classification parity", () => {
     expect(presentation!.segments.map((s) => s.id)).toEqual(bands.bands.map((b) => b.id));
     expect(presentation!.segments.map((s) => s.tone)).toEqual(bands.bands.map((b) => b.tone));
     for (const band of bands.bands) {
-      expect(resolveBodyMetricClassificationBandChrome(band.tone).fillStrong).toBe(
+      const visual = resolveWeightClassificationSegmentVisual(band.tone);
+      expect(visual.paint.fillStrong).toBe(
         BODY_METRIC_CLASSIFICATION_FILL_STRONG_TOKENS[band.tone],
+      );
+      expect(visual.paint.fillStrong).toBe(
+        resolveBodyMetricClassificationBandChrome(band.tone).fillStrong,
       );
     }
   });
