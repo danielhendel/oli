@@ -90,25 +90,53 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 /**
+ * Chart-band base opacity — brighter than prior muddy pass, still translucent
+ * so the white Weight line remains primary. Same fillStrong hues as the Weight card.
+ */
+export const WEIGHT_TREND_CHART_BAND_FILL_ALPHA = 0.26;
+/** Slightly stronger top of the vertical luminosity gradient. */
+export const WEIGHT_TREND_CHART_BAND_HIGHLIGHT_ALPHA = 0.34;
+/** Subtle threshold edge. */
+export const WEIGHT_TREND_CHART_BAND_EDGE_ALPHA = 0.38;
+
+/**
  * Soft translucent fills for Weight trend chart background zones.
- * Same fillStrong hues as the Weight card — low opacity so the white line stays primary.
+ * Hues match Weight-card fillStrong exactly — only opacity is chart-specific.
  */
 export function resolveWeightTrendChartBandFill(
   tone: BodyMetricClassificationTone,
 ): string {
   const chrome = resolveBodyMetricClassificationBandChrome(tone);
-  return hexToRgba(chrome.fillStrong, 0.14);
+  return hexToRgba(chrome.fillStrong, WEIGHT_TREND_CHART_BAND_FILL_ALPHA);
 }
 
 /**
- * Very subtle threshold edge — not a hard border.
+ * Brighter stop for vertical band gradients (same hue as Weight-card fillStrong).
+ */
+export function resolveWeightTrendChartBandHighlight(
+  tone: BodyMetricClassificationTone,
+): string {
+  const chrome = resolveBodyMetricClassificationBandChrome(tone);
+  return hexToRgba(chrome.fillStrong, WEIGHT_TREND_CHART_BAND_HIGHLIGHT_ALPHA);
+}
+
+/**
+ * Subtle threshold edge — same Weight-card hue, chart-specific opacity.
  */
 export function resolveWeightTrendChartBandEdge(
   tone: BodyMetricClassificationTone,
 ): string {
   const chrome = resolveBodyMetricClassificationBandChrome(tone);
-  return hexToRgba(chrome.fillStrong, 0.22);
+  return hexToRgba(chrome.fillStrong, WEIGHT_TREND_CHART_BAND_EDGE_ALPHA);
 }
+
+/** Expose Weight-card fillStrong hexes for cross-surface identity tests. */
+export const BODY_METRIC_CLASSIFICATION_FILL_STRONG_TOKENS = {
+  cool: DARK.cool.fillStrong,
+  reference: DARK.reference.fillStrong,
+  caution: DARK.caution.fillStrong,
+  elevated: DARK.elevated.fillStrong,
+} as const;
 
 /**
  * Exported for style-contract tests — classification names must stay segment-colored

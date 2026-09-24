@@ -28,8 +28,10 @@ import {
   SYSTEM_ACCENT_NAVY_DEPTH,
 } from "@/lib/ui/theme/systemAccent";
 import {
+  resolveBodyMetricClassificationBandChrome,
   resolveWeightTrendChartBandEdge,
-  resolveWeightTrendChartBandFill,
+  WEIGHT_TREND_CHART_BAND_FILL_ALPHA,
+  WEIGHT_TREND_CHART_BAND_HIGHLIGHT_ALPHA,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
 const PADDING = { left: 40, right: 10, top: 14, bottom: 18 };
@@ -472,8 +474,37 @@ export function WeightTrendChart({
               <Stop offset="45%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.10" />
               <Stop offset="100%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.01" />
             </LinearGradient>
+            {visibleBands.map((band) => {
+              const strong = resolveBodyMetricClassificationBandChrome(band.tone).fillStrong;
+              return (
+                <LinearGradient
+                  key={`band-grad-${band.id}`}
+                  id={`weightTrendBandFill-${band.id}`}
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <Stop
+                    offset="0%"
+                    stopColor={strong}
+                    stopOpacity={String(WEIGHT_TREND_CHART_BAND_HIGHLIGHT_ALPHA)}
+                  />
+                  <Stop
+                    offset="55%"
+                    stopColor={strong}
+                    stopOpacity={String(WEIGHT_TREND_CHART_BAND_FILL_ALPHA)}
+                  />
+                  <Stop
+                    offset="100%"
+                    stopColor={strong}
+                    stopOpacity={String(WEIGHT_TREND_CHART_BAND_FILL_ALPHA * 0.85)}
+                  />
+                </LinearGradient>
+              );
+            })}
           </Defs>
-          {/* Classification bands first — no competing blue area fill when present. */}
+          {/* Classification bands — Weight-card hues; decorative only (no pointer capture). */}
           {visibleBands.map((band) => (
             <React.Fragment key={`band-${band.id}`}>
               <Rect
@@ -481,13 +512,15 @@ export function WeightTrendChart({
                 y={band.y}
                 width={plotWidth}
                 height={band.height}
-                fill={resolveWeightTrendChartBandFill(band.tone)}
+                fill={`url(#weightTrendBandFill-${band.id})`}
+                pointerEvents="none"
               />
               <Path
                 d={`M ${plotLeft} ${band.y} L ${plotLeft + plotWidth} ${band.y}`}
                 stroke={resolveWeightTrendChartBandEdge(band.tone)}
                 strokeWidth={0.5}
                 fill="none"
+                pointerEvents="none"
               />
             </React.Fragment>
           ))}
