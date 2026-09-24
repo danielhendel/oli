@@ -156,7 +156,7 @@ describe("BodyMetricTrendDetailView — hero inspection", () => {
       0,
     );
     const rows = statsRowsRef.current as { key: string }[];
-    expect(rows.map((r) => r.key)).toEqual(["change", "high", "low"]);
+    expect(rows.map((r) => r.key)).toEqual(["low", "high", "change"]);
   });
 
   it("inspection callback selects point B → hero shows B value/date/source", () => {

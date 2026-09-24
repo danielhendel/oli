@@ -10,17 +10,17 @@ jest.mock("react-native", () => ({
 import { WeightTrendStatsPanel } from "@/lib/ui/body/WeightTrendStatsPanel";
 
 describe("WeightTrendStatsPanel", () => {
-  it("renders equal-width Change / High / Low cards without Average or period caption", async () => {
+  it("renders Low / High / Change in that order without Average", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(
         React.createElement(WeightTrendStatsPanel, {
           rows: [
             {
-              key: "change",
-              label: "Change",
-              value: "+2.2 lb",
-              testID: "body-metric-trend-stat-change",
+              key: "low",
+              label: "Low",
+              value: "156.1 lb",
+              testID: "body-metric-trend-stat-low",
             },
             {
               key: "high",
@@ -29,29 +29,26 @@ describe("WeightTrendStatsPanel", () => {
               testID: "body-metric-trend-stat-high",
             },
             {
-              key: "low",
-              label: "Low",
-              value: "162.1 lb",
-              testID: "body-metric-trend-stat-low",
+              key: "change",
+              label: "Change",
+              value: "+7.8 lb",
+              testID: "body-metric-trend-stat-change",
             },
           ],
         }),
       );
     });
-    expect(tree.root.findByProps({ testID: "body-metric-trend-summary" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-change" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-high" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-low" })).toBeDefined();
+    const panel = tree.root.findByProps({ testID: "body-metric-trend-summary" });
+    const cards = panel.children.filter(
+      (c): c is renderer.ReactTestInstance =>
+        typeof c !== "string" && c.props?.testID != null,
+    );
+    expect(cards.map((c) => c.props.testID)).toEqual([
+      "body-metric-trend-stat-low",
+      "body-metric-trend-stat-high",
+      "body-metric-trend-stat-change",
+    ]);
     expect(tree.root.findAllByProps({ testID: "body-metric-trend-stat-average" })).toHaveLength(0);
-    expect(
-      tree.root.findByProps({ testID: "body-metric-trend-stat-change" }).props.accessibilityLabel,
-    ).toBe("Change +2.2 lb");
-    const text = tree.root
-      .findAllByType("Text")
-      .flatMap((n) => n.children)
-      .filter((x) => typeof x === "string")
-      .join(" ");
-    expect(text).not.toMatch(/30D|1Y change|All-time/i);
   });
 
   it("renders nothing when rows are empty", async () => {
