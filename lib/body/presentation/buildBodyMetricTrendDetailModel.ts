@@ -8,7 +8,7 @@
  * (not Stage 3D in this change).
  *
  * Range truth: {@link buildWeightRangePresentation} builds one selected-period
- * series that drives chart points, Change (complete-duration only), Average,
+ * series that drives chart points, Change (first→last plotted when ≥2 points),
  * High, Low, and observed coverage. Hook `stats` are ignored so graph and
  * summary cannot diverge.
  */
@@ -49,7 +49,10 @@ export type BodyMetricTrendDetailModel = {
   readonly sameDayPolicy: "all_observations_by_observedAt";
   readonly coverage: WeightRangeCoverage | null;
   readonly observedExtent: ObservedDateExtent | null;
-  /** True when Change is withheld because selected duration is incomplete. */
+  /**
+   * Legacy flag — always false. Change is withheld only when fewer than 2
+   * plotted points exist (see `change === null`), not for partial duration.
+   */
   readonly changeUnavailableDueToPartialCoverage: boolean;
 };
 
@@ -128,9 +131,6 @@ export function buildBodyMetricTrendDetailModel(
   const status: BodyMetricTrendDetailStatus =
     sorted.length < 2 ? "insufficient" : "ready";
 
-  const changeUnavailableDueToPartialCoverage =
-    presentation.coverage.status === "partial" && sorted.length >= 2;
-
   return {
     range: input.range,
     points: sorted,
@@ -144,7 +144,7 @@ export function buildBodyMetricTrendDetailModel(
     sameDayPolicy: "all_observations_by_observedAt",
     coverage: presentation.coverage,
     observedExtent: presentation.observedExtent,
-    changeUnavailableDueToPartialCoverage,
+    changeUnavailableDueToPartialCoverage: false,
   };
 }
 
@@ -177,10 +177,6 @@ export function buildBodyMetricTrendAccessibilitySummary(args: {
   if (args.latestLabel) parts.push(`Latest ${args.latestLabel}.`);
   if (args.status === "insufficient") {
     parts.push("More measurements are needed to show a trend.");
-  } else if (args.changeUnavailableDueToPartialCoverage) {
-    parts.push(
-      `Change for ${args.rangeLabel} unavailable because a full period of ${args.metricTitle} history is not available.`,
-    );
   } else if (args.changeLabel) {
     parts.push(`Change ${args.changeLabel}.`);
   }

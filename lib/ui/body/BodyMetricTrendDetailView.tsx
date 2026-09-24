@@ -42,18 +42,6 @@ const RANGE_LABELS: Record<WeightRangeKey, string> = {
   All: "all time",
 };
 
-const RANGE_SHORT: Record<WeightRangeKey, string> = {
-  "7D": "7D",
-  "30D": "30D",
-  "90D": "90D",
-  "6M": "6M",
-  "1Y": "1Y",
-  YTD: "YTD",
-  "3Y": "3Y",
-  "5Y": "5Y",
-  All: "All",
-};
-
 export type BodyMetricTrendDetailViewProps = {
   metricTitle: string;
   model: BodyMetricTrendDetailModel;
@@ -156,24 +144,24 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
     highLabel,
     lowLabel,
     status: displayModel.status,
-    changeUnavailableDueToPartialCoverage: inspecting
-      ? false
-      : displayModel.changeUnavailableDueToPartialCoverage,
+    changeUnavailableDueToPartialCoverage: false,
     observedCoverageLabel,
   });
+
+  const chartA11y =
+    props.classificationBands?.status === "ready"
+      ? `${a11y} Weight ranges shown in the background use the same screening categories as the Body Composition Weight card.`
+      : a11y;
 
   const showTrend =
     displayModel.latest != null &&
     (displayModel.status === "ready" || displayModel.status === "insufficient");
 
-  const rangeShort = RANGE_SHORT[props.range] ?? props.range;
   const changeDisplay = changeLabel ?? "—";
-  const changePeriodCaption =
-    props.range === "All" ? "All-time" : rangeShort;
-  const changeUnavailable = displayModel.changeUnavailableDueToPartialCoverage;
-  const changeA11y = changeUnavailable
-    ? `Change unavailable for ${changePeriodCaption}`
-    : `Change ${changeDisplay}, ${changePeriodCaption}`;
+  const changeA11y =
+    displayModel.change == null
+      ? "Change unavailable"
+      : `Change ${changeDisplay}`;
 
   const chartFormatValue = useCallback(
     (v: number) => {
@@ -302,10 +290,11 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
             range={props.range}
             accentColor={SYSTEM_ACCENT_LUMINOUS}
             emphasizeLatestPoint
-            accessibilityLabel={a11y}
+            accessibilityLabel={chartA11y}
             chartHeight={320}
             onInspectChange={handleInspectChange}
             classificationBands={props.classificationBands ?? null}
+            highContrastLine={props.classificationBands != null}
           />
           {observedCoverageLabel ? (
             <Text
@@ -332,7 +321,6 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
                 key: "change",
                 label: "Change",
                 value: changeDisplay,
-                caption: changePeriodCaption,
                 testID: "body-metric-trend-stat-change",
                 accessibilityLabel: changeA11y,
               },

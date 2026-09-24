@@ -1,9 +1,9 @@
 /**
- * Complete-duration coverage for Weight selected-period Change.
+ * Selected-range coverage / Change for Weight trend.
  *
- * Finite ranges (7D…5Y): Change requires a baseline observation at or before
- * the requested start — never last−first of partial in-window data alone.
- * All: earliest→latest when ≥2 valid observations (no theoretical duration).
+ * Product rule (Stage 3C): Change = last plotted − first plotted whenever the
+ * selected series has ≥2 valid observations. The coverage footer already shows
+ * the true observed window — no full-duration gate.
  *
  * Pure — no React / network.
  */
@@ -29,7 +29,8 @@ export type WeightRangeCoverage =
 
 /**
  * Latest valid observation with dayKey ≤ requestedStart (at-or-before baseline).
- * Never fabricates or interpolates a Weight value.
+ * Retained for diagnostics / callers that need theoretical-window baselines.
+ * Weight Change presentation no longer requires this for the Change card.
  */
 export function selectWeightBaselineAtOrBeforeStart(
   allValidAscending: readonly WeightPoint[],
@@ -45,45 +46,28 @@ export function selectWeightBaselineAtOrBeforeStart(
 }
 
 /**
- * Resolve whether Change may be shown for the selected duration.
+ * Resolve Change for the selected plotted series.
  *
- * @param plottedPoints — observations inside the requested window (chart series)
- * @param allValidPoints — full ascending valid series (may equal plotted when fetch is windowed)
+ * complete: ≥2 plotted points → delta = last − first (actual plotted endpoints)
+ * partial: fewer than 2 plotted points → Change unavailable
  */
 export function resolveWeightRangeCoverage(args: {
   readonly selectedRange: WeightRangeKey;
   readonly requestedStart: string | null;
   readonly requestedEnd: string;
   readonly plottedPoints: readonly WeightPoint[];
+  /** Unused for Change math — kept for call-site compatibility. */
   readonly allValidPoints: readonly WeightPoint[];
 }): WeightRangeCoverage {
-  const { selectedRange, requestedStart, requestedEnd, plottedPoints, allValidPoints } =
-    args;
+  void args.allValidPoints;
+  void args.selectedRange;
 
+  const { requestedStart, requestedEnd, plottedPoints } = args;
   const firstPlotted = plottedPoints[0] ?? null;
-  const lastPlotted = plottedPoints.length > 0 ? plottedPoints[plottedPoints.length - 1]! : null;
+  const lastPlotted =
+    plottedPoints.length > 0 ? plottedPoints[plottedPoints.length - 1]! : null;
 
-  if (selectedRange === "All") {
-    if (plottedPoints.length < 2 || firstPlotted == null || lastPlotted == null) {
-      return {
-        status: "partial",
-        requestedStart: null,
-        requestedEnd,
-        firstObservedAt: firstPlotted?.observedAt ?? null,
-        lastObservedAt: lastPlotted?.observedAt ?? null,
-      };
-    }
-    return {
-      status: "complete",
-      requestedStart: null,
-      requestedEnd,
-      baselinePoint: firstPlotted,
-      latestPoint: lastPlotted,
-      deltaKg: lastPlotted.weightKg - firstPlotted.weightKg,
-    };
-  }
-
-  if (requestedStart == null || lastPlotted == null) {
+  if (plottedPoints.length < 2 || firstPlotted == null || lastPlotted == null) {
     return {
       status: "partial",
       requestedStart,
@@ -93,23 +77,12 @@ export function resolveWeightRangeCoverage(args: {
     };
   }
 
-  const baseline = selectWeightBaselineAtOrBeforeStart(allValidPoints, requestedStart);
-  if (baseline == null) {
-    return {
-      status: "partial",
-      requestedStart,
-      requestedEnd,
-      firstObservedAt: firstPlotted?.observedAt ?? null,
-      lastObservedAt: lastPlotted.observedAt,
-    };
-  }
-
   return {
     status: "complete",
     requestedStart,
     requestedEnd,
-    baselinePoint: baseline,
+    baselinePoint: firstPlotted,
     latestPoint: lastPlotted,
-    deltaKg: lastPlotted.weightKg - baseline.weightKg,
+    deltaKg: lastPlotted.weightKg - firstPlotted.weightKg,
   };
 }

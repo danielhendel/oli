@@ -1,6 +1,8 @@
 /**
  * Atomic Weight selected-range presentation — one series drives chart, Change,
- * Average, High, Low, and observed coverage. Built outside JSX.
+ * High, Low, and observed coverage. Built outside JSX.
+ *
+ * Change = last plotted − first plotted when ≥2 points (no full-duration gate).
  *
  * Pure — no React / network.
  */
