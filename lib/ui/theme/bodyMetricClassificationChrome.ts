@@ -79,6 +79,47 @@ export function resolveBodyMetricClassificationBandChrome(
 }
 
 /**
+ * Soft translucent fills for Weight trend chart background zones.
+ * Same semantic family as the Weight card — quieter so the trend line stays primary.
+ */
+export function resolveWeightTrendChartBandFill(
+  tone: BodyMetricClassificationTone,
+): string {
+  switch (tone) {
+    case "cool":
+      return "rgba(59, 130, 246, 0.14)";
+    case "reference":
+      return "rgba(16, 185, 129, 0.16)";
+    case "caution":
+      return "rgba(245, 158, 11, 0.13)";
+    case "elevated":
+      return "rgba(239, 68, 68, 0.12)";
+    default:
+      return "rgba(148, 163, 184, 0.08)";
+  }
+}
+
+/**
+ * Subtle top-edge accent for chart band separation (not loud dividers).
+ */
+export function resolveWeightTrendChartBandEdge(
+  tone: BodyMetricClassificationTone,
+): string {
+  switch (tone) {
+    case "cool":
+      return "rgba(125, 211, 252, 0.18)";
+    case "reference":
+      return "rgba(74, 222, 128, 0.20)";
+    case "caution":
+      return "rgba(251, 191, 36, 0.18)";
+    case "elevated":
+      return "rgba(251, 113, 133, 0.16)";
+    default:
+      return "rgba(148, 163, 184, 0.10)";
+  }
+}
+
+/**
  * Exported for style-contract tests — classification names must stay segment-colored
  * (not generic near-white / muted tertiary).
  */

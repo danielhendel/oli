@@ -2,18 +2,20 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import {
-  UI_BORDER_HAIRLINE,
-  UI_CARD_SURFACE,
-  UI_GROUPED_CARD_RADIUS,
+  SYSTEM_ACCENT_NAVY_DEPTH,
+} from "@/lib/ui/theme/systemAccent";
+import {
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
 } from "@/lib/ui/theme/uiTokens";
 
 export type WeightTrendStatsRow = {
-  readonly key: "average" | "high" | "low";
+  readonly key: "change" | "high" | "low";
   readonly label: string;
   readonly value: string;
+  readonly caption?: string | null;
   readonly testID: string;
+  readonly accessibilityLabel?: string;
 };
 
 export type WeightTrendStatsPanelProps = {
@@ -21,8 +23,8 @@ export type WeightTrendStatsPanelProps = {
 };
 
 /**
- * Full-width grouped period statistics — label left / value right.
- * Matches Apple Health connected-sheet language without competing with the hero chart.
+ * Premium equal-width Change / High / Low mini-cards under the Weight chart.
+ * Presentation only — values come from the selected-range trend model.
  */
 export function WeightTrendStatsPanel(props: WeightTrendStatsPanelProps) {
   if (props.rows.length === 0) return null;
@@ -33,20 +35,28 @@ export function WeightTrendStatsPanel(props: WeightTrendStatsPanelProps) {
       testID="body-metric-trend-summary"
       accessibilityRole="summary"
     >
-      {props.rows.map((row, index) => (
-        <View key={row.key}>
-          {index > 0 ? <View style={styles.divider} /> : null}
-          <View
-            style={styles.row}
-            testID={row.testID}
-            accessible
-            accessibilityLabel={`${row.label} ${row.value}`}
-          >
-            <Text style={styles.label}>{row.label}</Text>
-            <Text style={styles.value} numberOfLines={2}>
-              {row.value}
+      {props.rows.map((row) => (
+        <View
+          key={row.key}
+          style={styles.card}
+          testID={row.testID}
+          accessible
+          accessibilityLabel={
+            row.accessibilityLabel ??
+            (row.caption ? `${row.label} ${row.value}, ${row.caption}` : `${row.label} ${row.value}`)
+          }
+        >
+          <Text style={styles.label}>{row.label}</Text>
+          <Text style={styles.value} numberOfLines={2}>
+            {row.value}
+          </Text>
+          {row.caption ? (
+            <Text style={styles.caption} numberOfLines={2}>
+              {row.caption}
             </Text>
-          </View>
+          ) : (
+            <View style={styles.captionSpacer} />
+          )}
         </View>
       ))}
     </View>
@@ -56,38 +66,46 @@ export function WeightTrendStatsPanel(props: WeightTrendStatsPanelProps) {
 const styles = StyleSheet.create({
   panel: {
     width: "100%",
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: UI_GROUPED_CARD_RADIUS,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: UI_BORDER_HAIRLINE,
-    overflow: "hidden",
-  },
-  row: {
-    minHeight: 48,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
     flexDirection: "row",
+    alignItems: "stretch",
+    gap: 10,
+  },
+  card: {
+    flex: 1,
+    minWidth: 0,
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: SYSTEM_ACCENT_NAVY_DEPTH,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(91, 140, 255, 0.28)",
   },
   label: {
-    color: UI_TEXT_MUTED,
-    fontSize: 15,
-    fontWeight: "500",
-    flexShrink: 0,
+    color: "rgba(168, 188, 230, 0.78)",
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+    textTransform: "uppercase",
+    textAlign: "center",
   },
   value: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 16,
-    fontWeight: "600",
-    letterSpacing: -0.2,
-    textAlign: "right",
-    flexShrink: 1,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.4,
+    textAlign: "center",
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: UI_BORDER_HAIRLINE,
-    marginLeft: 16,
+  caption: {
+    color: UI_TEXT_MUTED,
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
+    minHeight: 14,
+  },
+  captionSpacer: {
+    minHeight: 14,
   },
 });

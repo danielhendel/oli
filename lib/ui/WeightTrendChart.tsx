@@ -11,10 +11,15 @@ import Svg, {
   Defs,
   LinearGradient,
   Path,
+  Rect,
   Stop,
   Text as SvgText,
 } from "react-native-svg";
 import { buildWeightAxisTicks } from "@/lib/body/presentation/buildWeightAxisTicks";
+import {
+  clipWeightTrendBandToDomain,
+  type WeightTrendClassificationBandsModel,
+} from "@/lib/body/presentation/buildWeightTrendClassificationBands";
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
 import {
@@ -22,6 +27,10 @@ import {
   SYSTEM_ACCENT_LUMINOUS_GLOW,
   SYSTEM_ACCENT_NAVY_DEPTH,
 } from "@/lib/ui/theme/systemAccent";
+import {
+  resolveWeightTrendChartBandEdge,
+  resolveWeightTrendChartBandFill,
+} from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
 const PADDING = { left: 40, right: 10, top: 14, bottom: 18 };
 const Y_LABEL_FONT_SIZE = 11;
@@ -172,6 +181,11 @@ export type WeightTrendChartProps = {
    * and `null` on release. Floating tooltips are intentionally not rendered.
    */
   onInspectChange?: (point: WeightTrendChartInspectPoint | null) => void;
+  /**
+   * Optional CDC/WHO Weight classification bands for chart background.
+   * When unavailable, chart renders without classification zones.
+   */
+  classificationBands?: WeightTrendClassificationBandsModel | null;
 };
 
 type ProcessedPoint = {
@@ -195,6 +209,7 @@ export function WeightTrendChart({
   accessibilityLabel = "Weight trend chart",
   chartHeight: chartHeightProp = DEFAULT_CHART_HEIGHT,
   onInspectChange,
+  classificationBands = null,
 }: WeightTrendChartProps) {
   void _formatValue;
   const CHART_HEIGHT = chartHeightProp;
@@ -272,6 +287,9 @@ export function WeightTrendChart({
     valuesKg: processed.map((p) => p.weightKg),
     valueKind,
     unitLabel,
+    ...(classificationBands?.status === "ready"
+      ? { classificationBoundariesKg: classificationBands.boundariesKg }
+      : {}),
   });
 
   const massAxis =
@@ -394,6 +412,34 @@ export function WeightTrendChart({
       ? pointsWithCoords[pointsWithCoords.length - 1]!
       : null;
 
+  const plotLeft = PADDING.left;
+  const plotWidth = Math.max(0, (layout?.width ?? 0) - PADDING.left - PADDING.right);
+
+  const visibleBands =
+    classificationBands?.status === "ready" && layout && layout.width > 0
+      ? classificationBands.bands
+          .map((band) => {
+            const clipped = clipWeightTrendBandToDomain({
+              band,
+              displayMinKg: displayMin,
+              displayMaxKg: displayMax,
+              softMinKg: classificationBands.softExtentKg[0],
+              softMaxKg: classificationBands.softExtentKg[1],
+            });
+            if (clipped == null) return null;
+            const yTop = toChartY(clipped.upperKg);
+            const yBottom = toChartY(clipped.lowerKg);
+            return {
+              id: band.id,
+              label: band.label,
+              tone: band.tone,
+              y: yTop,
+              height: Math.max(0, yBottom - yTop),
+            };
+          })
+          .filter((b): b is NonNullable<typeof b> => b != null && b.height > 0)
+      : [];
+
   return (
     <View
       style={[styles.container, { minHeight: CHART_HEIGHT }]}
@@ -411,11 +457,37 @@ export function WeightTrendChart({
         <Svg width={layout.width} height={CHART_HEIGHT} style={styles.svg}>
           <Defs>
             <LinearGradient id="weightTrendAreaFill" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor={accentColor} stopOpacity="0.26" />
-              <Stop offset="45%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.10" />
+              <Stop
+                offset="0%"
+                stopColor={accentColor}
+                stopOpacity={visibleBands.length > 0 ? "0.10" : "0.26"}
+              />
+              <Stop offset="45%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.06" />
               <Stop offset="100%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.01" />
             </LinearGradient>
           </Defs>
+          {/* Soft area fill under line */}
+          {areaD ? (
+            <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
+          ) : null}
+          {/* Classification zones — above soft fill, below line; not a11y elements. */}
+          {visibleBands.map((band) => (
+            <React.Fragment key={`band-${band.id}`}>
+              <Rect
+                x={plotLeft}
+                y={band.y}
+                width={plotWidth}
+                height={band.height}
+                fill={resolveWeightTrendChartBandFill(band.tone)}
+              />
+              <Path
+                d={`M ${plotLeft} ${band.y} L ${plotLeft + plotWidth} ${band.y}`}
+                stroke={resolveWeightTrendChartBandEdge(band.tone)}
+                strokeWidth={1}
+                fill="none"
+              />
+            </React.Fragment>
+          ))}
           {/* Horizontal grid aligned to Y-axis ticks */}
           {yAxisTicks.map((tick) => {
             const y = toChartY(tick.valueKg);
@@ -446,10 +518,6 @@ export function WeightTrendChart({
               </SvgText>
             );
           })}
-          {/* Soft area fill under line */}
-          {areaD ? (
-            <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
-          ) : null}
           {/* Soft luminous halo under the crisp line */}
           {pathD ? (
             <Path

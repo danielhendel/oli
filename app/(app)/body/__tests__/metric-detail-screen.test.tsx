@@ -25,6 +25,23 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
+jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
+  useUserProfileMain: () => ({
+    state: {
+      status: "ready",
+      profile: {
+        identity: { dateOfBirth: "1990-01-15", sexAtBirth: "male" },
+        body: { heightCm: 175 },
+      },
+    },
+  }),
+}));
+
+jest.mock("@/lib/data/body/useBodyCompositionInterpretation", () => {
+  const actual = jest.requireActual("@/lib/data/body/useBodyCompositionInterpretation");
+  return actual;
+});
+
 const mockSetOptions = jest.fn();
 const mockPush = jest.fn();
 let mockMetricParam = "weight";
@@ -247,25 +264,25 @@ describe("Body metric detail — Weight trend redesign", () => {
     expect(tree.root.findByProps({ testID: "chart" }).props.chartHeight).toBe(320);
   });
 
-  it("shows current Weight with selected-period Change and Average/High/Low only", async () => {
+  it("shows current Weight with Change/High/Low stats and no hero change chip", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(React.createElement(MetricScreen));
     });
     expect(tree.root.findByProps({ testID: "body-metric-trend-latest" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-trend-period-change" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-trend-period-change" })).toHaveLength(0);
+    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-change" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-trend-stat-average" })).toHaveLength(0);
+    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-high" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-low" })).toBeDefined();
     const changeA11y = String(
-      tree.root.findByProps({ testID: "body-metric-trend-period-change" }).props.accessibilityLabel,
+      tree.root.findByProps({ testID: "body-metric-trend-stat-change" }).props.accessibilityLabel,
     );
     expect(changeA11y).toMatch(/change/i);
     expect(changeA11y).toMatch(/−2\.2 lb|−2\.2/);
-    expect(tree.root.findAllByProps({ testID: "body-metric-trend-stat-change" })).toHaveLength(0);
-    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-average" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-high" })).toBeDefined();
-    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-low" })).toBeDefined();
     const text = collectText(tree);
     expect(text).toMatch(/Tue, Mar 31/);
-    expect(text).toMatch(/1Y change/);
+    expect(text).toMatch(/1Y|Change/);
     expect(tree.root.findByProps({ testID: "body-metric-trend-observed-coverage" })).toBeDefined();
     const summaryA11y = tree.root.findByProps({ testID: "body-metric-trend-detail" }).props
       .accessibilityLabel as string;

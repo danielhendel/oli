@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricTrendDetailModel } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
 import { buildBodyMetricTrendAccessibilitySummary } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
+import type { WeightTrendClassificationBandsModel } from "@/lib/body/presentation/buildWeightTrendClassificationBands";
 import {
   buildWeightTrendInspection,
   WEIGHT_TREND_INSPECTION_IDLE,
@@ -22,10 +23,7 @@ import {
   type WeightTrendChartInspectPoint,
 } from "@/lib/ui/WeightTrendChart";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
-import {
-  SYSTEM_ACCENT_LUMINOUS,
-  SYSTEM_ACCENT_NAVY_DEPTH,
-} from "@/lib/ui/theme/systemAccent";
+import { SYSTEM_ACCENT_LUMINOUS } from "@/lib/ui/theme/systemAccent";
 import {
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
@@ -71,6 +69,8 @@ export type BodyMetricTrendDetailViewProps = {
   /** When true, show last-known chart while refreshing. */
   retainChartWhileLoading?: boolean;
   previousReadyModel?: BodyMetricTrendDetailModel | null;
+  /** Weight-only classification bands for chart background. */
+  classificationBands?: WeightTrendClassificationBandsModel | null;
 };
 
 /**
@@ -121,8 +121,6 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
     displayModel.latest != null ? props.formatValue(displayModel.latest.valueKg) : null;
   const changeLabel =
     displayModel.change != null ? formatChange(displayModel.change) : null;
-  const averageLabel =
-    displayModel.average != null ? props.formatValue(displayModel.average) : null;
   const highLabel =
     displayModel.high != null ? props.formatValue(displayModel.high) : null;
   const lowLabel =
@@ -146,13 +144,15 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
     : displayModel.latest != null
       ? formatWeightTrendCurrentDate(displayModel.latest.dayKey)
       : null;
+  const heroSourceLabel =
+    inspecting && inspection.status === "active" ? inspection.sourceLabel : null;
 
   const a11y = buildBodyMetricTrendAccessibilitySummary({
     metricTitle: props.metricTitle,
     rangeLabel: RANGE_LABELS[props.range] ?? props.range,
     latestLabel: inspecting ? inspection.formattedValue : latestLabel,
     changeLabel: inspecting ? null : changeLabel,
-    averageLabel,
+    averageLabel: null,
     highLabel,
     lowLabel,
     status: displayModel.status,
@@ -168,8 +168,12 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
 
   const rangeShort = RANGE_SHORT[props.range] ?? props.range;
   const changeDisplay = changeLabel ?? "—";
-  const changePeriodLabel =
-    props.range === "All" ? "All-time change" : `${rangeShort} change`;
+  const changePeriodCaption =
+    props.range === "All" ? "All-time" : rangeShort;
+  const changeUnavailable = displayModel.changeUnavailableDueToPartialCoverage;
+  const changeA11y = changeUnavailable
+    ? `Change unavailable for ${changePeriodCaption}`
+    : `Change ${changeDisplay}, ${changePeriodCaption}`;
 
   const chartFormatValue = useCallback(
     (v: number) => {
@@ -259,50 +263,32 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
 
       {showTrend ? (
         <View style={styles.heroSummary} testID="body-metric-trend-latest">
-          <View style={styles.currentLeft}>
+          <Text
+            style={styles.latestValue}
+            accessibilityLabel={
+              inspecting && inspection.status === "active"
+                ? inspection.accessibilityLabel
+                : `Latest ${heroValueLabel ?? ""}`
+            }
+          >
+            {heroValueLabel}
+          </Text>
+          <Text style={styles.latestDate}>{heroDateLabel}</Text>
+          {heroSourceLabel ? (
             <Text
-              style={styles.latestValue}
-              accessibilityLabel={
-                inspecting && inspection.status === "active"
-                  ? inspection.accessibilityLabel
-                  : `Latest ${heroValueLabel ?? ""}`
-              }
+              style={styles.latestSource}
+              testID="body-metric-trend-inspection-source"
             >
-              {heroValueLabel}
+              {heroSourceLabel}
             </Text>
-            <Text style={styles.latestDate}>{heroDateLabel}</Text>
-          </View>
-          {inspecting && inspection.status === "active" ? (
-            <View
-              style={styles.changeChip}
-              testID="body-metric-trend-inspection-chip"
-              accessible
-              accessibilityLabel={
-                inspection.sourceLabel
-                  ? `Historical, ${inspection.sourceLabel}`
-                  : "Historical"
-              }
+          ) : inspecting ? (
+            <Text
+              style={styles.latestSource}
+              testID="body-metric-trend-inspection-source"
             >
-              <Text style={styles.changeValue}>Historical</Text>
-              {inspection.sourceLabel ? (
-                <Text style={styles.changePeriod}>{inspection.sourceLabel}</Text>
-              ) : null}
-            </View>
-          ) : (
-            <View
-              style={styles.changeChip}
-              testID="body-metric-trend-period-change"
-              accessible
-              accessibilityLabel={
-                displayModel.changeUnavailableDueToPartialCoverage
-                  ? `${changePeriodLabel} unavailable`
-                  : `${changePeriodLabel}, ${changeDisplay}`
-              }
-            >
-              <Text style={styles.changeValue}>{changeDisplay}</Text>
-              <Text style={styles.changePeriod}>{changePeriodLabel}</Text>
-            </View>
-          )}
+              Historical
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -319,6 +305,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
             accessibilityLabel={a11y}
             chartHeight={320}
             onInspectChange={handleInspectChange}
+            classificationBands={props.classificationBands ?? null}
           />
           {observedCoverageLabel ? (
             <Text
@@ -342,10 +329,12 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
           <WeightTrendStatsPanel
             rows={[
               {
-                key: "average",
-                label: "Average",
-                value: averageLabel ?? "—",
-                testID: "body-metric-trend-stat-average",
+                key: "change",
+                label: "Change",
+                value: changeDisplay,
+                caption: changePeriodCaption,
+                testID: "body-metric-trend-stat-change",
+                accessibilityLabel: changeA11y,
               },
               {
                 key: "high",
@@ -373,27 +362,9 @@ const styles = StyleSheet.create({
   },
   heroSummary: {
     marginTop: 22,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    paddingVertical: 4,
-  },
-  currentLeft: {
-    flexShrink: 1,
+    alignItems: "flex-start",
     gap: 4,
-  },
-  changeChip: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
-    minWidth: 108,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: SYSTEM_ACCENT_NAVY_DEPTH,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(91, 140, 255, 0.28)",
+    paddingVertical: 4,
   },
   latestValue: {
     color: UI_TEXT_PRIMARY,
@@ -406,18 +377,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
   },
-  changeValue: {
-    color: UI_TEXT_PRIMARY,
-    fontSize: 26,
-    fontWeight: "700",
-    letterSpacing: -0.4,
-    textAlign: "center",
-  },
-  changePeriod: {
-    color: "rgba(168, 188, 230, 0.78)",
-    fontSize: 12,
+  latestSource: {
+    color: UI_TEXT_MUTED,
+    fontSize: 13,
     fontWeight: "500",
-    textAlign: "center",
+    marginTop: 2,
   },
   chartWrap: {
     marginTop: 14,

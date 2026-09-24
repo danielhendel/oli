@@ -2,17 +2,23 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 
+import { ageYearsFromProfileDateOfBirth } from "@/lib/body/bodyCompositionShared";
 import {
   buildBodyMetricTrendDetailModel,
   type BodyMetricTrendDetailModel,
 } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
+import { buildWeightTrendClassificationBands } from "@/lib/body/presentation/buildWeightTrendClassificationBands";
 import { resolveBodyMetricEducationalReferencePresentation } from "@/lib/body/standards/resolveEducationalReferencePresentation";
 import {
   bodyHistoryMetricFromDetailParam,
   type BodyHistoryMetricFilter,
 } from "@/lib/data/body/bodyHistoryMetricFilter";
 import { BODY_METRIC_DETAIL_DEFAULT_RANGE } from "@/lib/data/body/bodyMetricDetailDefaults";
+import {
+  resolveUserProfileMainForInterpretation,
+} from "@/lib/data/body/useBodyCompositionInterpretation";
 import { useBodyMetricTrends, type BodyTrendMetric } from "@/lib/data/body/useBodyMetricTrends";
+import { useUserProfileMain } from "@/lib/data/profile/useUserProfileMain";
 import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
 import { BodyMetricDetailEducationPanel } from "@/lib/ui/body/BodyMetricDetailEducationPanel";
@@ -84,6 +90,11 @@ export default function BodyMetricDetailScreen() {
   const { metric: metricParam } = useLocalSearchParams<{ metric: string }>();
   const { state: prefState } = usePreferences();
   const unit = prefState.preferences?.units?.mass ?? "lb";
+  const { state: profileState } = useUserProfileMain();
+  const profileMain = useMemo(
+    () => resolveUserProfileMainForInterpretation(profileState),
+    [profileState],
+  );
   const [range, setRange] = useState<WeightRangeKey>(BODY_METRIC_DETAIL_DEFAULT_RANGE);
   const [manualEntryOpen, setManualEntryOpen] = useState(false);
   const previousReadyRef = useRef<BodyMetricTrendDetailModel | null>(null);
@@ -139,6 +150,14 @@ export default function BodyMetricDetailScreen() {
       measurementMethod: null,
     });
   }, [historyMetric, points.length]);
+
+  const classificationBands = useMemo(() => {
+    if (metric !== "weight") return null;
+    return buildWeightTrendClassificationBands({
+      heightCm: profileMain.body.heightCm ?? null,
+      ageYears: ageYearsFromProfileDateOfBirth(profileMain.identity.dateOfBirth ?? null),
+    });
+  }, [metric, profileMain]);
 
   const extraLimitations =
     historyMetric === "bodyFat"
@@ -218,6 +237,7 @@ export default function BodyMetricDetailScreen() {
             : {})}
           retainChartWhileLoading
           previousReadyModel={previousReadyRef.current}
+          classificationBands={classificationBands}
         />
 
         {historyMetric === "bodyFat" || historyMetric === "leanTissue" ? (

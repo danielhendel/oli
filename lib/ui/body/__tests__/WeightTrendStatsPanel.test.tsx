@@ -10,17 +10,18 @@ jest.mock("react-native", () => ({
 import { WeightTrendStatsPanel } from "@/lib/ui/body/WeightTrendStatsPanel";
 
 describe("WeightTrendStatsPanel", () => {
-  it("renders full-width Average/High/Low rows without Change", async () => {
+  it("renders equal-width Change / High / Low cards without Average", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(
         React.createElement(WeightTrendStatsPanel, {
           rows: [
             {
-              key: "average",
-              label: "Average",
-              value: "164.0 lb",
-              testID: "body-metric-trend-stat-average",
+              key: "change",
+              label: "Change",
+              value: "+2.2 lb",
+              caption: "30D",
+              testID: "body-metric-trend-stat-change",
             },
             {
               key: "high",
@@ -39,16 +40,13 @@ describe("WeightTrendStatsPanel", () => {
       );
     });
     expect(tree.root.findByProps({ testID: "body-metric-trend-summary" })).toBeDefined();
-    expect(tree.root.findAllByProps({ testID: "body-metric-trend-stat-change" })).toHaveLength(0);
+    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-change" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-high" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-trend-stat-low" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-trend-stat-average" })).toHaveLength(0);
     expect(
-      tree.root.findByProps({ testID: "body-metric-trend-stat-average" }).props.accessibilityLabel,
-    ).toBe("Average 164.0 lb");
-    expect(
-      tree.root.findByProps({ testID: "body-metric-trend-stat-high" }).props.accessibilityLabel,
-    ).toBe("High 166.5 lb");
-    expect(
-      tree.root.findByProps({ testID: "body-metric-trend-stat-low" }).props.accessibilityLabel,
-    ).toBe("Low 162.1 lb");
+      tree.root.findByProps({ testID: "body-metric-trend-stat-change" }).props.accessibilityLabel,
+    ).toBe("Change +2.2 lb, 30D");
   });
 
   it("renders nothing when rows are empty", async () => {
