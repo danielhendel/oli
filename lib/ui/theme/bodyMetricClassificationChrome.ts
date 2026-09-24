@@ -78,7 +78,47 @@ export function resolveBodyMetricClassificationBandChrome(
   return DARK[tone] ?? DARK.neutral;
 }
 
-/** Convert `#RRGGBB` Weight-card fillStrong into a translucent chart band fill. */
+/**
+ * Exact Weight-card rail paint — same tokens as {@link BodyMetricClassificationChart}.
+ * Chart surfaces must consume this (or chrome fields) rather than inventing hues.
+ */
+export type WeightClassificationBandPaint = {
+  readonly fillStrong: string;
+  readonly fillHighlight: string;
+  readonly divider: string;
+};
+
+export function resolveWeightClassificationBandPaint(
+  tone: BodyMetricClassificationTone,
+): WeightClassificationBandPaint {
+  const chrome = resolveBodyMetricClassificationBandChrome(tone);
+  return {
+    fillStrong: chrome.fillStrong,
+    fillHighlight: chrome.fillHighlight,
+    divider: chrome.divider,
+  };
+}
+
+/**
+ * Chart-only opacity for the Weight-card `fillStrong` base.
+ * High enough to read as the same bright rail hue on a dark canvas;
+ * low enough that the white trend line stays primary.
+ * Does not change global Weight-card tokens.
+ */
+export const WEIGHT_TREND_CHART_BAND_BASE_OPACITY = 0.44;
+/** Match card `bandSheen` height fraction (~48%). */
+export const WEIGHT_TREND_CHART_BAND_SHEEN_HEIGHT_RATIO = 0.48;
+/** Match card `bandSheen` layer opacity. */
+export const WEIGHT_TREND_CHART_BAND_SHEEN_OPACITY = 0.85;
+
+/** @deprecated Prefer {@link resolveWeightClassificationBandPaint} + chart opacities. */
+export const WEIGHT_TREND_CHART_BAND_FILL_ALPHA = WEIGHT_TREND_CHART_BAND_BASE_OPACITY;
+/** @deprecated Prefer paint.fillHighlight sheen. */
+export const WEIGHT_TREND_CHART_BAND_HIGHLIGHT_ALPHA = 0.55;
+/** Subtle threshold edge using card divider family. */
+export const WEIGHT_TREND_CHART_BAND_EDGE_ALPHA = 0.5;
+
+/** Convert `#RRGGBB` into rgba for SVG opacity stops. */
 function hexToRgba(hex: string, alpha: number): string {
   const m = /^#([0-9A-Fa-f]{6})$/.exec(hex);
   if (!m) return `rgba(148, 163, 184, ${alpha})`;
@@ -90,44 +130,33 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 /**
- * Chart-band base opacity — brighter than prior muddy pass, still translucent
- * so the white Weight line remains primary. Same fillStrong hues as the Weight card.
- */
-export const WEIGHT_TREND_CHART_BAND_FILL_ALPHA = 0.26;
-/** Slightly stronger top of the vertical luminosity gradient. */
-export const WEIGHT_TREND_CHART_BAND_HIGHLIGHT_ALPHA = 0.34;
-/** Subtle threshold edge. */
-export const WEIGHT_TREND_CHART_BAND_EDGE_ALPHA = 0.38;
-
-/**
- * Soft translucent fills for Weight trend chart background zones.
- * Hues match Weight-card fillStrong exactly — only opacity is chart-specific.
+ * Flat chart-band base fill — exact Weight-card fillStrong hue at chart opacity.
+ * No darkening gradient (that produced muddy brown/olive).
  */
 export function resolveWeightTrendChartBandFill(
   tone: BodyMetricClassificationTone,
 ): string {
-  const chrome = resolveBodyMetricClassificationBandChrome(tone);
-  return hexToRgba(chrome.fillStrong, WEIGHT_TREND_CHART_BAND_FILL_ALPHA);
+  const paint = resolveWeightClassificationBandPaint(tone);
+  return hexToRgba(paint.fillStrong, WEIGHT_TREND_CHART_BAND_BASE_OPACITY);
 }
 
 /**
- * Brighter stop for vertical band gradients (same hue as Weight-card fillStrong).
+ * Card sheen color for the upper band highlight (exact fillHighlight token).
  */
 export function resolveWeightTrendChartBandHighlight(
   tone: BodyMetricClassificationTone,
 ): string {
-  const chrome = resolveBodyMetricClassificationBandChrome(tone);
-  return hexToRgba(chrome.fillStrong, WEIGHT_TREND_CHART_BAND_HIGHLIGHT_ALPHA);
+  return resolveWeightClassificationBandPaint(tone).fillHighlight;
 }
 
 /**
- * Subtle threshold edge — same Weight-card hue, chart-specific opacity.
+ * Subtle threshold edge using the same fillStrong hue.
  */
 export function resolveWeightTrendChartBandEdge(
   tone: BodyMetricClassificationTone,
 ): string {
-  const chrome = resolveBodyMetricClassificationBandChrome(tone);
-  return hexToRgba(chrome.fillStrong, WEIGHT_TREND_CHART_BAND_EDGE_ALPHA);
+  const paint = resolveWeightClassificationBandPaint(tone);
+  return hexToRgba(paint.fillStrong, WEIGHT_TREND_CHART_BAND_EDGE_ALPHA);
 }
 
 /** Expose Weight-card fillStrong hexes for cross-surface identity tests. */
@@ -136,6 +165,14 @@ export const BODY_METRIC_CLASSIFICATION_FILL_STRONG_TOKENS = {
   reference: DARK.reference.fillStrong,
   caution: DARK.caution.fillStrong,
   elevated: DARK.elevated.fillStrong,
+} as const;
+
+/** Expose Weight-card fillHighlight for cross-surface sheen identity tests. */
+export const BODY_METRIC_CLASSIFICATION_FILL_HIGHLIGHT_TOKENS = {
+  cool: DARK.cool.fillHighlight,
+  reference: DARK.reference.fillHighlight,
+  caution: DARK.caution.fillHighlight,
+  elevated: DARK.elevated.fillHighlight,
 } as const;
 
 /**

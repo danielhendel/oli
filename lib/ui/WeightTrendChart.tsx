@@ -28,10 +28,11 @@ import {
   SYSTEM_ACCENT_NAVY_DEPTH,
 } from "@/lib/ui/theme/systemAccent";
 import {
-  resolveBodyMetricClassificationBandChrome,
+  resolveWeightClassificationBandPaint,
   resolveWeightTrendChartBandEdge,
-  WEIGHT_TREND_CHART_BAND_FILL_ALPHA,
-  WEIGHT_TREND_CHART_BAND_HIGHLIGHT_ALPHA,
+  WEIGHT_TREND_CHART_BAND_BASE_OPACITY,
+  WEIGHT_TREND_CHART_BAND_SHEEN_HEIGHT_RATIO,
+  WEIGHT_TREND_CHART_BAND_SHEEN_OPACITY,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
 const PADDING = { left: 40, right: 10, top: 14, bottom: 18 };
@@ -474,56 +475,43 @@ export function WeightTrendChart({
               <Stop offset="45%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.10" />
               <Stop offset="100%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.01" />
             </LinearGradient>
-            {visibleBands.map((band) => {
-              const strong = resolveBodyMetricClassificationBandChrome(band.tone).fillStrong;
-              return (
-                <LinearGradient
-                  key={`band-grad-${band.id}`}
-                  id={`weightTrendBandFill-${band.id}`}
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <Stop
-                    offset="0%"
-                    stopColor={strong}
-                    stopOpacity={String(WEIGHT_TREND_CHART_BAND_HIGHLIGHT_ALPHA)}
-                  />
-                  <Stop
-                    offset="55%"
-                    stopColor={strong}
-                    stopOpacity={String(WEIGHT_TREND_CHART_BAND_FILL_ALPHA)}
-                  />
-                  <Stop
-                    offset="100%"
-                    stopColor={strong}
-                    stopOpacity={String(WEIGHT_TREND_CHART_BAND_FILL_ALPHA * 0.85)}
-                  />
-                </LinearGradient>
-              );
-            })}
           </Defs>
-          {/* Classification bands — Weight-card hues; decorative only (no pointer capture). */}
-          {visibleBands.map((band) => (
-            <React.Fragment key={`band-${band.id}`}>
-              <Rect
-                x={plotLeft}
-                y={band.y}
-                width={plotWidth}
-                height={band.height}
-                fill={`url(#weightTrendBandFill-${band.id})`}
-                pointerEvents="none"
-              />
-              <Path
-                d={`M ${plotLeft} ${band.y} L ${plotLeft + plotWidth} ${band.y}`}
-                stroke={resolveWeightTrendChartBandEdge(band.tone)}
-                strokeWidth={0.5}
-                fill="none"
-                pointerEvents="none"
-              />
-            </React.Fragment>
-          ))}
+          {/* Classification bands — exact Weight-card fillStrong + fillHighlight sheen. */}
+          {visibleBands.map((band) => {
+            const paint = resolveWeightClassificationBandPaint(band.tone);
+            const sheenHeight = Math.max(0, band.height * WEIGHT_TREND_CHART_BAND_SHEEN_HEIGHT_RATIO);
+            return (
+              <React.Fragment key={`band-${band.id}`}>
+                <Rect
+                  x={plotLeft}
+                  y={band.y}
+                  width={plotWidth}
+                  height={band.height}
+                  fill={paint.fillStrong}
+                  fillOpacity={WEIGHT_TREND_CHART_BAND_BASE_OPACITY}
+                  pointerEvents="none"
+                />
+                {sheenHeight > 0 ? (
+                  <Rect
+                    x={plotLeft}
+                    y={band.y}
+                    width={plotWidth}
+                    height={sheenHeight}
+                    fill={paint.fillHighlight}
+                    fillOpacity={WEIGHT_TREND_CHART_BAND_SHEEN_OPACITY}
+                    pointerEvents="none"
+                  />
+                ) : null}
+                <Path
+                  d={`M ${plotLeft} ${band.y} L ${plotLeft + plotWidth} ${band.y}`}
+                  stroke={resolveWeightTrendChartBandEdge(band.tone)}
+                  strokeWidth={0.5}
+                  fill="none"
+                  pointerEvents="none"
+                />
+              </React.Fragment>
+            );
+          })}
           {/* Soft area fill only when classification bands are absent. */}
           {areaD && visibleBands.length === 0 ? (
             <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
