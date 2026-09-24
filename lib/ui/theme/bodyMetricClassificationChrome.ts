@@ -78,45 +78,36 @@ export function resolveBodyMetricClassificationBandChrome(
   return DARK[tone] ?? DARK.neutral;
 }
 
+/** Convert `#RRGGBB` Weight-card fillStrong into a translucent chart band fill. */
+function hexToRgba(hex: string, alpha: number): string {
+  const m = /^#([0-9A-Fa-f]{6})$/.exec(hex);
+  if (!m) return `rgba(148, 163, 184, ${alpha})`;
+  const n = Number.parseInt(m[1]!, 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 /**
  * Soft translucent fills for Weight trend chart background zones.
- * Same semantic family as the Weight card — quieter so the trend line stays primary.
+ * Same fillStrong hues as the Weight card — low opacity so the white line stays primary.
  */
 export function resolveWeightTrendChartBandFill(
   tone: BodyMetricClassificationTone,
 ): string {
-  switch (tone) {
-    case "cool":
-      return "rgba(59, 130, 246, 0.14)";
-    case "reference":
-      return "rgba(16, 185, 129, 0.16)";
-    case "caution":
-      return "rgba(245, 158, 11, 0.13)";
-    case "elevated":
-      return "rgba(239, 68, 68, 0.12)";
-    default:
-      return "rgba(148, 163, 184, 0.08)";
-  }
+  const chrome = resolveBodyMetricClassificationBandChrome(tone);
+  return hexToRgba(chrome.fillStrong, 0.14);
 }
 
 /**
- * Subtle top-edge accent for chart band separation (not loud dividers).
+ * Very subtle threshold edge — not a hard border.
  */
 export function resolveWeightTrendChartBandEdge(
   tone: BodyMetricClassificationTone,
 ): string {
-  switch (tone) {
-    case "cool":
-      return "rgba(125, 211, 252, 0.18)";
-    case "reference":
-      return "rgba(74, 222, 128, 0.20)";
-    case "caution":
-      return "rgba(251, 191, 36, 0.18)";
-    case "elevated":
-      return "rgba(251, 113, 133, 0.16)";
-    default:
-      return "rgba(148, 163, 184, 0.10)";
-  }
+  const chrome = resolveBodyMetricClassificationBandChrome(tone);
+  return hexToRgba(chrome.fillStrong, 0.22);
 }
 
 /**

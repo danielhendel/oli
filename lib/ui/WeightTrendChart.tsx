@@ -42,9 +42,12 @@ const DOT_GLOW_R = 11;
 const CROSSHAIR_COLOR = "rgba(255,255,255,0.28)";
 
 const ACCENT_BLUE = SYSTEM_ACCENT_LUMINOUS;
+/** High-contrast Weight trend core — pops over semantic classification bands. */
+const LINE_CORE_WHITE = "#FFFFFF";
+const LINE_GLOW_BLUE = "rgba(91, 140, 255, 0.42)";
 const LINE_WIDTH = 2.85;
-const LINE_GLOW_WIDTH = 7;
-const GRID_COLOR = "rgba(140,168,220,0.10)";
+const LINE_GLOW_WIDTH = 8;
+const GRID_COLOR = "rgba(160, 176, 200, 0.14)";
 /** Max points used to draw path/area/dots; touch/inspection still use full data. */
 const MAX_RENDER_POINTS = 80;
 
@@ -186,6 +189,11 @@ export type WeightTrendChartProps = {
    * When unavailable, chart renders without classification zones.
    */
   classificationBands?: WeightTrendClassificationBandsModel | null;
+  /**
+   * High-contrast white core + blue glow — preferred for Weight detail with
+   * classification background bands.
+   */
+  highContrastLine?: boolean;
 };
 
 type ProcessedPoint = {
@@ -210,9 +218,15 @@ export function WeightTrendChart({
   chartHeight: chartHeightProp = DEFAULT_CHART_HEIGHT,
   onInspectChange,
   classificationBands = null,
+  highContrastLine = false,
 }: WeightTrendChartProps) {
   void _formatValue;
   const CHART_HEIGHT = chartHeightProp;
+  const useHighContrastLine = highContrastLine || classificationBands?.status === "ready";
+  const lineStroke = useHighContrastLine ? LINE_CORE_WHITE : accentColor;
+  const lineGlow = useHighContrastLine ? LINE_GLOW_BLUE : SYSTEM_ACCENT_LUMINOUS_GLOW;
+  const pointFill = useHighContrastLine ? LINE_CORE_WHITE : accentColor;
+  const pointRing = useHighContrastLine ? ACCENT_BLUE : "#FFFFFF";
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const onInspectRef = useRef(onInspectChange);
@@ -287,9 +301,6 @@ export function WeightTrendChart({
     valuesKg: processed.map((p) => p.weightKg),
     valueKind,
     unitLabel,
-    ...(classificationBands?.status === "ready"
-      ? { classificationBoundariesKg: classificationBands.boundariesKg }
-      : {}),
   });
 
   const massAxis =
@@ -457,20 +468,12 @@ export function WeightTrendChart({
         <Svg width={layout.width} height={CHART_HEIGHT} style={styles.svg}>
           <Defs>
             <LinearGradient id="weightTrendAreaFill" x1="0" y1="0" x2="0" y2="1">
-              <Stop
-                offset="0%"
-                stopColor={accentColor}
-                stopOpacity={visibleBands.length > 0 ? "0.10" : "0.26"}
-              />
-              <Stop offset="45%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.06" />
+              <Stop offset="0%" stopColor={accentColor} stopOpacity="0.26" />
+              <Stop offset="45%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.10" />
               <Stop offset="100%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.01" />
             </LinearGradient>
           </Defs>
-          {/* Soft area fill under line */}
-          {areaD ? (
-            <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
-          ) : null}
-          {/* Classification zones — above soft fill, below line; not a11y elements. */}
+          {/* Classification bands first — no competing blue area fill when present. */}
           {visibleBands.map((band) => (
             <React.Fragment key={`band-${band.id}`}>
               <Rect
@@ -483,11 +486,15 @@ export function WeightTrendChart({
               <Path
                 d={`M ${plotLeft} ${band.y} L ${plotLeft + plotWidth} ${band.y}`}
                 stroke={resolveWeightTrendChartBandEdge(band.tone)}
-                strokeWidth={1}
+                strokeWidth={0.5}
                 fill="none"
               />
             </React.Fragment>
           ))}
+          {/* Soft area fill only when classification bands are absent. */}
+          {areaD && visibleBands.length === 0 ? (
+            <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
+          ) : null}
           {/* Horizontal grid aligned to Y-axis ticks */}
           {yAxisTicks.map((tick) => {
             const y = toChartY(tick.valueKg);
@@ -522,7 +529,7 @@ export function WeightTrendChart({
           {pathD ? (
             <Path
               d={pathD}
-              stroke={SYSTEM_ACCENT_LUMINOUS_GLOW}
+              stroke={lineGlow}
               strokeWidth={LINE_GLOW_WIDTH}
               fill="none"
               strokeLinecap="round"
@@ -533,28 +540,28 @@ export function WeightTrendChart({
           {pathD ? (
             <Path
               d={pathD}
-              stroke={accentColor}
+              stroke={lineStroke}
               strokeWidth={LINE_WIDTH}
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           ) : null}
-          {/* Latest observation marker — white ring + luminous center + soft glow */}
+          {/* Latest observation marker — white center + blue ring when high-contrast */}
           {latestPt != null ? (
             <>
               <Circle
                 cx={latestPt.cx}
                 cy={latestPt.cy}
                 r={DOT_GLOW_R}
-                fill={SYSTEM_ACCENT_LUMINOUS_GLOW}
+                fill={lineGlow}
               />
               <Circle
                 cx={latestPt.cx}
                 cy={latestPt.cy}
                 r={DOT_R}
-                fill={accentColor}
-                stroke="#FFFFFF"
+                fill={pointFill}
+                stroke={pointRing}
                 strokeWidth={2.25}
               />
             </>
@@ -573,14 +580,14 @@ export function WeightTrendChart({
                 cx={selected.cx}
                 cy={selected.cy}
                 r={DOT_GLOW_R + 1}
-                fill={SYSTEM_ACCENT_LUMINOUS_GLOW}
+                fill={lineGlow}
               />
               <Circle
                 cx={selected.cx}
                 cy={selected.cy}
                 r={DOT_R + 1.5}
-                fill={accentColor}
-                stroke="#FFFFFF"
+                fill={pointFill}
+                stroke={pointRing}
                 strokeWidth={2.5}
               />
             </>
