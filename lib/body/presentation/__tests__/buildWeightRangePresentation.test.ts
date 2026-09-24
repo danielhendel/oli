@@ -39,60 +39,63 @@ describe("selectWeightSeriesForRange", () => {
   });
 });
 
-describe("resolveWeightRangeCoverage", () => {
-  it("marks complete 1Y when a baseline exists at or before requested start", () => {
-    const all = [pt("2025-09-21", 73), pt("2026-09-21", 74.3)];
+describe("resolveWeightRangeCoverage — first-to-last plotted", () => {
+  it("0 points → partial / Change unavailable", () => {
     const coverage = resolveWeightRangeCoverage({
       selectedRange: "1Y",
       requestedStart: "2025-09-21",
       requestedEnd: ANCHOR,
-      plottedPoints: all,
-      allValidPoints: all,
+      plottedPoints: [],
+      allValidPoints: [],
+    });
+    expect(coverage.status).toBe("partial");
+  });
+
+  it("1 point → partial / Change unavailable", () => {
+    const one = [pt("2026-09-21", 74)];
+    const coverage = resolveWeightRangeCoverage({
+      selectedRange: "1Y",
+      requestedStart: "2025-09-21",
+      requestedEnd: ANCHOR,
+      plottedPoints: one,
+      allValidPoints: one,
+    });
+    expect(coverage.status).toBe("partial");
+  });
+
+  it("2 points → Change = second − first", () => {
+    const plotted = [pt("2026-01-01", 73), pt("2026-09-21", 74.3)];
+    const coverage = resolveWeightRangeCoverage({
+      selectedRange: "1Y",
+      requestedStart: "2025-09-21",
+      requestedEnd: ANCHOR,
+      plottedPoints: plotted,
+      allValidPoints: plotted,
     });
     expect(coverage.status).toBe("complete");
     if (coverage.status === "complete") {
       expect(coverage.deltaKg).toBeCloseTo(1.3, 5);
+      expect(coverage.baselinePoint.dayKey).toBe("2026-01-01");
+      expect(coverage.latestPoint.dayKey).toBe("2026-09-21");
     }
   });
 
-  it("marks partial 1Y when earliest history is after requested start", () => {
-    const all = [pt("2026-01-01", 73), pt("2026-09-21", 74.3)];
+  it("partial theoretical 1Y window still exposes Change when ≥2 plotted points", () => {
+    const plotted = [pt("2026-01-01", 70), pt("2026-06-01", 72), pt("2026-09-21", 74)];
     const coverage = resolveWeightRangeCoverage({
       selectedRange: "1Y",
       requestedStart: "2025-09-21",
       requestedEnd: ANCHOR,
-      plottedPoints: all,
-      allValidPoints: all,
-    });
-    expect(coverage.status).toBe("partial");
-  });
-
-  it("marks complete 90D when baseline reaches requested start", () => {
-    const start = "2026-06-23";
-    const all = [pt(start, 74), pt("2026-09-21", 74.3)];
-    const coverage = resolveWeightRangeCoverage({
-      selectedRange: "90D",
-      requestedStart: start,
-      requestedEnd: ANCHOR,
-      plottedPoints: all,
-      allValidPoints: all,
+      plottedPoints: plotted,
+      allValidPoints: plotted,
     });
     expect(coverage.status).toBe("complete");
+    if (coverage.status === "complete") {
+      expect(coverage.deltaKg).toBe(4);
+    }
   });
 
-  it("marks partial 90D when coverage only reaches ~30D", () => {
-    const all = [pt("2026-08-22", 74), pt("2026-09-21", 74.3)];
-    const coverage = resolveWeightRangeCoverage({
-      selectedRange: "90D",
-      requestedStart: "2026-06-23",
-      requestedEnd: ANCHOR,
-      plottedPoints: all,
-      allValidPoints: all,
-    });
-    expect(coverage.status).toBe("partial");
-  });
-
-  it("All is complete with earliest-to-latest when >=2 points", () => {
+  it("All uses earliest-to-latest plotted", () => {
     const all = [pt("2025-08-10", 70), pt("2026-09-21", 74)];
     const coverage = resolveWeightRangeCoverage({
       selectedRange: "All",
@@ -120,7 +123,7 @@ describe("selectWeightBaselineAtOrBeforeStart", () => {
 });
 
 describe("buildWeightRangePresentation — same series truth", () => {
-  it("chart point IDs match Avg/High/Low inputs; Change uses complete-coverage baseline", () => {
+  it("chart / Change / High / Low share one plotted series; Change is first→last", () => {
     const points = [
       pt("2025-08-10", 70),
       pt("2025-09-21", 73),
@@ -136,22 +139,22 @@ describe("buildWeightRangePresentation — same series truth", () => {
       presentation.plottedPoints.map((p) => p.observedAt),
     );
     expect(presentation.plottedPoints.map((p) => p.dayKey)).not.toContain("2025-08-10");
-    expect(presentation.averageKg).toBeCloseTo((73 + 75 + 74.3) / 3, 5);
     expect(presentation.highKg).toBe(75);
     expect(presentation.lowKg).toBe(73);
+    // First plotted 73 → last 74.3
     expect(presentation.changeKg).toBeCloseTo(1.3, 5);
     expect(presentation.observedExtent?.firstDayKey).toBe("2025-09-21");
     expect(presentation.observedExtent?.lastDayKey).toBe("2026-09-21");
   });
 
-  it("partial selected duration keeps observed footer from plotted data only", () => {
+  it("partial selected duration still shows Change from plotted endpoints", () => {
     const presentation = buildWeightRangePresentation({
       selectedRange: "1Y",
       points: [pt("2026-04-01", 73), pt("2026-09-21", 74)],
       anchorDayKey: ANCHOR,
     });
-    expect(presentation.changeKg).toBeNull();
-    expect(presentation.coverage.status).toBe("partial");
+    expect(presentation.changeKg).toBe(1);
+    expect(presentation.coverage.status).toBe("complete");
     expect(presentation.observedExtent?.firstDayKey).toBe("2026-04-01");
     expect(presentation.observedExtent?.lastDayKey).toBe("2026-09-21");
   });

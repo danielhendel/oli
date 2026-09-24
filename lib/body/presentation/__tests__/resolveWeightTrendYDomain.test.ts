@@ -54,19 +54,12 @@ describe("resolveWeightTrendYDomain", () => {
     expect(domain.displayMax).toBeGreaterThanOrEqual(75);
   });
 
-  it("gently expands domain to include nearby classification boundaries", () => {
-    const without = resolveWeightTrendYDomain({
+  it("does not accept classificationBoundariesKg (observation-driven only)", () => {
+    const domain = resolveWeightTrendYDomain({
       valuesKg: [73.2, 74.1],
       valueKind: "mass",
       unitLabel: "kg",
     });
-    const withBands = resolveWeightTrendYDomain({
-      valuesKg: [73.2, 74.1],
-      valueKind: "mass",
-      unitLabel: "kg",
-      classificationBoundariesKg: [72.25, 72.25 + 10, 72.25 + 20],
-    });
-    expect(withBands.displayMin).toBeLessThanOrEqual(without.displayMin);
-    expect(withBands.displayMax).toBeGreaterThanOrEqual(without.displayMax);
+    expect(domain.displayMax - domain.displayMin).toBeLessThan(8);
   });
 });

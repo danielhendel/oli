@@ -10,7 +10,7 @@ jest.mock("react-native", () => ({
 import { WeightTrendStatsPanel } from "@/lib/ui/body/WeightTrendStatsPanel";
 
 describe("WeightTrendStatsPanel", () => {
-  it("renders equal-width Change / High / Low cards without Average", async () => {
+  it("renders equal-width Change / High / Low cards without Average or period caption", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(
@@ -20,7 +20,6 @@ describe("WeightTrendStatsPanel", () => {
               key: "change",
               label: "Change",
               value: "+2.2 lb",
-              caption: "30D",
               testID: "body-metric-trend-stat-change",
             },
             {
@@ -46,7 +45,13 @@ describe("WeightTrendStatsPanel", () => {
     expect(tree.root.findAllByProps({ testID: "body-metric-trend-stat-average" })).toHaveLength(0);
     expect(
       tree.root.findByProps({ testID: "body-metric-trend-stat-change" }).props.accessibilityLabel,
-    ).toBe("Change +2.2 lb, 30D");
+    ).toBe("Change +2.2 lb");
+    const text = tree.root
+      .findAllByType("Text")
+      .flatMap((n) => n.children)
+      .filter((x) => typeof x === "string")
+      .join(" ");
+    expect(text).not.toMatch(/30D|1Y change|All-time/i);
   });
 
   it("renders nothing when rows are empty", async () => {

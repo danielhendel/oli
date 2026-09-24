@@ -67,7 +67,7 @@ describe("buildBodyMetricTrendDetailModel", () => {
     expect(model.low).toBe(74.3);
   });
 
-  it("complete 1Y coverage exposes change from baseline at requested start", () => {
+  it("1Y Change is last plotted − first plotted (even with complete baseline)", () => {
     const points = [
       pt("2025-09-21", 73),
       pt("2026-01-10", 75.5),
@@ -89,7 +89,7 @@ describe("buildBodyMetricTrendDetailModel", () => {
     expect(model.sameDayPolicy).toBe("all_observations_by_observedAt");
   });
 
-  it("partial 1Y coverage withholds Change but keeps Avg/High/Low from plotted points", () => {
+  it("partial theoretical 1Y still exposes Change from plotted endpoints", () => {
     const points = [
       pt("2026-01-01", 73),
       pt("2026-06-01", 75),
@@ -102,16 +102,15 @@ describe("buildBodyMetricTrendDetailModel", () => {
       trendsStatus: "ready",
       anchorDayKey: ANCHOR,
     });
-    expect(model.change).toBeNull();
-    expect(model.changeUnavailableDueToPartialCoverage).toBe(true);
-    expect(model.average).toBeCloseTo((73 + 75 + 74.3) / 3, 5);
+    expect(model.change).toBeCloseTo(1.3, 5);
+    expect(model.changeUnavailableDueToPartialCoverage).toBe(false);
     expect(model.high).toBe(75);
     expect(model.low).toBe(73);
     expect(model.observedExtent?.firstDayKey).toBe("2026-01-01");
     expect(model.observedExtent?.lastDayKey).toBe("2026-09-21");
   });
 
-  it("excludes out-of-range points from plot and Avg/High/Low", () => {
+  it("excludes out-of-range points from plot and High/Low/Change", () => {
     const points = [
       pt("2025-08-10", 70),
       pt("2025-09-21", 73),
@@ -127,6 +126,7 @@ describe("buildBodyMetricTrendDetailModel", () => {
     expect(model.points.map((p) => p.dayKey)).toEqual(["2025-09-21", "2026-09-21"]);
     expect(model.low).toBe(73);
     expect(model.high).toBe(74.3);
+    expect(model.change).toBeCloseTo(1.3, 5);
     expect(model.points.every((p) => p.dayKey !== "2025-08-10")).toBe(true);
   });
 
@@ -158,28 +158,29 @@ describe("buildBodyMetricTrendDetailModel", () => {
     expect(model.points).toHaveLength(2);
     expect(model.latest?.valueKg).toBe(74.8);
     expect(model.points[0]!.weightKg).toBe(74.0);
+    expect(model.change).toBeCloseTo(0.8, 5);
   });
 
-  it("accessibility summary avoids judgment language and explains partial Change", () => {
+  it("accessibility summary avoids judgment language", () => {
     const copy = buildBodyMetricTrendAccessibilitySummary({
       metricTitle: "Weight",
       rangeLabel: "the past year",
       latestLabel: "163.8 lb",
-      changeLabel: null,
-      averageLabel: "164.0 lb",
+      changeLabel: "+1.3 lb",
+      averageLabel: null,
       highLabel: "166.5 lb",
       lowLabel: "162.1 lb",
       status: "ready",
-      changeUnavailableDueToPartialCoverage: true,
-      observedCoverageLabel: "Jan 1 – Sep 21",
+      changeUnavailableDueToPartialCoverage: false,
+      observedCoverageLabel: "Jan 1, 2026 – Sep 21, 2026",
     });
     expect(copy).toMatch(/Weight trend for the past year/);
-    expect(copy).toMatch(/unavailable because a full period/i);
-    expect(copy).toMatch(/data shown from Jan 1 – Sep 21/);
-    expect(copy).not.toMatch(/healthy|unhealthy|improved|worsened/i);
+    expect(copy).toMatch(/Change \+1\.3 lb/);
+    expect(copy).toMatch(/data shown from Jan 1, 2026 – Sep 21, 2026/);
+    expect(copy).not.toMatch(/healthy|unhealthy|improved|worsened|full period/i);
   });
 
-  it("switching ranges rebuilds one coherent presentation (no stale 1Y Change)", () => {
+  it("switching ranges rebuilds Change from each selected plotted series", () => {
     const points = [
       pt("2025-09-21", 73),
       pt("2026-06-23", 74),
@@ -203,6 +204,5 @@ describe("buildBodyMetricTrendDetailModel", () => {
     expect(ninety.points.map((p) => p.dayKey)).toEqual(["2026-06-23", "2026-09-21"]);
     expect(ninety.change).toBeCloseTo(0.3, 5);
     expect(ninety.observedExtent?.firstDayKey).toBe("2026-06-23");
-    expect(ninety.average).not.toBe(oneY.average);
   });
 });
