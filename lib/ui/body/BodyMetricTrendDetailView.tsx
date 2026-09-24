@@ -318,11 +318,10 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
           <WeightTrendStatsPanel
             rows={[
               {
-                key: "change",
-                label: "Change",
-                value: changeDisplay,
-                testID: "body-metric-trend-stat-change",
-                accessibilityLabel: changeA11y,
+                key: "low",
+                label: "Low",
+                value: lowLabel ?? "—",
+                testID: "body-metric-trend-stat-low",
               },
               {
                 key: "high",
@@ -331,10 +330,11 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
                 testID: "body-metric-trend-stat-high",
               },
               {
-                key: "low",
-                label: "Low",
-                value: lowLabel ?? "—",
-                testID: "body-metric-trend-stat-low",
+                key: "change",
+                label: "Change",
+                value: changeDisplay,
+                testID: "body-metric-trend-stat-change",
+                accessibilityLabel: changeA11y,
               },
             ]}
           />
