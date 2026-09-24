@@ -13,7 +13,7 @@ import {
   BODY_METRIC_SPECTRUM_HEIGHT,
   BODY_METRIC_SPECTRUM_RADIUS,
   resolveBodyMetricClassificationBandChrome,
-  resolveWeightClassificationBandPaint,
+  resolveWeightClassificationSegmentVisual,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
 export type BodyMetricClassificationChartProps = {
@@ -114,7 +114,7 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
       >
         <View style={styles.track}>
           {model.segments.map((segment, index) => {
-            const paint = resolveWeightClassificationBandPaint(segment.tone);
+            const visual = resolveWeightClassificationSegmentVisual(segment.tone);
             const isFirst = index === 0;
             const isLast = index === segmentCount - 1;
             return (
@@ -123,8 +123,8 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
                 style={[
                   styles.band,
                   {
-                    backgroundColor: paint.fillStrong,
-                    borderRightColor: paint.divider,
+                    backgroundColor: visual.paint.fillStrong,
+                    borderRightColor: visual.paint.divider,
                     borderRightWidth: isLast ? 0 : StyleSheet.hairlineWidth,
                     borderTopLeftRadius: isFirst ? BODY_METRIC_SPECTRUM_RADIUS : 0,
                     borderBottomLeftRadius: isFirst ? BODY_METRIC_SPECTRUM_RADIUS : 0,
@@ -133,7 +133,16 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
                   },
                 ]}
               >
-                <View style={[styles.bandSheen, { backgroundColor: paint.fillHighlight }]} />
+                <View
+                  style={[
+                    styles.bandSheen,
+                    {
+                      backgroundColor: visual.paint.fillHighlight,
+                      height: `${visual.sheenHeightRatio * 100}%`,
+                      opacity: visual.sheenLayerOpacity,
+                    },
+                  ]}
+                />
               </View>
             );
           })}
@@ -203,8 +212,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    height: "48%",
-    opacity: 0.85,
+    // height + opacity applied inline from resolveWeightClassificationSegmentVisual
+    // (BODY_METRIC_CLASSIFICATION_BAND_SHEEN_* — shared with Weight trend chart).
   },
   trackSheen: {
     ...StyleSheet.absoluteFillObject,

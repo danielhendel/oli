@@ -28,11 +28,7 @@ import {
   SYSTEM_ACCENT_NAVY_DEPTH,
 } from "@/lib/ui/theme/systemAccent";
 import {
-  resolveWeightClassificationBandPaint,
-  resolveWeightTrendChartBandEdge,
-  WEIGHT_TREND_CHART_BAND_BASE_OPACITY,
-  WEIGHT_TREND_CHART_BAND_SHEEN_HEIGHT_RATIO,
-  WEIGHT_TREND_CHART_BAND_SHEEN_OPACITY,
+  resolveWeightClassificationSegmentVisual,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
 const PADDING = { left: 40, right: 10, top: 14, bottom: 18 };
@@ -50,7 +46,8 @@ const LINE_CORE_WHITE = "#FFFFFF";
 const LINE_GLOW_BLUE = "rgba(91, 140, 255, 0.42)";
 const LINE_WIDTH = 2.85;
 const LINE_GLOW_WIDTH = 8;
-const GRID_COLOR = "rgba(160, 176, 200, 0.14)";
+/** Neutral grid — quieter so exact Weight-card band fills stay crisp. */
+const GRID_COLOR = "rgba(160, 176, 200, 0.10)";
 /** Max points used to draw path/area/dots; touch/inspection still use full data. */
 const MAX_RENDER_POINTS = 80;
 
@@ -476,10 +473,13 @@ export function WeightTrendChart({
               <Stop offset="100%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.01" />
             </LinearGradient>
           </Defs>
-          {/* Classification bands — exact Weight-card fillStrong + fillHighlight sheen. */}
+          {/* Classification bands — EXACT Weight-card paint (no chart alpha on fillStrong). */}
           {visibleBands.map((band) => {
-            const paint = resolveWeightClassificationBandPaint(band.tone);
-            const sheenHeight = Math.max(0, band.height * WEIGHT_TREND_CHART_BAND_SHEEN_HEIGHT_RATIO);
+            const visual = resolveWeightClassificationSegmentVisual(band.tone);
+            const sheenHeight = Math.max(
+              0,
+              band.height * visual.sheenHeightRatio,
+            );
             return (
               <React.Fragment key={`band-${band.id}`}>
                 <Rect
@@ -487,8 +487,7 @@ export function WeightTrendChart({
                   y={band.y}
                   width={plotWidth}
                   height={band.height}
-                  fill={paint.fillStrong}
-                  fillOpacity={WEIGHT_TREND_CHART_BAND_BASE_OPACITY}
+                  fill={visual.paint.fillStrong}
                   pointerEvents="none"
                 />
                 {sheenHeight > 0 ? (
@@ -497,15 +496,15 @@ export function WeightTrendChart({
                     y={band.y}
                     width={plotWidth}
                     height={sheenHeight}
-                    fill={paint.fillHighlight}
-                    fillOpacity={WEIGHT_TREND_CHART_BAND_SHEEN_OPACITY}
+                    fill={visual.paint.fillHighlight}
+                    fillOpacity={visual.sheenLayerOpacity}
                     pointerEvents="none"
                   />
                 ) : null}
                 <Path
                   d={`M ${plotLeft} ${band.y} L ${plotLeft + plotWidth} ${band.y}`}
-                  stroke={resolveWeightTrendChartBandEdge(band.tone)}
-                  strokeWidth={0.5}
+                  stroke={visual.paint.divider}
+                  strokeWidth={StyleSheet.hairlineWidth}
                   fill="none"
                   pointerEvents="none"
                 />

@@ -79,13 +79,37 @@ export function resolveBodyMetricClassificationBandChrome(
 }
 
 /**
- * Exact Weight-card rail paint — same tokens as {@link BodyMetricClassificationChart}.
- * Chart surfaces must consume this (or chrome fields) rather than inventing hues.
+ * Exact Weight-card rail paint — same final fills as {@link BodyMetricClassificationChart}.
+ * Trend chart bands must consume this object identity-wise; no alpha / darken / alternate palette.
  */
 export type WeightClassificationBandPaint = {
+  /** Exact card band `backgroundColor` — solid `#RRGGBB`, no alpha. */
   readonly fillStrong: string;
+  /** Exact card `bandSheen` backgroundColor (token already includes its own alpha). */
   readonly fillHighlight: string;
+  /** Exact card inter-segment divider. */
   readonly divider: string;
+};
+
+/** Matches `BodyMetricClassificationChart` `styles.bandSheen.opacity`. */
+export const BODY_METRIC_CLASSIFICATION_BAND_SHEEN_OPACITY = 0.85 as const;
+/** Matches `BodyMetricClassificationChart` `styles.bandSheen.height` ("48%"). */
+export const BODY_METRIC_CLASSIFICATION_BAND_SHEEN_HEIGHT_RATIO = 0.48 as const;
+
+/**
+ * Shared visual recipe for Weight classification segments (card rail + trend bands).
+ * Geometry differs by surface; paint values do not.
+ */
+export type WeightClassificationSegmentVisual = {
+  readonly tone: BodyMetricClassificationTone;
+  readonly paint: WeightClassificationBandPaint;
+  /**
+   * Exact card `styles.bandSheen` opacity — applied to fillHighlight layer only,
+   * matching BodyMetricClassificationChart.
+   */
+  readonly sheenLayerOpacity: typeof BODY_METRIC_CLASSIFICATION_BAND_SHEEN_OPACITY;
+  /** Exact card `styles.bandSheen` height fraction. */
+  readonly sheenHeightRatio: typeof BODY_METRIC_CLASSIFICATION_BAND_SHEEN_HEIGHT_RATIO;
 };
 
 export function resolveWeightClassificationBandPaint(
@@ -100,63 +124,17 @@ export function resolveWeightClassificationBandPaint(
 }
 
 /**
- * Chart-only opacity for the Weight-card `fillStrong` base.
- * High enough to read as the same bright rail hue on a dark canvas;
- * low enough that the white trend line stays primary.
- * Does not change global Weight-card tokens.
+ * Full shared visual for one Weight classification tone — card and trend must share this.
  */
-export const WEIGHT_TREND_CHART_BAND_BASE_OPACITY = 0.44;
-/** Match card `bandSheen` height fraction (~48%). */
-export const WEIGHT_TREND_CHART_BAND_SHEEN_HEIGHT_RATIO = 0.48;
-/** Match card `bandSheen` layer opacity. */
-export const WEIGHT_TREND_CHART_BAND_SHEEN_OPACITY = 0.85;
-
-/** @deprecated Prefer {@link resolveWeightClassificationBandPaint} + chart opacities. */
-export const WEIGHT_TREND_CHART_BAND_FILL_ALPHA = WEIGHT_TREND_CHART_BAND_BASE_OPACITY;
-/** @deprecated Prefer paint.fillHighlight sheen. */
-export const WEIGHT_TREND_CHART_BAND_HIGHLIGHT_ALPHA = 0.55;
-/** Subtle threshold edge using card divider family. */
-export const WEIGHT_TREND_CHART_BAND_EDGE_ALPHA = 0.5;
-
-/** Convert `#RRGGBB` into rgba for SVG opacity stops. */
-function hexToRgba(hex: string, alpha: number): string {
-  const m = /^#([0-9A-Fa-f]{6})$/.exec(hex);
-  if (!m) return `rgba(148, 163, 184, ${alpha})`;
-  const n = Number.parseInt(m[1]!, 16);
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-/**
- * Flat chart-band base fill — exact Weight-card fillStrong hue at chart opacity.
- * No darkening gradient (that produced muddy brown/olive).
- */
-export function resolveWeightTrendChartBandFill(
+export function resolveWeightClassificationSegmentVisual(
   tone: BodyMetricClassificationTone,
-): string {
-  const paint = resolveWeightClassificationBandPaint(tone);
-  return hexToRgba(paint.fillStrong, WEIGHT_TREND_CHART_BAND_BASE_OPACITY);
-}
-
-/**
- * Card sheen color for the upper band highlight (exact fillHighlight token).
- */
-export function resolveWeightTrendChartBandHighlight(
-  tone: BodyMetricClassificationTone,
-): string {
-  return resolveWeightClassificationBandPaint(tone).fillHighlight;
-}
-
-/**
- * Subtle threshold edge using the same fillStrong hue.
- */
-export function resolveWeightTrendChartBandEdge(
-  tone: BodyMetricClassificationTone,
-): string {
-  const paint = resolveWeightClassificationBandPaint(tone);
-  return hexToRgba(paint.fillStrong, WEIGHT_TREND_CHART_BAND_EDGE_ALPHA);
+): WeightClassificationSegmentVisual {
+  return {
+    tone,
+    paint: resolveWeightClassificationBandPaint(tone),
+    sheenLayerOpacity: BODY_METRIC_CLASSIFICATION_BAND_SHEEN_OPACITY,
+    sheenHeightRatio: BODY_METRIC_CLASSIFICATION_BAND_SHEEN_HEIGHT_RATIO,
+  };
 }
 
 /** Expose Weight-card fillStrong hexes for cross-surface identity tests. */
