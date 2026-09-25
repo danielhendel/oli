@@ -3,7 +3,7 @@
 **Status:** Accepted with guardrails (architecture/standards direction; Stage 3B shell **implemented on branch**)
 **Date:** 2026-09-18
 **Accepted:** 2026-09-18 — human approval with guardrails
-**Stage:** 3A definition complete; Stage 3B value-first shell **COMPLETE on branch** (physical `c962d36…`, 2026-09-20); Stage 3C **NOT BEGUN**
+**Stage:** 3A definition complete; Stage 3B value-first shell **MERGED** (PR #220; physical `c962d36…`); Stage 3C standards/graphs **MERGED** (PR #221 at `58350517…`; physical `e4a23a55…`); Stage 3D **NOT BEGUN / DEFERRED**; Stage 3E Body Scans **ACTIVE** (`BODY_SCANS_PRODUCT_AND_DATA_V1.md`)
 **Authority level:** T2 product authority (subordinate to Constitution and code/CI; binding via accepted RFC/ADR)
 **Companions:**
 - Audit: `docs/90_audits/2026-09-18-body-composition-repo-truth-audit.md`

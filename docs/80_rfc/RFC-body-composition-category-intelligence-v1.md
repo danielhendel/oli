@@ -3,7 +3,7 @@
 **Status:** Accepted (architecture and standards direction; Stage 3B shell authorized and **implemented on branch**)
 **Date:** 2026-09-18
 **Accepted:** 2026-09-18 — human approval with guardrails
-**Stage:** 3A complete (docs); Stage 3B **COMPLETE on branch** (physical `c962d36…`, 2026-09-20); Stage 3C **NOT BEGUN**
+**Stage:** 3A complete (docs); Stage 3B **MERGED** (PR #220; physical `c962d36…`); Stage 3C **MERGED** (PR #221 at `58350517…`); Stage 3D **NOT BEGUN / DEFERRED**; Stage 3E Body Scans **ACTIVE**
 **Canonical location:** `docs/80_rfc/`
 **ADR:** `docs/70_adrs/ADR-body-composition-category-intelligence-v1.md`
 **Product spec:** `docs/10_product/specs/BODY_COMPOSITION_PRODUCT_AND_STANDARDS_V1.md`

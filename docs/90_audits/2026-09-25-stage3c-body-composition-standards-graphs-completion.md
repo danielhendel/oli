@@ -1,5 +1,7 @@
 # Stage 3C — Body Composition Standards and Trend Details Completion
 
+> **Supersession (2026-09-25):** Stage 3C **MERGED** via PR [#221](https://github.com/danielhendel/oli/pull/221) at `5835051715ceea5e1a1cece12f28a9af53e206e7`. Post-merge proof **PASS**. Stage 3E Body Scans is now **ACTIVE**. Historical “merge gate PENDING” wording below is retained as contemporaneous evidence only.
+
 **Date:** 2026-09-25  
 **Branch:** `feat/body-composition-stage3c-standards-graphs-v1`  
 **Physical runtime SHA:** `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**)  
@@ -10,9 +12,9 @@
 
 Stage 3C **implementation: COMPLETE** on branch.  
 Physical PASS recorded by product leadership (2026-09-25).  
-**Independent merge gate: PENDING**.  
-Do **not** write “Stage 3C merged” until the independent review-and-merge gate completes.  
-Stage 3D **NOT BEGUN**. Stage 3E Body Scans **NOT BEGUN**.
+**Independent merge gate: PENDING** *(superseded — see header)*.  
+Do **not** write “Stage 3C merged” until the independent review-and-merge gate completes. *(superseded — Stage 3C is MERGED)*.  
+Stage 3D **NOT BEGUN**. Stage 3E Body Scans **NOT BEGUN**. *(Stage 3E now ACTIVE — see progress map)*.
 
 ## Physical lineage
 

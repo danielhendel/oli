@@ -2,12 +2,12 @@
 
 **Status:** Current operational truth (subordinate to code + CI)
 **Last verified:** 2026-09-25
-**Merged `main` SHA:** `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`
+**Merged `main` SHA:** `5835051715ceea5e1a1cece12f28a9af53e206e7`
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
 **Prior Stage 1A truth freeze (historical):** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `Stage 3C — Body Composition Standards and Trend Details` (**implementation COMPLETE**; **independent merge gate PENDING**). Physical runtime SHA `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**). Prior physical candidates `050d338e…` / `ebecd45…` **SUPERSEDED**. Stage 3B **MERGED** (PR #220). Stage 3A docs **MERGED** (PR #219). Stage 3D **NOT BEGUN**. Stage 3E Body Scans **NOT BEGUN**.
+**Current execution-stage label:** `Stage 3E — Body Scans Foundation V1` (**ACTIVE**). Stage 3C **MERGED** (PR [#221](https://github.com/danielhendel/oli/pull/221) at `5835051715ceea5e1a1cece12f28a9af53e206e7`; physical `e4a23a552910f28241b10b25ae84b46529dab891` **PASS**; post-merge proof **PASS**). Stage 3B **MERGED** (PR #220). Stage 3A docs **MERGED** (PR #219). Stage 3D **NOT BEGUN / DEFERRED**. No deployment from Stage 3E implementation.
 **Stage 1B:** **MERGED** (PR #214 at `3d4859e45d537813b6846ecaf4cb49222519ef80`)
 **Stage 1C:** **MERGED** (PR #215 at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`)
 **Build hygiene:** **MERGED** (PR #216 at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`)
@@ -19,10 +19,12 @@
 **Stage 3B:** **MERGED** (PR [#220](https://github.com/danielhendel/oli/pull/220) at `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`)
 **Stage 3B branch (historical):** `feat/body-composition-stage3b-value-first-shell`
 **Stage 3B physical runtime SHA:** `c962d36ef947e67e03092df9ed8207de17aef9de` (**PASS**; ancestor of `main`)
-**Stage 3C branch:** `feat/body-composition-stage3c-standards-graphs-v1`
-**Stage 3C physical runtime SHA:** `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**; on branch; not yet on `main`)
-**Stage 3D:** **NOT BEGUN**
-**Stage 3E Body Scans:** **NOT BEGUN**
+**Stage 3C:** **MERGED** (PR [#221](https://github.com/danielhendel/oli/pull/221) at `5835051715ceea5e1a1cece12f28a9af53e206e7`)
+**Stage 3C branch (historical):** `feat/body-composition-stage3c-standards-graphs-v1`
+**Stage 3C physical runtime SHA:** `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**; ancestor of `main`)
+**Stage 3C post-merge proof:** **PASS** (suites/tests/skipped: 1106 / 6714 / 0)
+**Stage 3D:** **NOT BEGUN / DEFERRED**
+**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` (product/data: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`)
 
 > **Rule:** If this map conflicts with merged code or CI, **code and CI win**. Update this map; do not invent product truth from docs alone.
 
@@ -44,7 +46,9 @@
 >
 > **Stage 3B status:** **MERGED** (PR [#220](https://github.com/danielhendel/oli/pull/220) at `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`). Physical runtime SHA `c962d36ef947e67e03092df9ed8207de17aef9de` **PASS** (product leadership 2026-09-20; ancestor of `main`). Weight CDC/WHO adult BMI screening **IMPLEMENTED** — Weight remains the **only** classified Body metric. Body Fat / Lean Mass **unclassified** at Stage 3C start (presentation + compatible derivations only). Metric-specific Apple Health popups + local `appleHealth:metricSyncScopes:{uid}` preference **IMPLEMENTED**. Backend/Firestore schema **unchanged**. Release gates remain **OPEN**.
 >
-> **Stage 3C status:** **implementation COMPLETE**; **independent merge gate PENDING** on branch `feat/body-composition-stage3c-standards-graphs-v1`. Physical runtime SHA `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**, 2026-09-25). Prior physical candidates `050d338e…` / `ebecd45…` **SUPERSEDED**. Landing IA **APPROVED**: Total Mass → Weight; Components → Body Fat + Lean Mass. Body Fat Gallagher educational ranges **APPROVED FOR STAGE 3C V1** (`gallagher-4c-bmi-equivalent-body-fat-reference` / `2000.1`); personal Body Fat classification **BLOCKED**. Lean Mass numerical reference **BLOCKED**; composition-share **APPROVED**. Detail trend pages + display modes (Weight mass/BMI; Body Fat %/fat-mass; Lean Mass mass/%) **COMPLETE** (presentation-only derivations). Complete Body Fat Apple Health history (**5Y** = five years; **All** = all governed history; checkpoint `appleHealth:bodyFatBackfillState:{uid}`). Weight remains the **only** approved personal Body classifier. ACE **REJECTED**. No Body score; no Muscle Mass. Stage 3D **NOT BEGUN**. Stage 3E Body Scans **NOT BEGUN**. No staging/production deploy. No new Firestore standards path. Completion audit: `docs/90_audits/2026-09-25-stage3c-body-composition-standards-graphs-completion.md`.
+> **Stage 3C status:** **MERGED** (PR [#221](https://github.com/danielhendel/oli/pull/221) at `5835051715ceea5e1a1cece12f28a9af53e206e7`). Physical runtime SHA `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**, 2026-09-25; ancestor of `main`). Post-merge proof **PASS** (1106 / 6714 / 0). Landing IA **APPROVED**: Total Mass → Weight; Components → Body Fat + Lean Mass. Body Fat Gallagher educational ranges **APPROVED FOR STAGE 3C V1** (`gallagher-4c-bmi-equivalent-body-fat-reference` / `2000.1`); personal Body Fat classification **BLOCKED**. Lean Mass numerical reference **BLOCKED**; composition-share **APPROVED**. Detail trend pages + display modes **COMPLETE**. Complete Body Fat Apple Health history (**5Y** / **All**; checkpoint `appleHealth:bodyFatBackfillState:{uid}`). Weight remains the **only** approved personal Body classifier. ACE **REJECTED**. No Body score; no Muscle Mass. Stage 3D **NOT BEGUN / DEFERRED**. Stage 3E Body Scans **ACTIVE**. No staging/production deploy from Stage 3C. No new Firestore standards path. Completion audit: `docs/90_audits/2026-09-25-stage3c-body-composition-standards-graphs-completion.md`.
+>
+> **Stage 3E status:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` (base `5835051715ceea5e1a1cece12f28a9af53e206e7`). Body Scans foundation V1 — designed results + original PDF evidence; Document Ingestion OS reuse; DXA Live Lean / GE Lunar adapter; InBody/Evolt/Bod Pod/Other store + manual review; no scan/scale trend mixing; production `bodyScans` flag disabled; release gates remain **OPEN**. Product/data: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`. No staging/production deploy from Stage 3E implementation agent.
 
 ---
 
@@ -270,10 +274,13 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Export coverage/scalability remain **OPEN**
 - No staging or production deployment from Stage 3B
 
-## Stage 3C (ASYMMETRIC V1 — LEADERSHIP APPROVED)
+## Stage 3C (MERGED — PR #221)
 
-- Branch: `feat/body-composition-stage3c-standards-graphs-v1`
-- Baseline `main`: `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`
+- Merge commit: `5835051715ceea5e1a1cece12f28a9af53e206e7` (PR #221)
+- Branch (historical): `feat/body-composition-stage3c-standards-graphs-v1`
+- Baseline `main` at merge: prior Stage 3B `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`
+- Physical runtime SHA: `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**; ancestor of `main`)
+- Post-merge proof: **PASS** (1106 / 6714 / 0)
 - Prior physical candidate `050d338e62749d7920988900f25d61b847fdbad4`: **SUPERSEDED — DO NOT REUSE PHYSICAL EVIDENCE**
 - Landing IA **APPROVED**: Total Mass → Weight; Components → Body Fat + Lean Mass; metric-specific calendar/list; education on detail
 - Body Fat numerical educational card reference: **APPROVED FOR STAGE 3C V1** (`gallagher-4c-bmi-equivalent-body-fat-reference` / `2000.1`)
@@ -284,10 +291,20 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Weight: **APPROVED / IMPLEMENTED** personal BMI screening — only personally classified Body metric
 - Weight detail: single hero longitudinal trend (no duplicate Latest/History cards); Weight card retains “Where am I?” classification; detail owns “How am I changing?”
 - Body score / aggregate classification / Performance·Excellence: **NOT IMPLEMENTED**
-- Next after Stage 3C merge: **Stage 3D — Body Facts and Measurement Provenance** — must **not** auto-implement reference markers or numerical standards
-- Stage 3D: **NOT BEGUN**
-- Physical-iPhone retest: **REQUIRED**
-- No staging or production deployment; no backend / Firestore standards path
+- Stage 3D: **NOT BEGUN / DEFERRED** — must **not** auto-implement reference markers or numerical standards
+- Stage 3E Body Scans: **ACTIVE** — `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`
+- No staging or production deployment from Stage 3C; no backend / Firestore standards path
+
+## Stage 3E (ACTIVE — Body Scans foundation)
+
+- Branch: `feat/body-composition-stage3e-body-scans-v1`
+- Base: `5835051715ceea5e1a1cece12f28a9af53e206e7`
+- Product/data: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`
+- Scope: periodic Body Scans (DXA / InBody / Evolt / Bod Pod / Other); designed results + original PDF; Document Ingestion OS reuse; Live Lean DXA adapter; no scan/scale trend mixing
+- Feature flag `bodyScans`: development enabled; production **disabled**
+- Physical real-PDF test **required** (personal PDF must not enter Git)
+- Release gates remain **OPEN**; no staging/production deploy from Stage 3E implementation agent
+- Do **not** claim Stage 3E merged or production-ready
 
 ### RG-LEGAL-01 — Public Legal and Support Readiness (OPEN)
 
@@ -339,15 +356,16 @@ RG-SOURCE-PRIVACY-01 remaining OPEN does **not** block Stage 2 engineering merge
 - Defensible overall score (gated — not a P0 assumption)
 - Body salvage (PR #178 deferred)
 - Minimal onboarding / data readiness (Stage 2 **MERGED** via PR #217)
-- Body Composition Category Intelligence (Stage 3A **merged** PR #219; Stage 3B shell **merged** PR #220 at `0124c641…`, physical `c962d36…`; Stage 3C asymmetric Body Fat Gallagher ranges + Lean Mass composition-share **leadership-approved**; prior physical `050d338…` SUPERSEDED; physical retest **REQUIRED**; Stage 3D **not begun**)
+- Body Composition Category Intelligence (Stage 3A **merged** PR #219; Stage 3B shell **merged** PR #220 at `0124c641…`, physical `c962d36…`; Stage 3C **merged** PR #221 at `58350517…`, physical `e4a23a55…`; Stage 3D **NOT BEGUN / DEFERRED**; Stage 3E Body Scans **ACTIVE**)
 
-**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-authored Plan persistence, Progress outcome analytics, consent persistence; Body Composition Stage 3D+ facts/classification runtime; official Body Fat/Lean Mass personal markers; Lean Mass numerical LMI ranges (Kelly Table S5 pooled reference unavailable).
+**Explicitly not implemented:** Current State as Home hero, What Oli Sees, unified confidence contracts, human-authored Plan persistence, Progress outcome analytics, consent persistence; Body Composition Stage 3D+ facts/classification runtime; official Body Fat/Lean Mass personal markers; Lean Mass numerical LMI ranges (Kelly Table S5 pooled reference unavailable); Body Scans production rollout.
 
 ## In progress (not complete)
 
-- **Stage 3C asymmetric Body references** — leadership-approved; physical-iPhone retest **REQUIRED**; Draft PR / merge gate pending; personal markers **BLOCKED**; Stage 3D **not begun**
+- **Stage 3E Body Scans Foundation V1** — **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1`; not merged; production flag disabled; physical real-PDF test required; personal markers remain **BLOCKED**; Stage 3D **NOT BEGUN / DEFERRED**
 - **RG-SOURCE-PRIVACY-01 OPEN** (complete two-account server evidence deferred; leadership-accepted residual risk; Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN)
 - **RG-LEGAL-01 OPEN** (hosted legal/support pages not published)
+- Export coverage / scalability **OPEN**
 - PR #178 remains CLOSED unmerged; Body salvage disposition in Stage 3A docs only
 - PR #210 remains CLOSED unmerged; preserved branch unmodified
 - Other open PRs and local worktrees are **in-progress only** until merged to `main`

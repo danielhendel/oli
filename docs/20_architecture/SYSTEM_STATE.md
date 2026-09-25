@@ -1,18 +1,19 @@
 # System State — As Built
 
 **Status:** Current architecture interpretation (must track code)
-**Last updated:** 2026-09-25 (Stage 3C **implementation COMPLETE**; physical `e4a23a552910f28241b10b25ae84b46529dab891` **PASS**; **independent merge gate PENDING**; ACE **REJECTED**; Stage 3D **NOT BEGUN**; Stage 3E Body Scans **NOT BEGUN**; Stage 3B **MERGED** PR #220 at `0124c641…`; Stage 3A **MERGED** PR #219 at `b366744…`; Stage 2 **MERGED** PR #217; **RG-SOURCE-PRIVACY-01 OPEN**; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
-**Merged `main` SHA:** `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`
+**Last updated:** 2026-09-25 (Stage 3E Body Scans **ACTIVE**; Stage 3C **MERGED** PR #221 at `58350517…`; physical `e4a23a55…` **PASS**; post-merge proof **PASS**; Stage 3D **NOT BEGUN / DEFERRED**; ACE **REJECTED**; Stage 3B **MERGED** PR #220 at `0124c641…`; Stage 3A **MERGED** PR #219 at `b366744…`; Stage 2 **MERGED** PR #217; **RG-SOURCE-PRIVACY-01 OPEN**; Stage 1C **MERGED** PR #215; build hygiene **MERGED** PR #216; **RG-LEGAL-01 OPEN**)
+**Merged `main` SHA:** `5835051715ceea5e1a1cece12f28a9af53e206e7`
 **Stage 2 merge commit:** `c92ca0518366f0ef7b5e3af08e127fb623506622`
 **Stage 2 final implementation head:** `2e8cbb7b83b7c2b311e5dccc2bcfda23b5ce6ffc` (ancestor of `main`)
 **Stage 2 physical runtime SHA:** `255f7101db7a111471ca38b92813cb426e762007` (**PASS**; ancestor of `main`)
 **Stage 3A merge commit:** `b366744007bf771a0796f8499e9be224d226e6b6` (PR #219; RFC/ADR Accepted; classification runtime not implemented)
 **Stage 3B merge commit:** `0124c641f119150c7ed105cef8fd0b8f7d19cd8d` (PR #220)
 **Stage 3B physical runtime SHA:** `c962d36ef947e67e03092df9ed8207de17aef9de` (**PASS**; ancestor of `main`)
-**Stage 3C branch:** `feat/body-composition-stage3c-standards-graphs-v1` (**implementation COMPLETE**; **merge PENDING**)
-**Stage 3C physical runtime SHA:** `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**; on branch; not yet on `main`)
-**Stage 3D:** **NOT BEGUN** (Body Facts and Measurement Provenance — after Stage 3C merge; no auto personal reference markers / numerical standards)
-**Stage 3E Body Scans:** **NOT BEGUN**
+**Stage 3C merge commit:** `5835051715ceea5e1a1cece12f28a9af53e206e7` (PR #221)
+**Stage 3C physical runtime SHA:** `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**; ancestor of `main`)
+**Stage 3C post-merge proof:** **PASS** (1106 / 6714 / 0)
+**Stage 3D:** **NOT BEGUN / DEFERRED** (Body Facts and Measurement Provenance — must not auto-implement personal reference markers / numerical standards)
+**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` (spec: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`; not merged; production flag disabled)
 **Staging (historical Stage 2):** Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`
 **Staging (historical Stage 1C):** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep ACTIVE; Firestore TTL `accountDeletions.expireAt` ACTIVE
 **Staging export (historical E2E):** Function `onAccountExportRequested` 4 GiB / 540 s
@@ -126,7 +127,7 @@ Pipeline and derived consumption: portions of the app read DailyFacts / sleep-ni
 | Production Firebase project config | Release-hardening gap |
 | Current State / What Oli Sees / Plan persistence / Progress analytics | **Not** implemented |
 | Body salvage (PR #178) | CLOSED unmerged; disposition only in Stage 3A docs |
-| Body Composition Category Intelligence | Stage 3A **MERGED** (PR #219). Stage 3B shell **MERGED** (PR #220; physical `c962d36…`). Weight only personal classifier. Stage 3C **implementation COMPLETE** (physical `e4a23a55…` **PASS**; **merge PENDING**): Gallagher BF educational ranges; Lean composition-share; detail trends + display modes; complete BF AH history; ACE **REJECTED**; Stage 3D / 3E **NOT BEGUN**. |
+| Body Composition Category Intelligence | Stage 3A **MERGED** (PR #219). Stage 3B shell **MERGED** (PR #220; physical `c962d36…`). Weight only personal classifier. Stage 3C **MERGED** (PR #221 at `58350517…`; physical `e4a23a55…` **PASS**; post-merge proof **PASS**): Gallagher BF educational ranges; Lean composition-share; detail trends + display modes; complete BF AH history; ACE **REJECTED**. Stage 3D **NOT BEGUN / DEFERRED**. Stage 3E Body Scans **ACTIVE** (not merged; prod flag off). |
 | Build checksum hygiene | Merged (PR #216) — ordinary API builds do not mutate tracked checksum truth |
 | Production deploy | **none** |
 
@@ -172,7 +173,7 @@ Home · Today · Plan · Progress · You
 | Progress | Execution, adherence, outcomes, trends, analysis | History + Weekly Progress; no outcome analytics product |
 | You | Account, sources, assessments, labs, history, privacy, export, deletion, settings | Hub present; export UI merged (Stage 1B); delete UI and local lifecycle merged (Stage 1C) |
 
-**Next ownership/product work:** Stage **3C** **implementation COMPLETE** (physical `e4a23a552910f28241b10b25ae84b46529dab891` **PASS**); **independent merge gate PENDING**. After Stage 3C merge: Stage **3D** Body Facts and Measurement Provenance (**NOT BEGUN**; must not auto-implement reference markers or numerical standards). Stage **3E** Body Scans **NOT BEGUN**. **RG-SOURCE-PRIVACY-01** remains OPEN and blocks external TestFlight / production / public release. Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN. **RG-LEGAL-01 OPEN**. Export coverage/scalability OPEN. No staging or production deployment from Stage 3C. No backend / Firestore standards path.
+**Next ownership/product work:** Stage **3E** Body Scans Foundation **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` (base `5835051715ceea5e1a1cece12f28a9af53e206e7`; not merged; production `bodyScans` flag disabled; physical real-PDF test required). Stage **3C** **MERGED** (PR #221; physical `e4a23a552910f28241b10b25ae84b46529dab891` **PASS**; post-merge proof **PASS**). Stage **3D** Body Facts and Measurement Provenance (**NOT BEGUN / DEFERRED**; must not auto-implement reference markers or numerical standards). **RG-SOURCE-PRIVACY-01** remains OPEN and blocks external TestFlight / production / public release. Issue [#218](https://github.com/danielhendel/oli/issues/218) OPEN. **RG-LEGAL-01 OPEN**. Export coverage/scalability OPEN. No staging or production deployment from Stage 3E implementation. Document Ingestion OS remains the governed upload/store/extract path for Body Scans.
 
 ---
 

@@ -12,7 +12,9 @@
 **Official classification authorized:** No
 **Stage 3B shell authorized:** Yes (value-first shell)
 **Stage 3B runtime:** **MERGED** (PR #220 at `0124c641…`; physical `c962d36ef947e67e03092df9ed8207de17aef9de`, 2026-09-20)
-**Stage 3C:** **implementation COMPLETE** on `feat/body-composition-stage3c-standards-graphs-v1` (physical `e4a23a552910f28241b10b25ae84b46529dab891` **PASS**, 2026-09-25); **independent merge gate PENDING**; Stage 3D / 3E **NOT BEGUN**
+**Stage 3C:** **MERGED** (PR #221 at `5835051715ceea5e1a1cece12f28a9af53e206e7`; physical `e4a23a552910f28241b10b25ae84b46529dab891` **PASS**, 2026-09-25; post-merge proof **PASS**)
+**Stage 3D:** **NOT BEGUN / DEFERRED**
+**Stage 3E:** **ACTIVE** (Body Scans foundation; `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`)
 
 ---
 
