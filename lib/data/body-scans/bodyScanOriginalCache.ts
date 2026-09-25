@@ -172,6 +172,56 @@ export async function downloadBodyScanOriginalToProtectedCache(args: {
   url: string;
   previewNonce?: string;
 }): Promise<{ ok: true; localUri: string; paths: BodyScanOriginalPreviewPaths } | { ok: false }> {
+  const prepared = await prepareBodyScanOriginalPreviewPaths(args);
+  if (!prepared.ok) return { ok: false };
+  const { paths } = prepared;
+
+  try {
+    const result = await FileSystem.downloadAsync(args.url, paths.partialUri);
+    if (result.status < 200 || result.status >= 300) {
+      await deleteUriIdempotent(paths.partialUri);
+      await deleteUriIdempotent(paths.finalUri);
+      return { ok: false };
+    }
+    return await finalizeBodyScanOriginalFromPartial(paths);
+  } catch {
+    await deleteUriIdempotent(paths.partialUri);
+    await deleteUriIdempotent(paths.finalUri);
+    return { ok: false };
+  }
+}
+
+/**
+ * Materialize bytes into the same `.partial` → verify → `.pdf` pipeline used by download.
+ * Used by the DEV synthetic harness so lifecycle after partial creation is identical.
+ */
+export async function materializeBodyScanOriginalFromBytes(args: {
+  userId: string;
+  documentId: string;
+  bytesBase64: string;
+  previewNonce?: string;
+}): Promise<{ ok: true; localUri: string; paths: BodyScanOriginalPreviewPaths } | { ok: false }> {
+  const prepared = await prepareBodyScanOriginalPreviewPaths(args);
+  if (!prepared.ok) return { ok: false };
+  const { paths } = prepared;
+
+  try {
+    await FileSystem.writeAsStringAsync(paths.partialUri, args.bytesBase64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return await finalizeBodyScanOriginalFromPartial(paths);
+  } catch {
+    await deleteUriIdempotent(paths.partialUri);
+    await deleteUriIdempotent(paths.finalUri);
+    return { ok: false };
+  }
+}
+
+async function prepareBodyScanOriginalPreviewPaths(args: {
+  userId: string;
+  documentId: string;
+  previewNonce?: string;
+}): Promise<{ ok: true; paths: BodyScanOriginalPreviewPaths } | { ok: false }> {
   let paths: BodyScanOriginalPreviewPaths;
   try {
     paths = createBodyScanOriginalPreviewPaths({
@@ -182,28 +232,30 @@ export async function downloadBodyScanOriginalToProtectedCache(args: {
   } catch {
     return { ok: false };
   }
-
   const prepared = await ensureDirectory(paths.directoryUri);
   if (!prepared) return { ok: false };
-
   try {
     await FileSystem.deleteAsync(paths.partialUri, { idempotent: true }).catch(() => undefined);
     await FileSystem.deleteAsync(paths.finalUri, { idempotent: true }).catch(() => undefined);
+  } catch {
+    // continue
+  }
+  return { ok: true, paths };
+}
 
-    const result = await FileSystem.downloadAsync(args.url, paths.partialUri);
-    if (result.status < 200 || result.status >= 300) {
-      await deleteUriIdempotent(paths.partialUri);
-      await deleteUriIdempotent(paths.finalUri);
-      return { ok: false };
-    }
-
+/**
+ * Shared post-partial pipeline: verify PDF magic, move to `.pdf`, or wipe both candidates.
+ */
+export async function finalizeBodyScanOriginalFromPartial(
+  paths: BodyScanOriginalPreviewPaths,
+): Promise<{ ok: true; localUri: string; paths: BodyScanOriginalPreviewPaths } | { ok: false }> {
+  try {
     const valid = await verifyLocalPdfCandidate(paths.partialUri);
     if (!valid) {
       await deleteUriIdempotent(paths.partialUri);
       await deleteUriIdempotent(paths.finalUri);
       return { ok: false };
     }
-
     await FileSystem.moveAsync({ from: paths.partialUri, to: paths.finalUri });
     return { ok: true, localUri: paths.finalUri, paths };
   } catch {
@@ -391,4 +443,71 @@ export function formatBodyScanCacheCleanupDevStatus(
 ): string {
   if (status.ok) return `body_scan_cache_cleanup ok bucket=${status.deletedCountBucket}`;
   return `body_scan_cache_cleanup fail reason=${status.reasonCode}`;
+}
+
+export type BodyScanCacheInventoryCounts = {
+  readonly remainingFiles: number;
+  readonly partialFiles: number;
+};
+
+/**
+ * Count PDF/partial files under the dedicated root (optionally scoped).
+ * Returns counts only — never paths.
+ */
+export async function countBodyScanCacheInventory(args?: {
+  userId?: string;
+  documentId?: string;
+}): Promise<BodyScanCacheInventoryCounts> {
+  let remainingFiles = 0;
+  let partialFiles = 0;
+  const root = getBodyScanOriginalCacheRootUri();
+  if (!root) return { remainingFiles: 0, partialFiles: 0 };
+
+  try {
+    const rootInfo = await FileSystem.getInfoAsync(root);
+    if (!rootInfo.exists) return { remainingFiles: 0, partialFiles: 0 };
+
+    const accountFilter =
+      args?.userId != null ? opaqueAccountScopeKey(args.userId) : null;
+    const documentFilter =
+      args?.documentId != null
+        ? sanitizeBodyScanCacheSegment(args.documentId, "document_id")
+        : null;
+
+    const accounts = await FileSystem.readDirectoryAsync(root);
+    for (const accountEntry of accounts) {
+      if (accountEntry.includes("..") || accountEntry.includes("/")) continue;
+      if (accountFilter != null && accountEntry !== accountFilter) continue;
+      const accountUri = `${root}${accountEntry}/`;
+      let documents: string[];
+      try {
+        documents = await FileSystem.readDirectoryAsync(accountUri);
+      } catch {
+        continue;
+      }
+      for (const documentEntry of documents) {
+        if (documentEntry.includes("..") || documentEntry.includes("/")) continue;
+        if (documentFilter != null && documentEntry !== documentFilter) continue;
+        const documentUri = `${accountUri}${documentEntry}/`;
+        let files: string[];
+        try {
+          files = await FileSystem.readDirectoryAsync(documentUri);
+        } catch {
+          continue;
+        }
+        for (const fileName of files) {
+          if (fileName.includes("..") || fileName.includes("/")) continue;
+          if (fileName.endsWith(".partial")) {
+            partialFiles += 1;
+            remainingFiles += 1;
+          } else if (fileName.endsWith(".pdf")) {
+            remainingFiles += 1;
+          }
+        }
+      }
+    }
+  } catch {
+    return { remainingFiles: 0, partialFiles: 0 };
+  }
+  return { remainingFiles, partialFiles };
 }

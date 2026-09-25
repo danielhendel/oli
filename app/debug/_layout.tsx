@@ -12,6 +12,7 @@ export default function DebugLayout() {
       <Stack.Screen name="health" options={{ title: "Health" }} />
       <Stack.Screen name="exercise-intelligence" options={{ title: "Exercise Intelligence" }} />
       <Stack.Screen name="hypertrophy-stimulus" options={{ title: "Hypertrophy Stimulus" }} />
+      <Stack.Screen name="body-scan-cache" options={{ title: "Body Scan Cache Test" }} />
     </Stack>
   );
 }

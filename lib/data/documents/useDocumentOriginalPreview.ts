@@ -10,16 +10,21 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Linking } from "react-native";
-import * as WebBrowser from "expo-web-browser";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { viewDocumentOriginal } from "@/lib/api/documents";
 import {
+  countToDevBucket,
+  countToPartialBucket,
+  emitBodyScanCacheDevStatus,
+} from "@/lib/data/body-scans/bodyScanCacheDevStatus";
+import {
+  countBodyScanCacheInventory,
   deleteCachedBodyScanOriginal,
   downloadBodyScanOriginalToProtectedCache,
   sweepStaleBodyScanOriginalCaches,
 } from "@/lib/data/body-scans/bodyScanOriginalCache";
+import { openBodyScanOriginalLocalPreview } from "@/lib/data/body-scans/openBodyScanOriginalLocalPreview";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import {
   documentOriginalPreviewMessage,
@@ -36,11 +41,11 @@ export function useDocumentOriginalPreview(documentId: string | null) {
   const { user, getIdToken } = useAuth();
   const [state, setState] = useState<DocumentOriginalPreviewState>({ busy: false, message: null });
   const lastLocalUriRef = useRef<string | null>(null);
+  const lastDeleteImmediatelyRef = useRef(true);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
-    // Bounded stale sweep before the first open in this mount (and when document changes).
     void sweepStaleBodyScanOriginalCaches();
     return () => {
       mountedRef.current = false;
@@ -52,10 +57,10 @@ export function useDocumentOriginalPreview(documentId: string | null) {
     if (!documentId || !user?.uid) return null;
     setState({ busy: true, message: null });
 
-    // Sweep orphans from abnormal termination before allocating a new preview path.
     await sweepStaleBodyScanOriginalCaches();
 
     const userId = user.uid;
+    lastDeleteImmediatelyRef.current = true;
     const outcome = await openDocumentOriginal({
       requestGrant: async () => {
         const token = await getIdToken(false);
@@ -77,23 +82,9 @@ export function useDocumentOriginalPreview(documentId: string | null) {
         return { ok: true, localUri: downloaded.localUri };
       },
       openLocal: async (localUri) => {
-        // Prefer the API that settles when the viewer is dismissed.
-        try {
-          await WebBrowser.openBrowserAsync(localUri);
-          return { opened: true, deleteImmediately: true };
-        } catch {
-          // Fall through to Linking.
-        }
-        try {
-          if (await Linking.canOpenURL(localUri)) {
-            await Linking.openURL(localUri);
-            // Resolves at launch — do not claim close cleanup; stale sweep covers orphans.
-            return { opened: true, deleteImmediately: false };
-          }
-        } catch {
-          // Fall through.
-        }
-        return { opened: false, deleteImmediately: true };
+        const result = await openBodyScanOriginalLocalPreview(localUri);
+        lastDeleteImmediatelyRef.current = result.deleteImmediately;
+        return result;
       },
       deleteLocal: async (localUri) => {
         await deleteCachedBodyScanOriginal(localUri);
@@ -102,6 +93,49 @@ export function useDocumentOriginalPreview(documentId: string | null) {
         }
       },
     });
+
+    // DEV-only observability for physical cache gate (no paths/IDs).
+    if (outcome.status === "error" && outcome.code === "DOWNLOAD_FAILED") {
+      const inv = await countBodyScanCacheInventory({ userId, documentId });
+      emitBodyScanCacheDevStatus({
+        operation: "preview_failure_cleanup",
+        status: inv.remainingFiles === 0 ? "ok" : "failed",
+        remainingFileCountBucket: countToDevBucket(inv.remainingFiles),
+        removedFileCountBucket: "unknown",
+        partialFileCountBucket: countToPartialBucket(inv.partialFiles),
+        safeReasonCode: "download_or_materialize_failed",
+      });
+    } else if (outcome.status === "error") {
+      const inv = await countBodyScanCacheInventory({ userId, documentId });
+      emitBodyScanCacheDevStatus({
+        operation: "preview_failure_cleanup",
+        status: inv.remainingFiles === 0 ? "ok" : "failed",
+        remainingFileCountBucket: countToDevBucket(inv.remainingFiles),
+        removedFileCountBucket: "unknown",
+        partialFileCountBucket: countToPartialBucket(inv.partialFiles),
+        safeReasonCode: "open_failed",
+      });
+    } else if (outcome.status === "opened") {
+      const inv = await countBodyScanCacheInventory({ userId, documentId });
+      if (lastDeleteImmediatelyRef.current) {
+        emitBodyScanCacheDevStatus({
+          operation: "preview_close_cleanup",
+          status: inv.remainingFiles === 0 && inv.partialFiles === 0 ? "ok" : "failed",
+          remainingFileCountBucket: countToDevBucket(inv.remainingFiles),
+          removedFileCountBucket: inv.remainingFiles === 0 ? "one" : "unknown",
+          partialFileCountBucket: countToPartialBucket(inv.partialFiles),
+        });
+      } else {
+        emitBodyScanCacheDevStatus({
+          operation: "preview_open",
+          status: "ok",
+          remainingFileCountBucket: countToDevBucket(inv.remainingFiles),
+          removedFileCountBucket: "zero",
+          partialFileCountBucket: countToPartialBucket(inv.partialFiles),
+          safeReasonCode: "fallback_requires_stale_cleanup",
+        });
+      }
+    }
 
     if (mountedRef.current) {
       setState({ busy: false, message: documentOriginalPreviewMessage(outcome) });

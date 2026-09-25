@@ -23,6 +23,14 @@ jest.mock("@/lib/data/workouts/workoutsCalendarMarkerCache", () => ({
 jest.mock("@/lib/data/body-scans/bodyScanOriginalCache", () => ({
   clearBodyScanOriginalCacheForAccount: jest.fn().mockResolvedValue({ ok: true, deletedCountBucket: "0" }),
   clearAllBodyScanOriginalCaches: jest.fn().mockResolvedValue({ ok: true, deletedCountBucket: "0" }),
+  countBodyScanCacheInventory: jest.fn().mockResolvedValue({ remainingFiles: 0, partialFiles: 0 }),
+}));
+
+jest.mock("@/lib/data/body-scans/bodyScanCacheDevStatus", () => ({
+  emitBodyScanCacheDevStatus: jest.fn(),
+  countToDevBucket: (n: number) => (n === 0 ? "zero" : "one"),
+  countToPartialBucket: (n: number) => (n === 0 ? "zero" : "one"),
+  mapLegacyDeletedBucket: () => "zero",
 }));
 
 import AsyncStorage from "@react-native-async-storage/async-storage";

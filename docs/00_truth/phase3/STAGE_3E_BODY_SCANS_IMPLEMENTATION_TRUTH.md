@@ -103,7 +103,20 @@ This is enforced three ways: `assertBodyScanWriteTargetAllowed` guards every Bod
 | Scan delete | Clears that document’s cache directory after server delete succeeds |
 | Offline persistent source | **No** — Stage 3E V1 does not keep originals for offline viewing |
 
-**Still open after this fix:** Independent Stage 3E architecture / security / source-privacy re-gate. **RG-SOURCE-PRIVACY-01** remains OPEN. Real personal PDF must not be uploaded until that re-gate passes. Do not mark this independent gate PASS from the implementation agent.
+### Synthetic physical cache harness (DEV-only)
+
+Physical-device proof was blocked by three gaps: no safe synthetic PDF for iOS `View Original`, cleanup status only asserted in unit tests, and LOCAL_DEV does not support Firebase emulators / local mobile APIs.
+
+**Bounded solution (this branch):**
+
+- DEV-only route: `/debug/body-scan-cache` (also linked from Debug index + Settings Dev rows; fail-closed with `Redirect` when `__DEV__` is false).
+- Synthetic PDF bytes generated in-process (`syntheticBodyScanCachePdf.ts`) — approved non-health text only; never leaves the device; no Body Scan API/upload/extraction.
+- Harness writes through the same `.partial` → verify → `.pdf` → preview → cleanup pipeline as production (`materializeBodyScanOriginalFromBytes` + `openDocumentOriginal` + `openBodyScanOriginalLocalPreview`).
+- Safe runtime status via `[BODY_SCAN_CACHE_DEV]` events and on-screen JSON buckets (no paths/IDs/UID/URLs).
+- Existing development Auth may be used for sign-out / account-switch; that is **not** a staging Body Scan deployment.
+- LOCAL_DEV architecture unchanged; no emulators added.
+
+**Still open:** Independent synthetic physical-iPhone re-gate. Real personal PDF remains blocked. **RG-SOURCE-PRIVACY-01** remains OPEN. Do not mark physical check PASS from the implementation agent.
 
 ---
 
@@ -130,10 +143,13 @@ Audit events (`body_scan_created`, `body_scan_extraction_completed`, `body_scan_
 - Production `bodyScans` flag **disabled**; development enabled.
 - **RG-LEGAL-01** and **RG-SOURCE-PRIVACY-01** remain **OPEN**.
 - Export coverage / scalability **OPEN**.
-- **B-3E-CACHE-01** implementation fix landed; **independent security re-gate required** before real-PDF testing.
-- Controlled physical real-PDF test **required** and not yet performed; the test PDF must never enter Git; blocked until re-gate PASS.
+- **B-3E-CACHE-01** implementation fix landed; DEV synthetic harness landed for physical cache proof.
+- **Synthetic physical-iPhone cache lifecycle gate required** (next independent agent).
+- Controlled physical **real** DXA PDF test remains **blocked** until synthetic cache gate + independent re-gate PASS; the personal PDF must never enter Git.
 - Independent Stage 3E architecture / security / staging gate **required**.
 - No staging or production deployment from this work.
 
 Do **not** claim Stage 3E merged or production-ready.
 Do **not** claim the independent source-privacy gate PASS from this document alone.
+Do **not** claim the physical check PASS from this document alone.
+

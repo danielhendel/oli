@@ -91,6 +91,13 @@ export default function DebugIndex() {
         <Text>Hypertrophy stimulus session preview</Text>
       </Pressable>
 
+      <Pressable
+        onPress={() => router.push("/debug/body-scan-cache")}
+        style={{ padding: 12, borderWidth: 1, borderRadius: 10 }}
+      >
+        <Text>Body Scan Cache Test</Text>
+      </Pressable>
+
       <Text selectable style={{ fontFamily: "Menlo", fontSize: 12, paddingTop: 8 }}>
         {result ? JSON.stringify(result, null, 2) : "No result yet"}
       </Text>

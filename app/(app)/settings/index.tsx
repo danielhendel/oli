@@ -96,6 +96,12 @@ export default function SettingsHomeScreen() {
               disabled={false}
               onPress={() => router.push("/debug/integrations")}
             />
+            <ModuleSectionLinkRow
+              title="Body Scan Cache Test"
+              badge="Dev"
+              disabled={false}
+              onPress={() => router.push("/debug/body-scan-cache")}
+            />
           </>
         ) : null}
       </View>

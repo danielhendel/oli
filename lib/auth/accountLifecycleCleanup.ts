@@ -10,7 +10,14 @@ import { workoutProgramDesignStore } from "@/lib/data/program/workoutProgramDesi
 import {
   clearAllBodyScanOriginalCaches,
   clearBodyScanOriginalCacheForAccount,
+  countBodyScanCacheInventory,
 } from "@/lib/data/body-scans/bodyScanOriginalCache";
+import {
+  countToDevBucket,
+  countToPartialBucket,
+  emitBodyScanCacheDevStatus,
+  mapLegacyDeletedBucket,
+} from "@/lib/data/body-scans/bodyScanCacheDevStatus";
 import { cleanupExportArchiveFiles } from "@/lib/data/user-data/export/cleanupExportArchive";
 import {
   ACCOUNT_DELETION_RECOVERY_MARKER_KEY,
@@ -58,7 +65,22 @@ async function clearPerUidKeys(uid: string): Promise<void> {
   await clearActiveWorkoutSessionId(uid).catch(() => undefined);
   await clearWorkoutsAnchor(uid).catch(() => undefined);
   // B-3E-CACHE-01: remove account-scoped Body Scan original preview PDFs.
-  await clearBodyScanOriginalCacheForAccount(uid).catch(() => undefined);
+  const accountClear = await clearBodyScanOriginalCacheForAccount(uid).catch(() => null);
+  if (accountClear) {
+    const inv = await countBodyScanCacheInventory({ userId: uid }).catch(() => ({
+      remainingFiles: 0,
+      partialFiles: 0,
+    }));
+    emitBodyScanCacheDevStatus({
+      operation: "account_cleanup",
+      status: accountClear.ok ? "ok" : "failed",
+      remainingFileCountBucket: countToDevBucket(inv.remainingFiles),
+      removedFileCountBucket: accountClear.ok
+        ? mapLegacyDeletedBucket(accountClear.deletedCountBucket)
+        : "unknown",
+      partialFileCountBucket: countToPartialBucket(inv.partialFiles),
+    });
+  }
 }
 
 async function clearDeviceGlobalIntegrationKeys(): Promise<void> {
