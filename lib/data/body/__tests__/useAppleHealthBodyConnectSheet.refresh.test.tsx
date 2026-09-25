@@ -5,6 +5,7 @@ import renderer, { act } from "react-test-renderer";
 const mockSyncLatest = jest.fn(async () => ({ ok: true as const, ingested: 1 }));
 const mockGetLastChecked = jest.fn(async () => "2026-09-19T18:00:00.000Z");
 const mockGetBackfill = jest.fn(async () => null);
+const mockGetBodyFatBackfill = jest.fn(async () => null);
 const mockIsDomainEnabled = jest.fn(async () => true);
 const mockGetConnected = jest.fn(async () => true);
 const mockGetMetricLast = jest.fn(async () => null);
@@ -44,6 +45,7 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
 
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   getAppleHealthBodyBackfillState: (...a: unknown[]) => mockGetBackfill(...a),
+  getAppleHealthBodyFatBackfillState: (...a: unknown[]) => mockGetBodyFatBackfill(...a),
   getAppleHealthBodyLastCheckedAt: (...a: unknown[]) => mockGetLastChecked(...a),
   getAppleHealthConnected: (...a: unknown[]) => mockGetConnected(...a),
   getAppleHealthMetricLastCheckedMap: (...a: unknown[]) => mockGetMetricLast(...a),
