@@ -2,9 +2,8 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import {
-  SYSTEM_ACCENT_NAVY_DEPTH,
-} from "@/lib/ui/theme/systemAccent";
-import {
+  UI_CARD_ELEVATED_BORDER,
+  UI_CARD_SURFACE,
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
 } from "@/lib/ui/theme/uiTokens";
@@ -23,7 +22,7 @@ export type WeightTrendStatsPanelProps = {
 };
 
 /**
- * Premium equal-width Change / High / Low mini-cards under the Weight chart.
+ * Premium equal-width Low / High / Change mini-cards under the Weight chart.
  * Presentation only — values come from the selected-range trend model.
  */
 export function WeightTrendStatsPanel(props: WeightTrendStatsPanelProps) {
@@ -79,12 +78,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: SYSTEM_ACCENT_NAVY_DEPTH,
+    backgroundColor: UI_CARD_SURFACE,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(91, 140, 255, 0.28)",
+    borderColor: UI_CARD_ELEVATED_BORDER,
   },
   label: {
-    color: "rgba(168, 188, 230, 0.78)",
+    color: UI_TEXT_MUTED,
     fontSize: 12,
     fontWeight: "600",
     letterSpacing: 0.2,

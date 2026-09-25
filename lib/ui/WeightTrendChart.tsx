@@ -30,6 +30,10 @@ import {
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
 import {
+  buildWeightTrendCurvePath,
+  WEIGHT_TREND_CURVE_MODE,
+} from "@/lib/ui/body/weightTrendCurvePath";
+import {
   SYSTEM_ACCENT_LUMINOUS,
   SYSTEM_ACCENT_LUMINOUS_GLOW,
   SYSTEM_ACCENT_NAVY_DEPTH,
@@ -124,58 +128,6 @@ function downsampleLTTB<T extends { x: number; cy: number }>(
   }
   result.push(points[n - 1]!);
   return result;
-}
-
-/** Monotone cubic interpolation (Fritsch–Carlson / d3 curveMonotoneX). No overshoot between points. */
-function monotonePathD(points: { cx: number; cy: number }[]): string {
-  if (points.length < 2) return "";
-  const m = points.length;
-  const x = points.map((p) => p.cx);
-  const y = points.map((p) => p.cy);
-
-  const d: number[] = [];
-  for (let i = 0; i < m - 1; i++) {
-    const dx = x[i + 1]! - x[i]!;
-    if (Math.abs(dx) < 1e-10) d.push(0);
-    else d.push((y[i + 1]! - y[i]!) / dx);
-  }
-
-  const tangents = new Array<number>(m);
-  tangents[0] = d[0] ?? 0;
-  tangents[m - 1] = d[m - 2] ?? 0;
-  for (let i = 1; i < m - 1; i++) {
-    const dPrev = d[i - 1] ?? 0;
-    const dCur = d[i] ?? 0;
-    tangents[i] = dPrev * dCur <= 0 ? 0 : (dPrev + dCur) / 2;
-  }
-
-  for (let i = 0; i < m - 1; i++) {
-    const di = d[i] ?? 0;
-    if (di === 0) {
-      tangents[i] = 0;
-      tangents[i + 1] = 0;
-    } else {
-      const a = tangents[i]! / di;
-      const b = tangents[i + 1]! / di;
-      const h = a * a + b * b;
-      if (h > 9) {
-        const t = 3 / Math.sqrt(h);
-        tangents[i] = t * a * di;
-        tangents[i + 1] = t * b * di;
-      }
-    }
-  }
-
-  let path = `M ${x[0]} ${y[0]}`;
-  for (let i = 0; i < m - 1; i++) {
-    const dx = x[i + 1]! - x[i]!;
-    const cp1x = x[i]! + dx / 3;
-    const cp1y = y[i]! + (tangents[i] ?? 0) * (dx / 3);
-    const cp2x = x[i + 1]! - dx / 3;
-    const cp2y = y[i + 1]! - (tangents[i + 1] ?? 0) * (dx / 3);
-    path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x[i + 1]} ${y[i + 1]}`;
-  }
-  return path;
 }
 
 /** Parse ISO timestamp to ms; null if invalid. Used for X-axis so each entry has a unique position (no same-day stacking). */
@@ -412,18 +364,13 @@ export function WeightTrendChart({
   const n = processed.length;
   const isSparse = n < 3;
 
-  /** Line path: sparse (1–2 points) uses straight segment or none; else monotone cubic (no overshoot). */
+  /** One shared path for core + halo — linear segments (no cubic waviness). */
   const pathD = (() => {
-    if (isSparse) {
-      if (n === 1) return "";
-      if (n === 2 && renderPoints.length >= 2) {
-        const p0 = renderPoints[0]!;
-        const p1 = renderPoints[1]!;
-        return `M ${p0.cx} ${p0.cy} L ${p1.cx} ${p1.cy}`;
-      }
-      return "";
-    }
-    return monotonePathD(renderPoints);
+    if (renderPoints.length < 2) return "";
+    return buildWeightTrendCurvePath(
+      renderPoints.map((p) => ({ x: p.cx, y: p.cy })),
+      WEIGHT_TREND_CURVE_MODE,
+    );
   })();
 
   const baselineY = PADDING.top + chartHeight;

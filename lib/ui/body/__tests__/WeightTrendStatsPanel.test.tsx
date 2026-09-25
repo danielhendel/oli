@@ -8,6 +8,14 @@ jest.mock("react-native", () => ({
 }));
 
 import { WeightTrendStatsPanel } from "@/lib/ui/body/WeightTrendStatsPanel";
+import {
+  UI_CARD_ELEVATED_BORDER,
+  UI_CARD_SURFACE,
+  UI_TEXT_MUTED,
+  UI_TEXT_PRIMARY,
+} from "@/lib/ui/theme/uiTokens";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 describe("WeightTrendStatsPanel", () => {
   it("renders Low / High / Change in that order without Average", async () => {
@@ -49,6 +57,28 @@ describe("WeightTrendStatsPanel", () => {
       "body-metric-trend-stat-change",
     ]);
     expect(tree.root.findAllByProps({ testID: "body-metric-trend-stat-average" })).toHaveLength(0);
+
+    for (const card of cards) {
+      expect(card.props.style.backgroundColor).toBe(UI_CARD_SURFACE);
+      expect(card.props.style.borderColor).toBe(UI_CARD_ELEVATED_BORDER);
+      expect(card.props.style.backgroundColor).not.toMatch(/#152048|navy|3A5BDB|5B8CFF/i);
+    }
+  });
+
+  it("uses shared premium dark-gray surfaces — no blue/navy card fill", () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, "../WeightTrendStatsPanel.tsx"),
+      "utf8",
+    );
+    expect(src).toContain("UI_CARD_SURFACE");
+    expect(src).toContain("UI_CARD_ELEVATED_BORDER");
+    expect(src).toContain("backgroundColor: UI_CARD_SURFACE");
+    expect(src).not.toContain("SYSTEM_ACCENT_NAVY_DEPTH");
+    expect(src).not.toContain("91, 140, 255");
+    expect(src).toContain("color: UI_TEXT_MUTED");
+    expect(src).toContain("color: UI_TEXT_PRIMARY");
+    expect(UI_TEXT_MUTED).toBeTruthy();
+    expect(UI_TEXT_PRIMARY).toBeTruthy();
   });
 
   it("renders nothing when rows are empty", async () => {
