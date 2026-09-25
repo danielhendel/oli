@@ -34,6 +34,7 @@ import {
   SYSTEM_ACCENT_LUMINOUS_GLOW,
   SYSTEM_ACCENT_NAVY_DEPTH,
 } from "@/lib/ui/theme/systemAccent";
+import { WEIGHT_TREND_STROKE_VISUAL } from "@/lib/ui/theme/weightTrendStrokeVisual";
 import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 
 /**
@@ -49,12 +50,8 @@ const Y_LABEL_RIGHT_INSET = 4;
 /** Hero chart height — visually dominant on Weight detail. */
 const DEFAULT_CHART_HEIGHT = 320;
 const DOT_R = 5;
-const DOT_GLOW_R = 10;
-/** Active inspection guide — stronger than vertical grid; high contrast on bands. */
-const CROSSHAIR_COLOR = "rgba(255,255,255,0.82)";
-const CROSSHAIR_GLOW = "rgba(255,255,255,0.32)";
-const CROSSHAIR_CORE_WIDTH = 2;
-const CROSSHAIR_GLOW_WIDTH = 5;
+/** Soft point wash — kept small so it does not reintroduce line fuzz. */
+const DOT_GLOW_R = 8;
 const PLOT_EDGE_STROKE = "rgba(255,255,255,0.14)";
 /** Near-black plot field — blends with Weight detail canvas (`UI_SCREEN_BG`). */
 const PLOT_BG = UI_SCREEN_BG;
@@ -62,16 +59,14 @@ const X_LABEL_COLOR = "rgba(190, 206, 228, 0.82)";
 const X_LABEL_SIZE = 10;
 
 const ACCENT_BLUE = SYSTEM_ACCENT_LUMINOUS;
-/**
- * High-contrast Weight trend — bright electric blue core + soft blue glow so the
- * line reads blue-first and feels slightly elevated on the dark plot.
- */
-const LINE_CORE_BLUE = SYSTEM_ACCENT_LUMINOUS;
-const LINE_GLOW_BLUE = "rgba(91, 140, 255, 0.36)";
-const LINE_GLOW_SOFT = "rgba(91, 140, 255, 0.16)";
-const LINE_WIDTH = 2.05;
-const LINE_GLOW_WIDTH = 6.5;
-const LINE_SOFT_WIDTH = 11;
+/** High-contrast Weight trend — one crisp core + one low-opacity halo (no stacked blur). */
+const LINE_CORE_BLUE = WEIGHT_TREND_STROKE_VISUAL.coreColor;
+const LINE_HALO_BLUE = WEIGHT_TREND_STROKE_VISUAL.haloColor;
+const LINE_WIDTH = WEIGHT_TREND_STROKE_VISUAL.coreWidth;
+const LINE_HALO_WIDTH = WEIGHT_TREND_STROKE_VISUAL.haloWidth;
+/** Thin light-blue active guide — distinct from gray dotted vertical grid. */
+const ACTIVE_GUIDE_COLOR = WEIGHT_TREND_STROKE_VISUAL.activeGuideColor;
+const ACTIVE_GUIDE_WIDTH = WEIGHT_TREND_STROKE_VISUAL.activeGuideWidth;
 /** Grid uses the same gray family as axis labels — visible over classification bands. */
 const GRID_H_COLOR = "rgba(190, 206, 228, 0.55)";
 const GRID_H_WIDTH = 1.25;
@@ -215,8 +210,8 @@ export type WeightTrendChartProps = {
    */
   onInspectChange?: (point: WeightTrendChartInspectPoint | null) => void;
   /**
-   * Bright electric blue core + soft blue outer glow — preferred for Weight
-   * detail on the plain dark plot so the trend floats and reads blue-first.
+   * Crisp bright-blue core + single low-opacity blue halo — preferred for
+   * Weight detail on the plain dark plot (reads blue-first, not blurry).
    */
   highContrastLine?: boolean;
   /**
@@ -254,7 +249,8 @@ export function WeightTrendChart({
   const CHART_HEIGHT = chartHeightProp;
   const useHighContrastLine = highContrastLine;
   const lineStroke = useHighContrastLine ? LINE_CORE_BLUE : accentColor;
-  const lineGlow = useHighContrastLine ? LINE_GLOW_BLUE : SYSTEM_ACCENT_LUMINOUS_GLOW;
+  const lineHalo = useHighContrastLine ? LINE_HALO_BLUE : SYSTEM_ACCENT_LUMINOUS_GLOW;
+  const lineHaloWidth = useHighContrastLine ? LINE_HALO_WIDTH : 5;
   const pointFill = useHighContrastLine ? LINE_CORE_BLUE : accentColor;
   /** Crisp white rim keeps the blue disk readable on the dark plot. */
   const pointRing = "#FFFFFF";
@@ -598,28 +594,19 @@ export function WeightTrendChart({
               </SvgText>
             );
           })}
-          {/* Soft outer blue glow — floating elevation under the bright core */}
+          {/* Single low-opacity blue halo — elevation without stacked blur */}
           {pathD ? (
             <Path
               d={pathD}
-              stroke={useHighContrastLine ? LINE_GLOW_SOFT : lineGlow}
-              strokeWidth={LINE_SOFT_WIDTH}
+              stroke={lineHalo}
+              strokeWidth={lineHaloWidth}
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
+              pointerEvents="none"
             />
           ) : null}
-          {pathD ? (
-            <Path
-              d={pathD}
-              stroke={lineGlow}
-              strokeWidth={LINE_GLOW_WIDTH}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ) : null}
-          {/* Thin crisp blue (or accent) core */}
+          {/* Crisp opaque blue (or accent) core — no blur on this stroke */}
           {pathD ? (
             <Path
               d={pathD}
@@ -628,6 +615,18 @@ export function WeightTrendChart({
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
+              pointerEvents="none"
+            />
+          ) : null}
+          {/* Active vertical guide — thin light blue; above line, below point. */}
+          {guidePt != null ? (
+            <Path
+              d={`M ${guidePt.cx} ${plotTop} L ${guidePt.cx} ${plotBottom}`}
+              stroke={ACTIVE_GUIDE_COLOR}
+              strokeWidth={ACTIVE_GUIDE_WIDTH}
+              fill="none"
+              strokeLinecap="round"
+              pointerEvents="none"
             />
           ) : null}
           {/* Active / latest point marker (hero inspection — no floating tooltip). */}
@@ -636,8 +635,9 @@ export function WeightTrendChart({
               <Circle
                 cx={guidePt.cx}
                 cy={guidePt.cy}
-                r={selected != null ? DOT_GLOW_R + 2 : DOT_GLOW_R}
-                fill={lineGlow}
+                r={selected != null ? DOT_GLOW_R + 1.5 : DOT_GLOW_R}
+                fill={lineHalo}
+                pointerEvents="none"
               />
               <Circle
                 cx={guidePt.cx}
@@ -646,26 +646,6 @@ export function WeightTrendChart({
                 fill={pointFill}
                 stroke={pointRing}
                 strokeWidth={selected != null ? 2.25 : 2}
-              />
-            </>
-          ) : null}
-          {/* Active vertical guide — stronger than vertical grid; on top of point. */}
-          {guidePt != null ? (
-            <>
-              <Path
-                d={`M ${guidePt.cx} ${plotTop} L ${guidePt.cx} ${plotBottom}`}
-                stroke={CROSSHAIR_GLOW}
-                strokeWidth={CROSSHAIR_GLOW_WIDTH}
-                fill="none"
-                strokeLinecap="round"
-                pointerEvents="none"
-              />
-              <Path
-                d={`M ${guidePt.cx} ${plotTop} L ${guidePt.cx} ${plotBottom}`}
-                stroke={CROSSHAIR_COLOR}
-                strokeWidth={CROSSHAIR_CORE_WIDTH}
-                fill="none"
-                strokeLinecap="round"
                 pointerEvents="none"
               />
             </>
