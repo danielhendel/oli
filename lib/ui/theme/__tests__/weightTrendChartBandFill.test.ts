@@ -63,7 +63,9 @@ describe("WeightTrendChart dark plot (no classification fills)", () => {
 
     expect(detailSrc).not.toContain("classificationBands");
     expect(detailSrc).not.toMatch(/Weight ranges shown in the background/);
-    expect(detailSrc).toContain("highContrastLine={props.valueKind === \"mass\"}");
+    expect(detailSrc).toMatch(
+      /highContrastLine=\{\s*props\.valueKind === "mass" \|\| props\.valueKind === "percent"\s*\}/,
+    );
 
     expect(metricSrc).not.toContain("buildWeightTrendClassificationBands");
     expect(metricSrc).not.toContain("classificationBands=");

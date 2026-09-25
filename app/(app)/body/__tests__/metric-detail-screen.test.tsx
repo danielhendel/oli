@@ -220,6 +220,7 @@ describe("Body metric detail — Weight trend redesign", () => {
   beforeEach(() => {
     mockSetOptions.mockClear();
     mockPush.mockClear();
+    mockTrends.mockClear();
     mockMetricParam = "weight";
     mockTrends.mockReturnValue(readyTrends("weight"));
   });
@@ -305,16 +306,39 @@ describe("Body metric detail — Weight trend redesign", () => {
     expect(last?.[1]).toBe("weight");
   });
 
-  it("Body Fat keeps education panel and loses embedded history list", async () => {
+  it("Body Fat removes education panel and keeps Weight-parity trend surface", async () => {
     mockMetricParam = "body-fat";
     mockTrends.mockReturnValue(readyTrends("body_fat_percent"));
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(React.createElement(MetricScreen));
     });
-    expect(tree.root.findByProps({ testID: "body-metric-detail-education" })).toBeDefined();
+    expect(tree.root.findAllByProps({ testID: "body-metric-detail-education" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-detail-history" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: "body-metric-detail-history-empty" })).toHaveLength(0);
+    expect(tree.root.findByProps({ testID: "body-metric-trend-detail" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "range" })).toBeDefined();
+    const text = collectText(tree);
+    expect(text).not.toMatch(/EDUCATIONAL REFERENCE|Educational context only|Additional limitations/i);
+    expect(text).not.toMatch(/Population, method, and evidence/i);
+  });
+
+  it("Body Fat keeps full-history fetch across range switches so Y-domain stays locked", async () => {
+    mockMetricParam = "body-fat";
+    mockTrends.mockReturnValue(readyTrends("body_fat_percent"));
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(React.createElement(MetricScreen));
+    });
+    const first = mockTrends.mock.calls[0];
+    expect(first?.[0]).toBe("All");
+    expect(first?.[1]).toBe("body_fat_percent");
+    await act(async () => {
+      tree.root.findByProps({ testID: "range-30D" }).props.onPress();
+    });
+    const last = mockTrends.mock.calls[mockTrends.mock.calls.length - 1];
+    expect(last?.[0]).toBe("All");
+    expect(last?.[1]).toBe("body_fat_percent");
   });
 
   it("empty Weight history shows Add measurement, not a fake chart", async () => {
