@@ -41,6 +41,7 @@ import {
   type BodyAppleHealthMetricId,
 } from "@/lib/body/presentation/bodyAppleHealthMetricRegistry";
 import { nowIso } from "@/lib/sync/throttle";
+import { diagnoseAppleHealthBodyFatHistoryExtent } from "@/lib/integrations/appleHealth/diagnoseAppleHealthBodyFatHistoryExtent";
 import { diagnoseAppleHealthWeightHistoryExtent } from "@/lib/integrations/appleHealth/diagnoseAppleHealthWeightHistoryExtent";
 
 async function bodySyncIncludeForUid(uid: string | undefined) {
@@ -300,6 +301,7 @@ export async function connectAppleHealthBodyForComposition(
 
   if (typeof __DEV__ !== "undefined" && __DEV__) {
     void diagnoseAppleHealthWeightHistoryExtent();
+    void diagnoseAppleHealthBodyFatHistoryExtent();
   }
 
   const samplesIngested = syncResult.ingested + (backfill.samplesIngested ?? 0);
@@ -344,9 +346,10 @@ export async function resumeAppleHealthBodyHistoryImport(
   }
 
   deps.onPhase?.("importingEarlier");
-  // DEV physical proof: emit HealthKit Weight extent before resume/re-scan.
+  // DEV physical proof: emit HealthKit Weight + Body Fat extent before resume/re-scan.
   if (typeof __DEV__ !== "undefined" && __DEV__) {
     await diagnoseAppleHealthWeightHistoryExtent();
+    await diagnoseAppleHealthBodyFatHistoryExtent();
   }
   const existing = await getAppleHealthBodyBackfillState().catch(() => null);
   // Explicit resume after a prior "completed" marker must re-scan (false-complete repair).
@@ -381,6 +384,7 @@ export async function resumeAppleHealthBodyHistoryImport(
 
   if (typeof __DEV__ !== "undefined" && __DEV__) {
     await diagnoseAppleHealthWeightHistoryExtent();
+    await diagnoseAppleHealthBodyFatHistoryExtent();
   }
 
   deps.onLatestSynced?.();

@@ -12,6 +12,8 @@ import {
 } from "@/lib/data/body/bodyHistoryRange";
 
 const MAX_FETCH = 100;
+import { trendKindsForMetric } from "@/lib/data/body/trendKindsForMetric";
+
 /** Safety cap for rows within a bounded `start`/`end` window (multi-metric × backfill). */
 const MAX_TOTAL_BOUNDED = 25000;
 const CONCURRENCY = 8;
@@ -23,10 +25,7 @@ export type BodyTrendMetric =
   | "lean_body_mass"
   | "resting_metabolic_rate";
 
-/** Raw-event kinds needed for a single metric (smaller list responses on detail screens). */
-export function trendKindsForMetric(metric: BodyTrendMetric): ("weight" | "body_composition")[] {
-  return metric === "weight" ? ["weight"] : ["body_composition"];
-}
+export { trendKindsForMetric };
 
 export type BodyMetricStats = {
   change: number | null;
@@ -281,24 +280,49 @@ export function useBodyMetricTrends(
           };
           const only = metricRef.current;
           if (doc.kind === "weight") {
-            if (only && only !== "weight") continue;
-            if (typeof payload.weightKg === "number" && payload.weightKg > 0) push("weight", payload.weightKg);
+            if (!only || only === "weight") {
+              if (typeof payload.weightKg === "number" && payload.weightKg > 0) {
+                push("weight", payload.weightKg);
+              }
+            }
+            // Body Fat may be stored on the weight row (same-day AH coalescing).
+            if (!only || only === "body_fat_percent") {
+              if (
+                typeof payload.bodyFatPercent === "number" &&
+                payload.bodyFatPercent > 0 &&
+                payload.bodyFatPercent <= 100
+              ) {
+                push("body_fat_percent", payload.bodyFatPercent);
+              }
+            }
           } else {
             if (only === "weight") continue;
             if (!only || only === "body_fat_percent") {
-              if (typeof payload.bodyFatPercent === "number" && payload.bodyFatPercent >= 0 && payload.bodyFatPercent <= 100)
+              if (
+                typeof payload.bodyFatPercent === "number" &&
+                payload.bodyFatPercent > 0 &&
+                payload.bodyFatPercent <= 100
+              ) {
                 push("body_fat_percent", payload.bodyFatPercent);
+              }
             }
             if (!only || only === "bmi") {
-              if (typeof payload.bmi === "number" && payload.bmi > 0 && payload.bmi < 100) push("bmi", payload.bmi);
+              if (typeof payload.bmi === "number" && payload.bmi > 0 && payload.bmi < 100) {
+                push("bmi", payload.bmi);
+              }
             }
             if (!only || only === "lean_body_mass") {
-              if (typeof payload.leanBodyMassKg === "number" && payload.leanBodyMassKg > 0)
+              if (typeof payload.leanBodyMassKg === "number" && payload.leanBodyMassKg > 0) {
                 push("lean_body_mass", payload.leanBodyMassKg);
+              }
             }
             if (!only || only === "resting_metabolic_rate") {
-              if (typeof payload.restingMetabolicRateKcal === "number" && payload.restingMetabolicRateKcal > 0)
+              if (
+                typeof payload.restingMetabolicRateKcal === "number" &&
+                payload.restingMetabolicRateKcal > 0
+              ) {
                 push("resting_metabolic_rate", payload.restingMetabolicRateKcal);
+              }
             }
           }
         }

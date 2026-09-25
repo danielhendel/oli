@@ -113,6 +113,10 @@ export {
   type AppleHealthWeightHistoryExtentDiagnostic,
 } from "./diagnoseAppleHealthWeightHistoryExtent";
 export {
+  diagnoseAppleHealthBodyFatHistoryExtent,
+  type AppleHealthBodyFatHistoryExtentDiagnostic,
+} from "./diagnoseAppleHealthBodyFatHistoryExtent";
+export {
   runAppleHealthStepsBackfill,
   APPLE_HEALTH_STEPS_BACKFILL_TRAILING_LOCAL_DAYS,
   type RunAppleHealthStepsBackfillDeps,
