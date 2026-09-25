@@ -1,23 +1,37 @@
 /**
  * Pure presentational month-letter markers for Weight trend X-axis.
- * Derived from the same plotted time domain the chart already uses — not a second date truth.
+ * Derived from the plotted time domain — not a second date truth.
  */
 
+import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
+
 const MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"] as const;
+
+/** Ranges that show month letters (≤ 1Y). Long ranges omit them to avoid clutter. */
+export const WEIGHT_TREND_MONTH_LABEL_RANGES: ReadonlySet<WeightRangeKey> = new Set([
+  "7D",
+  "30D",
+  "90D",
+  "6M",
+  "1Y",
+]);
 
 export type WeightTrendMonthMarker = {
   /** Stable key `YYYY-MM`. */
   readonly key: string;
   /** Single-letter month label (J…D). */
   readonly letter: (typeof MONTH_LETTERS)[number];
-  /** Milliseconds on the chart time domain for horizontal placement. */
+  /** Representative time within the month slice (domain identity). */
   readonly timeMs: number;
 };
 
+export type WeightTrendMonthMarkerPlaced = WeightTrendMonthMarker & {
+  /** Evenly spaced chart X — decoration rhythm, not raw density. */
+  readonly x: number;
+};
+
 /**
- * Build month letters for every calendar month intersecting `[minTimeMs, maxTimeMs]`.
- * Anchors each letter near mid-month when that falls inside the domain; otherwise
- * at the midpoint of the visible slice of that month.
+ * Build chronological month letters for every calendar month intersecting the domain.
  */
 export function buildWeightTrendMonthMarkers(args: {
   readonly minTimeMs: number;
@@ -73,15 +87,60 @@ export function buildWeightTrendMonthMarkers(args: {
 }
 
 /**
- * Drop markers that would collide horizontally; always keep first when any exist.
+ * Place month letters with even horizontal rhythm across the plot width.
+ * Letter sequence still follows chronological month progression in the domain.
+ */
+export function placeWeightTrendMonthMarkersEvenly(args: {
+  readonly markers: readonly WeightTrendMonthMarker[];
+  readonly plotLeft: number;
+  readonly plotWidth: number;
+}): readonly WeightTrendMonthMarkerPlaced[] {
+  const { markers, plotLeft, plotWidth } = args;
+  if (markers.length === 0 || !(plotWidth > 0)) return [];
+
+  const n = markers.length;
+  return markers.map((marker, i) => ({
+    ...marker,
+    x: plotLeft + ((i + 0.5) / n) * plotWidth,
+  }));
+}
+
+/**
+ * Range-gated, evenly spaced month markers for the Weight trend chart.
+ * Returns [] for 3Y / 5Y / All (and unknown long ranges).
+ */
+export function resolveWeightTrendMonthMarkersForRange(args: {
+  readonly range: WeightRangeKey;
+  readonly minTimeMs: number;
+  readonly maxTimeMs: number;
+  readonly plotLeft: number;
+  readonly plotWidth: number;
+}): readonly WeightTrendMonthMarkerPlaced[] {
+  if (!WEIGHT_TREND_MONTH_LABEL_RANGES.has(args.range)) {
+    return [];
+  }
+  const markers = buildWeightTrendMonthMarkers({
+    minTimeMs: args.minTimeMs,
+    maxTimeMs: args.maxTimeMs,
+  });
+  return placeWeightTrendMonthMarkersEvenly({
+    markers,
+    plotLeft: args.plotLeft,
+    plotWidth: args.plotWidth,
+  });
+}
+
+/**
+ * @deprecated Prefer {@link placeWeightTrendMonthMarkersEvenly} / range-gated resolver.
+ * Kept for any residual callers; thins by domain X rather than even spacing.
  */
 export function thinWeightTrendMonthMarkersForPlot(args: {
   readonly markers: readonly WeightTrendMonthMarker[];
   readonly toChartX: (timeMs: number) => number;
   readonly minGapPx?: number;
-}): readonly (WeightTrendMonthMarker & { readonly x: number })[] {
+}): readonly WeightTrendMonthMarkerPlaced[] {
   const minGapPx = args.minGapPx ?? 14;
-  const placed: (WeightTrendMonthMarker & { readonly x: number })[] = [];
+  const placed: WeightTrendMonthMarkerPlaced[] = [];
   let lastX = Number.NEGATIVE_INFINITY;
 
   for (const marker of args.markers) {

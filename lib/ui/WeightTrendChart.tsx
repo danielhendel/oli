@@ -23,8 +23,8 @@ import {
   type WeightTrendClassificationBandsModel,
 } from "@/lib/body/presentation/buildWeightTrendClassificationBands";
 import {
-  buildWeightTrendMonthMarkers,
-  thinWeightTrendMonthMarkersForPlot,
+  resolveWeightTrendMonthMarkersForRange,
+  WEIGHT_TREND_MONTH_LABEL_RANGES,
 } from "@/lib/body/presentation/buildWeightTrendMonthMarkers";
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
@@ -45,9 +45,11 @@ const Y_LABEL_COLOR = UI_TEXT_MUTED;
 const DEFAULT_CHART_HEIGHT = 320;
 const DOT_R = 5;
 const DOT_GLOW_R = 10;
-/** Active inspection guide — intentional, premium, readable. */
-const CROSSHAIR_COLOR = "rgba(255,255,255,0.48)";
-const CROSSHAIR_GLOW = "rgba(91, 140, 255, 0.28)";
+/** Active inspection guide — always visible on active/latest point; high contrast on bands. */
+const CROSSHAIR_COLOR = "rgba(255,255,255,0.78)";
+const CROSSHAIR_GLOW = "rgba(255,255,255,0.28)";
+const CROSSHAIR_CORE_WIDTH = 2;
+const CROSSHAIR_GLOW_WIDTH = 5;
 const PLOT_CORNER_RADIUS = 12;
 const PLOT_EDGE_STROKE = "rgba(255,255,255,0.14)";
 const BAND_DIVIDER = "rgba(11,13,16,0.38)";
@@ -307,7 +309,9 @@ export function WeightTrendChart({
   }
 
   const chartWidth = layout ? layout.width - PADDING.left - PADDING.right : 0;
-  const chartHeight = CHART_HEIGHT - PADDING.top - PADDING.bottom;
+  const showMonthLabels = WEIGHT_TREND_MONTH_LABEL_RANGES.has(range);
+  const padBottom = showMonthLabels ? 30 : 16;
+  const chartHeight = CHART_HEIGHT - PADDING.top - padBottom;
 
   const minT = Math.min(...processed.map((p) => p.x));
   const maxT = Math.max(...processed.map((p) => p.x));
@@ -435,9 +439,12 @@ export function WeightTrendChart({
   const selected = selectedIndex != null ? pointsWithCoords[selectedIndex] ?? null : null;
 
   const latestPt =
-    emphasizeLatestPoint && pointsWithCoords.length > 0 && selectedIndex == null
+    emphasizeLatestPoint && pointsWithCoords.length > 0
       ? pointsWithCoords[pointsWithCoords.length - 1]!
       : null;
+
+  /** Active guide always follows scrub selection, else latest (at rest). */
+  const guidePt = selected ?? (emphasizeLatestPoint ? latestPt : null);
 
   const plotLeft = PADDING.left;
   const plotWidth = Math.max(0, (layout?.width ?? 0) - PADDING.left - PADDING.right);
@@ -471,13 +478,12 @@ export function WeightTrendChart({
 
   const monthMarkers =
     layout && layout.width > 0 && chartWidth > 0
-      ? thinWeightTrendMonthMarkersForPlot({
-          markers: buildWeightTrendMonthMarkers({
-            minTimeMs: minT,
-            maxTimeMs: maxT,
-          }),
-          toChartX,
-          minGapPx: 14,
+      ? resolveWeightTrendMonthMarkersForRange({
+          range,
+          minTimeMs: minT,
+          maxTimeMs: maxT,
+          plotLeft,
+          plotWidth,
         })
       : [];
 
@@ -616,59 +622,47 @@ export function WeightTrendChart({
               strokeLinejoin="round"
             />
           ) : null}
-          {/* Latest observation marker — white center + blue ring when high-contrast */}
-          {latestPt != null ? (
-            <>
-              <Circle
-                cx={latestPt.cx}
-                cy={latestPt.cy}
-                r={DOT_GLOW_R}
-                fill={lineGlow}
-              />
-              <Circle
-                cx={latestPt.cx}
-                cy={latestPt.cy}
-                r={DOT_R}
-                fill={pointFill}
-                stroke={pointRing}
-                strokeWidth={2}
-              />
-            </>
-          ) : null}
-          {/* Inspection: premium vertical guide + selected point (no floating tooltip). */}
-          {selected != null ? (
+          {/* Active vertical guide — always on latest at rest; moves while scrubbing. */}
+          {guidePt != null ? (
             <>
               <Path
-                d={`M ${selected.cx} ${plotTop} L ${selected.cx} ${plotBottom}`}
+                d={`M ${guidePt.cx} ${plotTop} L ${guidePt.cx} ${plotBottom}`}
                 stroke={CROSSHAIR_GLOW}
-                strokeWidth={4}
+                strokeWidth={CROSSHAIR_GLOW_WIDTH}
                 fill="none"
                 strokeLinecap="round"
+                pointerEvents="none"
               />
               <Path
-                d={`M ${selected.cx} ${plotTop} L ${selected.cx} ${plotBottom}`}
+                d={`M ${guidePt.cx} ${plotTop} L ${guidePt.cx} ${plotBottom}`}
                 stroke={CROSSHAIR_COLOR}
-                strokeWidth={1.5}
+                strokeWidth={CROSSHAIR_CORE_WIDTH}
                 fill="none"
                 strokeLinecap="round"
-              />
-              <Circle
-                cx={selected.cx}
-                cy={selected.cy}
-                r={DOT_GLOW_R + 2}
-                fill={lineGlow}
-              />
-              <Circle
-                cx={selected.cx}
-                cy={selected.cy}
-                r={DOT_R + 1.25}
-                fill={pointFill}
-                stroke={pointRing}
-                strokeWidth={2.25}
+                pointerEvents="none"
               />
             </>
           ) : null}
-          {/* Month letters — aligned to plotted time domain, above observed coverage footer. */}
+          {/* Active / latest point marker (hero inspection — no floating tooltip). */}
+          {guidePt != null ? (
+            <>
+              <Circle
+                cx={guidePt.cx}
+                cy={guidePt.cy}
+                r={selected != null ? DOT_GLOW_R + 2 : DOT_GLOW_R}
+                fill={lineGlow}
+              />
+              <Circle
+                cx={guidePt.cx}
+                cy={guidePt.cy}
+                r={selected != null ? DOT_R + 1.25 : DOT_R}
+                fill={pointFill}
+                stroke={pointRing}
+                strokeWidth={selected != null ? 2.25 : 2}
+              />
+            </>
+          ) : null}
+          {/* Month letters — evenly spaced for ≤1Y; omitted for 3Y / 5Y / All. */}
           {monthMarkers.map((marker) => (
             <SvgText
               key={`month-${marker.key}`}
@@ -679,7 +673,6 @@ export function WeightTrendChart({
               fontWeight="600"
               textAnchor="middle"
               alignmentBaseline="middle"
-              testID={`weight-trend-month-${marker.key}`}
             >
               {marker.letter}
             </SvgText>

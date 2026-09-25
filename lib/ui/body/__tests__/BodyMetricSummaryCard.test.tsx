@@ -58,6 +58,10 @@ describe("bodySegmentedControlStyles — toggle label contract", () => {
     expect(bodySegmentedControlStyles.segmentComfortable.flexShrink).toBe(0);
     expect(bodySegmentedControlStyles.track.minHeight).toBeGreaterThanOrEqual(44);
   });
+
+  it("uses a near-black selected pill shared by lb/BMI and Weight range selector", () => {
+    expect(bodySegmentedControlStyles.segmentActive.backgroundColor).toBe("#000000");
+  });
 });
 
 describe("BodyMetricSummaryCard — view toggles + Apple Health action", () => {

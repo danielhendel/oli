@@ -4,7 +4,7 @@
  */
 import { StyleSheet } from "react-native";
 
-import { UI_CARD_SURFACE, UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
+import { UI_TEXT_PRIMARY, UI_TEXT_SECONDARY } from "@/lib/ui/theme/uiTokens";
 
 export const bodySegmentedControlStyles = StyleSheet.create({
   track: {
@@ -34,7 +34,8 @@ export const bodySegmentedControlStyles = StyleSheet.create({
     flexShrink: 0,
   },
   segmentActive: {
-    backgroundColor: UI_CARD_SURFACE,
+    /** Near-black selected pill — matches Weight card lb/BMI selected language. */
+    backgroundColor: "#000000",
   },
   text: {
     color: UI_TEXT_SECONDARY,
