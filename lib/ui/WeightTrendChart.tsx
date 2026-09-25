@@ -23,18 +23,14 @@ import {
   clipWeightTrendBandToDomain,
   type WeightTrendClassificationBandsModel,
 } from "@/lib/body/presentation/buildWeightTrendClassificationBands";
-import { WEIGHT_TREND_MONTH_LABEL_RANGES } from "@/lib/body/presentation/buildWeightTrendMonthMarkers";
 import {
-  buildWeightTrendMonthBuckets,
-  mapWeightTrendTimeToMonthBucketX,
-  placeWeightTrendMonthBucketLabels,
-  usesWeightTrendMonthBucketScale,
-  type WeightTrendMonthBucketScale,
-} from "@/lib/body/presentation/weightTrendMonthBucketScale";
+  buildWeightTrendXAxisTicks,
+  type WeightXAxisTick,
+} from "@/lib/body/presentation/buildWeightTrendXAxisTicks";
 import {
-  mapWeightTrendTimeToX,
-  type WeightTrendTimeScale,
-} from "@/lib/body/presentation/weightTrendTimeScale";
+  buildWeightTrendXScale,
+  mapWeightTrendTimeToScreenX,
+} from "@/lib/body/presentation/buildWeightTrendXScale";
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
 import {
@@ -47,10 +43,10 @@ import {
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
 /**
- * Plot inset — Y labels live on the RIGHT; left stays tight so plot width is preserved.
- * Bottom reserves room for month-letter markers on ≤1Y ranges.
+ * Plot inset — Y labels on the RIGHT; left stays minimal so the series uses full plot width.
+ * Bottom reserves room for range-aware x-axis labels.
  */
-export const WEIGHT_TREND_CHART_PADDING = { left: 12, right: 40, top: 14, bottom: 30 };
+export const WEIGHT_TREND_CHART_PADDING = { left: 4, right: 40, top: 14, bottom: 30 };
 const PADDING = WEIGHT_TREND_CHART_PADDING;
 const Y_LABEL_FONT_SIZE = 11;
 const Y_LABEL_COLOR = UI_TEXT_MUTED;
@@ -60,15 +56,15 @@ const Y_LABEL_RIGHT_INSET = 4;
 const DEFAULT_CHART_HEIGHT = 320;
 const DOT_R = 5;
 const DOT_GLOW_R = 10;
-/** Active inspection guide — always visible on active/latest point; high contrast on bands. */
+/** Active inspection guide — stronger than vertical grid; high contrast on bands. */
 const CROSSHAIR_COLOR = "rgba(255,255,255,0.78)";
 const CROSSHAIR_GLOW = "rgba(255,255,255,0.28)";
 const CROSSHAIR_CORE_WIDTH = 2;
 const CROSSHAIR_GLOW_WIDTH = 5;
 const PLOT_EDGE_STROKE = "rgba(255,255,255,0.14)";
 const BAND_DIVIDER = "rgba(11,13,16,0.38)";
-const MONTH_LETTER_COLOR = "rgba(180, 196, 220, 0.72)";
-const MONTH_LETTER_SIZE = 10;
+const X_LABEL_COLOR = "rgba(180, 196, 220, 0.72)";
+const X_LABEL_SIZE = 10;
 
 const ACCENT_BLUE = SYSTEM_ACCENT_LUMINOUS;
 /** High-contrast Weight trend core — thin, elevated over classification bands. */
@@ -78,8 +74,10 @@ const LINE_GLOW_SOFT = "rgba(255,255,255,0.14)";
 const LINE_WIDTH = 2.05;
 const LINE_GLOW_WIDTH = 5.5;
 const LINE_SOFT_WIDTH = 9;
-/** Neutral grid — calm under bright band fills. */
-const GRID_COLOR = "rgba(160, 176, 200, 0.09)";
+/** Horizontal grid — solid, low contrast. */
+const GRID_H_COLOR = "rgba(160, 176, 200, 0.14)";
+/** Vertical grid — dashed family, secondary to the active guide. */
+const GRID_V_COLOR = "rgba(160, 176, 200, 0.11)";
 /** Max points used to draw path/area/dots; touch/inspection still use full data. */
 const MAX_RENDER_POINTS = 80;
 
@@ -329,8 +327,7 @@ export function WeightTrendChart({
   }
 
   const chartWidth = layout ? layout.width - PADDING.left - PADDING.right : 0;
-  const showMonthLabels = WEIGHT_TREND_MONTH_LABEL_RANGES.has(range);
-  const padBottom = showMonthLabels ? 30 : 16;
+  const padBottom = 30;
   const chartHeight = CHART_HEIGHT - PADDING.top - padBottom;
 
   const minT = Math.min(...processed.map((p) => p.x));
@@ -369,34 +366,18 @@ export function WeightTrendChart({
 
   const rangeDisplay = displayMax - displayMin || 0.1;
 
-  const useMonthBuckets = usesWeightTrendMonthBucketScale(range);
-  const monthBuckets = useMonthBuckets
-    ? buildWeightTrendMonthBuckets({ minTimeMs: minT, maxTimeMs: maxT })
-    : [];
-  const monthBucketScale: WeightTrendMonthBucketScale | null =
-    useMonthBuckets && monthBuckets.length > 0
-      ? {
-          buckets: monthBuckets,
-          plotLeft: PADDING.left,
-          plotWidth: Math.max(0, chartWidth),
-        }
-      : null;
+  const plotLeft = PADDING.left;
+  const plotWidth = Math.max(0, chartWidth);
 
-  const timeScale: WeightTrendTimeScale = {
+  /** One shared X-scale: first observation → left edge, latest → right edge. */
+  const xScale = buildWeightTrendXScale({
+    range,
     domainStartMs: minT,
     domainEndMs: maxT,
-    plotLeft: PADDING.left,
-    plotWidth: Math.max(0, chartWidth),
-  };
+  });
 
-  /**
-   * ≤1Y: equal-width calendar-month buckets.
-   * 3Y / 5Y / All: continuous timestamp scale (no month initials).
-   */
   const toChartX = (tMs: number) =>
-    monthBucketScale != null
-      ? mapWeightTrendTimeToMonthBucketX(tMs, monthBucketScale)
-      : mapWeightTrendTimeToX(tMs, timeScale);
+    mapWeightTrendTimeToScreenX(tMs, xScale, plotLeft, plotWidth);
   /** Y-axis: maps [displayMin, displayMax] to chart bottom–top; outliers are clamped to edges. */
   const toChartY = (w: number) =>
     PADDING.top + chartHeight - ((w - displayMin) / rangeDisplay) * chartHeight;
@@ -443,9 +424,6 @@ export function WeightTrendChart({
   const genericHighLabel = actualMaxW.toFixed(1);
   const genericLowLabel = actualMinW.toFixed(1);
 
-  // Keep selected range available for callers; observed coverage lives under the chart.
-  void range;
-
   /** Area fill only when >= 3 points; sparse windows must not show filled triangle. */
   const areaD =
     !isSparse && renderPoints.length >= 2
@@ -460,7 +438,7 @@ export function WeightTrendChart({
           { valueKg: actualMinW, label: genericLowLabel },
         ].filter((t, i, arr) => i === 0 || t.label !== arr[0]!.label);
 
-  /** Nearest plotted screen-X — same mapping as line / guide / month buckets. */
+  /** Nearest plotted screen-X — same mapping as line / guide / x-axis ticks. */
   const handleTouch = useCallback(
     (ev: { locationX: number }) => {
       if (chartWidth <= 0 || pointsWithCoords.length === 0) return;
@@ -505,8 +483,6 @@ export function WeightTrendChart({
   /** Active guide always follows scrub selection, else latest (at rest). */
   const guidePt = selected ?? (emphasizeLatestPoint ? latestPt : null);
 
-  const plotLeft = PADDING.left;
-  const plotWidth = Math.max(0, (layout?.width ?? 0) - PADDING.left - PADDING.right);
   const plotTop = PADDING.top;
   const plotBottom = PADDING.top + chartHeight;
   const yLabelX = (layout?.width ?? 0) - Y_LABEL_RIGHT_INSET;
@@ -536,12 +512,16 @@ export function WeightTrendChart({
           .filter((b): b is NonNullable<typeof b> => b != null && b.height > 0)
       : [];
 
-  const monthMarkers =
-    layout && layout.width > 0 && monthBucketScale != null
-      ? placeWeightTrendMonthBucketLabels({ scale: monthBucketScale })
+  const xAxisTicks: readonly WeightXAxisTick[] =
+    layout && layout.width > 0 && plotWidth > 0
+      ? buildWeightTrendXAxisTicks({
+          range,
+          scale: xScale,
+          plotWidthPx: plotWidth,
+        })
       : [];
 
-  const monthLabelY = plotBottom + 14;
+  const xLabelY = plotBottom + 14;
 
   return (
     <View
@@ -591,19 +571,36 @@ export function WeightTrendChart({
           {areaD && visibleBands.length === 0 ? (
             <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
           ) : null}
-          {/* Horizontal grid aligned to Y-axis ticks */}
+          {/* Horizontal grid — solid, aligned to Y ticks */}
           {yAxisTicks.map((tick) => {
             const y = toChartY(tick.valueKg);
             return (
               <Path
-                key={`grid-${tick.label}`}
+                key={`hgrid-${tick.label}`}
                 d={`M ${plotLeft} ${y} L ${plotLeft + plotWidth} ${y}`}
-                stroke={GRID_COLOR}
+                stroke={GRID_H_COLOR}
                 strokeWidth={1}
                 fill="none"
               />
             );
           })}
+          {/* Vertical grid — dashed, aligned to x-axis tick anchors */}
+          {xAxisTicks
+            .filter((t) => t.showGridLine)
+            .map((tick) => {
+              const x = plotLeft + tick.normalizedX * plotWidth;
+              return (
+                <Path
+                  key={`vgrid-${tick.atMs}-${tick.label}`}
+                  d={`M ${x} ${plotTop} L ${x} ${plotBottom}`}
+                  stroke={GRID_V_COLOR}
+                  strokeWidth={1}
+                  strokeDasharray="3 4"
+                  fill="none"
+                  pointerEvents="none"
+                />
+              );
+            })}
           {/* Square plot edge — light containment, no rounded corners. */}
           <Rect
             x={plotLeft}
@@ -664,7 +661,26 @@ export function WeightTrendChart({
               strokeLinejoin="round"
             />
           ) : null}
-          {/* Active vertical guide — always on latest at rest; moves while scrubbing. */}
+          {/* Active / latest point marker (hero inspection — no floating tooltip). */}
+          {guidePt != null ? (
+            <>
+              <Circle
+                cx={guidePt.cx}
+                cy={guidePt.cy}
+                r={selected != null ? DOT_GLOW_R + 2 : DOT_GLOW_R}
+                fill={lineGlow}
+              />
+              <Circle
+                cx={guidePt.cx}
+                cy={guidePt.cy}
+                r={selected != null ? DOT_R + 1.25 : DOT_R}
+                fill={pointFill}
+                stroke={pointRing}
+                strokeWidth={selected != null ? 2.25 : 2}
+              />
+            </>
+          ) : null}
+          {/* Active vertical guide — stronger than vertical grid; on top of point. */}
           {guidePt != null ? (
             <>
               <Path
@@ -685,40 +701,23 @@ export function WeightTrendChart({
               />
             </>
           ) : null}
-          {/* Active / latest point marker (hero inspection — no floating tooltip). */}
-          {guidePt != null ? (
-            <>
-              <Circle
-                cx={guidePt.cx}
-                cy={guidePt.cy}
-                r={selected != null ? DOT_GLOW_R + 2 : DOT_GLOW_R}
-                fill={lineGlow}
-              />
-              <Circle
-                cx={guidePt.cx}
-                cy={guidePt.cy}
-                r={selected != null ? DOT_R + 1.25 : DOT_R}
-                fill={pointFill}
-                stroke={pointRing}
-                strokeWidth={selected != null ? 2.25 : 2}
-              />
-            </>
-          ) : null}
-          {/* Month letters — evenly spaced for ≤1Y; omitted for 3Y / 5Y / All. */}
-          {monthMarkers.map((marker) => (
-            <SvgText
-              key={`month-${marker.key}`}
-              x={marker.x}
-              y={monthLabelY}
-              fontSize={MONTH_LETTER_SIZE}
-              fill={MONTH_LETTER_COLOR}
-              fontWeight="600"
-              textAnchor="middle"
-              alignmentBaseline="middle"
-            >
-              {marker.letter}
-            </SvgText>
-          ))}
+          {/* Range-aware x-axis labels — same scale as series / guide / vertical grid. */}
+          {xAxisTicks
+            .filter((t) => t.showLabel)
+            .map((tick) => (
+              <SvgText
+                key={`xlabel-${tick.atMs}-${tick.label}`}
+                x={plotLeft + tick.normalizedX * plotWidth}
+                y={xLabelY}
+                fontSize={X_LABEL_SIZE}
+                fill={X_LABEL_COLOR}
+                fontWeight="600"
+                textAnchor="middle"
+                alignmentBaseline="middle"
+              >
+                {tick.label}
+              </SvgText>
+            ))}
         </Svg>
       )}
       {outlierCount > 0 && (
