@@ -23,6 +23,22 @@ jest.mock("@/lib/ui/body/BodyMetricClassificationChart", () => {
   };
 });
 
+jest.mock("@/lib/ui/body/BodyMetricEducationalReferenceChart", () => {
+  const ReactLocal = require("react");
+  return {
+    BodyMetricEducationalReferenceChart: (props: { testID?: string }) =>
+      ReactLocal.createElement("View", { testID: props.testID ?? "educational" }),
+  };
+});
+
+jest.mock("@/lib/ui/body/BodyCompositionShareChart", () => {
+  const ReactLocal = require("react");
+  return {
+    BodyCompositionShareChart: (props: { testID?: string }) =>
+      ReactLocal.createElement("View", { testID: props.testID ?? "share" }),
+  };
+});
+
 jest.mock("@/lib/ui/body/BodyMetricUnclassifiedScaffold", () => {
   const ReactLocal = require("react");
   return {
@@ -42,7 +58,7 @@ function collectText(test: renderer.ReactTestRenderer): string {
 const baseScreenProps = {
   connectionAction: { kind: "sync_now" as const, label: "Sync now" },
   onPressCard: jest.fn(),
-  onPressAddWeight: jest.fn(),
+  onPressAddMeasurementForMetric: jest.fn(),
   onPressConnectionAction: jest.fn(),
   massDisplayUnit: "lb" as const,
   weightPrimaryView: "mass" as const,
@@ -67,7 +83,7 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     unit: "lb",
   });
 
-  it("renders three metric cards and omits Add or connect measurements", () => {
+  it("renders Total Mass and Components hierarchy with three metric cards", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -78,6 +94,10 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
       );
     });
     const text = collectText(tree);
+    expect(tree.root.findByProps({ testID: "body-composition-heading-total-mass" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-composition-heading-components" })).toBeDefined();
+    expect(text).toContain("Total Mass");
+    expect(text).toContain("Components");
     expect(text).toContain("Weight");
     expect(text).toContain("Body Fat");
     expect(text).toContain("Lean Mass");
@@ -86,6 +106,9 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     expect(text).not.toContain("Learn about measurement ranges");
     expect(tree.root.findAllByProps({ testID: "body-composition-actions" })).toHaveLength(0);
     expect(tree.root.findByProps({ testID: "body-composition-bottom-clearance" })).toBeDefined();
+    expect(text.indexOf("Total Mass")).toBeLessThan(text.indexOf("Weight"));
+    expect(text.indexOf("Weight")).toBeLessThan(text.indexOf("Components"));
+    expect(text.indexOf("Components")).toBeLessThan(text.indexOf("Body Fat"));
     expect(text.indexOf("Body Fat")).toBeLessThan(text.indexOf("Lean Mass"));
   });
 
@@ -121,5 +144,35 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     expect(
       tree.root.findByProps({ testID: "body-metric-view-weight-mass" }).props.accessibilityLabel,
     ).toMatch(/kilograms/i);
+  });
+
+  it("routes Add measurement to the owning metric only", () => {
+    const onPressAddMeasurementForMetric = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        React.createElement(BodyCompositionSummaryScreen, {
+          ...baseScreenProps,
+          cards,
+          onPressAddMeasurementForMetric,
+        }),
+      );
+    });
+    act(() => {
+      tree.root.findByProps({ testID: "body-metric-add-weight" }).props.onPress({ stopPropagation: jest.fn() });
+    });
+    act(() => {
+      tree.root.findByProps({ testID: "body-metric-add-bodyFat" }).props.onPress({ stopPropagation: jest.fn() });
+    });
+    act(() => {
+      tree.root.findByProps({ testID: "body-metric-add-leanTissue" }).props.onPress({
+        stopPropagation: jest.fn(),
+      });
+    });
+    expect(onPressAddMeasurementForMetric.mock.calls.map((c) => c[0])).toEqual([
+      "weight",
+      "bodyFat",
+      "leanTissue",
+    ]);
   });
 });

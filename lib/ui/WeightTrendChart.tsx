@@ -1,39 +1,85 @@
-import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
+import {
+  UI_TEXT_MUTED,
+} from "@/lib/ui/theme/uiTokens";
 
-// lib/ui/WeightTrendChart.tsx — Weight trend chart (react-native-svg). Graphite styling; tooltip on press/drag.
+// lib/ui/WeightTrendChart.tsx — Weight trend chart (react-native-svg). Dark Oli hero styling.
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, LayoutChangeEvent } from "react-native";
-import Svg, { Circle, Path, Rect, Text as SvgText } from "react-native-svg";
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient,
+  Path,
+  Rect,
+  Stop,
+  Text as SvgText,
+} from "react-native-svg";
+import {
+  buildWeightAxisTicks,
+  type WeightAxisTicksModel,
+} from "@/lib/body/presentation/buildWeightAxisTicks";
+import type { BodyFatAxisTicksModel } from "@/lib/body/presentation/buildBodyFatAxisTicks";
+import { buildBodyFatAxisTicks } from "@/lib/body/presentation/buildBodyFatAxisTicks";
+import {
+  buildWeightTrendXAxisTicks,
+  type WeightXAxisTick,
+} from "@/lib/body/presentation/buildWeightTrendXAxisTicks";
+import {
+  buildWeightTrendXScale,
+  mapWeightTrendTimeToScreenX,
+} from "@/lib/body/presentation/buildWeightTrendXScale";
+import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
-import { SYSTEM_ACCENT } from "@/lib/ui/theme/systemAccent";
+import {
+  buildWeightTrendCurvePath,
+  WEIGHT_TREND_CURVE_MODE,
+} from "@/lib/ui/body/weightTrendCurvePath";
+import {
+  SYSTEM_ACCENT_LUMINOUS,
+  SYSTEM_ACCENT_LUMINOUS_GLOW,
+  SYSTEM_ACCENT_NAVY_DEPTH,
+} from "@/lib/ui/theme/systemAccent";
+import { WEIGHT_TREND_STROKE_VISUAL } from "@/lib/ui/theme/weightTrendStrokeVisual";
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 
-const PADDING = { left: 44, right: 8, top: 8, bottom: 44 };
+/**
+ * Plot inset — Y labels on the RIGHT; left keeps modest room so x-labels never clip.
+ * Bottom reserves room for range-aware x-axis labels.
+ */
+export const WEIGHT_TREND_CHART_PADDING = { left: 10, right: 40, top: 14, bottom: 32 };
+const PADDING = WEIGHT_TREND_CHART_PADDING;
 const Y_LABEL_FONT_SIZE = 11;
-const Y_LABEL_COLOR = "#4A4A4F";
-/** Minimum vertical gap (px) between High and Low labels to avoid overlap. */
-const Y_LABEL_MIN_GAP_PX = 16;
-const X_LABEL_FONT_SIZE = 11;
-const CHART_HEIGHT = 180;
+const Y_LABEL_COLOR = UI_TEXT_MUTED;
+/** Right-edge inset for Y tick text (textAnchor end). */
+const Y_LABEL_RIGHT_INSET = 4;
+/** Hero chart height — visually dominant on Weight detail. */
+const DEFAULT_CHART_HEIGHT = 320;
 const DOT_R = 5;
-const CROSSHAIR_COLOR = "#8E8E93";
+/** Soft point wash — kept small so it does not reintroduce line fuzz. */
+const DOT_GLOW_R = 8;
+const PLOT_EDGE_STROKE = "rgba(255,255,255,0.14)";
+/** Near-black plot field — blends with Weight detail canvas (`UI_SCREEN_BG`). */
+const PLOT_BG = UI_SCREEN_BG;
+const X_LABEL_COLOR = "rgba(190, 206, 228, 0.82)";
+const X_LABEL_SIZE = 10;
 
-const ACCENT_BLUE = SYSTEM_ACCENT;
-const LINE_WIDTH = 2;
-const GRID_COLOR = "#E5E5EA";
-const AREA_OPACITY = 0.25;
-/** Lighter fill below actual low line (same hue as area, lower opacity). */
-const BASE_FILL_OPACITY = 0.08;
-/** Minimum Y-axis span to reduce visual exaggeration (in user units, converted to kg for domain). */
-const MIN_SPAN_LB = 12;
-const MIN_SPAN_KG = 5.5;
-const MIN_PAD_LB = 2;
-const MIN_PAD_KG = 0.9;
-const LBS_PER_KG = 2.2046226218;
-/** Soft floor: extend baseline down so blue fill reaches ~145 lb (or equivalent kg). */
-const DISPLAY_FLOOR_LB = 145;
-const DISPLAY_FLOOR_KG = DISPLAY_FLOOR_LB / LBS_PER_KG;
-/** Max points used to draw path/area/dots; touch and tooltip still use full data. */
+const ACCENT_BLUE = SYSTEM_ACCENT_LUMINOUS;
+/** High-contrast Weight trend — one crisp core + one low-opacity halo (no stacked blur). */
+const LINE_CORE_BLUE = WEIGHT_TREND_STROKE_VISUAL.coreColor;
+const LINE_HALO_BLUE = WEIGHT_TREND_STROKE_VISUAL.haloColor;
+const LINE_WIDTH = WEIGHT_TREND_STROKE_VISUAL.coreWidth;
+const LINE_HALO_WIDTH = WEIGHT_TREND_STROKE_VISUAL.haloWidth;
+/** Thin light-blue active guide — distinct from gray dotted vertical grid. */
+const ACTIVE_GUIDE_COLOR = WEIGHT_TREND_STROKE_VISUAL.activeGuideColor;
+const ACTIVE_GUIDE_WIDTH = WEIGHT_TREND_STROKE_VISUAL.activeGuideWidth;
+/** Grid uses the same gray family as axis labels — visible over classification bands. */
+const GRID_H_COLOR = "rgba(190, 206, 228, 0.55)";
+const GRID_H_WIDTH = 1.25;
+const GRID_V_COLOR = "rgba(190, 206, 228, 0.48)";
+const GRID_V_WIDTH = 1.25;
+const GRID_V_DASH = "2 3.5";
+/** Max points used to draw path/area/dots; touch/inspection still use full data. */
 const MAX_RENDER_POINTS = 80;
 
 /** Largest-Triangle-Three-Buckets downsampling for time-series; keeps first/last and picks middle points for best visual fidelity. */
@@ -86,203 +132,51 @@ function downsampleLTTB<T extends { x: number; cy: number }>(
   return result;
 }
 
-/** Monotone cubic interpolation (Fritsch–Carlson / d3 curveMonotoneX). No overshoot between points. */
-function monotonePathD(points: { cx: number; cy: number }[]): string {
-  if (points.length < 2) return "";
-  const m = points.length;
-  const x = points.map((p) => p.cx);
-  const y = points.map((p) => p.cy);
-
-  const d: number[] = [];
-  for (let i = 0; i < m - 1; i++) {
-    const dx = x[i + 1]! - x[i]!;
-    if (Math.abs(dx) < 1e-10) d.push(0);
-    else d.push((y[i + 1]! - y[i]!) / dx);
-  }
-
-  const tangents = new Array<number>(m);
-  tangents[0] = d[0] ?? 0;
-  tangents[m - 1] = d[m - 2] ?? 0;
-  for (let i = 1; i < m - 1; i++) {
-    const dPrev = d[i - 1] ?? 0;
-    const dCur = d[i] ?? 0;
-    tangents[i] = dPrev * dCur <= 0 ? 0 : (dPrev + dCur) / 2;
-  }
-
-  for (let i = 0; i < m - 1; i++) {
-    const di = d[i] ?? 0;
-    if (di === 0) {
-      tangents[i] = 0;
-      tangents[i + 1] = 0;
-    } else {
-      const a = tangents[i]! / di;
-      const b = tangents[i + 1]! / di;
-      const h = a * a + b * b;
-      if (h > 9) {
-        const t = 3 / Math.sqrt(h);
-        tangents[i] = t * a * di;
-        tangents[i + 1] = t * b * di;
-      }
-    }
-  }
-
-  let path = `M ${x[0]} ${y[0]}`;
-  for (let i = 0; i < m - 1; i++) {
-    const dx = x[i + 1]! - x[i]!;
-    const cp1x = x[i]! + dx / 3;
-    const cp1y = y[i]! + (tangents[i] ?? 0) * (dx / 3);
-    const cp2x = x[i + 1]! - dx / 3;
-    const cp2y = y[i + 1]! - (tangents[i + 1] ?? 0) * (dx / 3);
-    path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x[i + 1]} ${y[i + 1]}`;
-  }
-  return path;
-}
-
-/** Safe, display-only source labels. Never show tokens or secrets. */
-function sourceLabel(sourceId: string): string {
-  if (sourceId === "apple_health") return "Apple Health";
-  if (sourceId === "manual") return "Manual";
-  if (typeof sourceId === "string" && sourceId.length <= 20 && /^[a-zA-Z0-9_-]+$/.test(sourceId))
-    return sourceId;
-  return "—";
-}
-
 /** Parse ISO timestamp to ms; null if invalid. Used for X-axis so each entry has a unique position (no same-day stacking). */
 function parseTimestampMs(iso: string): number | null {
   const ms = Date.parse(iso);
   return Number.isFinite(ms) ? ms : null;
 }
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-type XTick = { tMs: number; label: string; anchor: "start" | "middle" | "end" };
-
-/** X-axis ticks from actual data extents only (trust-first; no labels where there is no data). */
-function ticksForRangeUsingData(
-  range: WeightRangeKey,
-  dataStartMs: number,
-  dataEndMs: number,
-  processedLength: number,
-): XTick[] {
-  if (processedLength < 2) return [];
-  const ticks: XTick[] = [];
-
-  if (range === "3Y" || range === "5Y" || range === "All") {
-    ticks.push(
-      {
-        tMs: dataStartMs,
-        label: new Date(dataStartMs).toLocaleDateString(undefined, { year: "numeric" }),
-        anchor: "start",
-      },
-      {
-        tMs: dataEndMs,
-        label: new Date(dataEndMs).toLocaleDateString(undefined, { year: "numeric" }),
-        anchor: "end",
-      },
-    );
-    return ticks;
-  }
-
-  if (range === "1Y" || range === "YTD") {
-    const midT = dataStartMs + (dataEndMs - dataStartMs) / 2;
-    const triple = [dataStartMs, midT, dataEndMs] as const;
-    triple.forEach((tMs, i) => {
-      ticks.push({
-        tMs,
-        label: new Date(tMs).toLocaleDateString(undefined, { month: "short" }),
-        anchor: i === 0 ? "start" : i === 2 ? "end" : "middle",
-      });
-    });
-    return ticks;
-  }
-
-  if (range === "6M") {
-    const start = new Date(dataStartMs);
-    start.setDate(1);
-    start.setHours(0, 0, 0, 0);
-    let t = start.getTime();
-    if (t < dataStartMs) {
-      start.setMonth(start.getMonth() + 1);
-      t = start.getTime();
-    }
-    const monthTicks: { tMs: number; label: string }[] = [];
-    while (t <= dataEndMs) {
-      monthTicks.push({
-        tMs: t,
-        label: new Date(t).toLocaleDateString(undefined, { month: "short" }),
-      });
-      start.setMonth(start.getMonth() + 1);
-      t = start.getTime();
-    }
-    if (monthTicks.length === 0) return [];
-    let toShow = monthTicks;
-    if (monthTicks.length > 6) {
-      const step = Math.max(1, Math.floor((monthTicks.length - 1) / 4));
-      toShow = [monthTicks[0]!];
-      for (let i = step; i < monthTicks.length - 1; i += step) toShow.push(monthTicks[i]!);
-      toShow.push(monthTicks[monthTicks.length - 1]!);
-    }
-    toShow.forEach(({ tMs, label }, i) => {
-      ticks.push({
-        tMs,
-        label,
-        anchor: i === 0 ? "start" : i === toShow.length - 1 ? "end" : "middle",
-      });
-    });
-    return ticks;
-  }
-
-  if (range === "30D" || range === "90D") {
-    const midT = dataStartMs + (dataEndMs - dataStartMs) / 2;
-    const triple = [dataStartMs, midT, dataEndMs] as const;
-    triple.forEach((tMs, i) => {
-      ticks.push({
-        tMs,
-        label: new Date(tMs).toLocaleDateString(undefined, {
-          month: "short",
-          day: "numeric",
-        }),
-        anchor: i === 0 ? "start" : i === 2 ? "end" : "middle",
-      });
-    });
-    return ticks;
-  }
-
-  if (range === "7D") {
-    const spanDays = (dataEndMs - dataStartMs) / MS_PER_DAY;
-    if (spanDays > 8) return [];
-    const dStart = new Date(dataStartMs);
-    dStart.setHours(0, 0, 0, 0);
-    const startDayMs = dStart.getTime();
-    const dEnd = new Date(dataEndMs);
-    dEnd.setHours(0, 0, 0, 0);
-    const endDayMs = dEnd.getTime();
-    const dayTicks: XTick[] = [];
-    let t = startDayMs;
-    while (t <= endDayMs) {
-      dayTicks.push({
-        tMs: t,
-        label: new Date(t).toLocaleDateString(undefined, { weekday: "short" }),
-        anchor: dayTicks.length === 0 ? "start" : "middle",
-      });
-      t += MS_PER_DAY;
-    }
-    if (dayTicks.length > 0) dayTicks[dayTicks.length - 1]!.anchor = "end";
-    if (dayTicks.length < 4) return [];
-    return dayTicks;
-  }
-
-  return ticks;
-}
+export type WeightTrendChartInspectPoint = {
+  readonly observedAt: string;
+  readonly dayKey: string;
+  readonly weightKg: number;
+  readonly sourceId: string;
+};
 
 export type WeightTrendChartProps = {
-  points: WeightPoint[];
+  points: readonly WeightPoint[];
   unitLabel: string;
   formatValue: (weightKg: number) => string;
   range: WeightRangeKey;
-  valueKind?: "mass" | "generic";
+  valueKind?: "mass" | "generic" | "percent";
   accentColor?: string;
   onChartError?: (message: string) => void;
+  /** Always mark the chronologically latest observation (not a classification). */
+  emphasizeLatestPoint?: boolean;
+  accessibilityLabel?: string;
+  /** Hero plot height in points. */
+  chartHeight?: number;
+  /**
+   * Fixed-hero inspection callback. Fired with the nearest point while scrubbing,
+   * and `null` on release. Floating tooltips are intentionally not rendered.
+   */
+  onInspectChange?: (point: WeightTrendChartInspectPoint | null) => void;
+  /**
+   * Crisp bright-blue core + single low-opacity blue halo — preferred for
+   * Weight / Body Fat detail on the plain dark plot (reads blue-first, not blurry).
+   */
+  highContrastLine?: boolean;
+  /**
+   * Locked mass Y-axis from full Weight history (shared across all period selectors).
+   * When set, period switching must not rescale ticks.
+   */
+  sharedMassAxis?: WeightAxisTicksModel | null;
+  /**
+   * Locked Body Fat % Y-axis from full available history (shared across all period selectors).
+   */
+  sharedPercentAxis?: BodyFatAxisTicksModel | null;
 };
 
 type ProcessedPoint = {
@@ -290,26 +184,58 @@ type ProcessedPoint = {
   y: number;
   weightKg: number;
   observedAt: string;
+  dayKey: string;
   sourceId: string;
 };
 
 export function WeightTrendChart({
   points,
   unitLabel,
-  formatValue,
+  formatValue: _formatValue,
   range,
   valueKind = "mass",
   accentColor = ACCENT_BLUE,
   onChartError,
+  emphasizeLatestPoint = false,
+  accessibilityLabel = "Weight trend chart",
+  chartHeight: chartHeightProp = DEFAULT_CHART_HEIGHT,
+  onInspectChange,
+  highContrastLine = false,
+  sharedMassAxis = null,
+  sharedPercentAxis = null,
 }: WeightTrendChartProps) {
+  void _formatValue;
+  const CHART_HEIGHT = chartHeightProp;
+  const useHighContrastLine = highContrastLine;
+  const lineStroke = useHighContrastLine ? LINE_CORE_BLUE : accentColor;
+  const lineHalo = useHighContrastLine ? LINE_HALO_BLUE : SYSTEM_ACCENT_LUMINOUS_GLOW;
+  const lineHaloWidth = useHighContrastLine ? LINE_HALO_WIDTH : 5;
+  const pointFill = useHighContrastLine ? LINE_CORE_BLUE : accentColor;
+  /** Crisp white rim keeps the blue disk readable on the dark plot. */
+  const pointRing = "#FFFFFF";
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [touchX, setTouchX] = useState<number | null>(null);
+  const onInspectRef = useRef(onInspectChange);
+  onInspectRef.current = onInspectChange;
+  const lastInspectedAtRef = useRef<string | null>(null);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     setLayout({ width, height });
   }, []);
+
+  /**
+   * Content identity for reset — NOT array reference.
+   * Parent re-renders (e.g. hero inspection state) must not clear scrub state
+   * when the underlying observations are unchanged.
+   */
+  const pointsContentKey = useMemo(
+    () =>
+      points
+        .map((p) => `${p.observedAt}\0${p.weightKg}\0${p.dayKey}\0${p.sourceId}`)
+        .join("|"),
+    [points],
+  );
 
   const { processed, error } = useMemo(() => {
     const valid: ProcessedPoint[] = [];
@@ -321,6 +247,7 @@ export function WeightTrendChart({
         y: 0,
         weightKg: p.weightKg,
         observedAt: p.observedAt,
+        dayKey: p.dayKey,
         sourceId: p.sourceId,
       });
     }
@@ -335,6 +262,12 @@ export function WeightTrendChart({
     if (error && onChartError) onChartError(error);
   }, [error, onChartError]);
 
+  useEffect(() => {
+    setSelectedIndex(null);
+    lastInspectedAtRef.current = null;
+    onInspectRef.current?.(null);
+  }, [range, pointsContentKey]);
+
   if (points.length === 0) {
     return null;
   }
@@ -344,58 +277,103 @@ export function WeightTrendChart({
   }
 
   const chartWidth = layout ? layout.width - PADDING.left - PADDING.right : 0;
-  const chartHeight = CHART_HEIGHT - PADDING.top - PADDING.bottom;
+  const padBottom = 30;
+  const chartHeight = CHART_HEIGHT - PADDING.top - padBottom;
 
   const minT = Math.min(...processed.map((p) => p.x));
   const maxT = Math.max(...processed.map((p) => p.x));
-  const rangeT = maxT - minT || 1;
-  const minW = Math.min(...processed.map((p) => p.weightKg));
-  const maxW = Math.max(...processed.map((p) => p.weightKg));
 
-  /** Robust Y-domain: p05–p95 with 2% padding; then enforce minimum span/padding to reduce visual exaggeration. */
-  const { displayMin, displayMax, outlierCount } = (() => {
-    const n = processed.length;
-    let dMin: number;
-    let dMax: number;
-    if (n < 3) {
-      dMin = Math.max(0, minW);
-      dMax = maxW;
-    } else {
-      const sorted = [...processed.map((p) => p.weightKg)].sort((a, b) => a - b);
-      const p05 = sorted[Math.floor((n - 1) * 0.05)] ?? minW;
-      const p95 = sorted[Math.floor((n - 1) * 0.95)] ?? maxW;
-      const range = p95 - p05 || 0.1;
-      const padding = 0.02 * range;
-      dMin = p05 - padding;
-      dMax = p95 + padding;
+  const useSharedMassAxis =
+    sharedMassAxis != null &&
+    sharedMassAxis.status === "ready" &&
+    valueKind === "mass";
 
-      const spanMinKg = valueKind === "mass" && unitLabel === "lb" ? MIN_SPAN_LB / LBS_PER_KG : MIN_SPAN_KG;
-      const padMinKg = valueKind === "mass" && unitLabel === "lb" ? MIN_PAD_LB / LBS_PER_KG : MIN_PAD_KG;
-      const currentSpanKg = dMax - dMin;
-      const midKg = (dMin + dMax) / 2;
-      if (currentSpanKg < spanMinKg) {
-        dMin = midKg - spanMinKg / 2;
-        dMax = midKg + spanMinKg / 2;
-      } else {
-        const padBottom = midKg - dMin;
-        const padTop = dMax - midKg;
-        if (padBottom < padMinKg) dMin = midKg - padMinKg;
-        if (padTop < padMinKg) dMax = midKg + padMinKg;
+  const useSharedPercentAxis =
+    sharedPercentAxis != null &&
+    sharedPercentAxis.status === "ready" &&
+    valueKind === "percent";
+
+  const { displayMin, displayMax, outlierCount } = useSharedMassAxis
+    ? {
+        displayMin: sharedMassAxis.domainMinKg,
+        displayMax: sharedMassAxis.domainMaxKg,
+        outlierCount: processed.filter(
+          (p) =>
+            p.weightKg < sharedMassAxis.domainMinKg ||
+            p.weightKg > sharedMassAxis.domainMaxKg,
+        ).length,
       }
-      dMin = Math.max(0, dMin);
-    }
-    if (valueKind === "mass" && unitLabel === "lb" && dMin * LBS_PER_KG > DISPLAY_FLOOR_LB) dMin = DISPLAY_FLOOR_LB / LBS_PER_KG;
-    if (valueKind === "mass" && unitLabel === "kg" && dMin > DISPLAY_FLOOR_KG) dMin = DISPLAY_FLOOR_KG;
-    dMin = Math.max(0, dMin);
-    const count = processed.filter((p) => p.weightKg < dMin || p.weightKg > dMax).length;
-    return { displayMin: dMin, displayMax: dMax, outlierCount: count };
-  })();
+    : useSharedPercentAxis
+      ? {
+          displayMin: sharedPercentAxis.domainMinPercent,
+          displayMax: sharedPercentAxis.domainMaxPercent,
+          outlierCount: processed.filter(
+            (p) =>
+              p.weightKg < sharedPercentAxis.domainMinPercent ||
+              p.weightKg > sharedPercentAxis.domainMaxPercent,
+          ).length,
+        }
+      : resolveWeightTrendYDomain({
+          valuesKg: processed.map((p) => p.weightKg),
+          valueKind: valueKind === "percent" ? "generic" : valueKind,
+          unitLabel,
+        });
+
+  const massAxis = useSharedMassAxis
+    ? sharedMassAxis
+    : valueKind === "mass" && (unitLabel === "lb" || unitLabel === "kg")
+      ? buildWeightAxisTicks({
+          minKg: Math.min(...processed.map((p) => p.weightKg)),
+          maxKg: Math.max(...processed.map((p) => p.weightKg)),
+          unit: unitLabel,
+        })
+      : null;
+
+  const percentAxis = useSharedPercentAxis
+    ? sharedPercentAxis
+    : valueKind === "percent"
+      ? buildBodyFatAxisTicks({
+          minPercent: Math.min(...processed.map((p) => p.weightKg)),
+          maxPercent: Math.max(...processed.map((p) => p.weightKg)),
+        })
+      : null;
 
   const rangeDisplay = displayMax - displayMin || 0.1;
 
-  /** X-axis: linear scale from tMs (Date.parse(observedAt)) domain to screen; eliminates same-day vertical stacking. */
+  const plotLeft = PADDING.left;
+  const plotWidth = Math.max(0, chartWidth);
+
+  /**
+   * 1) Domain scale seeds tick drafts.
+   * 2) Short ranges: even label slots become layout anchors for data + guide.
+   * 3) Long ranges (3Y / 5Y / All): continuous timestamps — layoutAnchors ignored
+   *    so same-year points never collapse onto a single year label.
+   */
+  const domainScale = buildWeightTrendXScale({
+    range,
+    domainStartMs: minT,
+    domainEndMs: maxT,
+  });
+  const xAxisTicks: readonly WeightXAxisTick[] =
+    layout && layout.width > 0 && plotWidth > 0
+      ? buildWeightTrendXAxisTicks({
+          range,
+          scale: domainScale,
+          plotWidthPx: plotWidth,
+        })
+      : [];
+  const xScale = buildWeightTrendXScale({
+    range,
+    domainStartMs: minT,
+    domainEndMs: maxT,
+    layoutAnchors: xAxisTicks.map((t) => ({
+      atMs: t.atMs,
+      layoutNormalizedX: t.layoutNormalizedX,
+    })),
+  });
+
   const toChartX = (tMs: number) =>
-    PADDING.left + ((tMs - minT) / rangeT) * chartWidth;
+    mapWeightTrendTimeToScreenX(tMs, xScale, plotLeft, plotWidth);
   /** Y-axis: maps [displayMin, displayMax] to chart bottom–top; outliers are clamped to edges. */
   const toChartY = (w: number) =>
     PADDING.top + chartHeight - ((w - displayMin) / rangeDisplay) * chartHeight;
@@ -412,60 +390,30 @@ export function WeightTrendChart({
     };
   });
 
-  /** Downsample for rendering only; touch/tooltip still use full pointsWithCoords. */
+  /** Downsample for rendering only; touch/inspection still use full pointsWithCoords. */
   const renderPoints = downsampleLTTB(pointsWithCoords, MAX_RENDER_POINTS);
 
   const n = processed.length;
   const isSparse = n < 3;
 
-  /** Line path: sparse (1–2 points) uses straight segment or none; else monotone cubic (no overshoot). */
+  /** One shared path for core + halo — linear segments (no cubic waviness). */
   const pathD = (() => {
-    if (isSparse) {
-      if (n === 1) return "";
-      if (n === 2 && renderPoints.length >= 2) {
-        const p0 = renderPoints[0]!;
-        const p1 = renderPoints[1]!;
-        return `M ${p0.cx} ${p0.cy} L ${p1.cx} ${p1.cy}`;
-      }
-      return "";
-    }
-    return monotonePathD(renderPoints);
+    if (renderPoints.length < 2) return "";
+    return buildWeightTrendCurvePath(
+      renderPoints.map((p) => ({ x: p.cx, y: p.cy })),
+      WEIGHT_TREND_CURVE_MODE,
+    );
   })();
 
   const baselineY = PADDING.top + chartHeight;
 
-  /** Actual data min/max (kg) from current points; used for Y labels and dashed guide lines. */
+  /** Generic (non-mass) fallback labels at observed high/low. */
   const actualMinW =
     processed.length > 0 ? Math.min(...processed.map((p) => p.weightKg)) : displayMin;
   const actualMaxW =
     processed.length > 0 ? Math.max(...processed.map((p) => p.weightKg)) : displayMax;
-  const clampedHigh = Math.max(displayMin, Math.min(displayMax, actualMaxW));
-  const clampedLow = Math.max(displayMin, Math.min(displayMax, actualMinW));
-  const yHigh = toChartY(clampedHigh);
-  const yLow = toChartY(clampedLow);
-  /** Exact values, one decimal; no unit suffix. */
-  const highLabel =
-    valueKind === "mass" && unitLabel === "lb"
-      ? (actualMaxW * LBS_PER_KG).toFixed(1)
-      : actualMaxW.toFixed(1);
-  const lowLabel =
-    valueKind === "mass" && unitLabel === "lb"
-      ? (actualMinW * LBS_PER_KG).toFixed(1)
-      : actualMinW.toFixed(1);
-  const isSparseLabels = processed.length < 2;
-  const singleValueLabel = isSparseLabels ? highLabel : null;
-  const labelsTooClose = Math.abs(yHigh - yLow) < Y_LABEL_MIN_GAP_PX;
-
-  /** X-axis: data extents only (trust-first). */
-  const dataStartMs = minT;
-  const dataEndMs = maxT;
-
-  /** X-axis ticks from actual data extents; no labels if insufficient data. */
-  const xAxisTicks = useMemo(
-    () => ticksForRangeUsingData(range, dataStartMs, dataEndMs, processed.length),
-    [range, dataStartMs, dataEndMs, processed.length],
-  );
-  const xAxisY = PADDING.top + chartHeight + 18;
+  const genericHighLabel = actualMaxW.toFixed(1);
+  const genericLowLabel = actualMinW.toFixed(1);
 
   /** Area fill only when >= 3 points; sparse windows must not show filled triangle. */
   const areaD =
@@ -473,206 +421,236 @@ export function WeightTrendChart({
       ? `${pathD} L ${renderPoints[renderPoints.length - 1]!.cx} ${baselineY} L ${renderPoints[0]!.cx} ${baselineY} Z`
       : "";
 
-  /** Nearest-point selection by tMs (timestamp); touch X is mapped to data time then compared to each point's x (observedAt ms). */
+  const yAxisTicks =
+    massAxis?.status === "ready"
+      ? massAxis.ticks.map((t) => ({ valueKg: t.valueKg, label: t.label }))
+      : percentAxis?.status === "ready"
+        ? percentAxis.ticks.map((t) => ({
+            valueKg: t.valuePercent,
+            label: t.label,
+          }))
+        : [
+            { valueKg: actualMaxW, label: genericHighLabel },
+            { valueKg: actualMinW, label: genericLowLabel },
+          ].filter((t, i, arr) => i === 0 || t.label !== arr[0]!.label);
+
+  /** Nearest plotted screen-X — same mapping as line / guide / x-axis ticks. */
   const handleTouch = useCallback(
     (ev: { locationX: number }) => {
       if (chartWidth <= 0 || pointsWithCoords.length === 0) return;
-      const x = ev.locationX;
-      setTouchX(x);
-      const tMsAtTouch = minT + ((x - PADDING.left) / chartWidth) * rangeT;
+      const touchX = ev.locationX;
       let best = 0;
-      let bestDist = Math.abs(pointsWithCoords[0]!.x - tMsAtTouch);
+      let bestDist = Math.abs(pointsWithCoords[0]!.cx - touchX);
       for (let i = 1; i < pointsWithCoords.length; i++) {
-        const d = Math.abs(pointsWithCoords[i]!.x - tMsAtTouch);
+        const d = Math.abs(pointsWithCoords[i]!.cx - touchX);
         if (d < bestDist) {
           bestDist = d;
           best = i;
         }
       }
       setSelectedIndex(best);
+      const pt = pointsWithCoords[best]!;
+      if (lastInspectedAtRef.current !== pt.observedAt) {
+        lastInspectedAtRef.current = pt.observedAt;
+        onInspectRef.current?.({
+          observedAt: pt.observedAt,
+          dayKey: pt.dayKey,
+          weightKg: pt.weightKg,
+          sourceId: pt.sourceId,
+        });
+      }
     },
-    [chartWidth, rangeT, minT, pointsWithCoords],
+    [chartWidth, pointsWithCoords],
   );
 
+  const clearInspection = useCallback(() => {
+    setSelectedIndex(null);
+    lastInspectedAtRef.current = null;
+    onInspectRef.current?.(null);
+  }, []);
+
   const selected = selectedIndex != null ? pointsWithCoords[selectedIndex] ?? null : null;
-  const selPoint = selectedIndex != null ? processed[selectedIndex] ?? null : null;
+
+  const latestPt =
+    emphasizeLatestPoint && pointsWithCoords.length > 0
+      ? pointsWithCoords[pointsWithCoords.length - 1]!
+      : null;
+
+  /** Active guide always follows scrub selection, else latest (at rest). */
+  const guidePt = selected ?? (emphasizeLatestPoint ? latestPt : null);
+
+  const plotTop = PADDING.top;
+  const plotBottom = PADDING.top + chartHeight;
+  const yLabelX = (layout?.width ?? 0) - Y_LABEL_RIGHT_INSET;
+
+  const xLabelY = plotBottom + 14;
 
   return (
     <View
-      style={styles.container}
+      style={[styles.container, { minHeight: CHART_HEIGHT }]}
       onLayout={onLayout}
       onStartShouldSetResponder={() => true}
       onResponderGrant={(e) => handleTouch(e.nativeEvent)}
       onResponderMove={(e) => handleTouch(e.nativeEvent)}
-      onResponderRelease={() => {
-        setTouchX(null);
-        setSelectedIndex(null);
-      }}
-      accessibilityRole="none"
-      accessibilityLabel="Weight trend chart"
+      onResponderRelease={clearInspection}
+      onResponderTerminate={clearInspection}
+      accessibilityRole="image"
+      accessibilityLabel={accessibilityLabel}
+      testID="weight-trend-chart"
     >
       {layout && layout.width > 0 && (
         <Svg width={layout.width} height={CHART_HEIGHT} style={styles.svg}>
-          {/* Minimal grid: horizontal lines only */}
-          {[0.25, 0.5, 0.75].map((frac) => {
-            const y = PADDING.top + chartHeight * (1 - frac);
+          <Defs>
+            <LinearGradient id="weightTrendAreaFill" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor={accentColor} stopOpacity="0.26" />
+              <Stop offset="45%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.10" />
+              <Stop offset="100%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.01" />
+            </LinearGradient>
+          </Defs>
+          {/* Plain dark plot field — classification colors live on the Body Weight card. */}
+          <Rect
+            x={plotLeft}
+            y={plotTop}
+            width={plotWidth}
+            height={chartHeight}
+            fill={PLOT_BG}
+            pointerEvents="none"
+          />
+          {/* Soft area fill only for non–high-contrast (non-Weight) metrics. */}
+          {areaD && !useHighContrastLine ? (
+            <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
+          ) : null}
+          {/* Horizontal grid — solid, aligned to Y ticks */}
+          {yAxisTicks.map((tick) => {
+            const y = toChartY(tick.valueKg);
             return (
               <Path
-                key={frac}
-                d={`M ${PADDING.left} ${y} L ${layout.width - PADDING.right} ${y}`}
-                stroke={GRID_COLOR}
-                strokeWidth={1}
+                key={`hgrid-${tick.label}`}
+                d={`M ${plotLeft} ${y} L ${plotLeft + plotWidth} ${y}`}
+                stroke={GRID_H_COLOR}
+                strokeWidth={GRID_H_WIDTH}
                 fill="none"
               />
             );
           })}
-          {/* Dashed horizontal guide lines at actual data High/Low (behind area/line) */}
-          {!isSparseLabels && (
-            <>
-              <Path
-                d={`M ${PADDING.left} ${yHigh} L ${layout.width - PADDING.right} ${yHigh}`}
-                stroke="#C7C7CC"
-                strokeWidth={1}
-                strokeDasharray="4 4"
-                fill="none"
-              />
-              <Path
-                d={`M ${PADDING.left} ${yLow} L ${layout.width - PADDING.right} ${yLow}`}
-                stroke="#C7C7CC"
-                strokeWidth={1}
-                strokeDasharray="4 4"
-                fill="none"
-              />
-            </>
-          )}
-          {isSparseLabels && (
-            <Path
-              d={`M ${PADDING.left} ${yHigh} L ${layout.width - PADDING.right} ${yHigh}`}
-              stroke="#C7C7CC"
-              strokeWidth={1}
-              strokeDasharray="4 4"
-              fill="none"
-            />
-          )}
-          {/* Y-axis labels: exact actual values (one decimal); hide Low if too close to High */}
-          {!isSparseLabels && (
-            <>
+          {/* Vertical grid — dotted, aligned to even x-label layout slots */}
+          {xAxisTicks
+            .filter((t) => t.showGridLine)
+            .map((tick) => {
+              const x = plotLeft + tick.layoutNormalizedX * plotWidth;
+              return (
+                <Path
+                  key={`vgrid-${tick.atMs}-${tick.label}`}
+                  d={`M ${x} ${plotTop} L ${x} ${plotBottom}`}
+                  stroke={GRID_V_COLOR}
+                  strokeWidth={GRID_V_WIDTH}
+                  strokeDasharray={GRID_V_DASH}
+                  fill="none"
+                  pointerEvents="none"
+                />
+              );
+            })}
+          {/* Square plot edge — light containment, no rounded corners. */}
+          <Rect
+            x={plotLeft}
+            y={plotTop}
+            width={plotWidth}
+            height={chartHeight}
+            fill="none"
+            stroke={PLOT_EDGE_STROKE}
+            strokeWidth={StyleSheet.hairlineWidth}
+            pointerEvents="none"
+          />
+          {/* Y-axis tick labels — RIGHT of plot, 10 lb (or metric) increments */}
+          {yAxisTicks.map((tick) => {
+            const y = toChartY(tick.valueKg);
+            return (
               <SvgText
-                x={4}
-                y={yHigh}
+                key={`ylab-${tick.label}`}
+                x={yLabelX}
+                y={y}
                 fontSize={Y_LABEL_FONT_SIZE}
                 fill={Y_LABEL_COLOR}
-                textAnchor="start"
+                textAnchor="end"
                 alignmentBaseline="middle"
               >
-                {highLabel}
+                {tick.label}
               </SvgText>
-              {!labelsTooClose && (
-                <SvgText
-                  x={4}
-                  y={yLow}
-                  fontSize={Y_LABEL_FONT_SIZE}
-                  fill={Y_LABEL_COLOR}
-                  textAnchor="start"
-                  alignmentBaseline="middle"
-                >
-                  {lowLabel}
-                </SvgText>
-              )}
-            </>
-          )}
-          {isSparseLabels && singleValueLabel != null && (
-            <SvgText
-              x={4}
-              y={yHigh}
-              fontSize={Y_LABEL_FONT_SIZE}
-              fill={Y_LABEL_COLOR}
-              textAnchor="start"
-              alignmentBaseline="middle"
-            >
-              {singleValueLabel}
-            </SvgText>
-          )}
-          {/* Base tint below low dashed line (lighter blue) */}
-          {processed.length > 0 && (
-            <Rect
-              x={PADDING.left}
-              y={yLow}
-              width={layout.width - PADDING.left - PADDING.right}
-              height={Math.max(0, baselineY - yLow)}
-              fill={accentColor}
-              fillOpacity={BASE_FILL_OPACITY}
-            />
-          )}
-          {/* Area fill under line — render before line so line stays on top */}
-          {areaD ? (
-            <Path
-              d={areaD}
-              fill={accentColor}
-              fillOpacity={AREA_OPACITY}
-              stroke="none"
-            />
-          ) : null}
-          {/* Line */}
+            );
+          })}
+          {/* Single low-opacity blue halo — elevation without stacked blur */}
           {pathD ? (
             <Path
               d={pathD}
-              stroke={accentColor}
+              stroke={lineHalo}
+              strokeWidth={lineHaloWidth}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              pointerEvents="none"
+            />
+          ) : null}
+          {/* Crisp opaque blue (or accent) core — no blur on this stroke */}
+          {pathD ? (
+            <Path
+              d={pathD}
+              stroke={lineStroke}
               strokeWidth={LINE_WIDTH}
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
+              pointerEvents="none"
             />
           ) : null}
-          {/* Dot marker: only while touching (selection active); no persistent dots */}
-          {touchX != null && selected != null &&
-            (selected.isClipped ? (
-              <Circle
-                cx={selected.cx}
-                cy={selected.cy}
-                r={DOT_R}
-                fill="none"
-                stroke={accentColor}
-                strokeWidth={2}
-                opacity={1}
-              />
-            ) : (
-              <Circle cx={selected.cx} cy={selected.cy} r={DOT_R} fill={accentColor} opacity={1} />
-            ))}
-          {/* Crosshair at selected x */}
-          {touchX != null && selected != null && (
+          {/* Active vertical guide — thin light blue; above line, below point. */}
+          {guidePt != null ? (
             <Path
-              d={`M ${selected.cx} ${PADDING.top} L ${selected.cx} ${PADDING.top + chartHeight}`}
-              stroke={CROSSHAIR_COLOR}
-              strokeWidth={1}
-              strokeDasharray="4 2"
+              d={`M ${guidePt.cx} ${plotTop} L ${guidePt.cx} ${plotBottom}`}
+              stroke={ACTIVE_GUIDE_COLOR}
+              strokeWidth={ACTIVE_GUIDE_WIDTH}
               fill="none"
+              strokeLinecap="round"
+              pointerEvents="none"
             />
-          )}
-          {/* X-axis time labels (data-extent only; first/last at plot edges so no clipping) */}
-          {layout &&
-            xAxisTicks.map((tick, i) => {
-              const isFirst = i === 0;
-              const isLast = i === xAxisTicks.length - 1;
-              const x =
-                isFirst
-                  ? PADDING.left
-                  : isLast
-                    ? layout.width - PADDING.right
-                    : toChartX(tick.tMs);
-              return (
-                <SvgText
-                  key={`${tick.tMs}-${i}`}
-                  x={x}
-                  y={xAxisY}
-                  fontSize={X_LABEL_FONT_SIZE}
-                  fill={Y_LABEL_COLOR}
-                  textAnchor={tick.anchor}
-                >
-                  {tick.label}
-                </SvgText>
-              );
-            })}
+          ) : null}
+          {/* Active / latest point marker (hero inspection — no floating tooltip). */}
+          {guidePt != null ? (
+            <>
+              <Circle
+                cx={guidePt.cx}
+                cy={guidePt.cy}
+                r={selected != null ? DOT_GLOW_R + 1.5 : DOT_GLOW_R}
+                fill={lineHalo}
+                pointerEvents="none"
+              />
+              <Circle
+                cx={guidePt.cx}
+                cy={guidePt.cy}
+                r={selected != null ? DOT_R + 1.25 : DOT_R}
+                fill={pointFill}
+                stroke={pointRing}
+                strokeWidth={selected != null ? 2.25 : 2}
+                pointerEvents="none"
+              />
+            </>
+          ) : null}
+          {/* Range-aware x-axis labels — even visual slots; same positions as vertical grid. */}
+          {xAxisTicks
+            .filter((t) => t.showLabel)
+            .map((tick) => (
+              <SvgText
+                key={`xlabel-${tick.atMs}-${tick.label}`}
+                x={plotLeft + tick.layoutNormalizedX * plotWidth}
+                y={xLabelY}
+                fontSize={X_LABEL_SIZE}
+                fill={X_LABEL_COLOR}
+                fontWeight="600"
+                textAnchor="middle"
+                alignmentBaseline="middle"
+              >
+                {tick.label}
+              </SvgText>
+            ))}
         </Svg>
       )}
       {outlierCount > 0 && (
@@ -680,32 +658,10 @@ export function WeightTrendChart({
           {outlierCount} outlier(s) clipped for readability
         </Text>
       )}
-      {isSparse && (
+      {isSparse && n < 2 && (
         <Text style={styles.sparseNote} accessibilityLabel="Not enough weigh-ins in this range">
           Not enough weigh-ins in this range
         </Text>
-      )}
-      {/* Tooltip card (View over SVG) — never block the selected point; position above or below */}
-      {selPoint && selected && (
-        <View
-          style={[
-            styles.tooltip,
-            selected.cy <= CHART_HEIGHT / 2 ? styles.tooltipBelow : styles.tooltipAbove,
-          ]}
-          pointerEvents="none"
-          accessibilityLiveRegion="polite"
-          accessibilityLabel={`${new Date(selPoint.observedAt).toLocaleString()}, ${formatValue(selPoint.weightKg)}${unitLabel ? ` ${unitLabel}` : ""}${selPoint.sourceId ? `, ${sourceLabel(selPoint.sourceId)}` : ""}`}
-        >
-          <Text style={styles.tooltipDate}>
-            {new Date(selPoint.observedAt).toLocaleString()}
-          </Text>
-          <Text style={styles.tooltipValue}>
-            {formatValue(selPoint.weightKg)}{unitLabel ? ` ${unitLabel}` : ""}
-          </Text>
-          {selPoint.sourceId ? (
-            <Text style={styles.tooltipSource}>{sourceLabel(selPoint.sourceId)}</Text>
-          ) : null}
-        </View>
       )}
     </View>
   );
@@ -713,56 +669,20 @@ export function WeightTrendChart({
 
 const styles = StyleSheet.create({
   container: {
-    minHeight: CHART_HEIGHT,
+    minHeight: DEFAULT_CHART_HEIGHT,
   },
   svg: {
     backgroundColor: "transparent",
   },
-  tooltip: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    backgroundColor: UI_CARD_SURFACE,
-    borderRadius: 10,
-    padding: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: "#E5E5EA",
-  },
-  tooltipAbove: {
-    bottom: CHART_HEIGHT + 8,
-  },
-  tooltipBelow: {
-    top: CHART_HEIGHT + 8,
-  },
-  tooltipDate: {
-    fontSize: 12,
-    color: "#6E6E73",
-    marginBottom: 2,
-  },
-  tooltipValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1C1C1E",
-  },
-  tooltipSource: {
-    fontSize: 12,
-    color: "#6E6E73",
-    marginTop: 4,
-  },
   outlierNote: {
     fontSize: 11,
-    color: "#6E6E73",
+    color: UI_TEXT_MUTED,
     marginTop: 6,
     fontStyle: "italic",
   },
   sparseNote: {
     fontSize: 11,
-    color: "#6E6E73",
+    color: UI_TEXT_MUTED,
     marginTop: 6,
   },
 });

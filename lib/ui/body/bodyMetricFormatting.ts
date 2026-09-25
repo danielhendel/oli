@@ -12,6 +12,18 @@ export function formatBodyWeight(kg: number, unit: "kg" | "lb"): string {
   return `${formatBodyWeightValue(v)} ${unit}`;
 }
 
+/**
+ * Signed Weight/Lean Mass change for trend summary — descriptive, not judgmental.
+ * Uses Unicode minus (U+2212) for losses so the sign reads clearly.
+ */
+export function formatBodyWeightChange(deltaKg: number, unit: "kg" | "lb"): string {
+  if (!Number.isFinite(deltaKg)) return "—";
+  const magnitude = formatBodyWeight(Math.abs(deltaKg), unit);
+  if (deltaKg > 0) return `+${magnitude}`;
+  if (deltaKg < 0) return `−${magnitude}`;
+  return magnitude;
+}
+
 export function formatBodyBmi(bmi: number): string {
   return bmi.toFixed(1);
 }

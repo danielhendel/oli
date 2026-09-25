@@ -3,16 +3,17 @@ import { StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricClassificationChartModel } from "@/lib/body/presentation/bodyMetricCardTypes";
 import {
-  BODY_METRIC_CHART_MARKER_BORDER,
-  BODY_METRIC_CHART_MARKER_FILL,
-  BODY_METRIC_CHART_MARKER_GLOW,
-  BODY_METRIC_CHART_MARKER_TEXT,
+  BodyChartPositionMarker,
+  BODY_CHART_MARKER_RAIL_HEIGHT,
+} from "@/lib/ui/body/BodyChartPositionMarker";
+import {
   BODY_METRIC_CHART_TRACK_BORDER,
   BODY_METRIC_CHART_TRACK_SHADOW,
   BODY_METRIC_CHART_TRACK_SHEEN,
   BODY_METRIC_SPECTRUM_HEIGHT,
   BODY_METRIC_SPECTRUM_RADIUS,
   resolveBodyMetricClassificationBandChrome,
+  resolveWeightClassificationSegmentVisual,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
 export type BodyMetricClassificationChartProps = {
@@ -44,7 +45,7 @@ function validateChartModel(model: BodyMetricClassificationChartModel): string |
 }
 
 /**
- * Presentation-only categorical classification chart.
+ * Presentation-only categorical classification / educational-reference chart.
  * Thin luminous spectrum + labels beneath — not color-only.
  * Does not calculate BMI, classify, convert units, or access profile/sources.
  */
@@ -75,6 +76,13 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
     markerSegmentIndex >= 0
       ? ((markerSegmentIndex + within) / segmentCount) * 100
       : null;
+  const activeSegment =
+    markerSegmentIndex >= 0 ? model.segments[markerSegmentIndex] : null;
+  const markerCenterFill =
+    activeSegment != null
+      ? resolveBodyMetricClassificationBandChrome(activeSegment.tone).fillStrong
+      : null;
+  const isValuePosition = marker?.kind === "value_position";
 
   return (
     <View
@@ -85,23 +93,17 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
       style={styles.wrap}
     >
       <View style={styles.markerRail} importantForAccessibility="no">
-        {marker != null && markerLeftPct != null ? (
-          <View
-            pointerEvents="none"
-            accessibilityElementsHidden
-            style={[styles.markerColumn, { left: `${markerLeftPct}%` }]}
+        {marker != null && markerLeftPct != null && markerCenterFill != null ? (
+          <BodyChartPositionMarker
+            leftPercent={markerLeftPct}
+            centerFill={markerCenterFill}
             testID="body-metric-classification-marker"
-          >
-            <View style={styles.valueCapsuleOuter}>
-              <View style={styles.valueCapsule}>
-                <Text style={styles.valueCapsuleText} numberOfLines={1}>
-                  {marker.formattedValue}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.markerStem} />
-            <View style={styles.markerDot} />
-          </View>
+            knobTestID={
+              isValuePosition
+                ? "body-metric-classification-marker-value-position"
+                : "body-metric-classification-marker-classification"
+            }
+          />
         ) : null}
       </View>
 
@@ -112,7 +114,7 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
       >
         <View style={styles.track}>
           {model.segments.map((segment, index) => {
-            const chrome = resolveBodyMetricClassificationBandChrome(segment.tone);
+            const visual = resolveWeightClassificationSegmentVisual(segment.tone);
             const isFirst = index === 0;
             const isLast = index === segmentCount - 1;
             return (
@@ -121,8 +123,8 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
                 style={[
                   styles.band,
                   {
-                    backgroundColor: chrome.fillStrong,
-                    borderRightColor: chrome.divider,
+                    backgroundColor: visual.paint.fillStrong,
+                    borderRightColor: visual.paint.divider,
                     borderRightWidth: isLast ? 0 : StyleSheet.hairlineWidth,
                     borderTopLeftRadius: isFirst ? BODY_METRIC_SPECTRUM_RADIUS : 0,
                     borderBottomLeftRadius: isFirst ? BODY_METRIC_SPECTRUM_RADIUS : 0,
@@ -131,7 +133,16 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
                   },
                 ]}
               >
-                <View style={[styles.bandSheen, { backgroundColor: chrome.fillHighlight }]} />
+                <View
+                  style={[
+                    styles.bandSheen,
+                    {
+                      backgroundColor: visual.paint.fillHighlight,
+                      height: `${visual.sheenHeightRatio * 100}%`,
+                      opacity: visual.sheenLayerOpacity,
+                    },
+                  ]}
+                />
               </View>
             );
           })}
@@ -166,68 +177,14 @@ export function BodyMetricClassificationChart(props: BodyMetricClassificationCha
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: 12,
+    gap: 8,
   },
   failClosed: {
     height: 0,
   },
   markerRail: {
-    height: 40,
+    height: BODY_CHART_MARKER_RAIL_HEIGHT,
     position: "relative",
-  },
-  markerColumn: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: 100,
-    marginLeft: -50,
-    alignItems: "center",
-    zIndex: 3,
-  },
-  valueCapsuleOuter: {
-    borderRadius: 999,
-    padding: 2.5,
-    backgroundColor: BODY_METRIC_CHART_MARKER_GLOW,
-  },
-  valueCapsule: {
-    backgroundColor: BODY_METRIC_CHART_MARKER_FILL,
-    borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 4,
-    maxWidth: 96,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BODY_METRIC_CHART_MARKER_BORDER,
-    shadowColor: "#000",
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
-  },
-  valueCapsuleText: {
-    color: BODY_METRIC_CHART_MARKER_TEXT,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: -0.15,
-    textAlign: "center",
-    fontVariant: ["tabular-nums"],
-  },
-  markerStem: {
-    width: 1.5,
-    flexGrow: 1,
-    minHeight: 8,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    marginTop: 2,
-  },
-  markerDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: BODY_METRIC_CHART_MARKER_FILL,
-    marginTop: -1,
-    shadowColor: "#fff",
-    shadowOpacity: 0.55,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 0 },
   },
   trackGlow: {
     borderRadius: BODY_METRIC_SPECTRUM_RADIUS,
@@ -255,8 +212,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    height: "48%",
-    opacity: 0.85,
+    // height + opacity applied inline from resolveWeightClassificationSegmentVisual
+    // (BODY_METRIC_CLASSIFICATION_BAND_SHEEN_* — shared with Weight trend chart).
   },
   trackSheen: {
     ...StyleSheet.absoluteFillObject,
@@ -267,7 +224,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 2,
     paddingHorizontal: 0,
-    marginTop: 4,
+    marginTop: 2,
   },
   labelCell: {
     flex: 1,

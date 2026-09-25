@@ -1,6 +1,7 @@
-import { describe, it, expect, jest } from "@jest/globals";
 import {
   APPLE_HEALTH_BODY_BACKFILL_YEARS,
+  expectedBodyBackfillChunkCount,
+  isBodyBackfillCompletionImplausible,
   isoYearsAgoFromNow,
   runAppleHealthBodyBackfill,
 } from "../runAppleHealthBodyBackfill";
@@ -24,6 +25,30 @@ describe("runAppleHealthBodyBackfill", () => {
     expect(start.startsWith("2021-03-31")).toBe(true);
   });
 
+  it("flags implausible completed checkpoints with too few chunks", () => {
+    expect(
+      isBodyBackfillCompletionImplausible({
+        targetStartDate: "2021-03-31T12:00:00.000Z",
+        nowIso: "2026-03-31T12:00:00.000Z",
+        chunkDays: 31,
+        chunkCount: 2,
+      }),
+    ).toBe(true);
+    const expected = expectedBodyBackfillChunkCount(
+      "2021-03-31T12:00:00.000Z",
+      "2026-03-31T12:00:00.000Z",
+      31,
+    );
+    expect(
+      isBodyBackfillCompletionImplausible({
+        targetStartDate: "2021-03-31T12:00:00.000Z",
+        nowIso: "2026-03-31T12:00:00.000Z",
+        chunkDays: 31,
+        chunkCount: expected,
+      }),
+    ).toBe(false);
+  });
+
   it("processes history in chunks and records summary", async () => {
     const store = makeStateStore();
     const pull = jest.fn(async () => ({
@@ -38,7 +63,8 @@ describe("runAppleHealthBodyBackfill", () => {
         pullBodyCompositionSamples: pull,
         ingestRawEvent,
         appleHealthBodyWeightIdempotencyKey: ({ observedAtIso }) => `w:${observedAtIso}`,
-        appleHealthBodyCompositionIdempotencyKey: ({ observedAtIso, metric }) => `c:${metric}:${observedAtIso}`,
+        appleHealthBodyCompositionIdempotencyKey: ({ observedAtIso, metric }) =>
+          `c:${metric}:${observedAtIso}`,
         getDeviceTimezone: () => "America/Los_Angeles",
         getBackfillState: store.get,
         setBackfillState: store.set,
@@ -78,7 +104,8 @@ describe("runAppleHealthBodyBackfill", () => {
         pullBodyCompositionSamples: pull,
         ingestRawEvent: async () => ({ ok: true as const }),
         appleHealthBodyWeightIdempotencyKey: ({ observedAtIso }) => `w:${observedAtIso}`,
-        appleHealthBodyCompositionIdempotencyKey: ({ observedAtIso, metric }) => `c:${metric}:${observedAtIso}`,
+        appleHealthBodyCompositionIdempotencyKey: ({ observedAtIso, metric }) =>
+          `c:${metric}:${observedAtIso}`,
         getDeviceTimezone: () => "UTC",
         getBackfillState: store.get,
         setBackfillState: store.set,
@@ -88,7 +115,7 @@ describe("runAppleHealthBodyBackfill", () => {
     expect(pull.mock.calls[0]?.[0]?.startDate).toBe("2026-03-20T12:00:00.000Z");
   });
 
-  it("does not rerun when already completed", async () => {
+  it("does not rerun when already completed with a plausible chunk count", async () => {
     const store = makeStateStore({
       status: "completed",
       backfillStartDate: "2026-03-31T12:00:00.000Z",
@@ -99,7 +126,7 @@ describe("runAppleHealthBodyBackfill", () => {
       summary: {
         startedAt: "2026-03-31T12:00:00.000Z",
         completedAt: "2026-03-31T12:10:00.000Z",
-        chunkCount: 4,
+        chunkCount: 60,
         samplesRead: 100,
         samplesIngested: 100,
         samplesSkippedDuplicate: 0,
@@ -114,7 +141,8 @@ describe("runAppleHealthBodyBackfill", () => {
         pullBodyCompositionSamples: pull,
         ingestRawEvent: async () => ({ ok: true as const }),
         appleHealthBodyWeightIdempotencyKey: ({ observedAtIso }) => `w:${observedAtIso}`,
-        appleHealthBodyCompositionIdempotencyKey: ({ observedAtIso, metric }) => `c:${metric}:${observedAtIso}`,
+        appleHealthBodyCompositionIdempotencyKey: ({ observedAtIso, metric }) =>
+          `c:${metric}:${observedAtIso}`,
         getDeviceTimezone: () => "UTC",
         getBackfillState: store.get,
         setBackfillState: store.set,
@@ -124,6 +152,80 @@ describe("runAppleHealthBodyBackfill", () => {
     if (!result.ok) return;
     expect(result.status).toBe("already_completed");
     expect(pull).not.toHaveBeenCalled();
+  });
+
+  it("force-restarts when completed checkpoint has implausibly few chunks", async () => {
+    const store = makeStateStore({
+      status: "completed",
+      backfillStartDate: "2026-03-31T12:00:00.000Z",
+      targetStartDate: "2021-03-31T12:00:00.000Z",
+      lastProcessedDate: "2026-03-31T12:00:00.000Z",
+      lastRunAt: "2026-03-31T12:00:00.000Z",
+      error: null,
+      summary: {
+        startedAt: "2026-03-31T12:00:00.000Z",
+        completedAt: "2026-03-31T12:10:00.000Z",
+        chunkCount: 1,
+        samplesRead: 5,
+        samplesIngested: 5,
+        samplesSkippedDuplicate: 0,
+        lastProcessedDate: "2026-03-31T12:00:00.000Z",
+      },
+    });
+    const pull = jest.fn(async () => ({ ok: true as const, data: [] }));
+    const result = await runAppleHealthBodyBackfill(
+      { token: "t1", chunkDays: 1000 },
+      {
+        nowIso: () => "2026-03-31T12:00:00.000Z",
+        pullBodyCompositionSamples: pull,
+        ingestRawEvent: async () => ({ ok: true as const }),
+        appleHealthBodyWeightIdempotencyKey: ({ observedAtIso }) => `w:${observedAtIso}`,
+        appleHealthBodyCompositionIdempotencyKey: ({ observedAtIso, metric }) =>
+          `c:${metric}:${observedAtIso}`,
+        getDeviceTimezone: () => "UTC",
+        getBackfillState: store.get,
+        setBackfillState: store.set,
+      },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("completed");
+    expect(pull.mock.calls.length).toBeGreaterThan(0);
+    expect(pull.mock.calls[0]?.[0]?.startDate).toBe("2021-03-31T12:00:00.000Z");
+  });
+
+  it("continues past empty historical chunks (gaps do not terminate)", async () => {
+    const store = makeStateStore();
+    let call = 0;
+    const pull = jest.fn(async () => {
+      call += 1;
+      if (call === 2) {
+        return {
+          ok: true as const,
+          data: [{ observedAt: "2024-06-01T00:00:00.000Z", sourceId: "watch", weightKg: 80 }],
+        };
+      }
+      return { ok: true as const, data: [] };
+    });
+    const result = await runAppleHealthBodyBackfill(
+      { token: "t1", chunkDays: 1000 },
+      {
+        nowIso: () => "2026-03-31T12:00:00.000Z",
+        pullBodyCompositionSamples: pull,
+        ingestRawEvent: async () => ({ ok: true as const }),
+        appleHealthBodyWeightIdempotencyKey: ({ observedAtIso }) => `w:${observedAtIso}`,
+        appleHealthBodyCompositionIdempotencyKey: ({ observedAtIso, metric }) =>
+          `c:${metric}:${observedAtIso}`,
+        getDeviceTimezone: () => "UTC",
+        getBackfillState: store.get,
+        setBackfillState: store.set,
+      },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(pull.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(result.samplesIngested).toBeGreaterThan(0);
+    expect(store.peek()?.status).toBe("completed");
   });
 
   it("preserves timezone in ingested payloads and ingests mixed metrics", async () => {
@@ -136,13 +238,19 @@ describe("runAppleHealthBodyBackfill", () => {
         pullBodyCompositionSamples: async () => ({
           ok: true,
           data: [
-            { observedAt: "2026-03-01T10:00:00.000Z", sourceId: "watch", weightKg: 80, bodyFatPercent: 18 },
+            {
+              observedAt: "2026-03-01T10:00:00.000Z",
+              sourceId: "watch",
+              weightKg: 80,
+              bodyFatPercent: 18,
+            },
             { observedAt: "2026-03-02T10:00:00.000Z", sourceId: "watch", bmi: 24.1 },
           ],
         }),
         ingestRawEvent,
         appleHealthBodyWeightIdempotencyKey: ({ observedAtIso }) => `w:${observedAtIso}`,
-        appleHealthBodyCompositionIdempotencyKey: ({ observedAtIso, metric }) => `c:${metric}:${observedAtIso}`,
+        appleHealthBodyCompositionIdempotencyKey: ({ observedAtIso, metric }) =>
+          `c:${metric}:${observedAtIso}`,
         getDeviceTimezone: () => "America/New_York",
         getBackfillState: store.get,
         setBackfillState: store.set,

@@ -10,6 +10,7 @@ const mockRequestBroad = jest.fn();
 const mockEnableBody = jest.fn();
 const mockSync = jest.fn();
 const mockBackfill = jest.fn();
+const mockBodyFatHistory = jest.fn();
 const mockScheduleSteps = jest.fn();
 
 jest.mock("react-native", () => ({
@@ -27,6 +28,35 @@ jest.mock("@/lib/integrations/appleHealth", () => ({
   appleHealthBodyCompositionIdempotencyKey: jest.fn(),
   runAppleHealthBodySync: (...a: unknown[]) => mockSync(...a),
   runAppleHealthBodyBackfill: (...a: unknown[]) => mockBackfill(...a),
+  runAppleHealthBodyFatHistoryImport: (...a: unknown[]) => mockBodyFatHistory(...a),
+}));
+
+jest.mock("@/lib/integrations/appleHealth/diagnoseAppleHealthWeightHistoryExtent", () => ({
+  diagnoseAppleHealthWeightHistoryExtent: jest.fn(async () => ({
+    metric: "weight",
+    oldestObservedAt: null,
+    newestObservedAt: null,
+    sampleCountBucket: "0",
+    pagesOrChunks: 0,
+    scanStart: "t0",
+    scanEnd: "t1",
+    status: "empty",
+    safeErrorCode: null,
+  })),
+}));
+
+jest.mock("@/lib/integrations/appleHealth/diagnoseAppleHealthBodyFatHistoryExtent", () => ({
+  diagnoseAppleHealthBodyFatHistoryExtent: jest.fn(async () => ({
+    metric: "bodyFat",
+    oldestObservedAt: null,
+    newestObservedAt: null,
+    sampleCountBucket: "0",
+    chunksScanned: 0,
+    scanStart: "t0",
+    scanEnd: "t1",
+    status: "empty",
+    safeErrorCode: null,
+  })),
 }));
 
 jest.mock("@/lib/integrations/appleHealth/storage", () => ({
@@ -38,6 +68,8 @@ jest.mock("@/lib/integrations/appleHealth/storage", () => ({
   setLastSyncAt: jest.fn(async () => undefined),
   getAppleHealthBodyBackfillState: jest.fn(),
   setAppleHealthBodyBackfillState: jest.fn(),
+  getAppleHealthBodyFatBackfillState: jest.fn(async () => null),
+  setAppleHealthBodyFatBackfillState: jest.fn(async () => undefined),
 }));
 
 jest.mock("@/lib/integrations/appleHealth/appleHealthMetricSyncController", () => ({
@@ -66,7 +98,19 @@ describe("connectAppleHealthBodyForComposition", () => {
     mockEnableBody.mockReset();
     mockSync.mockReset();
     mockBackfill.mockReset();
+    mockBodyFatHistory.mockReset();
     mockScheduleSteps.mockReset();
+    mockBodyFatHistory.mockResolvedValue({
+      ok: true,
+      status: "completed",
+      startedAt: "t0",
+      completedAt: "t1",
+      chunkCount: 1,
+      samplesRead: 5,
+      samplesIngested: 3,
+      oldestHealthKitObservedAt: null,
+      newestHealthKitObservedAt: null,
+    });
   });
 
   it("enables Body domain only, syncs latest, imports history without Steps repair", async () => {
@@ -139,6 +183,7 @@ describe("connectAppleHealthBodyMetricForComposition", () => {
     mockEnableBody.mockReset();
     mockSync.mockReset();
     mockBackfill.mockReset();
+    mockBodyFatHistory.mockReset();
     mockScheduleSteps.mockReset();
     mockRequestRead.mockResolvedValue({ ok: true });
     mockEnableBody.mockResolvedValue(undefined);
@@ -153,6 +198,17 @@ describe("connectAppleHealthBodyMetricForComposition", () => {
       samplesIngested: 1,
       samplesSkippedDuplicate: 0,
       lastProcessedDate: null,
+    });
+    mockBodyFatHistory.mockResolvedValue({
+      ok: true,
+      status: "completed",
+      startedAt: "t0",
+      completedAt: "t1",
+      chunkCount: 1,
+      samplesRead: 1,
+      samplesIngested: 1,
+      oldestHealthKitObservedAt: null,
+      newestHealthKitObservedAt: null,
     });
   });
 

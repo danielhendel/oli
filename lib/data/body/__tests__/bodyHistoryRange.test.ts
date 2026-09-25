@@ -26,12 +26,19 @@ describe("bodyHistoryRange", () => {
     expect(resolveBodyHistoryQueryWindow("All")).toEqual(resolveBodyHistoryQueryWindow("5Y"));
   });
 
-  it("1Y window ends at today + raw-events end buffer and starts 365 local days earlier", () => {
+  it("1Y window ends at today + raw-events end buffer and starts one calendar year earlier", () => {
     const w = resolveBodyHistoryQueryWindow("1Y");
     expect(w.end).toBe(addDaysToDayKey("2026-01-15", RAW_EVENTS_QUERY_END_DAY_BUFFER));
-    expect(w.start).toBe(addDaysToDayKey("2026-01-15", -365));
+    expect(w.start).toBe("2025-01-15");
     const five = resolveBodyHistoryQueryWindow("5Y");
     expect(w.start > five.start).toBe(true);
+  });
+
+  it("6M / 3Y / 5Y use calendar month and year subtraction", () => {
+    mockGetToday.mockReturnValue("2026-03-31");
+    expect(resolveBodyHistoryQueryWindow("6M").start).toBe("2025-09-30");
+    expect(resolveBodyHistoryQueryWindow("3Y").start).toBe("2023-03-31");
+    expect(resolveBodyHistoryQueryWindow("5Y").start).toBe("2021-03-31");
   });
 
   it("rangeToStartEnd(All) is unbounded marker for legacy callers", () => {

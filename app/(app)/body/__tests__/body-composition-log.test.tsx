@@ -13,6 +13,7 @@ jest.mock("expo-router", () => ({
     },
     goBack: jest.fn(),
   }),
+  useLocalSearchParams: () => ({}),
 }));
 
 jest.mock("@/lib/data/body/useBodyCompositionLog", () => ({
@@ -25,6 +26,7 @@ jest.mock("@/lib/data/body/useBodyCompositionLog", () => ({
         dayKey: "2026-06-06",
         weightKg: 72.8931,
         bodyFatPercent: null,
+        leanBodyMassKg: null,
         provider: "manual",
         sourceId: "manual",
         canEdit: true,

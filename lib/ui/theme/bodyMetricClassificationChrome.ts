@@ -79,6 +79,91 @@ export function resolveBodyMetricClassificationBandChrome(
 }
 
 /**
+ * Exact Weight-card rail paint — same final fills as {@link BodyMetricClassificationChart}.
+ * Card rail may still apply a sheen layer; trend chart bands must NOT.
+ */
+export type WeightClassificationBandPaint = {
+  /** Exact card band `backgroundColor` — solid `#RRGGBB`, no alpha. */
+  readonly fillStrong: string;
+  /** Exact card `bandSheen` backgroundColor (token already includes its own alpha). */
+  readonly fillHighlight: string;
+  /** Exact card inter-segment divider. */
+  readonly divider: string;
+};
+
+/** Matches `BodyMetricClassificationChart` `styles.bandSheen.opacity`. */
+export const BODY_METRIC_CLASSIFICATION_BAND_SHEEN_OPACITY = 0.85 as const;
+/** Matches `BodyMetricClassificationChart` `styles.bandSheen.height` ("48%"). */
+export const BODY_METRIC_CLASSIFICATION_BAND_SHEEN_HEIGHT_RATIO = 0.48 as const;
+
+/**
+ * Shared visual recipe for Weight classification segments on the Weight card rail.
+ * Includes sheen — for trend chart bands use {@link resolveWeightClassificationColor} only.
+ */
+export type WeightClassificationSegmentVisual = {
+  readonly tone: BodyMetricClassificationTone;
+  readonly paint: WeightClassificationBandPaint;
+  /**
+   * Exact card `styles.bandSheen` opacity — applied to fillHighlight layer only,
+   * matching BodyMetricClassificationChart.
+   */
+  readonly sheenLayerOpacity: typeof BODY_METRIC_CLASSIFICATION_BAND_SHEEN_OPACITY;
+  /** Exact card `styles.bandSheen` height fraction. */
+  readonly sheenHeightRatio: typeof BODY_METRIC_CLASSIFICATION_BAND_SHEEN_HEIGHT_RATIO;
+};
+
+/**
+ * Single solid semantic color for Weight trend classification bands.
+ * Exact Weight-card `fillStrong` — no gradient, no sheen, no alpha layering.
+ */
+export function resolveWeightClassificationColor(
+  tone: BodyMetricClassificationTone,
+): string {
+  return resolveBodyMetricClassificationBandChrome(tone).fillStrong;
+}
+
+export function resolveWeightClassificationBandPaint(
+  tone: BodyMetricClassificationTone,
+): WeightClassificationBandPaint {
+  const chrome = resolveBodyMetricClassificationBandChrome(tone);
+  return {
+    fillStrong: chrome.fillStrong,
+    fillHighlight: chrome.fillHighlight,
+    divider: chrome.divider,
+  };
+}
+
+/**
+ * Full Weight-card rail visual (solid + sheen). Trend chart must not use sheen.
+ */
+export function resolveWeightClassificationSegmentVisual(
+  tone: BodyMetricClassificationTone,
+): WeightClassificationSegmentVisual {
+  return {
+    tone,
+    paint: resolveWeightClassificationBandPaint(tone),
+    sheenLayerOpacity: BODY_METRIC_CLASSIFICATION_BAND_SHEEN_OPACITY,
+    sheenHeightRatio: BODY_METRIC_CLASSIFICATION_BAND_SHEEN_HEIGHT_RATIO,
+  };
+}
+
+/** Expose Weight-card fillStrong hexes for cross-surface identity tests. */
+export const BODY_METRIC_CLASSIFICATION_FILL_STRONG_TOKENS = {
+  cool: DARK.cool.fillStrong,
+  reference: DARK.reference.fillStrong,
+  caution: DARK.caution.fillStrong,
+  elevated: DARK.elevated.fillStrong,
+} as const;
+
+/** Expose Weight-card fillHighlight for cross-surface sheen identity tests. */
+export const BODY_METRIC_CLASSIFICATION_FILL_HIGHLIGHT_TOKENS = {
+  cool: DARK.cool.fillHighlight,
+  reference: DARK.reference.fillHighlight,
+  caution: DARK.caution.fillHighlight,
+  elevated: DARK.elevated.fillHighlight,
+} as const;
+
+/**
  * Exported for style-contract tests — classification names must stay segment-colored
  * (not generic near-white / muted tertiary).
  */

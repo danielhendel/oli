@@ -31,11 +31,23 @@ export const BODY_FAT_GALLAGHER_CANDIDATE_NOTES = {
     "Legacy ACSM/NSCA bands in lib/classifications/bodyComposition.ts (unverified for consumer v1)",
   ],
   proposedSemanticClassesPendingVerification: [
-    "Underfat",
-    "Healthy Body Fat",
-    "Excess Body Fat",
-    "Obesity by Body Fat",
+    "Below Reference",
+    "Reference Range",
+    "Elevated",
+    "High",
   ],
+  /**
+   * Leadership decision gate (2026-09-20 redesign):
+   * Candidate combined African American/White Gallagher table values were proposed for
+   * age/sex bands, but silently assigning that table to all users is scientifically
+   * unacceptable. Ethnicity/reference-population must not be inferred. No approved
+   * sensitive profile field exists for reference population. Therefore personal
+   * placement remains BLOCKED. Detail education may continue without ACE categories.
+   */
+  runtimeVerdict: "EDUCATIONAL_ONLY" as const,
+  personalMarkerVerdict: "BLOCKED" as const,
+  referencePopulationDecision:
+    "Do not silently assign combined African American/White table as a universal default. Asian-specific values require explicit population handling. Leadership approval required before any personal placement.",
   limitations: [
     "No WHO/CDC universal body-fat percentage classification.",
     "Age- and sex-specific; population applicability must be explicit.",

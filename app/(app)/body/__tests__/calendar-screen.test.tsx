@@ -34,6 +34,7 @@ jest.mock("expo-router", () => ({
     setOptions: mockSetOptions,
     goBack: jest.fn(),
   }),
+  useLocalSearchParams: () => ({}),
 }));
 
 jest.mock("@/lib/ui/calendar/dateUtils", () => {
@@ -47,6 +48,23 @@ jest.mock("@/lib/ui/calendar/dateUtils", () => {
 const mockHook = jest.fn();
 jest.mock("@/lib/data/body/useBodyCompositionData", () => ({
   useBodyCompositionData: (...args: unknown[]) => mockHook(...args),
+}));
+
+jest.mock("@/lib/data/body/useBodyMetricTrends", () => ({
+  useBodyMetricTrends: () => ({
+    status: "ready",
+    data: {
+      byMetric: {
+        weight: [],
+        body_fat_percent: [],
+        bmi: [],
+        lean_body_mass: [],
+        resting_metabolic_rate: [],
+      },
+      statsByMetric: {},
+    },
+    refetch: jest.fn(),
+  }),
 }));
 
 const Screen = require("../calendar").default as React.ComponentType;

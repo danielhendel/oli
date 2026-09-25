@@ -200,6 +200,51 @@ Source: Mountjoy et al. Br J Sports Med 2023 — https://doi.org/10.1136/bjsport
 
 ---
 
+## 10. Stage 3C numerical standards gate (2026-09-20)
+
+### 10.1 Gallagher Body Fat — APPROVED FOR STAGE 3C V1
+
+| Field | Content |
+|-------|---------|
+| Standard ID | `gallagher-4c-bmi-equivalent-body-fat-reference` |
+| Version | `2000.1` |
+| Source | Gallagher et al. 2000 *Am J Clin Nutr* — BMI-equivalent %BF guidelines |
+| Card labels | Lower / Mid-range / Higher (Higher merges source Elevated + Obesity-linked upper regions) |
+| Population | Combined African American / White Table 4 — **general educational screening reference**; not universal; not ethnicity-inferred; separate Asian models exist in source |
+| Age / sex | Adults 20–79; Female or Male reference sex only |
+| Leadership | **APPROVED FOR STAGE 3C V1** numerical educational card reference (2026-09-20) |
+| Personal marker | **BLOCKED** — method + reference-population eligibility + Stage 3D provenance required later |
+| Mass ranges | Derived from % bounds × compatible Weight (Stage 3B pairing); no persistence |
+| Claim type | PRODUCT DECISION (educational screening ranges on card) + EVIDENCE (primary table) |
+| Rejected | ACE Essential/Athletic/Fitness/Average as Oli health truth |
+
+### 10.2 Kelly NHANES Table S5 Lean Mass — NUMERICAL DEFERRED / BLOCKED; COMPOSITION-SHARE FALLBACK APPROVED
+
+| Field | Content |
+|-------|---------|
+| Candidate ID | `kelly-nhanes-hologic-total-lmi-reference` |
+| Version candidate | `2009.1` |
+| Source | Kelly, Wilson, Heymsfield 2009 *PLoS ONE* 4(9):e7038 |
+| Supplement | Table S5 Lean Mass/Height² vs Age — DOI `10.1371/journal.pone.0007038.s025` |
+| DOC SHA-256 | `43371bbccbc42af900bbd15770470414c61bac2cead2ac13b16068d64debb718` |
+| License | PLoS ONE CC BY — checksum/extraction notes permitted |
+| Columns | Age, M (median), σ (SD), L (skewness); S = σ/M for LMS |
+| Construct | Total lean mass index (Lean Mass/Height²) — **not** ALM/ALMI |
+| Populations | White / Black / Mexican American × Males / Females — **no pooled adult curve** |
+| Verified rows | White male age 20 M=18.98 σ=2.50 L=-1.115; Black female age 40 M=18.12 σ=2.86 L=-0.872; Mexican American male age 60 M=19.93 σ=2.16 L=-0.492 |
+| Device | Hologic QDR 4500A / NHANES calibration — not Apple Health unknown method |
+| Runtime verdict | **LEAN MASS NUMERICAL REFERENCE BLOCKED — NO APPROVED NON-INFERRED REFERENCE POPULATION** |
+| Leadership Stage 3C fallback | **COMPOSITION-SHARE VISUALIZATION APPROVED** — scientific honesty over visual symmetry |
+| Personal marker | **BLOCKED** |
+| Future dependency | Stage 3D measurement provenance + separate standards approval |
+| Claim type | EVIDENCE (table structure) + PRODUCT DECISION (hard stop; no silent ethnicity) |
+
+Prior physical candidate `050d338e62749d7920988900f25d61b847fdbad4` (composition-share for both BF/LM): **SUPERSEDED — DO NOT REUSE PHYSICAL EVIDENCE**.
+
+Leadership decision (2026-09-20): asymmetric Stage 3C v1 **APPROVED** — Body Fat numerical educational ranges + Lean Mass composition-share fallback. Physical-iPhone retest **REQUIRED**.
+
+---
+
 ## 8. Bibliography (primary)
 
 1. WHO. *Waist Circumference and Waist–Hip Ratio: Report of a WHO Expert Consultation.* https://www.who.int/publications/i/item/9789241501491
@@ -211,6 +256,8 @@ Source: Mountjoy et al. Br J Sports Med 2023 — https://doi.org/10.1136/bjsport
 7. Achamrah N, et al. DXA vs BIA by BMI. *PLOS One.* 2018. https://doi.org/10.1371/journal.pone.0200465
 8. Clin J Sport Med systematic review/meta-analysis: DXA vs BIA in athletes. https://doi.org/10.1097/jsm.0000000000001136
 9. Mountjoy M, et al. IOC REDs consensus. *Br J Sports Med.* 2023. https://doi.org/10.1136/bjsports-2023-106994
+10. Gallagher D, et al. Healthy percentage body fat ranges… *Am J Clin Nutr.* 2000;72:694–701. PMID 10966886
+11. Kelly TL, Wilson KE, Heymsfield SB. Dual Energy X-Ray Absorptiometry Body Composition Reference Values from NHANES. *PLoS ONE.* 2009;4(9):e7038. Table S5 DOI 10.1371/journal.pone.0007038.s025
 
 ---
 

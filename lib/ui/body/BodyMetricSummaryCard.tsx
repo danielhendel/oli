@@ -8,7 +8,10 @@ import type {
   WeightPrimaryView,
 } from "@/lib/body/presentation/bodyMetricPrimaryViews";
 import { BodyAppleHealthSourceIcon } from "@/lib/ui/body/BodyAppleHealthSourceIcon";
+import { bodySegmentedControlStyles } from "@/lib/ui/body/bodySegmentedControlChrome";
+import { BodyCompositionShareChart } from "@/lib/ui/body/BodyCompositionShareChart";
 import { BodyMetricClassificationChart } from "@/lib/ui/body/BodyMetricClassificationChart";
+import { BodyMetricEducationalReferenceChart } from "@/lib/ui/body/BodyMetricEducationalReferenceChart";
 import { BodyMetricUnclassifiedScaffold } from "@/lib/ui/body/BodyMetricUnclassifiedScaffold";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import {
@@ -61,13 +64,17 @@ function SegmentedViewControl<T extends string>(props: {
   testID: string;
 }) {
   return (
-    <View style={styles.unitToggle} testID={props.testID} accessibilityRole="tablist">
+    <View style={bodySegmentedControlStyles.track} testID={props.testID} accessibilityRole="tablist">
       {props.options.map((option) => {
         const selected = props.selected === option.id;
         return (
           <Pressable
             key={option.id}
-            style={[styles.unitToggleSeg, selected && styles.unitToggleSegActive]}
+            style={[
+              bodySegmentedControlStyles.segment,
+              bodySegmentedControlStyles.segmentComfortable,
+              selected && bodySegmentedControlStyles.segmentActive,
+            ]}
             onPress={(e) => {
               e.stopPropagation?.();
               if (!selected) props.onChange(option.id);
@@ -81,7 +88,12 @@ function SegmentedViewControl<T extends string>(props: {
             }
             testID={`${props.testID}-${option.id}`}
           >
-            <Text style={[styles.unitToggleText, selected && styles.unitToggleTextActive]}>
+            <Text
+              style={[
+                bodySegmentedControlStyles.text,
+                selected && bodySegmentedControlStyles.textActive,
+              ]}
+            >
               {option.label}
             </Text>
           </Pressable>
@@ -151,13 +163,21 @@ function connectionAccessibility(
 
 /**
  * Premium Body metric card shell — value-first hierarchy with integrated chart region.
- * Weight may include an approved classification chart; Body Fat / Lean Mass use unclassified scaffolds.
+ * Weight uses BMI screening classification (marker stem without redundant value bubble).
+ * Body Fat may use Gallagher educational ranges with a value-position indicator only.
+ * Lean Mass uses composition-share with a quantity marker (no population ranges).
  */
 export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
   const { model } = props;
   const chart = model.classificationChart;
+  const educational = model.educationalReferenceChart;
+  const share = model.compositionShareGraph;
   const showChart = chart != null && chart.segments.length > 0;
-  const showScaffold = !showChart && model.showUnclassifiedScaffold;
+  const showShare = !showChart && share != null;
+  const showEducational =
+    !showChart && !showShare && educational != null && educational.segments.length > 0;
+  const showScaffold =
+    !showChart && !showShare && !showEducational && model.showUnclassifiedScaffold;
   const valueText = model.displayValue ?? "—";
   const valueA11y =
     model.formattedValue != null ? model.formattedValue : "No current measurement";
@@ -310,6 +330,20 @@ export function BodyMetricSummaryCard(props: BodyMetricSummaryCardProps) {
           />
         ) : null}
 
+        {showShare && share != null ? (
+          <BodyCompositionShareChart
+            model={share}
+            testID={`body-metric-share-${model.metric}`}
+          />
+        ) : null}
+
+        {showEducational && educational != null ? (
+          <BodyMetricEducationalReferenceChart
+            model={educational}
+            testID={`body-metric-educational-${model.metric}`}
+          />
+        ) : null}
+
         {showScaffold ? (
           <BodyMetricUnclassifiedScaffold
             accessibilityLabel={
@@ -429,33 +463,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  unitToggle: {
-    flexDirection: "row",
-    backgroundColor: "rgba(120,120,128,0.16)",
-    borderRadius: 8,
-    padding: 2,
-    minHeight: 44,
-    alignItems: "center",
-  },
-  unitToggleSeg: {
-    minWidth: 40,
-    minHeight: 40,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  unitToggleSegActive: {
-    backgroundColor: UI_CARD_SURFACE,
-  },
-  unitToggleText: {
-    color: UI_TEXT_SECONDARY,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  unitToggleTextActive: {
-    color: UI_TEXT_PRIMARY,
-  },
   chevron: {
     color: UI_TEXT_MUTED,
     fontSize: 22,
@@ -463,8 +470,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   valueBlock: {
-    marginTop: 10,
-    marginBottom: 4,
+    marginTop: 8,
+    marginBottom: 0,
   },
   valueRow: {
     flexDirection: "row",
@@ -484,11 +491,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   chartRegion: {
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: 4,
+    marginBottom: 2,
   },
   actionBlock: {
-    marginTop: 4,
+    marginTop: 2,
   },
   actionDivider: {
     height: StyleSheet.hairlineWidth,

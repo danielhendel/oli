@@ -27,6 +27,7 @@ import {
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   getAppleHealthBodyBackfillState,
+  getAppleHealthBodyFatBackfillState,
   getAppleHealthConnected,
   getAppleHealthMetricLastCheckedMap,
   isAppleHealthDomainEnabled,
@@ -67,6 +68,8 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
   const [historyAttention, setHistoryAttention] = useState(false);
   const [domainBackfillStatus, setDomainBackfillStatus] =
     useState<AppleHealthBodyBackfillStatus | null>(null);
+  const [bodyFatBackfillStatus, setBodyFatBackfillStatus] =
+    useState<AppleHealthBodyBackfillStatus | null>(null);
   const [metricLastChecked, setMetricLastChecked] = useState<
     Partial<Record<BodyAppleHealthMetricId, string | null>>
   >({});
@@ -90,6 +93,7 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
     setPhase("explaining");
     setHistoryAttention(false);
     setDomainBackfillStatus(null);
+    setBodyFatBackfillStatus(null);
     setMetricLastChecked({});
     setSourceConnected(false);
     setScopesLoaded(false);
@@ -111,11 +115,12 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
       setSourceConnected(false);
       return;
     }
-    const [connected, bodyEnabled, flags, backfill, lastMap] = await Promise.all([
+    const [connected, bodyEnabled, flags, backfill, bfBackfill, lastMap] = await Promise.all([
       getAppleHealthConnected().catch(() => false),
       isAppleHealthDomainEnabled("body").catch(() => false),
       resolveBodyMetricSyncFlags(uid).catch(() => EMPTY_FLAGS),
       getAppleHealthBodyBackfillState().catch(() => null),
+      getAppleHealthBodyFatBackfillState(uid).catch(() => null),
       getAppleHealthMetricLastCheckedMap(uid).catch(() => null),
     ]);
     if (activeUid.current !== uid) return;
@@ -123,7 +128,9 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
     setMetricSync(flags);
     setScopesLoaded(true);
     setDomainBackfillStatus(backfill?.status ?? null);
+    setBodyFatBackfillStatus(bfBackfill?.status ?? null);
     if (backfill?.status === "failed") setHistoryAttention(true);
+    else setHistoryAttention(false);
     setMetricLastChecked({
       weight: lastMap?.metrics.weight ?? null,
       bodyFat: lastMap?.metrics.bodyFat ?? null,
@@ -167,6 +174,12 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
         setPhase("explaining");
       } else if (status.kind === "review_access") {
         setPhase("needsReview");
+      } else if (
+        metricId === "bodyFat" &&
+        metricSync[metricId] &&
+        bodyFatBackfillStatus !== "completed"
+      ) {
+        setPhase("historyIncomplete");
       } else if (historyAttention && metricSync[metricId]) {
         setPhase("historyIncomplete");
       } else {
@@ -182,6 +195,7 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
       connectingMetric,
       accessPhase,
       historyAttention,
+      bodyFatBackfillStatus,
     ],
   );
 
@@ -350,10 +364,16 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
       void resumeAppleHealthBodyHistoryImport({
         getIdToken,
         ...(uid ? { uid } : {}),
+        ...(metricId ? { metricId } : {}),
         onPhase: (p) => {
           if (activeUid.current !== uid) return;
           if (activeMetricRef.current !== metricId) return;
           setPhase(p);
+          if (p === "upToDate" || p === "connectedNoData") {
+            setHistoryAttention(false);
+            void refreshScopeState();
+          }
+          if (p === "historyIncomplete") setHistoryAttention(true);
         },
         onLatestSynced: () => onDataRef.current(),
       });
@@ -381,6 +401,9 @@ export function useAppleHealthBodyConnectSheet(args: UseAppleHealthBodyConnectSh
       ? resolveBodyMetricHistoryLabel({
           metricScopeOn: activeMetricScopeOn,
           domainBackfillStatus,
+          ...(activeMetric === "bodyFat"
+            ? { metricBackfillStatus: bodyFatBackfillStatus }
+            : {}),
         })
       : "Not yet";
 

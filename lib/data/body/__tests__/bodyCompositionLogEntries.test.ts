@@ -48,4 +48,22 @@ describe("bodyCompositionLogEntries", () => {
     expect(entry?.deleteMenuLabel).toBe("Delete from Oli");
     expect(entry?.editDisabledReason).toBeNull();
   });
+
+  it("accepts Apple Health weight payloads that omit manual-schema extras", () => {
+    const entries = buildBodyCompositionLogEntries(
+      [
+        baseItem({
+          id: "ah-loose",
+          sourceId: "apple_health",
+          observedAt: "2024-06-16T12:00:00.000Z",
+          receivedAt: "2024-06-16T12:00:01.000Z",
+          payload: { weightKg: 74.2 },
+        }),
+      ],
+      "America/New_York",
+    );
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.weightKg).toBe(74.2);
+    expect(entries[0]!.dayKey).toBe("2024-06-16");
+  });
 });

@@ -3,6 +3,7 @@ import renderer, { act } from "react-test-renderer";
 
 import { buildBodyMetricSummaryCards } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import { BodyMetricSummaryCard } from "@/lib/ui/body/BodyMetricSummaryCard";
+import { bodySegmentedControlStyles, bodyWeightRangeSelectorStyles } from "@/lib/ui/body/bodySegmentedControlChrome";
 import {
   BODY_APPLE_HEALTH_ICON_NAME,
   BODY_APPLE_HEALTH_ICON_COLOR_MUTED,
@@ -27,6 +28,14 @@ jest.mock("@/lib/ui/body/BodyMetricClassificationChart", () => {
   };
 });
 
+jest.mock("@/lib/ui/body/BodyMetricEducationalReferenceChart", () => {
+  const ReactLocal = require("react");
+  return {
+    BodyMetricEducationalReferenceChart: (props: { testID?: string }) =>
+      ReactLocal.createElement("View", { testID: props.testID ?? "educational" }),
+  };
+});
+
 jest.mock("@/lib/ui/body/BodyMetricUnclassifiedScaffold", () => {
   const ReactLocal = require("react");
   return {
@@ -42,6 +51,19 @@ function collectText(test: renderer.ReactTestRenderer): string {
     .filter((x) => typeof x === "string")
     .join(" ");
 }
+
+describe("bodySegmentedControlStyles — toggle label contract", () => {
+  it("gives each segment enough minWidth for BMI / lb / kg / % on one line", () => {
+    expect(bodySegmentedControlStyles.segmentComfortable.minWidth).toBeGreaterThanOrEqual(54);
+    expect(bodySegmentedControlStyles.segmentComfortable.flexShrink).toBe(0);
+    expect(bodySegmentedControlStyles.track.minHeight).toBeGreaterThanOrEqual(44);
+  });
+
+  it("uses a near-black selected pill shared by lb/BMI and Weight range selector", () => {
+    expect(bodySegmentedControlStyles.segmentActive.backgroundColor).toBe("#000000");
+    expect(bodyWeightRangeSelectorStyles.segmentActive.backgroundColor).toBe("#000000");
+  });
+});
 
 describe("BodyMetricSummaryCard — view toggles + Apple Health action", () => {
   const [weight, bodyFat, lean] = buildBodyMetricSummaryCards({
@@ -91,6 +113,9 @@ describe("BodyMetricSummaryCard — view toggles + Apple Health action", () => {
     const bmi = tree.root.findByProps({ testID: "body-metric-view-weight-bmi" });
     expect(mass.props.accessibilityState.selected).toBe(true);
     expect(bmi.props.accessibilityState.selected).toBe(false);
+    const bmiLabel = bmi.findByType("Text");
+    expect(bmiLabel.children).toEqual(["BMI"]);
+    expect(String(bmiLabel.children.join(""))).not.toMatch(/\n/);
     expect(tree.root.findByProps({ testID: "body-metric-chevron-weight" })).toBeDefined();
     act(() => {
       bmi.props.onPress({ stopPropagation: jest.fn() });

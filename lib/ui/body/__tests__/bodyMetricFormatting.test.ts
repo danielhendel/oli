@@ -2,7 +2,10 @@
  * Locks in the shared kg ↔ lb conversion and display rules for Body Composition
  * (`formatBodyWeight`) and Dash body card (same formatter).
  */
-import { formatBodyWeight } from "@/lib/ui/body/bodyMetricFormatting";
+import {
+  formatBodyWeight,
+  formatBodyWeightChange,
+} from "@/lib/ui/body/bodyMetricFormatting";
 
 describe("formatBodyWeight", () => {
   it("shows one decimal for fractional pounds (160.7 lb bug case)", () => {
@@ -22,5 +25,16 @@ describe("formatBodyWeight", () => {
   it("drops trailing .0 for whole-kilogram values", () => {
     expect(formatBodyWeight(80, "kg")).toBe("80 kg");
     expect(formatBodyWeight(72.6, "kg")).toBe("72.6 kg");
+  });
+});
+
+describe("formatBodyWeightChange", () => {
+  it("prefixes gain with + and loss with Unicode minus", () => {
+    expect(formatBodyWeightChange(1.3 / 2.2046226218, "lb")).toBe("+1.3 lb");
+    expect(formatBodyWeightChange(-2.4 / 2.2046226218, "lb")).toBe("−2.4 lb");
+  });
+
+  it("does not invent judgment language for zero", () => {
+    expect(formatBodyWeightChange(0, "lb")).toBe("0 lb");
   });
 });

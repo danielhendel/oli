@@ -139,7 +139,32 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     expect(weight.classificationChart).toBeNull();
   });
 
-  it("shows Body Fat value without classification chart or personal marker", () => {
+  it("preserves Weight CDC/WHO classification chart visual contract", () => {
+    const [weight] = buildBodyMetricSummaryCards({
+      overview: {
+        overviewDay: "2026-09-18",
+        weightKg: 80,
+        bodyFatPercent: 18,
+        leanBodyMassKg: 60,
+        bmi: 24.2,
+        hasAnyMetric: true,
+      },
+      profile: adultProfile,
+      unit: "lb",
+    });
+    expect(weight.classificationChart).not.toBeNull();
+    expect(weight.educationalReferenceChart).toBeNull();
+    expect(weight.showUnclassifiedScaffold).toBe(false);
+    expect(weight.classificationChart!.segments.map((s) => s.label)).toEqual([
+      "Underweight",
+      "Healthy Weight",
+      "Overweight",
+      "Obesity",
+    ]);
+    expect(weight.classificationChart!.marker).not.toBeNull();
+  });
+
+  it("shows Body Fat Gallagher numerical screening ranges without personal marker", () => {
     const [, bodyFat] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -154,15 +179,32 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
     });
     expect(bodyFat.formattedValue).toBe("18.0%");
     expect(bodyFat.displayValue).toBe("18.0");
-    expect(bodyFat.classificationChart).toBeNull();
-    expect(bodyFat.showUnclassifiedScaffold).toBe(true);
-    expect(bodyFat.referenceBar).toBeNull();
-    expect(JSON.stringify(bodyFat)).not.toMatch(
-      /BIA|Essential|Athlete|Fitness|Average|Excellence|Underfat|Healthy Body Fat|Optimal|Elite/i,
-    );
+    expect(bodyFat.compositionShareGraph).toBeNull();
+    expect(bodyFat.educationalReferenceChart).toBeNull();
+    expect(bodyFat.classificationChart).not.toBeNull();
+    expect(bodyFat.classificationChart!.segments.map((s) => s.label)).toEqual([
+      "Lower",
+      "Mid-range",
+      "Higher",
+    ]);
+    expect(bodyFat.classificationChart!.segments.map((s) => s.formattedRange)).toEqual([
+      "<21%",
+      "21–<33%",
+      "≥33%",
+    ]);
+    expect(bodyFat.classificationChart!.marker).not.toBeNull();
+    expect(bodyFat.classificationChart!.marker!.kind).toBe("value_position");
+    expect(bodyFat.classificationChart!.marker!.showValueLabel).toBe(false);
+    expect(bodyFat.showUnclassifiedScaffold).toBe(false);
+    expect(bodyFat.referenceBar).not.toBeNull();
+    expect(bodyFat.referenceContextLabel).toBe("Screening reference");
+    expect(bodyFat.accessibilityLabel).not.toMatch(/Educational reference/i);
+    expect(bodyFat.accessibilityLabel).toMatch(/screening reference/i);
+    expect(bodyFat.accessibilityLabel).toMatch(/not an approved personal classification/i);
+    expect(bodyFat.accessibilityLabel).not.toMatch(/Essential|Athletic|Optimal|Excellence/i);
   });
 
-  it("shows Lean Mass without classification chart or ASM/ALMI", () => {
+  it("shows Lean Mass composition-share graph without ASM/ALMI claims", () => {
     const [, , lean] = buildBodyMetricSummaryCards({
       overview: {
         overviewDay: "2026-09-18",
@@ -176,12 +218,16 @@ describe("buildBodyMetricSummaryCards — visual classification", () => {
       unit: "lb",
     });
     expect(lean.classificationChart).toBeNull();
-    expect(lean.showUnclassifiedScaffold).toBe(true);
+    expect(lean.educationalReferenceChart).toBeNull();
+    expect(lean.compositionShareGraph).not.toBeNull();
+    expect(lean.compositionShareGraph!.kind).toBe("composition_share");
+    expect(lean.compositionShareGraph!.personalClassification).toBeNull();
+    expect(lean.compositionShareGraph!.caption).toBe("Share of total mass");
+    expect(lean.showUnclassifiedScaffold).toBe(false);
     expect(lean.title).toBe("Lean Mass");
-    expect(lean.accessibilityLabel).toMatch(/Total lean mass/i);
-    expect(JSON.stringify(lean)).not.toMatch(
-      /Elite|Optimal|Excellent|Weak|sarcopenia diagnosis|ALMI|ASM|Performance Rating/i,
-    );
+    expect(lean.accessibilityLabel).toMatch(/total Lean Mass|Share of total mass/i);
+    expect(lean.accessibilityLabel).not.toMatch(/\bALMI\b|\bASM\b|sarcopenia|Optimal|Excellence|Elite/i);
+    expect(JSON.stringify(lean)).not.toMatch(/"Lower"|"Mid-range"|"Higher"/);
   });
 
   it("does not invent Body score or aggregate rails", () => {

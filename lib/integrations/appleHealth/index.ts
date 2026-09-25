@@ -101,11 +101,34 @@ export {
 export {
   runAppleHealthBodyBackfill,
   isoYearsAgoFromNow,
+  expectedBodyBackfillChunkCount,
+  isBodyBackfillCompletionImplausible,
   APPLE_HEALTH_BODY_BACKFILL_YEARS,
   APPLE_HEALTH_BODY_BACKFILL_CHUNK_DAYS,
   type RunAppleHealthBodyBackfillDeps,
   type RunAppleHealthBodyBackfillResult,
 } from "./runAppleHealthBodyBackfill";
+export {
+  runAppleHealthBodyFatHistoryImport,
+  discoverOldestBodyFatObservedAt,
+  isBodyFatHistoryCompletionImplausible,
+  type RunAppleHealthBodyFatHistoryImportDeps,
+  type RunAppleHealthBodyFatHistoryImportResult,
+  type BodyFatHistoryExtentDiscovery,
+} from "./runAppleHealthBodyFatHistoryImport";
+export {
+  APPLE_HEALTH_EARLIEST_SAFE_BOUNDARY_ISO,
+  APPLE_HEALTH_BODY_FAT_HISTORY_CHUNK_DAYS,
+  resolveBodyFatHistorySearchBoundary,
+} from "./bodyFatHistoryBoundary";
+export {
+  diagnoseAppleHealthWeightHistoryExtent,
+  type AppleHealthWeightHistoryExtentDiagnostic,
+} from "./diagnoseAppleHealthWeightHistoryExtent";
+export {
+  diagnoseAppleHealthBodyFatHistoryExtent,
+  type AppleHealthBodyFatHistoryExtentDiagnostic,
+} from "./diagnoseAppleHealthBodyFatHistoryExtent";
 export {
   runAppleHealthStepsBackfill,
   APPLE_HEALTH_STEPS_BACKFILL_TRAILING_LOCAL_DAYS,

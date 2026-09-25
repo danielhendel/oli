@@ -12,6 +12,9 @@ import {
 } from "@/lib/data/body/bodyHistoryRange";
 
 const MAX_FETCH = 100;
+import { trendKindsForMetric } from "@/lib/data/body/trendKindsForMetric";
+import { diagnoseBodyFatExtentFromObservedAts } from "@/lib/body/presentation/diagnoseBodyFatExtent";
+
 /** Safety cap for rows within a bounded `start`/`end` window (multi-metric × backfill). */
 const MAX_TOTAL_BOUNDED = 25000;
 const CONCURRENCY = 8;
@@ -23,10 +26,7 @@ export type BodyTrendMetric =
   | "lean_body_mass"
   | "resting_metabolic_rate";
 
-/** Raw-event kinds needed for a single metric (smaller list responses on detail screens). */
-export function trendKindsForMetric(metric: BodyTrendMetric): ("weight" | "body_composition")[] {
-  return metric === "weight" ? ["weight"] : ["body_composition"];
-}
+export { trendKindsForMetric };
 
 export type BodyMetricStats = {
   change: number | null;
@@ -110,9 +110,9 @@ type TrendRow = {
 };
 
 /**
- * Body chart trends: always queries a **bounded** `observedAt` window derived from `chartRange`
- * (maps "All" → 5Y). Apple Health source filter + optional list `includePayload` avoids unbounded scans
- * and N+1 GETs when the API embeds payload.
+ * Body chart trends: queries a bounded `observedAt` window derived from `chartRange`
+ * for finite ranges. Body Fat `All` paginates all stored RawEvents (no start/end) —
+ * Weight `All` remains the governed 5Y chart window via {@link resolveBodyHistoryQueryWindow}.
  *
  * @param filterMetric — when set, only that metric is populated (and only the matching raw `kind(s)` are requested).
  * @param opts.enabled — when false, skips network (e.g. invalid route guard).
@@ -162,22 +162,30 @@ export function useBodyMetricTrends(
       const optsUnique = withUniqueCacheBust(opts, seq);
       const tz = getDeviceTimezone();
       const anchor = anchorDayKeyRef.current;
-      const { start, end } = resolveBodyHistoryQueryWindow(
-        rangeRef.current,
-        anchor !== undefined ? { anchorDayKey: anchor } : undefined,
-      );
       const fm = metricRef.current;
       const kinds = fm ? trendKindsForMetric(fm) : (["weight", "body_composition"] as const);
+      /** Body Fat All = all stored history. Weight All stays 5Y-bounded. */
+      const unboundedBodyFatAll =
+        fm === "body_fat_percent" && rangeRef.current === "All";
+      const boundedWindow = unboundedBodyFatAll
+        ? null
+        : resolveBodyHistoryQueryWindow(
+            rangeRef.current,
+            anchor !== undefined ? { anchorDayKey: anchor } : undefined,
+          );
 
       const accumulated: TrendRow[] = [];
       let cursor: string | null = null;
       let lastRequestId: string | null = null;
+      let pagesLoaded = 0;
 
       for (;;) {
         if (seq !== reqSeq.current) return;
+        pagesLoaded += 1;
         const listRes = await getRawEvents(token, {
-          start,
-          end,
+          ...(boundedWindow
+            ? { start: boundedWindow.start, end: boundedWindow.end }
+            : {}),
           kinds: [...kinds],
           limit: MAX_FETCH,
           includePayload: true,
@@ -281,24 +289,49 @@ export function useBodyMetricTrends(
           };
           const only = metricRef.current;
           if (doc.kind === "weight") {
-            if (only && only !== "weight") continue;
-            if (typeof payload.weightKg === "number" && payload.weightKg > 0) push("weight", payload.weightKg);
+            if (!only || only === "weight") {
+              if (typeof payload.weightKg === "number" && payload.weightKg > 0) {
+                push("weight", payload.weightKg);
+              }
+            }
+            // Body Fat may be stored on the weight row (same-day AH coalescing).
+            if (!only || only === "body_fat_percent") {
+              if (
+                typeof payload.bodyFatPercent === "number" &&
+                payload.bodyFatPercent > 0 &&
+                payload.bodyFatPercent <= 100
+              ) {
+                push("body_fat_percent", payload.bodyFatPercent);
+              }
+            }
           } else {
             if (only === "weight") continue;
             if (!only || only === "body_fat_percent") {
-              if (typeof payload.bodyFatPercent === "number" && payload.bodyFatPercent >= 0 && payload.bodyFatPercent <= 100)
+              if (
+                typeof payload.bodyFatPercent === "number" &&
+                payload.bodyFatPercent > 0 &&
+                payload.bodyFatPercent <= 100
+              ) {
                 push("body_fat_percent", payload.bodyFatPercent);
+              }
             }
             if (!only || only === "bmi") {
-              if (typeof payload.bmi === "number" && payload.bmi > 0 && payload.bmi < 100) push("bmi", payload.bmi);
+              if (typeof payload.bmi === "number" && payload.bmi > 0 && payload.bmi < 100) {
+                push("bmi", payload.bmi);
+              }
             }
             if (!only || only === "lean_body_mass") {
-              if (typeof payload.leanBodyMassKg === "number" && payload.leanBodyMassKg > 0)
+              if (typeof payload.leanBodyMassKg === "number" && payload.leanBodyMassKg > 0) {
                 push("lean_body_mass", payload.leanBodyMassKg);
+              }
             }
             if (!only || only === "resting_metabolic_rate") {
-              if (typeof payload.restingMetabolicRateKcal === "number" && payload.restingMetabolicRateKcal > 0)
+              if (
+                typeof payload.restingMetabolicRateKcal === "number" &&
+                payload.restingMetabolicRateKcal > 0
+              ) {
                 push("resting_metabolic_rate", payload.restingMetabolicRateKcal);
+              }
             }
           }
         }
@@ -309,6 +342,21 @@ export function useBodyMetricTrends(
           .filter((point) => isAppleHealthBodyReadSourceId(point.sourceId))
           .sort((a, b) => a.observedAt.localeCompare(b.observedAt));
       });
+
+      if (fm === "body_fat_percent" || fm == null) {
+        const bfAts = byMetric.body_fat_percent.map((p) => p.observedAt);
+        diagnoseBodyFatExtentFromObservedAts("stored", bfAts, {
+          pagesLoaded,
+          requestedRange: rangeRef.current,
+          operation: "useBodyMetricTrends",
+        });
+        diagnoseBodyFatExtentFromObservedAts("trend", bfAts, {
+          pagesLoaded,
+          requestedRange: rangeRef.current,
+          operation: "useBodyMetricTrends_pre_range_filter",
+        });
+      }
+
       const statsByMetric = {
         weight: buildStats(byMetric.weight),
         body_fat_percent: buildStats(byMetric.body_fat_percent),

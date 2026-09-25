@@ -271,6 +271,11 @@ function normalizePercent(raw: number): number | null {
   return normalized;
 }
 
+/** Exported for unit coverage — HealthKit may return body fat as a fraction. */
+export function normalizeAppleHealthBodyFatPercent(raw: number): number | null {
+  return normalizePercent(raw);
+}
+
 function normalizePositive(raw: number): number | null {
   if (!Number.isFinite(raw)) return null;
   if (raw <= 0) return null;
@@ -434,6 +439,8 @@ export async function pullBodyCompositionSamples(opts: {
   startDate: string;
   endDate: string;
   limit?: number;
+  /** Default false (newest-first). Pass true for oldest-first discovery. */
+  ascending?: boolean;
   /** Oli sync-scope gates — omit or true to include. False skips HealthKit query + merge. */
   include?: {
     weight?: boolean;
@@ -449,14 +456,18 @@ export async function pullBodyCompositionSamples(opts: {
   const includeWeight = opts.include?.weight !== false;
   const includeBodyFat = opts.include?.bodyFat !== false;
   const includeLean = opts.include?.leanTissue !== false;
+  const ascending = opts.ascending === true;
 
   const windowOpts: HealthInputOptions = {
     startDate: opts.startDate,
     endDate: opts.endDate,
     ...(typeof opts.limit === "number" ? { limit: opts.limit } : {}),
-    ascending: false,
+    ascending,
   };
-  const massKgQuery = buildAppleHealthBodyMassSampleQueryOptions(opts);
+  const massKgQuery = {
+    ...buildAppleHealthBodyMassSampleQueryOptions(opts),
+    ascending,
+  };
 
   const emptyOk = { ok: true as const, data: [] as HealthValue[] };
   const [w, bf, bmiR, leanR, basalR] = await Promise.all([

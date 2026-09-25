@@ -1,19 +1,19 @@
-import { UI_CARD_SURFACE } from "@/lib/ui/theme/uiTokens";
-
-// lib/ui/WeightRangeSelector.tsx — Segmented range for weight trend chart.
+// lib/ui/WeightRangeSelector.tsx — Period control matching Weight-card lb/BMI segmented chrome.
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
-import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
 
-const RANGES: { key: WeightRangeKey; label: string }[] = [
-  { key: "7D", label: "7D" },
-  { key: "30D", label: "30D" },
-  { key: "90D", label: "90D" },
-  { key: "6M", label: "6M" },
-  { key: "1Y", label: "1Y" },
-  { key: "3Y", label: "3Y" },
-  { key: "5Y", label: "5Y" },
-  { key: "All", label: "All" },
+import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
+import { bodyWeightRangeSelectorStyles } from "@/lib/ui/body/bodySegmentedControlChrome";
+
+const RANGES: { key: WeightRangeKey; label: string; accessibilityLabel: string }[] = [
+  { key: "7D", label: "7D", accessibilityLabel: "7 days" },
+  { key: "30D", label: "30D", accessibilityLabel: "30 days" },
+  { key: "90D", label: "90D", accessibilityLabel: "90 days" },
+  { key: "6M", label: "6M", accessibilityLabel: "6 months" },
+  { key: "1Y", label: "1Y", accessibilityLabel: "1 year" },
+  { key: "3Y", label: "3Y", accessibilityLabel: "3 years" },
+  { key: "5Y", label: "5Y", accessibilityLabel: "5 years" },
+  { key: "All", label: "All", accessibilityLabel: "All history" },
 ];
 
 export type WeightRangeSelectorProps = {
@@ -23,37 +23,47 @@ export type WeightRangeSelectorProps = {
 
 export function WeightRangeSelector({ value, onChange }: WeightRangeSelectorProps) {
   return (
-    <View style={styles.wrapper}>
-      {RANGES.map(({ key, label }) => (
-        <Pressable
-          key={key}
-          onPress={() => onChange(key)}
-          style={[styles.segment, value === key && styles.segmentActive]}
-          accessibilityRole="button"
-          accessibilityState={{ selected: value === key }}
-          accessibilityLabel={`Range ${label}`}
-        >
-          <Text style={[styles.label, value === key && styles.labelActive]}>{label}</Text>
-        </Pressable>
-      ))}
+    <View
+      style={[bodyWeightRangeSelectorStyles.track, styles.track]}
+      accessibilityRole="tablist"
+      testID="weight-range-selector"
+    >
+      {RANGES.map(({ key, label, accessibilityLabel }) => {
+        const selected = value === key;
+        return (
+          <Pressable
+            key={key}
+            onPress={() => onChange(key)}
+            style={[
+              bodyWeightRangeSelectorStyles.segment,
+              selected && bodyWeightRangeSelectorStyles.segmentActive,
+            ]}
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+            accessibilityLabel={accessibilityLabel}
+            testID={`weight-range-${key}`}
+            hitSlop={{ top: 4, bottom: 4, left: 1, right: 1 }}
+          >
+            <Text
+              style={[
+                bodyWeightRangeSelectorStyles.text,
+                selected && bodyWeightRangeSelectorStyles.textActive,
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flexDirection: "row",
-    backgroundColor: "#E5E5EA",
-    borderRadius: 10,
-    padding: 4,
+  track: {
+    width: "100%",
   },
-  segment: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: "center",
-    borderRadius: 8,
-  },
-  segmentActive: { backgroundColor: UI_CARD_SURFACE, shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 } },
-  label: { fontSize: 13, fontWeight: "600", color: "#6E6E73" },
-  labelActive: { color: "#1C1C1E", fontWeight: "700" },
 });

@@ -34,17 +34,30 @@ export const LEAN_TISSUE_EWGSOP2_CANDIDATE_NOTES = {
 /**
  * NHANES DXA population-reference presentation (future) — must be labeled Population reference,
  * never Health rating / Performance rating / Optimal / Elite.
+ *
+ * Leadership decision gate (2026-09-20 redesign):
+ * Correct construct is Lean Mass Index (total lean kg / height m²). Primary candidates are
+ * Kelly et al. 2009 (NHANES/Hologic) and Imboden et al. 2017 (GE/Lunar). Exact LMS
+ * coefficients/tables are not verified in-repo. Manufacturers must not be mixed. Apple Health
+ * unknown-method values must not receive DXA percentiles. Runtime verdict: BLOCKED.
  */
 export const LEAN_TISSUE_NHANES_POPULATION_REFERENCE_NOTES = {
   candidateId: "nhanes-dxa-lean-mass-population-reference",
   sourceAuthority: "nationalReferenceDataset" as const,
+  construct: "leanMassIndex" as const,
   potentialLabelsIfAuthorized: [
-    "Low for Age and Sex",
-    "Typical for Age and Sex",
-    "High for Age and Sex",
+    "Very Low",
+    "Low",
+    "Typical",
+    "High",
+    "Very High",
   ],
   mustLabelAs: "Population reference",
-  mustNotLabelAs: ["Health rating", "Performance rating", "Optimal", "Elite", "Excellent"],
+  mustNotLabelAs: ["Health rating", "Performance rating", "Optimal", "Elite", "Excellent", "Sarcopenic"],
+  runtimeVerdict: "BLOCKED" as const,
+  personalMarkerVerdict: "BLOCKED" as const,
+  deviceManufacturerPolicy:
+    "Do not mix Hologic and GE/Lunar thresholds. Do not apply DXA LMI bands to unknown-method Apple Health data.",
 } as const;
 
 export const LEAN_TISSUE_PROPOSED_STANDARD_STUB: BodyMetricStandardDefinition = {

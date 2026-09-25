@@ -1,17 +1,23 @@
 import type { RawEventListItem } from "@oli/contracts";
 import { manualWeightPayloadSchema } from "@oli/contracts";
 
+import type { BodyHistoryMetricFilter } from "@/lib/data/body/bodyHistoryMetricFilter";
 import { deriveWeightPointDayKey } from "@/lib/data/body/weightDayKey";
 import { isAppleHealthBodyReadSourceId } from "@oli/contracts/bodyReadSources";
-import { formatBodyWeight } from "@/lib/ui/body/bodyMetricFormatting";
+import {
+  formatBodyLeanMass,
+  formatBodyWeight,
+} from "@/lib/ui/body/bodyMetricFormatting";
 import { formatMetricLogDateFromDayKey } from "@/lib/ui/logs/formatMetricLogDate";
 
 export type BodyCompositionLogEntry = {
   rawEventId: string;
   observedAt: string;
   dayKey: string;
-  weightKg: number;
+  /** Present for weight-kind rows; null for composition-only lean/fat rows. */
+  weightKg: number | null;
   bodyFatPercent: number | null;
+  leanBodyMassKg: number | null;
   provider: string;
   sourceId: string;
   isImported: boolean;
@@ -77,6 +83,30 @@ function eligibilityForProvider(provider: string): Pick<
   };
 }
 
+function parseCompositionFields(payload: unknown): {
+  bodyFatPercent: number | null;
+  leanBodyMassKg: number | null;
+  weightKg: number | null;
+} {
+  if (payload == null || typeof payload !== "object") {
+    return { bodyFatPercent: null, leanBodyMassKg: null, weightKg: null };
+  }
+  const p = payload as Record<string, unknown>;
+  const bodyFatPercent =
+    typeof p.bodyFatPercent === "number" && Number.isFinite(p.bodyFatPercent)
+      ? p.bodyFatPercent
+      : null;
+  const leanBodyMassKg =
+    typeof p.leanBodyMassKg === "number" && Number.isFinite(p.leanBodyMassKg) && p.leanBodyMassKg > 0
+      ? p.leanBodyMassKg
+      : null;
+  const weightKg =
+    typeof p.weightKg === "number" && Number.isFinite(p.weightKg) && p.weightKg > 0
+      ? p.weightKg
+      : null;
+  return { bodyFatPercent, leanBodyMassKg, weightKg };
+}
+
 export function buildBodyCompositionLogEntries(
   items: readonly RawEventListItem[],
   timeZone: string,
@@ -84,31 +114,82 @@ export function buildBodyCompositionLogEntries(
   const out: BodyCompositionLogEntry[] = [];
 
   for (const item of items) {
-    if (item.kind !== "weight") continue;
-    const parsed = manualWeightPayloadSchema.safeParse(item.payload);
-    if (!parsed.success) continue;
-    const payload = parsed.data;
-    const weightKg = payload.weightKg;
-    if (!(weightKg > 0)) continue;
+    if (item.kind !== "weight" && item.kind !== "body_composition") continue;
     const observedAt = item.observedAt;
     if (typeof observedAt !== "string" || observedAt.length === 0) continue;
-    const dayKey = deriveWeightPointDayKey(payload, observedAt, timeZone);
+
+    if (item.kind === "weight") {
+      const payload = item.payload as
+        | { weightKg?: number; time?: string; timezone?: string; bodyFatPercent?: number }
+        | undefined;
+      // Prefer strict manual schema; fall back to chart-compatible weightKg extraction
+      // so Apple Health history rows are not dropped while the trend still shows them.
+      const parsed = manualWeightPayloadSchema.safeParse(item.payload);
+      let weightKg: number | null = null;
+      let bodyFatPercent: number | null = null;
+      let leanBodyMassKg: number | null = null;
+      let dayKeyPayload: { time?: string; timezone?: string } = {};
+
+      if (parsed.success) {
+        weightKg = parsed.data.weightKg > 0 ? parsed.data.weightKg : null;
+        bodyFatPercent =
+          parsed.data.bodyFatPercent != null && Number.isFinite(parsed.data.bodyFatPercent)
+            ? parsed.data.bodyFatPercent
+            : null;
+        const leanFields = parseCompositionFields(parsed.data);
+        leanBodyMassKg = leanFields.leanBodyMassKg;
+        dayKeyPayload = parsed.data;
+      } else if (typeof payload?.weightKg === "number" && payload.weightKg > 0) {
+        weightKg = payload.weightKg;
+        bodyFatPercent =
+          payload.bodyFatPercent != null && Number.isFinite(payload.bodyFatPercent)
+            ? payload.bodyFatPercent
+            : null;
+        dayKeyPayload = payload;
+      }
+
+      if (weightKg == null) continue;
+      const dayKey = deriveWeightPointDayKey(dayKeyPayload, observedAt, timeZone);
+      const provider = inferWeightEntryProvider(item.sourceId);
+      const eligibility = eligibilityForProvider(provider);
+
+      out.push({
+        rawEventId: item.id,
+        observedAt,
+        dayKey,
+        weightKg,
+        bodyFatPercent,
+        leanBodyMassKg,
+        provider,
+        sourceId: item.sourceId,
+        ...eligibility,
+      });
+      continue;
+    }
+
+    // body_composition — may carry lean / fat without weight
+    const fields = parseCompositionFields(item.payload);
+    if (fields.bodyFatPercent == null && fields.leanBodyMassKg == null) continue;
+    const dayKey = deriveWeightPointDayKey(
+      (item.payload as { time?: string; timezone?: string }) ?? {},
+      observedAt,
+      timeZone,
+    );
     const provider = inferWeightEntryProvider(item.sourceId);
     const eligibility = eligibilityForProvider(provider);
-    const bodyFatPercent =
-      payload.bodyFatPercent != null && Number.isFinite(payload.bodyFatPercent)
-        ? payload.bodyFatPercent
-        : null;
-
+    // Composition-only rows are not editable via the Weight log modal.
     out.push({
       rawEventId: item.id,
       observedAt,
       dayKey,
-      weightKg,
-      bodyFatPercent,
+      weightKg: fields.weightKg,
+      bodyFatPercent: fields.bodyFatPercent,
+      leanBodyMassKg: fields.leanBodyMassKg,
       provider,
       sourceId: item.sourceId,
       ...eligibility,
+      canEdit: false,
+      editDisabledReason: "Edit this measurement from its source metric when supported.",
     });
   }
 
@@ -116,12 +197,60 @@ export function buildBodyCompositionLogEntries(
   return out;
 }
 
+/** Keep only entries that carry the requested metric; never fall back to another metric. */
+export function filterBodyCompositionLogEntriesForMetric(
+  entries: readonly BodyCompositionLogEntry[],
+  metric: BodyHistoryMetricFilter,
+): BodyCompositionLogEntry[] {
+  switch (metric) {
+    case "weight":
+      return entries.filter((e) => e.weightKg != null && e.weightKg > 0);
+    case "bodyFat":
+      return entries.filter((e) => e.bodyFatPercent != null && Number.isFinite(e.bodyFatPercent));
+    case "leanTissue":
+      return entries.filter((e) => e.leanBodyMassKg != null && e.leanBodyMassKg > 0);
+    default:
+      return [];
+  }
+}
+
 export function buildBodyCompositionLogRowVm(
   entry: BodyCompositionLogEntry,
   unit: "kg" | "lb",
+  metric: BodyHistoryMetricFilter = "weight",
 ): BodyCompositionLogRowVm {
   const dateLabel = formatMetricLogDateFromDayKey(entry.dayKey);
-  const primaryMetric = `Weight ${formatBodyWeight(entry.weightKg, unit)}`;
+
+  if (metric === "bodyFat") {
+    const primaryMetric =
+      entry.bodyFatPercent != null
+        ? `Body Fat ${entry.bodyFatPercent.toFixed(1)}%`
+        : "Body Fat —";
+    return {
+      entry,
+      dateLabel,
+      primaryMetric,
+      secondaryMetric: null,
+      accessibilityLabel: `${dateLabel}. ${primaryMetric}.`,
+    };
+  }
+
+  if (metric === "leanTissue") {
+    const primaryMetric =
+      entry.leanBodyMassKg != null
+        ? `Lean Mass ${formatBodyLeanMass(entry.leanBodyMassKg, unit)}`
+        : "Lean Mass —";
+    return {
+      entry,
+      dateLabel,
+      primaryMetric,
+      secondaryMetric: null,
+      accessibilityLabel: `${dateLabel}. ${primaryMetric}.`,
+    };
+  }
+
+  const primaryMetric =
+    entry.weightKg != null ? `Weight ${formatBodyWeight(entry.weightKg, unit)}` : "Weight —";
   const secondaryMetric = bodyFatSecondaryLabel(entry.bodyFatPercent);
   const secondaryPart = secondaryMetric ? ` ${secondaryMetric}` : "";
   return {

@@ -74,7 +74,14 @@ const HEALTHY_CONNECTED: AppleHealthBodyConnectSheetCopy = {
 
 export function buildAppleHealthBodyConnectSheetCopy(
   phase: AppleHealthBodyConnectSheetPhase,
-  opts?: { metricPopupTitle?: string; connectVerb?: string; statusChipOverride?: string | null },
+  opts?: {
+    metricPopupTitle?: string;
+    connectVerb?: string;
+    statusChipOverride?: string | null;
+    /** Metric-specific history CTA (e.g. Body Fat Import/Resume). */
+    historyPrimaryLabel?: string | null;
+    importingProgressLabel?: string | null;
+  },
 ): AppleHealthBodyConnectSheetCopy {
   const metricTitle = opts?.metricPopupTitle ?? "Body Composition";
   const connectVerb = opts?.connectVerb ?? "Connect & import history";
@@ -161,15 +168,16 @@ export function buildAppleHealthBodyConnectSheetCopy(
       };
     case "importingEarlier":
       return {
-        title: "Body Composition",
+        title: metricTitle,
         eyebrow: "Apple Health",
         body: null,
-        progressLabel: "Importing earlier history…",
+        progressLabel:
+          opts?.importingProgressLabel ?? "Importing earlier history…",
         statusChip: "Importing",
         primaryLabel: null,
         primaryDisabled: true,
         secondaryLabel: "Close",
-        footer: "You can leave this screen. If the import pauses, Oli will resume automatically.",
+        footer: "You can leave this screen. Oli will continue when possible.",
         showMetricList: false,
         showStatusRows: false,
         showScopeIndicators: false,
@@ -193,7 +201,7 @@ export function buildAppleHealthBodyConnectSheetCopy(
         body: null,
         progressLabel: null,
         statusChip: "Connected",
-        primaryLabel: "Resume history",
+        primaryLabel: opts?.historyPrimaryLabel ?? "Resume history",
         primaryDisabled: false,
         secondaryLabel: "Done",
         footer: null,

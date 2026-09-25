@@ -445,3 +445,54 @@ export async function setAppleHealthWorkoutsRecentRepairLastRunAt(
 ): Promise<void> {
   await AsyncStorage.setItem(appleHealthWorkoutsRecentRepairLastRunAtKey(uid), iso);
 }
+
+/**
+ * UID-scoped Body Fat historical import checkpoint (Stage 3C).
+ * Independent of the domain-wide `appleHealth:bodyBackfillState` so Weight
+ * completion cannot falsely mark Body Fat complete.
+ * Cleared on account transition via the `appleHealth:` registry prefix.
+ */
+export const APPLE_HEALTH_BODY_FAT_BACKFILL_STATE_PREFIX =
+  "appleHealth:bodyFatBackfillState";
+
+export type AppleHealthBodyFatBackfillStateV1 = AppleHealthBodyBackfillState & {
+  readonly version: 1;
+  readonly metric: "bodyFat";
+  /** Oldest HealthKit Body Fat sample proven during discovery (ISO). */
+  readonly oldestHealthKitObservedAt: string | null;
+  /** Newest HealthKit Body Fat sample seen during discovery/import (ISO). */
+  readonly newestHealthKitObservedAt: string | null;
+};
+
+export function appleHealthBodyFatBackfillStateKey(uid: string): string {
+  if (!uid || typeof uid !== "string") {
+    throw new Error("appleHealth body fat backfill: uid required");
+  }
+  return `${APPLE_HEALTH_BODY_FAT_BACKFILL_STATE_PREFIX}:${uid}`;
+}
+
+export async function getAppleHealthBodyFatBackfillState(
+  uid: string,
+): Promise<AppleHealthBodyFatBackfillStateV1 | null> {
+  const raw = await AsyncStorage.getItem(appleHealthBodyFatBackfillStateKey(uid));
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as AppleHealthBodyFatBackfillStateV1;
+    if (parsed && parsed.version === 1 && parsed.metric === "bodyFat") {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setAppleHealthBodyFatBackfillState(
+  uid: string,
+  state: AppleHealthBodyFatBackfillStateV1,
+): Promise<void> {
+  await AsyncStorage.setItem(
+    appleHealthBodyFatBackfillStateKey(uid),
+    JSON.stringify(state),
+  );
+}

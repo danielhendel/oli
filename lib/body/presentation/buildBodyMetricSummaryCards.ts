@@ -11,6 +11,10 @@ import type {
 } from "@/lib/body/presentation/bodyMetricCardTypes";
 import { LB_PER_KG } from "@/lib/body/bodyCompositionShared";
 import {
+  resolveLeanMassCompositionShareGraph,
+} from "@/lib/body/presentation/resolveBodyCompositionShareGraph";
+import { resolveBodyFatNumericalReferenceChart } from "@/lib/body/presentation/resolveBodyFatNumericalReferenceChart";
+import {
   resolveBodyMetricStandardPresentation,
   type BodyMetricStandardResolveInput,
 } from "@/lib/body/standards/resolveBodyMetricStandardPresentation";
@@ -88,7 +92,9 @@ function toClassificationChart(
     presentation.markerLabel != null &&
     presentation.markerFormattedValue != null
       ? {
+          kind: "classification" as const,
           formattedValue: presentation.markerFormattedValue,
+          showValueLabel: false,
           segmentId: presentation.classifiedId,
           withinSegmentPosition: presentation.withinSegmentPosition,
           accessibleLabel: presentation.markerLabel,
@@ -259,6 +265,8 @@ function buildWeightCard(input: {
     referenceLabel: null,
     referenceContextLabel: presentation?.contextLabel ?? null,
     classificationChart: input.seriesError ? null : classificationChart,
+    educationalReferenceChart: null,
+    compositionShareGraph: null,
     showUnclassifiedScaffold: false,
     unclassifiedScaffoldAccessibilityLabel: null,
     referenceBar: input.seriesError ? null : referenceBar,
@@ -289,8 +297,6 @@ function buildBodyFatCard(input: {
   measuredAtLabel: string | null;
   seriesError: boolean;
 }): BodyMetricCardModel {
-  void input.profile;
-  void input.unit;
   const hasValue =
     input.overview.bodyFatPercent != null && Number.isFinite(input.overview.bodyFatPercent);
   const formattedValue = hasValue
@@ -298,8 +304,26 @@ function buildBodyFatCard(input: {
     : null;
   const value = hasValue ? (input.overview.bodyFatPercent as number) : null;
   const displayValue = hasValue ? (input.overview.bodyFatPercent as number).toFixed(1) : null;
-  const scaffoldA11y =
-    "Body Fat visual reference only. No approved classification standard. No personal marker.";
+  // Gallagher numerical educational screening ranges (marker withheld).
+  const pairingEvidence = {
+    weightKg: input.overview.weightKg,
+    bodyFatPercent: input.overview.bodyFatPercent,
+    leanBodyMassKg: input.overview.leanBodyMassKg,
+    overviewDay: input.overview.overviewDay,
+    latestObservedAtIso: input.overview.latestObservedAtIso ?? null,
+  };
+  const classificationChart = input.seriesError
+    ? null
+    : resolveBodyFatNumericalReferenceChart({
+        ageYears: input.profile.ageYears,
+        sex: input.profile.sex,
+        bodyFatPercent: input.overview.bodyFatPercent,
+        view: "percentage",
+        massDisplayUnit: input.unit,
+        evidence: pairingEvidence,
+        measurementMethod: null,
+      });
+  const referenceBar = classificationChart ? toReferenceBar(classificationChart) : null;
 
   return {
     metric: "bodyFat",
@@ -312,11 +336,13 @@ function buildBodyFatCard(input: {
     readiness: input.seriesError ? "error" : hasValue ? "partial" : "missing",
     statusLabel: "",
     referenceLabel: null,
-    referenceContextLabel: null,
-    classificationChart: null,
-    showUnclassifiedScaffold: !input.seriesError,
-    unclassifiedScaffoldAccessibilityLabel: scaffoldA11y,
-    referenceBar: null,
+    referenceContextLabel: classificationChart?.contextLabel ?? null,
+    classificationChart,
+    educationalReferenceChart: null,
+    compositionShareGraph: null,
+    showUnclassifiedScaffold: false,
+    unclassifiedScaffoldAccessibilityLabel: null,
+    referenceBar: input.seriesError ? null : referenceBar,
     heightSpecificRangeLabel: null,
     provenance: {
       transportLabel: null,
@@ -330,11 +356,13 @@ function buildBodyFatCard(input: {
     addDataHref: null,
     accessibilityLabel: input.seriesError
       ? "Body Fat. No current measurement. Couldn’t load this measurement."
-      : hasValue
-        ? `Body Fat ${formattedValue}. No approved classification. Method unknown.${
-            input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
-          } Open body fat details.`
-        : "Body Fat. No current measurement. Add measurement.",
+      : classificationChart != null
+        ? classificationChart.accessibleSummary
+        : hasValue
+          ? `Body Fat ${formattedValue}. Screening reference unavailable for age or reference sex.${
+              input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
+            } Open body fat details.`
+          : "Body Fat. No current measurement. Add measurement.",
     featured: true,
   };
 }
@@ -358,8 +386,21 @@ function buildLeanTissueCard(input: {
   const displayValue = hasValue
     ? formatMassFaceValue(input.overview.leanBodyMassKg as number, input.unit)
     : null;
-  const scaffoldA11y =
-    "Lean Mass visual reference only. Total lean mass. No approved classification standard. No personal marker.";
+  // Landing cards stay value-first. Composition-share is quantity only — not ALM/ALMI.
+  const pairingEvidence = {
+    weightKg: input.overview.weightKg,
+    bodyFatPercent: input.overview.bodyFatPercent,
+    leanBodyMassKg: input.overview.leanBodyMassKg,
+    overviewDay: input.overview.overviewDay,
+    latestObservedAtIso: input.overview.latestObservedAtIso ?? null,
+  };
+  const compositionShareGraph = input.seriesError
+    ? null
+    : resolveLeanMassCompositionShareGraph({
+        evidence: pairingEvidence,
+        view: "mass",
+        massDisplayUnit: input.unit,
+      });
 
   return {
     metric: "leanTissue",
@@ -374,8 +415,10 @@ function buildLeanTissueCard(input: {
     referenceLabel: null,
     referenceContextLabel: null,
     classificationChart: null,
-    showUnclassifiedScaffold: !input.seriesError,
-    unclassifiedScaffoldAccessibilityLabel: scaffoldA11y,
+    educationalReferenceChart: null,
+    compositionShareGraph,
+    showUnclassifiedScaffold: false,
+    unclassifiedScaffoldAccessibilityLabel: null,
     referenceBar: null,
     heightSpecificRangeLabel: null,
     provenance: {
@@ -390,11 +433,13 @@ function buildLeanTissueCard(input: {
     addDataHref: null,
     accessibilityLabel: input.seriesError
       ? "Lean Mass. No current measurement. Couldn’t load this measurement."
-      : hasValue
-        ? `Lean Mass ${formattedValue}. Total lean mass. No approved classification.${
-            input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
-          } Open lean mass details.`
-        : "Lean Mass. No current measurement. Add measurement.",
+      : compositionShareGraph != null
+        ? compositionShareGraph.accessibleSummary
+        : hasValue
+          ? `Lean Mass ${formattedValue}. Total lean mass. No personal classification.${
+              input.measuredAtLabel ? ` Measured ${input.measuredAtLabel}.` : ""
+            } Open lean mass details.`
+          : "Lean Mass. No current measurement. Add measurement.",
     featured: true,
   };
 }
