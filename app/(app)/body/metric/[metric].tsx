@@ -265,8 +265,8 @@ export default function BodyMetricDetailScreen() {
 const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: 16,
-    // Header already owns top Safe Area — keep only a tight content rhythm.
-    paddingTop: 4,
+    // Header owns top Safe Area. 16pt below header → intentional gap before selector.
+    paddingTop: 16,
     paddingBottom: 40,
     gap: 20,
     backgroundColor: UI_SCREEN_BG,

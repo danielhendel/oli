@@ -3,7 +3,7 @@ import renderer, { act } from "react-test-renderer";
 
 import { buildBodyMetricSummaryCards } from "@/lib/body/presentation/buildBodyMetricSummaryCards";
 import { BodyMetricSummaryCard } from "@/lib/ui/body/BodyMetricSummaryCard";
-import { bodySegmentedControlStyles } from "@/lib/ui/body/bodySegmentedControlChrome";
+import { bodySegmentedControlStyles, bodyWeightRangeSelectorStyles } from "@/lib/ui/body/bodySegmentedControlChrome";
 import {
   BODY_APPLE_HEALTH_ICON_NAME,
   BODY_APPLE_HEALTH_ICON_COLOR_MUTED,
@@ -61,6 +61,7 @@ describe("bodySegmentedControlStyles — toggle label contract", () => {
 
   it("uses a near-black selected pill shared by lb/BMI and Weight range selector", () => {
     expect(bodySegmentedControlStyles.segmentActive.backgroundColor).toBe("#000000");
+    expect(bodyWeightRangeSelectorStyles.segmentActive.backgroundColor).toBe("#000000");
   });
 });
 
