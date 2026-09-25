@@ -289,18 +289,19 @@ describe("Body metric detail — Weight trend redesign", () => {
     expect(summaryA11y).not.toMatch(/healthy|improved|worsened|good|bad/i);
   });
 
-  it("range selector changes range without Apple Health side effects", async () => {
+  it("Weight keeps full-history fetch across range switches so Y-domain stays locked", async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(React.createElement(MetricScreen));
     });
-    const beforeCalls = mockTrends.mock.calls.length;
+    const first = mockTrends.mock.calls[0];
+    expect(first?.[0]).toBe("All");
+    expect(first?.[1]).toBe("weight");
     await act(async () => {
       tree.root.findByProps({ testID: "range-30D" }).props.onPress();
     });
-    expect(mockTrends.mock.calls.length).toBeGreaterThan(beforeCalls);
     const last = mockTrends.mock.calls[mockTrends.mock.calls.length - 1];
-    expect(last?.[0]).toBe("30D");
+    expect(last?.[0]).toBe("All");
     expect(last?.[1]).toBe("weight");
   });
 
