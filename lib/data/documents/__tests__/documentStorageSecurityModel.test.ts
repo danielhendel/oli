@@ -54,10 +54,11 @@ describe("documentStorageSecurityModel", () => {
     expect(DOCUMENT_STORAGE_RULES_SOURCE).toContain("firebase.storage");
   });
 
-  it("enables only labs uploads under the base64 bridge", () => {
-    expect([...DOCUMENT_UPLOAD_ENABLED_DOMAINS]).toEqual(["labs"]);
+  it("enables only labs and scans uploads under the base64 bridge", () => {
+    expect([...DOCUMENT_UPLOAD_ENABLED_DOMAINS]).toEqual(["labs", "scans"]);
     expect(DOCUMENT_UPLOAD_DEFERRED_DOMAINS).toEqual(
-      expect.arrayContaining(["scans", "medical_history", "dna", "medications", "supplements"]),
+      expect.arrayContaining(["medical_history", "dna", "medications", "supplements"]),
     );
+    expect(DOCUMENT_UPLOAD_DEFERRED_DOMAINS).not.toContain("scans");
   });
 });

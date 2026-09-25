@@ -19,7 +19,8 @@ export function logDocumentIngestionEvent(
     | "document_parser_terminal"
     | "lab_draft_persisted"
     | "lab_auto_publish_completed"
-    | "document_status_reconciled",
+    | "document_status_reconciled"
+    | "document_view_original_granted",
   fields: {
     documentToken: string;
     domain?: string;
@@ -41,6 +42,8 @@ export function logDocumentIngestionEvent(
     reviewNeededCount?: number | null;
     unmatchedCount?: number | null;
     reportImportStatus?: string | null;
+    /** Lifetime of a View Original grant. The URL itself is never logged. */
+    ttlSeconds?: number | null;
   },
 ): void {
   logger.info({
@@ -69,5 +72,6 @@ export function logDocumentIngestionEvent(
     ...(fields.reviewNeededCount != null ? { reviewNeededCount: fields.reviewNeededCount } : {}),
     ...(fields.unmatchedCount != null ? { unmatchedCount: fields.unmatchedCount } : {}),
     ...(fields.reportImportStatus != null ? { reportImportStatus: fields.reportImportStatus } : {}),
+    ...(fields.ttlSeconds != null ? { ttlSeconds: fields.ttlSeconds } : {}),
   });
 }

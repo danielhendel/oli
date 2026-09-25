@@ -29,6 +29,10 @@ jest.mock("../../firebaseAdmin", () => {
               deletedPaths.push(objectPath);
               objects.delete(objectPath);
             }),
+            exists: jest.fn(async () => [objects.has(objectPath)]),
+            getSignedUrl: jest.fn(async () => [
+              `https://storage.googleapis.test/signed?o=${encodeURIComponent(objectPath)}`,
+            ]),
           }),
         }),
       }),
@@ -171,6 +175,10 @@ describe("Document Ingestion OS routes", () => {
             admin.__deletedStoragePaths.push(objectPath);
             admin.__objects.delete(objectPath);
           }),
+          exists: jest.fn(async () => [admin.__objects.has(objectPath)]),
+          getSignedUrl: jest.fn(async () => [
+            `https://storage.googleapis.test/signed?o=${encodeURIComponent(objectPath)}`,
+          ]),
         }),
       }),
     });
@@ -369,7 +377,44 @@ describe("Document Ingestion OS routes", () => {
     expect(JSON.stringify(json)).not.toContain("lab-uploads/");
   });
 
-  it("view-original returns not implemented without signed URL", async () => {
+  it("view-original mints a short-lived signed URL for a stored original", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { admin } = require("../../firebaseAdmin") as { admin: { __objects: Map<string, Buffer> } };
+    admin.__objects.set("users/user_123/documents/doc1/original", Buffer.from("%PDF-1.7\n"));
+    documentsStore.set("doc1", {
+      schemaVersion: "1.0.0",
+      id: "doc1",
+      userId: "user_123",
+      domain: "scans",
+      documentType: "dexa_report",
+      originalFilename: "a.pdf",
+      safeDisplayFilename: "a.pdf",
+      mediaType: "application/pdf",
+      byteSize: 1000,
+      checksumSha256: "b".repeat(64),
+      storageObjectId: "users/user_123/documents/doc1/original",
+      uploadedAt: "2026-07-01T00:00:00.000Z",
+      source: "user_upload",
+      status: "stored",
+      retentionStatus: "active",
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    });
+
+    const before = Date.now();
+    const res = await fetch(`${baseUrl}/users/me/documents/doc1/view-original`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.available).toBe(true);
+    expect(json.url).toContain("https://");
+    expect(json.mediaType).toBe("application/pdf");
+    // Short-lived: the grant must expire within minutes, not hours.
+    const ttlMs = Date.parse(json.expiresAt) - before;
+    expect(ttlMs).toBeGreaterThan(0);
+    expect(ttlMs).toBeLessThanOrEqual(5 * 60 * 1000);
+  });
+
+  it("view-original reports not-stored instead of a URL when bytes are absent", async () => {
     documentsStore.set("doc1", {
       schemaVersion: "1.0.0",
       id: "doc1",
@@ -394,7 +439,7 @@ describe("Document Ingestion OS routes", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.available).toBe(false);
-    expect(json.reasonCode).toBe("VIEW_ORIGINAL_NOT_IMPLEMENTED");
+    expect(json.reasonCode).toBe("VIEW_ORIGINAL_NOT_STORED");
     expect(JSON.stringify(json)).not.toContain("http");
   });
 
@@ -414,8 +459,8 @@ describe("Document Ingestion OS routes", () => {
     expect(json.error.code).toBe("DOMAIN_DEFERRED");
   });
 
-  it("rejects deferred scans and medical_history upload intents", async () => {
-    for (const domain of ["scans", "medical_history"] as const) {
+  it("rejects still-deferred domains on upload-intent", async () => {
+    for (const domain of ["medical_history", "supplements"] as const) {
       const res = await fetch(`${baseUrl}/users/me/documents/upload-intent`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -430,6 +475,23 @@ describe("Document Ingestion OS routes", () => {
       const json = await res.json();
       expect(json.error.code).toBe("DOMAIN_DEFERRED");
     }
+  });
+
+  it("accepts a scans upload intent now that Body Scans lifecycle coverage exists", async () => {
+    const res = await fetch(`${baseUrl}/users/me/documents/upload-intent`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        domain: "scans",
+        originalFilename: "body-scan.pdf",
+        mediaType: "application/pdf",
+        byteSize: 1200,
+      }),
+    });
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.status).toBe("uploading");
+    expect(documentsStore.get(json.documentId)?.documentType).toBe("dexa_report");
   });
 
   it("does not let an unrelated user read another user's document", async () => {

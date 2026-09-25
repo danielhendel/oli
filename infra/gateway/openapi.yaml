@@ -1466,7 +1466,135 @@ paths:
         - firebase: []
       responses:
         200:
-          description: Original view capability (not implemented — no signed URL)
+          description: Short-lived signed original access grant, or an unavailable reason
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+
+  /users/me/body-scans:
+    options:
+      operationId: bodyScansListOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: bodyScansListGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Body Scan list (safe metadata only)
+        401:
+          description: Unauthorized
+
+  /users/me/body-scans/{scanId}:
+    parameters:
+      - name: scanId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: bodyScanDetailOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: bodyScanDetailGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Designed Body Scan detail
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+    delete:
+      operationId: bodyScanDelete
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Body Scan, extraction draft, governed facts, and original deleted
+        401:
+          description: Unauthorized
+
+  /users/me/body-scans/{scanId}/review:
+    parameters:
+      - name: scanId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: bodyScanReviewOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    get:
+      operationId: bodyScanReviewGet
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Extraction draft prepared for review
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+
+  /users/me/body-scans/{scanId}/confirm:
+    parameters:
+      - name: scanId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: bodyScanConfirmOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: bodyScanConfirmPost
+      security:
+        - firebase: []
+      responses:
+        200:
+          description: Scan confirmed into governed scan facts
+        409:
+          description: Scan is not in a confirmable state
+        422:
+          description: Review fields unaddressed or nothing confirmable
+        404:
+          description: Not found
+        401:
+          description: Unauthorized
+
+  /users/me/body-scans/{scanId}/reprocess:
+    parameters:
+      - name: scanId
+        in: path
+        required: true
+        type: string
+    options:
+      operationId: bodyScanReprocessOptions
+      security: []
+      responses:
+        204:
+          description: No Content
+    post:
+      operationId: bodyScanReprocessPost
+      security:
+        - firebase: []
+      responses:
+        202:
+          description: Reprocess accepted
+        409:
+          description: Scan is not in a reprocessable state
         404:
           description: Not found
         401:

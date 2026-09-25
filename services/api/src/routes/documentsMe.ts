@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { z } from "zod";
 import {
   DOCUMENT_SCHEMA_VERSION,
+  DOCUMENT_VIEW_ORIGINAL_URL_TTL_SECONDS,
   documentCompleteUploadRequestDtoSchema,
   documentCompleteUploadResponseDtoSchema,
   documentDeleteResponseDtoSchema,
@@ -21,6 +22,7 @@ import {
   labUploadDtoSchema,
   userDocumentRecordSchema,
   type DocumentIngestionJob,
+  type DocumentViewOriginalUnavailableReason,
   type LabUploadDto,
   type UserDocumentRecord,
 } from "@oli/contracts";
@@ -155,6 +157,9 @@ function documentsDeps(uid: string) {
     labUploadsCol: userCollection(uid, "labUploads") as never,
     labAcceptedResultsCol: userCollection(uid, "labAcceptedResults") as never,
     labResultsCol: userCollection(uid, "labResults") as never,
+    bodyScansCol: userCollection(uid, "bodyScans") as never,
+    bodyScanDraftsCol: userCollection(uid, "bodyScanDrafts") as never,
+    bodyScanFactsCol: userCollection(uid, "bodyScanFacts") as never,
     readDocumentBytes: async (storageObjectId: string): Promise<Uint8Array> => {
       if (!bucket) throw new Error("STORAGE_BUCKET_MISSING");
       const fileRef = getAdmin().storage().bucket(bucket).file(storageObjectId);
@@ -1004,7 +1009,13 @@ router.delete(
   }),
 );
 
-/** GET /users/me/documents/:documentId/view-original — capability stub (no signed URL yet). */
+/**
+ * GET /users/me/documents/:documentId/view-original
+ *
+ * Returns a short-lived signed read URL for the owner's private original. Ownership is
+ * path-scoped through userCollection, so a URL is only ever minted for the caller's own
+ * object. The URL, the storage path, and the filename are never logged.
+ */
 router.get(
   "/:documentId/view-original",
   asyncHandler(async (req: AuthedRequest, res: Response) => {
@@ -1020,26 +1031,94 @@ router.get(
       return;
     }
 
-    // Authorize ownership without returning a URL.
-    const legacyLabId = parseLegacyLabDocumentId(params.data.documentId);
+    const { documentId } = params.data;
+    let objectPath: string | null = null;
+    let mediaType: UserDocumentRecord["mediaType"] = "application/pdf";
+    let filename = "document.pdf";
+
+    const legacyLabId = parseLegacyLabDocumentId(documentId);
     if (legacyLabId) {
       const uploadSnap = await userCollection(uid, "labUploads").doc(legacyLabId).get();
       if (!uploadSnap.exists) {
         res.status(404).json({ ok: false, error: { code: "NOT_FOUND", requestId: getRid(req) } });
         return;
       }
+      const raw = uploadSnap.data() as Record<string, unknown>;
+      objectPath = typeof raw.storagePath === "string" && raw.storagePath ? raw.storagePath : null;
+      if (typeof raw.mimeType === "string" && raw.mimeType === "application/pdf") {
+        mediaType = "application/pdf";
+      }
+      if (typeof raw.fileName === "string" && raw.fileName) filename = raw.fileName;
     } else {
-      const snap = await userCollection(uid, "documents").doc(params.data.documentId).get();
+      const snap = await userCollection(uid, "documents").doc(documentId).get();
       if (!snap.exists) {
         res.status(404).json({ ok: false, error: { code: "NOT_FOUND", requestId: getRid(req) } });
         return;
       }
+      const record = parseUserDocument(snap.data() as Record<string, unknown>, documentId);
+      if (!record || record.retentionStatus === "deleted") {
+        res.status(404).json({ ok: false, error: { code: "NOT_FOUND", requestId: getRid(req) } });
+        return;
+      }
+      // Only a finalized upload has durable bytes behind it.
+      objectPath = record.status === "uploading" ? null : record.storageObjectId;
+      mediaType = record.mediaType;
+      filename = record.safeDisplayFilename;
     }
+
+    const unavailable = (reasonCode: DocumentViewOriginalUnavailableReason) => {
+      const payload = { ok: true as const, available: false as const, reasonCode };
+      const parsedPayload = documentViewOriginalResponseDtoSchema.safeParse(payload);
+      if (!parsedPayload.success) {
+        res.status(500).json({ ok: false, error: { code: "INTERNAL_CONTRACT_MISMATCH", requestId: getRid(req) } });
+        return;
+      }
+      res.status(200).json(parsedPayload.data);
+    };
+
+    if (!objectPath) {
+      unavailable("VIEW_ORIGINAL_NOT_STORED");
+      return;
+    }
+
+    let bucket: string;
+    try {
+      bucket = requireFirebaseStorageBucketId();
+    } catch {
+      unavailable("VIEW_ORIGINAL_UNAVAILABLE");
+      return;
+    }
+
+    const expiresAt = new Date(Date.now() + DOCUMENT_VIEW_ORIGINAL_URL_TTL_SECONDS * 1000);
+    let signedUrl: string;
+    try {
+      const fileRef = getAdmin().storage().bucket(bucket).file(objectPath);
+      const [exists] = await fileRef.exists();
+      if (!exists) {
+        unavailable("VIEW_ORIGINAL_NOT_STORED");
+        return;
+      }
+      const [url] = await fileRef.getSignedUrl({ action: "read", expires: expiresAt });
+      signedUrl = url;
+    } catch {
+      // Never log the URL or object path. IAM/signBlob failures are retryable.
+      unavailable("VIEW_ORIGINAL_UNAVAILABLE");
+      return;
+    }
+
+    logDocumentIngestionEvent("document_view_original_granted", {
+      documentToken: redactedDocumentToken(documentId),
+      requestId: getRid(req),
+      ttlSeconds: DOCUMENT_VIEW_ORIGINAL_URL_TTL_SECONDS,
+    });
 
     const response = {
       ok: true as const,
-      available: false as const,
-      reasonCode: "VIEW_ORIGINAL_NOT_IMPLEMENTED" as const,
+      available: true as const,
+      url: signedUrl,
+      expiresAt: expiresAt.toISOString(),
+      mediaType,
+      filename,
     };
     const validated = documentViewOriginalResponseDtoSchema.safeParse(response);
     if (!validated.success) {

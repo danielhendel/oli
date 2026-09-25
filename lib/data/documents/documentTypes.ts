@@ -26,8 +26,12 @@ export const DOCUMENT_TYPES = [
   "unknown",
 ] as const satisfies readonly DocumentType[];
 
-/** Domains allowed to receive uploads in Phase 3C Document OS v1 (lifecycle-gated). */
-export const DOCUMENT_UPLOAD_ENABLED_DOMAINS = ["labs"] as const;
+/**
+ * Domains allowed to receive uploads (lifecycle-gated).
+ * `scans` joined in Stage 3E once Body Scans export, delete, and account-deletion coverage
+ * landed. The Body Scans UI is additionally gated by the `bodyScans` feature flag.
+ */
+export const DOCUMENT_UPLOAD_ENABLED_DOMAINS = ["labs", "scans"] as const;
 
 export type DocumentUploadEnabledDomain = (typeof DOCUMENT_UPLOAD_ENABLED_DOMAINS)[number];
 
@@ -37,13 +41,12 @@ export function isDocumentUploadEnabledDomain(domain: DocumentDomain): domain is
 
 /**
  * Domains intentionally deferred until export/delete + production upload transport are proven.
- * Scans / Medical History remain UI-listable via placeholders when flag is on, but uploads fail closed.
+ * These remain UI-listable via placeholders when the flag is on, but uploads fail closed.
  */
 export const DOCUMENT_UPLOAD_DEFERRED_DOMAINS = [
   "dna",
   "medications",
   "supplements",
-  "scans",
   "medical_history",
   "other_health_record",
 ] as const;

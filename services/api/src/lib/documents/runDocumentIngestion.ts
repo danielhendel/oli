@@ -5,6 +5,7 @@
 
 import { createHash, randomUUID } from "crypto";
 import type {
+  BodyScanExtractionDraft,
   DocumentExtractionResult,
   DocumentIngestionJob,
   DocumentIngestionJobState,
@@ -23,6 +24,8 @@ import { resolveDocumentParserForInput } from "./documentParsers";
 import { parseQuestLabPdfBundle } from "../labs/questTextPdfParser";
 import { QUEST_TEXT_PDF_PARSER_ID } from "../../../../../lib/labs/extraction/extractQuestLabReportDraft";
 import { logDocumentIngestionEvent, redactedDocumentToken } from "./documentIngestionTelemetry";
+import { logBodyScanEvent, redactedBodyScanToken } from "../bodyScans/bodyScanTelemetry";
+import { persistBodyScanFromIngestion } from "../bodyScans/persistBodyScan";
 import { runLabAutoPublishAfterDraft } from "../labs/runLabAutoPublishAfterDraft";
 import {
   deriveLabReportConsumerPresentation,
@@ -53,6 +56,9 @@ export type DocumentIngestionDeps = {
   labUploadsCol?: Col;
   labAcceptedResultsCol?: Col;
   labResultsCol?: Col;
+  bodyScansCol?: Col;
+  bodyScanDraftsCol?: Col;
+  bodyScanFactsCol?: Col;
   readDocumentBytes?: (storageObjectId: string) => Promise<Uint8Array>;
   now?: () => string;
 };
@@ -259,6 +265,49 @@ async function persistLabsDraftAndReview(args: {
 }
 
 /**
+ * Mirror a `scans` document into the Body Scans domain.
+ *
+ * Runs for every scan document, including report types with no adapter: those land in
+ * manual review with the original preserved rather than being silently dropped.
+ */
+async function persistBodyScanForDocument(args: {
+  deps: DocumentIngestionDeps;
+  uid: string;
+  document: UserDocumentRecord;
+  draft: BodyScanExtractionDraft | null;
+  now: string;
+}): Promise<void> {
+  if (args.document.domain !== "scans") return;
+  const { bodyScansCol, bodyScanDraftsCol, bodyScanFactsCol } = args.deps;
+  if (!bodyScansCol || !bodyScanDraftsCol || !bodyScanFactsCol) return;
+
+  const record = await persistBodyScanFromIngestion({
+    deps: {
+      bodyScansCol: bodyScansCol as never,
+      bodyScanDraftsCol: bodyScanDraftsCol as never,
+      bodyScanFactsCol: bodyScanFactsCol as never,
+    },
+    uid: args.uid,
+    document: args.document,
+    draft: args.draft,
+    now: args.now,
+  });
+
+  logBodyScanEvent("body_scan_extraction_completed", {
+    scanToken: redactedBodyScanToken(record.id),
+    scanType: record.scanType,
+    method: record.method,
+    adapterId: record.adapter?.id ?? null,
+    adapterVersion: record.adapter?.version ?? null,
+    status: record.status,
+    fieldCount: args.draft?.fields.length ?? 0,
+    lowConfidenceFieldCount: args.draft?.confidenceSummary.lowConfidenceFieldCount ?? 0,
+    warningCount: args.draft?.warnings.length ?? 0,
+    pageCount: args.draft?.pageCount ?? null,
+  });
+}
+
+/**
  * Run classification + extraction for a stored document.
  * Marks extraction_unsupported when parsers are stubs / unsupported formats.
  */
@@ -372,6 +421,13 @@ export async function runDocumentIngestionJob(args: {
         parser: { id: parser.id, version: parser.version },
       });
       job = await transitionJob(jobsCol, job, "completed", nowFn());
+      await persistBodyScanForDocument({
+        deps: args.deps,
+        uid: args.uid,
+        document: args.document,
+        draft: null,
+        now: nowFn(),
+      });
       logDocumentIngestionEvent("document_parser_terminal", {
         documentToken,
         domain: args.document.domain,
@@ -466,6 +522,13 @@ export async function runDocumentIngestionJob(args: {
         parser: { id: parser.id, version: parser.version },
       });
       job = await transitionJob(jobsCol, job, "completed", nowFn());
+      await persistBodyScanForDocument({
+        deps: args.deps,
+        uid: args.uid,
+        document: args.document,
+        draft: null,
+        now: nowFn(),
+      });
       logDocumentIngestionEvent("document_parser_terminal", {
         documentToken,
         domain: args.document.domain,
@@ -522,6 +585,13 @@ export async function runDocumentIngestionJob(args: {
     }
     await updateDocumentStatus(documentsCol, args.document.id, terminalDocumentStatus, nowFn(), {
       parser: { id: parser.id, version: parser.version },
+    });
+    await persistBodyScanForDocument({
+      deps: args.deps,
+      uid: args.uid,
+      document: args.document,
+      draft: null,
+      now: nowFn(),
     });
     logDocumentIngestionEvent("document_parser_terminal", {
       documentToken,
