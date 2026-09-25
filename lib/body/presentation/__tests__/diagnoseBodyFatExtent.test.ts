@@ -29,7 +29,7 @@ describe("diagnoseBodyFatExtent privacy", () => {
   });
 
   it("emits the correct DEV tag for each layer", () => {
-    const spy = jest.spyOn(console, "info").mockImplementation(() => {});
+    const spy = jest.spyOn(console, "info").mockImplementation(() => undefined);
     const prev = (global as { __DEV__?: boolean }).__DEV__;
     (global as { __DEV__?: boolean }).__DEV__ = true;
     try {
