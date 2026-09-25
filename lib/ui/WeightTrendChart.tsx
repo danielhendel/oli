@@ -24,6 +24,11 @@ import {
   resolveWeightTrendMonthMarkersForRange,
   WEIGHT_TREND_MONTH_LABEL_RANGES,
 } from "@/lib/body/presentation/buildWeightTrendMonthMarkers";
+import {
+  mapWeightTrendTimeToX,
+  mapWeightTrendXToTime,
+  type WeightTrendTimeScale,
+} from "@/lib/body/presentation/weightTrendTimeScale";
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
 import {
@@ -312,7 +317,6 @@ export function WeightTrendChart({
 
   const minT = Math.min(...processed.map((p) => p.x));
   const maxT = Math.max(...processed.map((p) => p.x));
-  const rangeT = maxT - minT || 1;
 
   const { displayMin, displayMax, outlierCount } = resolveWeightTrendYDomain({
     valuesKg: processed.map((p) => p.weightKg),
@@ -331,9 +335,15 @@ export function WeightTrendChart({
 
   const rangeDisplay = displayMax - displayMin || 0.1;
 
-  /** X-axis: linear scale from tMs (Date.parse(observedAt)) domain to screen; eliminates same-day vertical stacking. */
-  const toChartX = (tMs: number) =>
-    PADDING.left + ((tMs - minT) / rangeT) * chartWidth;
+  const timeScale: WeightTrendTimeScale = {
+    domainStartMs: minT,
+    domainEndMs: maxT,
+    plotLeft: PADDING.left,
+    plotWidth: Math.max(0, chartWidth),
+  };
+
+  /** One shared timestamp → X scale for points, months, touch, and guide. */
+  const toChartX = (tMs: number) => mapWeightTrendTimeToX(tMs, timeScale);
   /** Y-axis: maps [displayMin, displayMax] to chart bottom–top; outliers are clamped to edges. */
   const toChartY = (w: number) =>
     PADDING.top + chartHeight - ((w - displayMin) / rangeDisplay) * chartHeight;
@@ -397,12 +407,16 @@ export function WeightTrendChart({
           { valueKg: actualMinW, label: genericLowLabel },
         ].filter((t, i, arr) => i === 0 || t.label !== arr[0]!.label);
 
-  /** Nearest-point selection by tMs (timestamp); touch X is mapped to data time then compared to each point's x (observedAt ms). */
+  /** Nearest-point selection by timestamp on the shared time scale. */
   const handleTouch = useCallback(
     (ev: { locationX: number }) => {
       if (chartWidth <= 0 || pointsWithCoords.length === 0) return;
-      const x = ev.locationX;
-      const tMsAtTouch = minT + ((x - PADDING.left) / chartWidth) * rangeT;
+      const tMsAtTouch = mapWeightTrendXToTime(ev.locationX, {
+        domainStartMs: minT,
+        domainEndMs: maxT,
+        plotLeft: PADDING.left,
+        plotWidth: chartWidth,
+      });
       let best = 0;
       let bestDist = Math.abs(pointsWithCoords[0]!.x - tMsAtTouch);
       for (let i = 1; i < pointsWithCoords.length; i++) {
@@ -424,7 +438,7 @@ export function WeightTrendChart({
         });
       }
     },
-    [chartWidth, rangeT, minT, pointsWithCoords],
+    [chartWidth, maxT, minT, pointsWithCoords],
   );
 
   const clearInspection = useCallback(() => {
@@ -477,9 +491,7 @@ export function WeightTrendChart({
     layout && layout.width > 0 && chartWidth > 0
       ? resolveWeightTrendMonthMarkersForRange({
           range,
-          minTimeMs: minT,
-          maxTimeMs: maxT,
-          toChartX,
+          scale: timeScale,
         })
       : [];
 
