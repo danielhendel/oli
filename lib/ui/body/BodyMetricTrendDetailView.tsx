@@ -6,6 +6,10 @@ import { buildBodyMetricTrendAccessibilitySummary } from "@/lib/body/presentatio
 import type { BodyFatAxisTicksModel } from "@/lib/body/presentation/buildBodyFatAxisTicks";
 import type { WeightAxisTicksModel } from "@/lib/body/presentation/buildWeightAxisTicks";
 import {
+  BodyMetricDisplayModeToggle,
+  type BodyMetricDisplayModeOption,
+} from "@/lib/ui/body/BodyMetricDisplayModeToggle";
+import {
   buildWeightTrendInspection,
   WEIGHT_TREND_INSPECTION_IDLE,
   type WeightTrendInspection,
@@ -67,6 +71,17 @@ export type BodyMetricTrendDetailViewProps = {
    * Locked Body Fat % Y-axis from full available history — shared across all period selectors.
    */
   sharedPercentAxis?: BodyFatAxisTicksModel | null;
+  /**
+   * Compact display-mode toggle (lb|BMI, %|lb, …) — right of the hero result.
+   */
+  displayModeToggle?: {
+    readonly options: readonly BodyMetricDisplayModeOption<string>[];
+    readonly selected: string;
+    readonly onChange: (next: string) => void;
+    readonly testID?: string;
+  } | null;
+  /** Content key that changes when display mode changes — clears inspection. */
+  displayModeKey?: string;
 };
 
 /**
@@ -99,7 +114,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
 
   useEffect(() => {
     setInspection(WEIGHT_TREND_INSPECTION_IDLE);
-  }, [props.range, pointsContentKey]);
+  }, [props.range, pointsContentKey, props.displayModeKey]);
 
   useEffect(() => {
     if (props.valueKind !== "percent") return;
@@ -248,6 +263,19 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
 
       {displayModel.status === "missing" ? (
         <View style={styles.emptyBlock} testID="body-metric-trend-empty">
+          {props.displayModeToggle != null ? (
+            <View style={styles.emptyToggleRow}>
+              <View style={{ flex: 1 }} />
+              <BodyMetricDisplayModeToggle
+                options={props.displayModeToggle.options}
+                selected={props.displayModeToggle.selected}
+                onChange={props.displayModeToggle.onChange}
+                {...(props.displayModeToggle.testID != null
+                  ? { testID: props.displayModeToggle.testID }
+                  : {})}
+              />
+            </View>
+          ) : null}
           <Text
             style={styles.noDataPrimary}
             testID="body-metric-trend-no-data"
@@ -274,32 +302,48 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
 
       {showTrend ? (
         <View style={styles.heroSummary} testID="body-metric-trend-latest">
-          <Text
-            style={styles.latestValue}
-            accessibilityLabel={
-              inspecting && inspection.status === "active"
-                ? inspection.accessibilityLabel
-                : `Latest ${heroValueLabel ?? ""}`
-            }
-          >
-            {heroValueLabel}
-          </Text>
-          <Text style={styles.latestDate}>{heroDateLabel}</Text>
-          {heroSourceLabel ? (
-            <Text
-              style={styles.latestSource}
-              testID="body-metric-trend-inspection-source"
-            >
-              {heroSourceLabel}
-            </Text>
-          ) : inspecting ? (
-            <Text
-              style={styles.latestSource}
-              testID="body-metric-trend-inspection-source"
-            >
-              Historical
-            </Text>
-          ) : null}
+          <View style={styles.heroRow}>
+            <View style={styles.heroTextCol}>
+              <Text
+                style={styles.latestValue}
+                accessibilityLabel={
+                  inspecting && inspection.status === "active"
+                    ? inspection.accessibilityLabel
+                    : `Latest ${heroValueLabel ?? ""}`
+                }
+              >
+                {heroValueLabel}
+              </Text>
+              <Text style={styles.latestDate}>{heroDateLabel}</Text>
+              {heroSourceLabel ? (
+                <Text
+                  style={styles.latestSource}
+                  testID="body-metric-trend-inspection-source"
+                >
+                  {heroSourceLabel}
+                </Text>
+              ) : inspecting ? (
+                <Text
+                  style={styles.latestSource}
+                  testID="body-metric-trend-inspection-source"
+                >
+                  Historical
+                </Text>
+              ) : null}
+            </View>
+            {props.displayModeToggle != null ? (
+              <View style={styles.heroToggleCol}>
+                <BodyMetricDisplayModeToggle
+                  options={props.displayModeToggle.options}
+                  selected={props.displayModeToggle.selected}
+                  onChange={props.displayModeToggle.onChange}
+                  {...(props.displayModeToggle.testID != null
+                    ? { testID: props.displayModeToggle.testID }
+                    : {})}
+                />
+              </View>
+            ) : null}
+          </View>
         </View>
       ) : null}
 
@@ -376,9 +420,25 @@ const styles = StyleSheet.create({
   },
   heroSummary: {
     marginTop: 22,
-    alignItems: "flex-start",
+    alignItems: "stretch",
     gap: 4,
     paddingVertical: 4,
+  },
+  heroRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  heroTextCol: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "flex-start",
+    gap: 4,
+  },
+  heroToggleCol: {
+    flexShrink: 0,
+    paddingTop: 8,
   },
   latestValue: {
     color: UI_TEXT_PRIMARY,
@@ -417,6 +477,12 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 36,
     alignItems: "center",
+  },
+  emptyToggleRow: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginBottom: 8,
   },
   noDataPrimary: {
     color: UI_TEXT_PRIMARY,

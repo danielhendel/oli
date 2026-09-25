@@ -1,25 +1,38 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 
+import { buildBmiDetailSharedDomain } from "@/lib/body/presentation/buildBmiAxisTicks";
 import { buildBodyFatDetailSharedDomain } from "@/lib/body/presentation/buildBodyFatDetailSharedDomain";
 import {
   buildBodyMetricTrendDetailModel,
   type BodyMetricTrendDetailModel,
 } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
+import { buildHistoricalBmiSeries } from "@/lib/body/presentation/buildHistoricalBmiSeries";
+import { buildHistoricalFatMassSeries } from "@/lib/body/presentation/buildHistoricalFatMassSeries";
+import { buildHistoricalLeanPercentSeries } from "@/lib/body/presentation/buildHistoricalLeanPercentSeries";
 import { buildWeightDetailSharedDomain } from "@/lib/body/presentation/buildWeightDetailSharedDomain";
-import { resolveBodyMetricEducationalReferencePresentation } from "@/lib/body/standards/resolveEducationalReferencePresentation";
+import type {
+  BodyFatPrimaryView,
+  LeanMassPrimaryView,
+  WeightPrimaryView,
+} from "@/lib/body/presentation/bodyMetricPrimaryViews";
 import {
   bodyHistoryMetricFromDetailParam,
   type BodyHistoryMetricFilter,
 } from "@/lib/data/body/bodyHistoryMetricFilter";
 import { BODY_METRIC_DETAIL_DEFAULT_RANGE } from "@/lib/data/body/bodyMetricDetailDefaults";
 import { useBodyMetricTrends, type BodyTrendMetric } from "@/lib/data/body/useBodyMetricTrends";
-import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
+import { useUserProfileMain } from "@/lib/data/profile/useUserProfileMain";
+import { resolveUserProfileMainForInterpretation } from "@/lib/data/body/useBodyCompositionInterpretation";
+import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
 import { usePreferences } from "@/lib/preferences/PreferencesProvider";
-import { BodyMetricDetailEducationPanel } from "@/lib/ui/body/BodyMetricDetailEducationPanel";
+import type { BodyMetricManualEntryMetric } from "@/lib/body/presentation/bodyMetricManualEntryValidation";
+import type { BodyFatAxisTicksModel } from "@/lib/body/presentation/buildBodyFatAxisTicks";
+import type { WeightAxisTicksModel } from "@/lib/body/presentation/buildWeightAxisTicks";
 import { BodyMetricManualEntrySheet } from "@/lib/ui/body/BodyMetricManualEntrySheet";
 import { BodyMetricTrendDetailView } from "@/lib/ui/body/BodyMetricTrendDetailView";
+import type { BodyMetricDisplayModeOption } from "@/lib/ui/body/BodyMetricDisplayModeToggle";
 import {
   formatBodyBmi,
   formatBodyLeanMass,
@@ -30,7 +43,6 @@ import {
 import { useBodyMetricDetailHeader } from "@/lib/ui/headers/useBodyMetricDetailHeader";
 import { ScreenContainer, ErrorState } from "@/lib/ui/ScreenStates";
 import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
-import type { BodyMetricManualEntryMetric } from "@/lib/body/presentation/bodyMetricManualEntryValidation";
 
 const PARAM_TO_METRIC: Record<string, BodyTrendMetric> = {
   weight: "weight",
@@ -48,23 +60,6 @@ const METRIC_TITLES: Record<BodyTrendMetric, string> = {
   resting_metabolic_rate: "RMR",
 };
 
-const LEAN_MASS_EXTRA_LIMITATIONS = [
-  "This metric is total Lean Mass — not skeletal muscle, appendicular lean mass, ALM, or ALMI.",
-  "The current Lean Mass graph shows share of total mass only — not a population reference or health rating.",
-  "Do not apply EWGSOP2 or sarcopenia cutoffs to total Lean Mass alone.",
-  "Kelly et al. 2009 NHANES Table S5 (Lean Mass/Height²) is Hologic/NHANES method-specific and stratified by reference sex and ethnicity — Oli does not silently select a reference population.",
-  "Unknown-method Apple Health data cannot be placed on a DXA population reference.",
-  "Numerical Lean Mass reference research is deferred — not abandoned — pending Stage 3D measurement provenance and a separate non-inferred reference-population decision.",
-] as const;
-
-/** Detail-page education remains Lean Mass only — Body Fat education lives on the landing card. */
-function educationMetricKey(
-  historyMetric: BodyHistoryMetricFilter | null,
-): "leanTissue" | null {
-  if (historyMetric === "leanTissue") return "leanTissue";
-  return null;
-}
-
 function manualEntryMetricFor(
   historyMetric: BodyHistoryMetricFilter | null,
 ): BodyMetricManualEntryMetric | null {
@@ -74,12 +69,51 @@ function manualEntryMetricFor(
   return null;
 }
 
+function bmiAxisAsPercentAxis(bmi: ReturnType<typeof buildBmiDetailSharedDomain>): BodyFatAxisTicksModel | null {
+  if (bmi == null || bmi.status !== "ready") return null;
+  return {
+    status: "ready",
+    domainMinPercent: bmi.domainMinBmi,
+    domainMaxPercent: bmi.domainMaxBmi,
+    ticks: bmi.ticks.map((t) => ({
+      valuePercent: t.valueBmi,
+      label: t.label,
+    })),
+    step: bmi.step,
+  };
+}
+
+function formatSignedPercent(delta: number): string {
+  if (!Number.isFinite(delta)) return "—";
+  const mag = `${Math.abs(delta).toFixed(1)}%`;
+  if (delta > 0) return `+${mag}`;
+  if (delta < 0) return `−${mag}`;
+  return mag;
+}
+
+function formatSignedBmi(delta: number): string {
+  if (!Number.isFinite(delta)) return "—";
+  const mag = `${Math.abs(delta).toFixed(1)} BMI`;
+  if (delta > 0) return `+${mag}`;
+  if (delta < 0) return `−${mag}`;
+  return mag;
+}
+
 export default function BodyMetricDetailScreen() {
   const { metric: metricParam } = useLocalSearchParams<{ metric: string }>();
   const { state: prefState } = usePreferences();
   const unit = prefState.preferences?.units?.mass ?? "lb";
+  const { state: profileState } = useUserProfileMain();
+  const heightCm = useMemo(() => {
+    const profile = resolveUserProfileMainForInterpretation(profileState);
+    return profile.body.heightCm ?? null;
+  }, [profileState]);
+
   const [range, setRange] = useState<WeightRangeKey>(BODY_METRIC_DETAIL_DEFAULT_RANGE);
   const [manualEntryOpen, setManualEntryOpen] = useState(false);
+  const [weightView, setWeightView] = useState<WeightPrimaryView>("mass");
+  const [bodyFatView, setBodyFatView] = useState<BodyFatPrimaryView>("percentage");
+  const [leanView, setLeanView] = useState<LeanMassPrimaryView>("mass");
   const previousReadyRef = useRef<BodyMetricTrendDetailModel | null>(null);
 
   const metricParamKey = typeof metricParam === "string" ? metricParam : undefined;
@@ -93,53 +127,135 @@ export default function BodyMetricDetailScreen() {
   });
 
   /**
-   * Weight + Body Fat load full available history once (All → 5Y window) so
+   * Weight / Body Fat / Lean Mass load full available history once so
    * Y-domain stays locked across period selectors; client filters by `range`.
-   * Other metrics keep range-scoped fetches.
    */
   const trendsFetchRange: WeightRangeKey =
-    metric === "weight" || metric === "body_fat_percent" ? "All" : range;
-  const trends = useBodyMetricTrends(trendsFetchRange, metric, { enabled: metric !== undefined });
+    metric === "weight" ||
+    metric === "body_fat_percent" ||
+    metric === "lean_body_mass"
+      ? "All"
+      : range;
+  const trends = useBodyMetricTrends(trendsFetchRange, metric, {
+    enabled: metric !== undefined,
+  });
 
-  const points = useMemo(() => {
+  /** Companion Weight series for Body Fat mass / Lean % derivation. */
+  const needsCompanionWeight =
+    metric === "body_fat_percent" || metric === "lean_body_mass";
+  const weightCompanion = useBodyMetricTrends("All", "weight", {
+    enabled: needsCompanionWeight,
+  });
+
+  const canonicalPoints = useMemo((): WeightPoint[] => {
     if (trends.status !== "ready" || !metric) return [];
     return trends.data.byMetric[metric];
   }, [trends, metric]);
 
-  const stats = useMemo(() => {
-    if (trends.status !== "ready" || !metric) {
-      return { change: null, avg: null, high: null, low: null };
+  const companionWeightPoints = useMemo((): WeightPoint[] => {
+    if (!needsCompanionWeight) return [];
+    if (weightCompanion.status !== "ready") return [];
+    return weightCompanion.data.byMetric.weight;
+  }, [needsCompanionWeight, weightCompanion]);
+
+  const displayModeKey = useMemo(() => {
+    if (metric === "weight") return `weight:${weightView}`;
+    if (metric === "body_fat_percent") return `bodyFat:${bodyFatView}`;
+    if (metric === "lean_body_mass") return `lean:${leanView}`;
+    return "default";
+  }, [metric, weightView, bodyFatView, leanView]);
+
+  const displaySeriesFull = useMemo((): WeightPoint[] => {
+    if (metric === "weight") {
+      if (weightView === "bmi") {
+        return buildHistoricalBmiSeries({
+          weightPoints: canonicalPoints,
+          heightCm,
+        });
+      }
+      return canonicalPoints;
     }
-    return trends.data.statsByMetric[metric];
-  }, [trends, metric]);
+    if (metric === "body_fat_percent") {
+      if (bodyFatView === "fatMass") {
+        return buildHistoricalFatMassSeries({
+          bodyFatPoints: canonicalPoints,
+          weightPoints: companionWeightPoints,
+        });
+      }
+      return canonicalPoints;
+    }
+    if (metric === "lean_body_mass") {
+      if (leanView === "percentage") {
+        return buildHistoricalLeanPercentSeries({
+          leanMassPoints: canonicalPoints,
+          weightPoints: companionWeightPoints,
+        });
+      }
+      return canonicalPoints;
+    }
+    return canonicalPoints;
+  }, [
+    metric,
+    weightView,
+    bodyFatView,
+    leanView,
+    canonicalPoints,
+    companionWeightPoints,
+    heightCm,
+  ]);
 
   const model = useMemo(
     () =>
       buildBodyMetricTrendDetailModel({
         range,
-        points,
-        stats,
-        trendsStatus: trends.status,
+        points: displaySeriesFull,
+        stats: { change: null, avg: null, high: null, low: null },
+        trendsStatus:
+          trends.status === "ready" &&
+          needsCompanionWeight &&
+          weightCompanion.status === "partial"
+            ? "partial"
+            : trends.status,
         errorMessage: trends.status === "error" ? trends.error : null,
       }),
-    [range, points, stats, trends],
+    [range, displaySeriesFull, trends, needsCompanionWeight, weightCompanion.status],
   );
 
-  const sharedMassAxis = useMemo(() => {
-    if (metric !== "weight" || points.length === 0) return null;
+  const sharedMassAxis = useMemo((): WeightAxisTicksModel | null => {
+    const wantMass =
+      (metric === "weight" && weightView === "mass") ||
+      (metric === "body_fat_percent" && bodyFatView === "fatMass") ||
+      (metric === "lean_body_mass" && leanView === "mass");
+    if (!wantMass || displaySeriesFull.length === 0) return null;
     if (unit !== "lb" && unit !== "kg") return null;
     return buildWeightDetailSharedDomain({
-      valuesKg: points.map((p) => p.weightKg),
+      valuesKg: displaySeriesFull.map((p) => p.weightKg),
       unit,
     });
-  }, [metric, points, unit]);
+  }, [metric, weightView, bodyFatView, leanView, displaySeriesFull, unit]);
 
-  const sharedPercentAxis = useMemo(() => {
-    if (metric !== "body_fat_percent" || points.length === 0) return null;
-    return buildBodyFatDetailSharedDomain({
-      valuesPercent: points.map((p) => p.weightKg),
-    });
-  }, [metric, points]);
+  const sharedPercentAxis = useMemo((): BodyFatAxisTicksModel | null => {
+    if (metric === "weight" && weightView === "bmi") {
+      return bmiAxisAsPercentAxis(
+        buildBmiDetailSharedDomain({
+          valuesBmi: displaySeriesFull.map((p) => p.weightKg),
+        }),
+      );
+    }
+    if (metric === "body_fat_percent" && bodyFatView === "percentage") {
+      if (displaySeriesFull.length === 0) return null;
+      return buildBodyFatDetailSharedDomain({
+        valuesPercent: displaySeriesFull.map((p) => p.weightKg),
+      });
+    }
+    if (metric === "lean_body_mass" && leanView === "percentage") {
+      if (displaySeriesFull.length === 0) return null;
+      return buildBodyFatDetailSharedDomain({
+        valuesPercent: displaySeriesFull.map((p) => p.weightKg),
+      });
+    }
+    return null;
+  }, [metric, weightView, bodyFatView, leanView, displaySeriesFull]);
 
   useEffect(() => {
     if (model.status === "ready" || model.status === "insufficient") {
@@ -147,57 +263,139 @@ export default function BodyMetricDetailScreen() {
     }
   }, [model]);
 
-  const educationalModel = useMemo(() => {
-    const key = educationMetricKey(historyMetric);
-    if (key == null) return null;
-    return resolveBodyMetricEducationalReferencePresentation({
-      metric: key,
-      hasMeasuredValue: points.length > 0,
-      measurementMethod: null,
-    });
-  }, [historyMetric, points.length]);
+  const formatTrendValue = useCallback(
+    (value: number): string => {
+      if (!metric) return String(value);
+      if (metric === "weight") {
+        if (weightView === "bmi") return `${formatBodyBmi(value)} BMI`;
+        return formatBodyWeight(value, unit);
+      }
+      if (metric === "body_fat_percent") {
+        if (bodyFatView === "fatMass") return formatBodyWeight(value, unit);
+        return `${value.toFixed(1)}%`;
+      }
+      if (metric === "lean_body_mass") {
+        if (leanView === "percentage") return `${value.toFixed(1)}%`;
+        return formatBodyLeanMass(value, unit);
+      }
+      if (metric === "bmi") return formatBodyBmi(value);
+      return formatBodyRmr(value);
+    },
+    [metric, weightView, bodyFatView, leanView, unit],
+  );
 
-  const extraLimitations =
-    historyMetric === "leanTissue" ? LEAN_MASS_EXTRA_LIMITATIONS : undefined;
-
-  const formatTrendValue = (value: number): string => {
-    if (!metric) return String(value);
-    if (metric === "weight") return formatBodyWeight(value, unit);
-    if (metric === "body_fat_percent") return `${value.toFixed(1)}%`;
-    if (metric === "bmi") return formatBodyBmi(value);
-    if (metric === "lean_body_mass") return formatBodyLeanMass(value, unit);
-    return formatBodyRmr(value);
-  };
-
-  const formatTrendChange = (delta: number): string => {
-    if (!metric) return String(delta);
-    if (metric === "weight" || metric === "lean_body_mass") {
-      return formatBodyWeightChange(delta, unit);
-    }
-    if (metric === "body_fat_percent") {
-      if (!Number.isFinite(delta)) return "—";
-      const mag = `${Math.abs(delta).toFixed(1)}%`;
-      if (delta > 0) return `+${mag}`;
-      if (delta < 0) return `−${mag}`;
-      return mag;
-    }
-    if (metric === "bmi") {
-      if (!Number.isFinite(delta)) return "—";
-      const mag = Math.abs(delta).toFixed(1);
-      if (delta > 0) return `+${mag}`;
-      if (delta < 0) return `−${mag}`;
-      return mag;
-    }
-    return formatTrendValue(delta);
-  };
+  const formatTrendChange = useCallback(
+    (delta: number): string => {
+      if (!metric) return String(delta);
+      if (metric === "weight") {
+        if (weightView === "bmi") return formatSignedBmi(delta);
+        return formatBodyWeightChange(delta, unit);
+      }
+      if (metric === "body_fat_percent") {
+        if (bodyFatView === "fatMass") return formatBodyWeightChange(delta, unit);
+        return formatSignedPercent(delta);
+      }
+      if (metric === "lean_body_mass") {
+        if (leanView === "percentage") return formatSignedPercent(delta);
+        return formatBodyWeightChange(delta, unit);
+      }
+      return formatTrendValue(delta);
+    },
+    [metric, weightView, bodyFatView, leanView, unit, formatTrendValue],
+  );
 
   const chartUnitLabel = (): string => {
     if (!metric) return "";
-    if (metric === "weight" || metric === "lean_body_mass") return unit;
-    if (metric === "body_fat_percent") return "%";
+    if (metric === "weight") {
+      if (weightView === "bmi") return "BMI";
+      return unit;
+    }
+    if (metric === "body_fat_percent") {
+      if (bodyFatView === "fatMass") return unit;
+      return "%";
+    }
+    if (metric === "lean_body_mass") {
+      if (leanView === "percentage") return "%";
+      return unit;
+    }
     if (metric === "resting_metabolic_rate") return "kcal";
     return "";
   };
+
+  const valueKind = ((): "mass" | "generic" | "percent" => {
+    if (metric === "weight") return weightView === "bmi" ? "generic" : "mass";
+    if (metric === "body_fat_percent") {
+      return bodyFatView === "fatMass" ? "mass" : "percent";
+    }
+    if (metric === "lean_body_mass") {
+      return leanView === "percentage" ? "percent" : "mass";
+    }
+    return "generic";
+  })();
+
+  const displayModeToggle = useMemo(() => {
+    if (metric === "weight") {
+      const options: BodyMetricDisplayModeOption<WeightPrimaryView>[] = [
+        {
+          id: "mass",
+          label: unit,
+          accessibilityLabel: unit === "lb" ? "Show Weight" : "Show Weight in kilograms",
+        },
+        {
+          id: "bmi",
+          label: "BMI",
+          accessibilityLabel: "Show BMI",
+        },
+      ];
+      return {
+        options,
+        selected: weightView,
+        onChange: (next: string) => setWeightView(next as WeightPrimaryView),
+        testID: "body-metric-display-mode-toggle",
+      };
+    }
+    if (metric === "body_fat_percent") {
+      const options: BodyMetricDisplayModeOption<BodyFatPrimaryView>[] = [
+        {
+          id: "percentage",
+          label: "%",
+          accessibilityLabel: "Show Body Fat percentage",
+        },
+        {
+          id: "fatMass",
+          label: unit,
+          accessibilityLabel: "Show fat mass",
+        },
+      ];
+      return {
+        options,
+        selected: bodyFatView,
+        onChange: (next: string) => setBodyFatView(next as BodyFatPrimaryView),
+        testID: "body-metric-display-mode-toggle",
+      };
+    }
+    if (metric === "lean_body_mass") {
+      const options: BodyMetricDisplayModeOption<LeanMassPrimaryView>[] = [
+        {
+          id: "percentage",
+          label: "%",
+          accessibilityLabel: "Show Lean Mass percentage",
+        },
+        {
+          id: "mass",
+          label: unit,
+          accessibilityLabel: "Show Lean Mass",
+        },
+      ];
+      return {
+        options,
+        selected: leanView,
+        onChange: (next: string) => setLeanView(next as LeanMassPrimaryView),
+        testID: "body-metric-display-mode-toggle",
+      };
+    }
+    return null;
+  }, [metric, unit, weightView, bodyFatView, leanView]);
 
   const entryMetric = manualEntryMetricFor(historyMetric);
 
@@ -224,14 +422,11 @@ export default function BodyMetricDetailScreen() {
           formatValue={formatTrendValue}
           formatChange={formatTrendChange}
           unitLabel={chartUnitLabel()}
-          valueKind={
-            metric === "weight" || metric === "lean_body_mass"
-              ? "mass"
-              : metric === "body_fat_percent"
-                ? "percent"
-                : "generic"
-          }
-          onRetry={() => trends.refetch()}
+          valueKind={valueKind}
+          onRetry={() => {
+            trends.refetch();
+            if (needsCompanionWeight) weightCompanion.refetch();
+          }}
           {...(entryMetric != null
             ? { onPressAddMeasurement: () => setManualEntryOpen(true) }
             : {})}
@@ -239,16 +434,9 @@ export default function BodyMetricDetailScreen() {
           previousReadyModel={previousReadyRef.current}
           sharedMassAxis={sharedMassAxis}
           sharedPercentAxis={sharedPercentAxis}
+          displayModeToggle={displayModeToggle}
+          displayModeKey={displayModeKey}
         />
-
-        {historyMetric === "leanTissue" ? (
-          <View style={styles.educationWrap}>
-            <BodyMetricDetailEducationPanel
-              model={educationalModel}
-              {...(extraLimitations != null ? { extraLimitations } : {})}
-            />
-          </View>
-        ) : null}
       </ScrollView>
 
       {entryMetric != null ? (
@@ -259,6 +447,9 @@ export default function BodyMetricDetailScreen() {
           onSaved={() => {
             setManualEntryOpen(false);
             trends.refetch({ cacheBust: `manualMetric:${Date.now()}` });
+            if (needsCompanionWeight) {
+              weightCompanion.refetch({ cacheBust: `manualMetric:${Date.now()}` });
+            }
           }}
         />
       ) : null}
@@ -274,8 +465,5 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     gap: 20,
     backgroundColor: UI_SCREEN_BG,
-  },
-  educationWrap: {
-    marginTop: 4,
   },
 });
