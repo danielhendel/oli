@@ -8,7 +8,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { View, Text, StyleSheet, LayoutChangeEvent } from "react-native";
 import Svg, {
   Circle,
+  ClipPath,
   Defs,
+  G,
   LinearGradient,
   Path,
   Rect,
@@ -20,6 +22,10 @@ import {
   clipWeightTrendBandToDomain,
   type WeightTrendClassificationBandsModel,
 } from "@/lib/body/presentation/buildWeightTrendClassificationBands";
+import {
+  buildWeightTrendMonthMarkers,
+  thinWeightTrendMonthMarkersForPlot,
+} from "@/lib/body/presentation/buildWeightTrendMonthMarkers";
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 import type { WeightPoint, WeightRangeKey } from "@/lib/data/useWeightSeries";
 import {
@@ -31,23 +37,33 @@ import {
   resolveWeightClassificationColor,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
-const PADDING = { left: 40, right: 10, top: 14, bottom: 18 };
+/** Plot inset — bottom reserves room for month-letter markers. */
+const PADDING = { left: 40, right: 12, top: 14, bottom: 30 };
 const Y_LABEL_FONT_SIZE = 11;
 const Y_LABEL_COLOR = UI_TEXT_MUTED;
 /** Hero chart height — visually dominant on Weight detail. */
 const DEFAULT_CHART_HEIGHT = 320;
-const DOT_R = 5.5;
-const DOT_GLOW_R = 11;
-const CROSSHAIR_COLOR = "rgba(255,255,255,0.28)";
+const DOT_R = 5;
+const DOT_GLOW_R = 10;
+/** Active inspection guide — intentional, premium, readable. */
+const CROSSHAIR_COLOR = "rgba(255,255,255,0.48)";
+const CROSSHAIR_GLOW = "rgba(91, 140, 255, 0.28)";
+const PLOT_CORNER_RADIUS = 12;
+const PLOT_EDGE_STROKE = "rgba(255,255,255,0.14)";
+const BAND_DIVIDER = "rgba(11,13,16,0.38)";
+const MONTH_LETTER_COLOR = "rgba(180, 196, 220, 0.72)";
+const MONTH_LETTER_SIZE = 10;
 
 const ACCENT_BLUE = SYSTEM_ACCENT_LUMINOUS;
-/** High-contrast Weight trend core — pops over semantic classification bands. */
+/** High-contrast Weight trend core — thin, elevated over classification bands. */
 const LINE_CORE_WHITE = "#FFFFFF";
-const LINE_GLOW_BLUE = "rgba(91, 140, 255, 0.42)";
-const LINE_WIDTH = 2.85;
-const LINE_GLOW_WIDTH = 8;
-/** Neutral grid — quieter so exact Weight-card band fills stay crisp. */
-const GRID_COLOR = "rgba(160, 176, 200, 0.10)";
+const LINE_GLOW_BLUE = "rgba(91, 140, 255, 0.30)";
+const LINE_GLOW_SOFT = "rgba(255,255,255,0.14)";
+const LINE_WIDTH = 2.05;
+const LINE_GLOW_WIDTH = 5.5;
+const LINE_SOFT_WIDTH = 9;
+/** Neutral grid — calm under bright band fills. */
+const GRID_COLOR = "rgba(160, 176, 200, 0.09)";
 /** Max points used to draw path/area/dots; touch/inspection still use full data. */
 const MAX_RENDER_POINTS = 80;
 
@@ -425,6 +441,8 @@ export function WeightTrendChart({
 
   const plotLeft = PADDING.left;
   const plotWidth = Math.max(0, (layout?.width ?? 0) - PADDING.left - PADDING.right);
+  const plotTop = PADDING.top;
+  const plotBottom = PADDING.top + chartHeight;
 
   const visibleBands =
     classificationBands?.status === "ready" && layout && layout.width > 0
@@ -451,6 +469,20 @@ export function WeightTrendChart({
           .filter((b): b is NonNullable<typeof b> => b != null && b.height > 0)
       : [];
 
+  const monthMarkers =
+    layout && layout.width > 0 && chartWidth > 0
+      ? thinWeightTrendMonthMarkersForPlot({
+          markers: buildWeightTrendMonthMarkers({
+            minTimeMs: minT,
+            maxTimeMs: maxT,
+          }),
+          toChartX,
+          minGapPx: 14,
+        })
+      : [];
+
+  const monthLabelY = plotBottom + 14;
+
   return (
     <View
       style={[styles.container, { minHeight: CHART_HEIGHT }]}
@@ -472,36 +504,69 @@ export function WeightTrendChart({
               <Stop offset="45%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.10" />
               <Stop offset="100%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.01" />
             </LinearGradient>
+            <ClipPath id="weightTrendPlotClip">
+              <Rect
+                x={plotLeft}
+                y={plotTop}
+                width={plotWidth}
+                height={chartHeight}
+                rx={PLOT_CORNER_RADIUS}
+                ry={PLOT_CORNER_RADIUS}
+              />
+            </ClipPath>
           </Defs>
-          {/* Classification bands — one solid Weight-card category color each (no sheen/gradient). */}
-          {visibleBands.map((band) => (
-            <Rect
-              key={`band-${band.id}`}
-              x={plotLeft}
-              y={band.y}
-              width={plotWidth}
-              height={band.height}
-              fill={resolveWeightClassificationColor(band.tone)}
-              pointerEvents="none"
-            />
-          ))}
-          {/* Soft area fill only when classification bands are absent. */}
-          {areaD && visibleBands.length === 0 ? (
-            <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
-          ) : null}
-          {/* Horizontal grid aligned to Y-axis ticks */}
-          {yAxisTicks.map((tick) => {
-            const y = toChartY(tick.valueKg);
-            return (
+          {/* Classification bands — clipped to rounded plot region; one solid color each. */}
+          <G clipPath="url(#weightTrendPlotClip)" pointerEvents="none">
+            {visibleBands.map((band) => (
+              <Rect
+                key={`band-${band.id}`}
+                x={plotLeft}
+                y={band.y}
+                width={plotWidth}
+                height={band.height}
+                fill={resolveWeightClassificationColor(band.tone)}
+              />
+            ))}
+            {visibleBands.slice(1).map((band) => (
               <Path
-                key={`grid-${tick.label}`}
-                d={`M ${PADDING.left} ${y} L ${layout.width - PADDING.right} ${y}`}
-                stroke={GRID_COLOR}
-                strokeWidth={1}
+                key={`band-div-${band.id}`}
+                d={`M ${plotLeft} ${band.y} L ${plotLeft + plotWidth} ${band.y}`}
+                stroke={BAND_DIVIDER}
+                strokeWidth={StyleSheet.hairlineWidth}
                 fill="none"
               />
-            );
-          })}
+            ))}
+            {/* Soft area fill only when classification bands are absent. */}
+            {areaD && visibleBands.length === 0 ? (
+              <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
+            ) : null}
+            {/* Horizontal grid aligned to Y-axis ticks */}
+            {yAxisTicks.map((tick) => {
+              const y = toChartY(tick.valueKg);
+              return (
+                <Path
+                  key={`grid-${tick.label}`}
+                  d={`M ${plotLeft} ${y} L ${plotLeft + plotWidth} ${y}`}
+                  stroke={GRID_COLOR}
+                  strokeWidth={1}
+                  fill="none"
+                />
+              );
+            })}
+          </G>
+          {/* Refined plot edge — light containment, no heavy card chrome. */}
+          <Rect
+            x={plotLeft}
+            y={plotTop}
+            width={plotWidth}
+            height={chartHeight}
+            rx={PLOT_CORNER_RADIUS}
+            ry={PLOT_CORNER_RADIUS}
+            fill="none"
+            stroke={PLOT_EDGE_STROKE}
+            strokeWidth={StyleSheet.hairlineWidth}
+            pointerEvents="none"
+          />
           {/* Clean Y-axis tick labels */}
           {yAxisTicks.map((tick) => {
             const y = toChartY(tick.valueKg);
@@ -519,7 +584,17 @@ export function WeightTrendChart({
               </SvgText>
             );
           })}
-          {/* Soft luminous halo under the crisp line */}
+          {/* Soft elevated halo — restrained so the thin white core floats */}
+          {pathD ? (
+            <Path
+              d={pathD}
+              stroke={useHighContrastLine ? LINE_GLOW_SOFT : lineGlow}
+              strokeWidth={LINE_SOFT_WIDTH}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ) : null}
           {pathD ? (
             <Path
               d={pathD}
@@ -530,7 +605,7 @@ export function WeightTrendChart({
               strokeLinejoin="round"
             />
           ) : null}
-          {/* Line */}
+          {/* Thin crisp white (or accent) core */}
           {pathD ? (
             <Path
               d={pathD}
@@ -556,36 +631,59 @@ export function WeightTrendChart({
                 r={DOT_R}
                 fill={pointFill}
                 stroke={pointRing}
-                strokeWidth={2.25}
+                strokeWidth={2}
               />
             </>
           ) : null}
-          {/* Inspection: vertical guide + primary selected point (no floating tooltip). */}
+          {/* Inspection: premium vertical guide + selected point (no floating tooltip). */}
           {selected != null ? (
             <>
               <Path
-                d={`M ${selected.cx} ${PADDING.top} L ${selected.cx} ${PADDING.top + chartHeight}`}
-                stroke={CROSSHAIR_COLOR}
-                strokeWidth={1}
-                strokeDasharray="4 2"
+                d={`M ${selected.cx} ${plotTop} L ${selected.cx} ${plotBottom}`}
+                stroke={CROSSHAIR_GLOW}
+                strokeWidth={4}
                 fill="none"
+                strokeLinecap="round"
+              />
+              <Path
+                d={`M ${selected.cx} ${plotTop} L ${selected.cx} ${plotBottom}`}
+                stroke={CROSSHAIR_COLOR}
+                strokeWidth={1.5}
+                fill="none"
+                strokeLinecap="round"
               />
               <Circle
                 cx={selected.cx}
                 cy={selected.cy}
-                r={DOT_GLOW_R + 1}
+                r={DOT_GLOW_R + 2}
                 fill={lineGlow}
               />
               <Circle
                 cx={selected.cx}
                 cy={selected.cy}
-                r={DOT_R + 1.5}
+                r={DOT_R + 1.25}
                 fill={pointFill}
                 stroke={pointRing}
-                strokeWidth={2.5}
+                strokeWidth={2.25}
               />
             </>
           ) : null}
+          {/* Month letters — aligned to plotted time domain, above observed coverage footer. */}
+          {monthMarkers.map((marker) => (
+            <SvgText
+              key={`month-${marker.key}`}
+              x={marker.x}
+              y={monthLabelY}
+              fontSize={MONTH_LETTER_SIZE}
+              fill={MONTH_LETTER_COLOR}
+              fontWeight="600"
+              textAnchor="middle"
+              alignmentBaseline="middle"
+              testID={`weight-trend-month-${marker.key}`}
+            >
+              {marker.letter}
+            </SvgText>
+          ))}
         </Svg>
       )}
       {outlierCount > 0 && (

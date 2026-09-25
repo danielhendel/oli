@@ -13,7 +13,7 @@ import { WeightTrendChart } from "@/lib/ui/WeightTrendChart";
 jest.mock("react-native", () => ({
   View: "View",
   Text: "Text",
-  StyleSheet: { create: (s: unknown) => s },
+  StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },
 }));
 
 jest.mock("react-native-svg", () => {
@@ -28,7 +28,9 @@ jest.mock("react-native-svg", () => {
     __esModule: true,
     default: stub("Svg"),
     Circle: stub("Circle"),
+    ClipPath: stub("ClipPath"),
     Defs: stub("Defs"),
+    G: stub("G"),
     LinearGradient: stub("LinearGradient"),
     Path: stub("Path"),
     Rect: stub("Rect"),

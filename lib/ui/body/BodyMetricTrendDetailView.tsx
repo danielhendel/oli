@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   observedCoverage: {
-    marginTop: 12,
+    marginTop: 8,
     marginBottom: 4,
     textAlign: "center",
     color: UI_TEXT_MUTED,
