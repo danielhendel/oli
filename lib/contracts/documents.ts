@@ -381,13 +381,38 @@ export const documentDeleteResponseDtoSchema = z
   })
   .strip();
 
-export const documentViewOriginalResponseDtoSchema = z
-  .object({
-    ok: z.literal(true),
-    available: z.literal(false),
-    reasonCode: z.literal("VIEW_ORIGINAL_NOT_IMPLEMENTED"),
-  })
-  .strip();
+/** Seconds a View Original grant stays valid. Kept short: the URL is bearer access. */
+export const DOCUMENT_VIEW_ORIGINAL_URL_TTL_SECONDS = 120;
+
+export const documentViewOriginalUnavailableReasonSchema = z.enum([
+  "VIEW_ORIGINAL_NOT_IMPLEMENTED",
+  "VIEW_ORIGINAL_UNAVAILABLE",
+  "VIEW_ORIGINAL_NOT_STORED",
+]);
+
+/**
+ * View Original grant. The URL is short-lived authenticated access to the private
+ * original — never a permanent public URL, and never logged or persisted.
+ */
+export const documentViewOriginalResponseDtoSchema = z.union([
+  z
+    .object({
+      ok: z.literal(true),
+      available: z.literal(true),
+      url: z.string().url(),
+      expiresAt: isoDatetimeString,
+      mediaType: documentMediaTypeSchema,
+      filename: z.string().min(1).max(255),
+    })
+    .strip(),
+  z
+    .object({
+      ok: z.literal(true),
+      available: z.literal(false),
+      reasonCode: documentViewOriginalUnavailableReasonSchema,
+    })
+    .strip(),
+]);
 
 export type DocumentDomain = z.infer<typeof documentDomainSchema>;
 export type DocumentType = z.infer<typeof documentTypeSchema>;
@@ -415,3 +440,6 @@ export type DocumentReprocessRequestDto = z.infer<typeof documentReprocessReques
 export type DocumentReprocessResponseDto = z.infer<typeof documentReprocessResponseDtoSchema>;
 export type DocumentDeleteResponseDto = z.infer<typeof documentDeleteResponseDtoSchema>;
 export type DocumentViewOriginalResponseDto = z.infer<typeof documentViewOriginalResponseDtoSchema>;
+export type DocumentViewOriginalUnavailableReason = z.infer<
+  typeof documentViewOriginalUnavailableReasonSchema
+>;
