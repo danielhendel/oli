@@ -80,7 +80,7 @@ export function resolveBodyMetricClassificationBandChrome(
 
 /**
  * Exact Weight-card rail paint — same final fills as {@link BodyMetricClassificationChart}.
- * Trend chart bands must consume this object identity-wise; no alpha / darken / alternate palette.
+ * Card rail may still apply a sheen layer; trend chart bands must NOT.
  */
 export type WeightClassificationBandPaint = {
   /** Exact card band `backgroundColor` — solid `#RRGGBB`, no alpha. */
@@ -97,8 +97,8 @@ export const BODY_METRIC_CLASSIFICATION_BAND_SHEEN_OPACITY = 0.85 as const;
 export const BODY_METRIC_CLASSIFICATION_BAND_SHEEN_HEIGHT_RATIO = 0.48 as const;
 
 /**
- * Shared visual recipe for Weight classification segments (card rail + trend bands).
- * Geometry differs by surface; paint values do not.
+ * Shared visual recipe for Weight classification segments on the Weight card rail.
+ * Includes sheen — for trend chart bands use {@link resolveWeightClassificationColor} only.
  */
 export type WeightClassificationSegmentVisual = {
   readonly tone: BodyMetricClassificationTone;
@@ -112,6 +112,16 @@ export type WeightClassificationSegmentVisual = {
   readonly sheenHeightRatio: typeof BODY_METRIC_CLASSIFICATION_BAND_SHEEN_HEIGHT_RATIO;
 };
 
+/**
+ * Single solid semantic color for Weight trend classification bands.
+ * Exact Weight-card `fillStrong` — no gradient, no sheen, no alpha layering.
+ */
+export function resolveWeightClassificationColor(
+  tone: BodyMetricClassificationTone,
+): string {
+  return resolveBodyMetricClassificationBandChrome(tone).fillStrong;
+}
+
 export function resolveWeightClassificationBandPaint(
   tone: BodyMetricClassificationTone,
 ): WeightClassificationBandPaint {
@@ -124,7 +134,7 @@ export function resolveWeightClassificationBandPaint(
 }
 
 /**
- * Full shared visual for one Weight classification tone — card and trend must share this.
+ * Full Weight-card rail visual (solid + sheen). Trend chart must not use sheen.
  */
 export function resolveWeightClassificationSegmentVisual(
   tone: BodyMetricClassificationTone,

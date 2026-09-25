@@ -28,7 +28,7 @@ import {
   SYSTEM_ACCENT_NAVY_DEPTH,
 } from "@/lib/ui/theme/systemAccent";
 import {
-  resolveWeightClassificationSegmentVisual,
+  resolveWeightClassificationColor,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
 const PADDING = { left: 40, right: 10, top: 14, bottom: 18 };
@@ -473,44 +473,18 @@ export function WeightTrendChart({
               <Stop offset="100%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.01" />
             </LinearGradient>
           </Defs>
-          {/* Classification bands — EXACT Weight-card paint (no chart alpha on fillStrong). */}
-          {visibleBands.map((band) => {
-            const visual = resolveWeightClassificationSegmentVisual(band.tone);
-            const sheenHeight = Math.max(
-              0,
-              band.height * visual.sheenHeightRatio,
-            );
-            return (
-              <React.Fragment key={`band-${band.id}`}>
-                <Rect
-                  x={plotLeft}
-                  y={band.y}
-                  width={plotWidth}
-                  height={band.height}
-                  fill={visual.paint.fillStrong}
-                  pointerEvents="none"
-                />
-                {sheenHeight > 0 ? (
-                  <Rect
-                    x={plotLeft}
-                    y={band.y}
-                    width={plotWidth}
-                    height={sheenHeight}
-                    fill={visual.paint.fillHighlight}
-                    fillOpacity={visual.sheenLayerOpacity}
-                    pointerEvents="none"
-                  />
-                ) : null}
-                <Path
-                  d={`M ${plotLeft} ${band.y} L ${plotLeft + plotWidth} ${band.y}`}
-                  stroke={visual.paint.divider}
-                  strokeWidth={StyleSheet.hairlineWidth}
-                  fill="none"
-                  pointerEvents="none"
-                />
-              </React.Fragment>
-            );
-          })}
+          {/* Classification bands — one solid Weight-card category color each (no sheen/gradient). */}
+          {visibleBands.map((band) => (
+            <Rect
+              key={`band-${band.id}`}
+              x={plotLeft}
+              y={band.y}
+              width={plotWidth}
+              height={band.height}
+              fill={resolveWeightClassificationColor(band.tone)}
+              pointerEvents="none"
+            />
+          ))}
           {/* Soft area fill only when classification bands are absent. */}
           {areaD && visibleBands.length === 0 ? (
             <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />

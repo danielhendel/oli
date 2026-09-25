@@ -15,8 +15,7 @@ import {
 } from "@/lib/body/standards/cdcWhoAdultBmiScreeningStandard";
 import {
   BODY_METRIC_CLASSIFICATION_FILL_STRONG_TOKENS,
-  resolveBodyMetricClassificationBandChrome,
-  resolveWeightClassificationSegmentVisual,
+  resolveWeightClassificationColor,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
 const HEIGHT_CM = 170;
@@ -70,12 +69,8 @@ describe("Weight card ↔ trend chart classification parity", () => {
     expect(presentation!.segments.map((s) => s.id)).toEqual(bands.bands.map((b) => b.id));
     expect(presentation!.segments.map((s) => s.tone)).toEqual(bands.bands.map((b) => b.tone));
     for (const band of bands.bands) {
-      const visual = resolveWeightClassificationSegmentVisual(band.tone);
-      expect(visual.paint.fillStrong).toBe(
+      expect(resolveWeightClassificationColor(band.tone)).toBe(
         BODY_METRIC_CLASSIFICATION_FILL_STRONG_TOKENS[band.tone],
-      );
-      expect(visual.paint.fillStrong).toBe(
-        resolveBodyMetricClassificationBandChrome(band.tone).fillStrong,
       );
     }
   });
