@@ -20,6 +20,7 @@
     "../../lib/labs/**/*.ts",
     "../../lib/data/labs/labsOsFlag.ts",
     "../../lib/data/body-scans/bodyScanAdapter.ts",
+    "../../lib/data/body-scans/extraction/liveLeanRxDxaExtractor.ts",
     "../../lib/data/body-scans/bodyScanDtoMappers.ts",
     "../../lib/data/body-scans/bodyScanMetricCatalog.ts",
     "../../lib/data/body-scans/bodyScanStatusMachine.ts",

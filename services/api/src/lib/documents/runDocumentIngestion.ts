@@ -22,6 +22,10 @@ import {
 } from "../../../../../lib/data/documents/documentStateMachine";
 import { resolveDocumentParserForInput } from "./documentParsers";
 import { parseQuestLabPdfBundle } from "../labs/questTextPdfParser";
+import {
+  LIVE_LEAN_RX_DXA_PARSER_ID,
+  parseLiveLeanRxDxaBundle,
+} from "../bodyScans/liveLeanRxDxaParser";
 import { QUEST_TEXT_PDF_PARSER_ID } from "../../../../../lib/labs/extraction/extractQuestLabReportDraft";
 import { logDocumentIngestionEvent, redactedDocumentToken } from "./documentIngestionTelemetry";
 import { logBodyScanEvent, redactedBodyScanToken } from "../bodyScans/bodyScanTelemetry";
@@ -456,11 +460,16 @@ export async function runDocumentIngestionJob(args: {
 
     let rawExtraction: DocumentExtractionResult;
     let labsDraft: LabExtractionDraft | null = null;
+    let bodyScanDraft: BodyScanExtractionDraft | null = null;
 
     if (parser.id === QUEST_TEXT_PDF_PARSER_ID) {
       const bundle = await parseQuestLabPdfBundle(parseInputBase);
       rawExtraction = bundle.envelope;
       labsDraft = { ...bundle.draft, userId: args.uid };
+    } else if (parser.id === LIVE_LEAN_RX_DXA_PARSER_ID) {
+      const bundle = await parseLiveLeanRxDxaBundle(parseInputBase);
+      rawExtraction = bundle.envelope;
+      bodyScanDraft = { ...bundle.draft, userId: args.uid, jobId: job.id };
     } else {
       rawExtraction = await parser.parse(parseInputBase);
     }
@@ -526,7 +535,7 @@ export async function runDocumentIngestionJob(args: {
         deps: args.deps,
         uid: args.uid,
         document: args.document,
-        draft: null,
+        draft: bodyScanDraft,
         now: nowFn(),
       });
       logDocumentIngestionEvent("document_parser_terminal", {
@@ -590,7 +599,7 @@ export async function runDocumentIngestionJob(args: {
       deps: args.deps,
       uid: args.uid,
       document: args.document,
-      draft: null,
+      draft: bodyScanDraft,
       now: nowFn(),
     });
     logDocumentIngestionEvent("document_parser_terminal", {

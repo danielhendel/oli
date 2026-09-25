@@ -12,6 +12,7 @@ import {
   type ParserEligibilityResult,
 } from "../../../../../lib/data/documents/documentParser";
 import { questTextPdfParser } from "../labs/questTextPdfParser";
+import { liveLeanRxDxaParser } from "../bodyScans/liveLeanRxDxaParser";
 
 const EXTRACTION_VERSION = "1.0.0";
 
@@ -74,6 +75,10 @@ export const unsupportedLabParser: DocumentParser = makeUnsupportedParser({
   warningMessage: "This report is stored, but structured extraction is not available yet.",
 });
 
+/**
+ * Fallback for scan reports the DXA adapter declines (InBody, Evolt, Bod Pod, image-only
+ * PDFs). The original is kept and the scan lands in manual review — never fabricated fields.
+ */
 export const unsupportedDexaParser: DocumentParser = makeUnsupportedParser({
   id: "unsupported_dexa",
   version: "1.0.0",
@@ -93,6 +98,8 @@ export const unsupportedDnaParser: DocumentParser = makeUnsupportedParser({
 export const DOCUMENT_PARSER_REGISTRY: readonly DocumentParserRegistryEntry[] = [
   { parser: questTextPdfParser, autoRun: true },
   { parser: unsupportedLabParser, autoRun: true },
+  // Registered before the unsupported stub so Live Lean / GE Lunar DXA gets real extraction.
+  { parser: liveLeanRxDxaParser, autoRun: true },
   { parser: unsupportedDexaParser, autoRun: true },
   { parser: unsupportedDnaParser, autoRun: false },
   { parser: metadataOnlyParser, autoRun: true },
