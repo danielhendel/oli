@@ -1,27 +1,27 @@
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 
 describe("resolveWeightTrendYDomain", () => {
-  it("uses clean 10 lb axis domain for mass/lb", () => {
+  it("uses clean 10 lb axis domain with headroom for mass/lb", () => {
     const domain = resolveWeightTrendYDomain({
       valuesKg: [156.1 / 2.2046226218, 166.5 / 2.2046226218],
       valueKind: "mass",
       unitLabel: "lb",
     });
-    // Domain snaps to 150–170 lb in kg.
+    // Domain snaps to 150–180 lb in kg.
     expect(domain.displayMin * 2.2046226218).toBeCloseTo(150, 5);
-    expect(domain.displayMax * 2.2046226218).toBeCloseTo(170, 5);
+    expect(domain.displayMax * 2.2046226218).toBeCloseTo(180, 5);
   });
 
-  it("uses clean 2 kg axis domain for mass/kg", () => {
+  it("uses clean 5 kg axis domain for mass/kg", () => {
     const domain = resolveWeightTrendYDomain({
       valuesKg: [73.2, 75.8],
       valueKind: "mass",
       unitLabel: "kg",
     });
-    expect(domain.displayMin % 2).toBe(0);
-    expect(domain.displayMax % 2).toBe(0);
-    expect(domain.displayMin).toBeLessThanOrEqual(72);
-    expect(domain.displayMax).toBeGreaterThanOrEqual(76);
+    expect(domain.displayMin % 5).toBe(0);
+    expect(domain.displayMax % 5).toBe(0);
+    expect(domain.displayMin).toBeLessThanOrEqual(70);
+    expect(domain.displayMax).toBeGreaterThanOrEqual(80);
   });
 
   it("handles one point without inventing a zero floor", () => {
@@ -60,6 +60,9 @@ describe("resolveWeightTrendYDomain", () => {
       valueKind: "mass",
       unitLabel: "kg",
     });
-    expect(domain.displayMax - domain.displayMin).toBeLessThan(8);
+    // 5 kg steps + headroom → domain spans multiple ticks, still observation-driven.
+    expect(domain.displayMin).toBeLessThanOrEqual(70);
+    expect(domain.displayMax).toBeGreaterThanOrEqual(80);
+    expect(domain.displayMax - domain.displayMin).toBeLessThanOrEqual(20);
   });
 });

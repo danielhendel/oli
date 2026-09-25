@@ -1,5 +1,5 @@
 /**
- * Weight History list must paginate beyond the first raw-events page.
+ * Weight History list must paginate every page (not stop at 100) and reach older dates.
  */
 import React from "react";
 import { act } from "react";
@@ -21,70 +21,45 @@ jest.mock("@/lib/data/body/deviceTimeZone", () => ({
   getDeviceTimeZone: () => "America/New_York",
 }));
 
-jest.mock("@/lib/data/body/bodyHistoryRange", () => ({
-  resolveBodyHistoryQueryWindow: () => ({
-    start: "2021-09-21",
-    end: "2026-09-22",
-  }),
-}));
-
-jest.mock("@/lib/data/body/bodyCompositionLogEntries", () => ({
-  buildBodyCompositionLogEntries: (items: { id: string }[]) =>
-    items.map((it) => ({
-      rawEventId: it.id,
-      observedAt: "2025-11-04T12:00:00.000Z",
-      dayKey: "2025-11-04",
-      weightKg: 70,
-      bodyFatPercent: null,
-      leanBodyMassKg: null,
-      provider: "apple_health",
-      isImported: true,
-      canEdit: false,
-      canDelete: true,
-      deleteMenuLabel: "Delete",
-      editDisabledReason: null,
-      deleteDisabledReason: null,
-    })),
-  filterBodyCompositionLogEntriesForMetric: (entries: unknown[]) => entries,
-}));
-
 const mockGetRawEvents = getRawEvents as jest.MockedFunction<typeof getRawEvents>;
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 
-let lastEntriesLen = 0;
+let lastEntries: { dayKey: string; observedAt: string }[] = [];
 let lastStatus = "partial";
 
 function LogHarness() {
   const log = useBodyCompositionLog("weight");
-  lastEntriesLen = log.entries.length;
+  lastEntries = log.entries.map((e) => ({ dayKey: e.dayKey, observedAt: e.observedAt }));
   lastStatus = log.status;
   return null;
 }
 
-function makeItem(id: string) {
+function makeItem(id: string, observedAt: string) {
   return {
     id,
     kind: "weight" as const,
-    observedAt: "2025-12-01T12:00:00.000Z",
+    observedAt,
     sourceId: "apple_health",
     userId: "u1",
-    receivedAt: "2025-12-01T12:00:00.000Z",
+    receivedAt: observedAt,
     schemaVersion: 1,
-    payload: { weightKg: 71 },
+    payload: { weightKg: 71, time: observedAt, timezone: "America/New_York" },
   };
 }
 
 describe("useBodyCompositionLog pagination", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    lastEntriesLen = 0;
+    lastEntries = [];
     lastStatus = "partial";
     mockUseAuth.mockReturnValue({
       user: { uid: "u1" },
       initializing: false,
       getIdToken: jest.fn().mockResolvedValue("tok"),
     } as unknown as ReturnType<typeof useAuth>);
+  });
 
+  it("follows nextCursor across three pages (237 events) without start/end for Weight", async () => {
     let page = 0;
     mockGetRawEvents.mockImplementation(async () => {
       page += 1;
@@ -94,44 +69,68 @@ describe("useBodyCompositionLog pagination", () => {
           status: 200,
           requestId: "r1",
           json: {
-            items: Array.from({ length: 100 }, (_, i) => makeItem(`a-${i}`)),
-            nextCursor: "cursor-2",
+            items: Array.from({ length: 100 }, (_, i) =>
+              makeItem(`p1-${i}`, "2025-12-01T12:00:00.000Z"),
+            ),
+            nextCursor: "c2",
+          },
+        };
+      }
+      if (page === 2) {
+        return {
+          ok: true,
+          status: 200,
+          requestId: "r2",
+          json: {
+            items: Array.from({ length: 100 }, (_, i) =>
+              makeItem(`p2-${i}`, "2024-06-01T12:00:00.000Z"),
+            ),
+            nextCursor: "c3",
           },
         };
       }
       return {
         ok: true,
         status: 200,
-        requestId: "r2",
+        requestId: "r3",
         json: {
-          items: Array.from({ length: 40 }, (_, i) => makeItem(`b-${i}`)),
+          items: Array.from({ length: 37 }, (_, i) =>
+            makeItem(
+              `p3-${i}`,
+              i === 36 ? "2023-05-10T12:00:00.000Z" : "2023-08-01T12:00:00.000Z",
+            ),
+          ),
           nextCursor: null,
         },
       };
     });
-  });
 
-  it("follows nextCursor until all pages are loaded", async () => {
     await act(async () => {
       renderer.create(React.createElement(LogHarness));
     });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
+    for (let i = 0; i < 6; i++) {
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
 
-    expect(mockGetRawEvents.mock.calls.length).toBeGreaterThanOrEqual(2);
-    expect(mockGetRawEvents.mock.calls[0]![1]).toMatchObject({ limit: 100 });
-    expect(mockGetRawEvents.mock.calls[1]![1]).toMatchObject({
+    expect(mockGetRawEvents).toHaveBeenCalledTimes(3);
+    expect(mockGetRawEvents.mock.calls[0]![1]).toMatchObject({
       limit: 100,
-      cursor: "cursor-2",
+      kinds: ["weight"],
+      includePayload: true,
     });
+    expect(mockGetRawEvents.mock.calls[0]![1]).not.toHaveProperty("start");
+    expect(mockGetRawEvents.mock.calls[0]![1]).not.toHaveProperty("end");
+    expect(mockGetRawEvents.mock.calls[1]![1]).toMatchObject({ cursor: "c2" });
+    expect(mockGetRawEvents.mock.calls[2]![1]).toMatchObject({ cursor: "c3" });
+
     expect(lastStatus).toBe("ready");
-    expect(lastEntriesLen).toBe(140);
+    expect(lastEntries).toHaveLength(237);
+    const oldest = lastEntries.reduce((a, b) =>
+      Date.parse(a.observedAt) <= Date.parse(b.observedAt) ? a : b,
+    );
+    expect(oldest.dayKey).toBe("2023-05-10");
+    expect(Date.parse(oldest.observedAt)).toBeLessThan(Date.parse("2025-11-04T00:00:00.000Z"));
   });
 });
