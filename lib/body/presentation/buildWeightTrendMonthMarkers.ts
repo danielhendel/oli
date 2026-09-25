@@ -11,13 +11,12 @@ import {
 
 const MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"] as const;
 
-/** Ranges that show month letters (≤ 1Y). Long ranges omit them to avoid clutter. */
+/** Ranges that use equal-width calendar-month bucket X mapping (not 7D/30D). */
 export const WEIGHT_TREND_MONTH_LABEL_RANGES: ReadonlySet<WeightRangeKey> = new Set([
-  "7D",
-  "30D",
   "90D",
   "6M",
   "1Y",
+  "YTD",
 ]);
 
 export type WeightTrendMonthMarker = {
