@@ -55,9 +55,10 @@ describe("Weight trend single-color classification bands", () => {
     expect(chartSrc).toContain('LINE_CORE_WHITE = "#FFFFFF"');
     expect(chartSrc).toContain("LINE_GLOW_BLUE");
     expect(chartSrc).toContain("LINE_WIDTH = 2.05");
-    expect(chartSrc).toContain("weightTrendPlotClip");
     expect(chartSrc).toContain("resolveWeightTrendMonthMarkersForRange");
     expect(chartSrc).toContain("CROSSHAIR_GLOW");
     expect(chartSrc).toContain("guidePt");
+    expect(chartSrc).not.toContain("PLOT_CORNER_RADIUS");
+    expect(chartSrc).not.toContain("weightTrendPlotClip");
   });
 });

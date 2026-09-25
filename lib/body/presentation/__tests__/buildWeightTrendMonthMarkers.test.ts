@@ -1,6 +1,6 @@
 import {
   buildWeightTrendMonthMarkers,
-  placeWeightTrendMonthMarkersEvenly,
+  placeWeightTrendMonthMarkersOnDomain,
   resolveWeightTrendMonthMarkersForRange,
   WEIGHT_TREND_MONTH_LABEL_RANGES,
 } from "@/lib/body/presentation/buildWeightTrendMonthMarkers";
@@ -17,47 +17,54 @@ describe("buildWeightTrendMonthMarkers", () => {
     expect(markers.every((m) => m.letter.length === 1)).toBe(true);
   });
 
-  it("places month letters with even spacing across the plot", () => {
+  it("places month letters on the same time scale as the series", () => {
     const minTimeMs = Date.UTC(2025, 8, 27, 12, 0, 0);
     const maxTimeMs = Date.UTC(2026, 8, 21, 12, 0, 0);
     const markers = buildWeightTrendMonthMarkers({ minTimeMs, maxTimeMs });
-    const placed = placeWeightTrendMonthMarkersEvenly({
-      markers,
-      plotLeft: 40,
-      plotWidth: 300,
-    });
+    const plotLeft = 40;
+    const plotWidth = 300;
+    const toChartX = (t: number) =>
+      plotLeft + ((t - minTimeMs) / (maxTimeMs - minTimeMs)) * plotWidth;
 
+    const placed = placeWeightTrendMonthMarkersOnDomain({ markers, toChartX });
     expect(placed.length).toBe(markers.length);
-    const gaps: number[] = [];
-    for (let i = 1; i < placed.length; i++) {
-      gaps.push(placed[i]!.x - placed[i - 1]!.x);
-    }
-    const expectedGap = 300 / markers.length;
-    for (const gap of gaps) {
-      expect(gap).toBeCloseTo(expectedGap, 5);
-    }
-    expect(placed[0]!.x).toBeCloseTo(40 + expectedGap / 2, 5);
-    expect(placed[placed.length - 1]!.x).toBeCloseTo(40 + 300 - expectedGap / 2, 5);
+
+    // Dec mid vs Nov mid must map to later X (domain-aligned, not evenly faked).
+    const nov = placed.find((m) => m.key === "2025-11");
+    const dec = placed.find((m) => m.key === "2025-12");
+    expect(nov).toBeDefined();
+    expect(dec).toBeDefined();
+    expect(dec!.x).toBeGreaterThan(nov!.x);
+    expect(dec!.x).toBeCloseTo(toChartX(dec!.timeMs), 5);
   });
 
   it("shows month labels for 1Y and less, omits for 3Y / 5Y / All", () => {
-    const domain = {
-      minTimeMs: Date.UTC(2025, 0, 1, 12, 0, 0),
-      maxTimeMs: Date.UTC(2025, 11, 31, 12, 0, 0),
-      plotLeft: 40,
-      plotWidth: 280,
-    };
+    const minTimeMs = Date.UTC(2025, 0, 1, 12, 0, 0);
+    const maxTimeMs = Date.UTC(2025, 11, 31, 12, 0, 0);
+    const toChartX = (t: number) => ((t - minTimeMs) / (maxTimeMs - minTimeMs)) * 280;
 
     for (const range of ["7D", "30D", "90D", "6M", "1Y"] as const) {
       expect(WEIGHT_TREND_MONTH_LABEL_RANGES.has(range)).toBe(true);
       expect(
-        resolveWeightTrendMonthMarkersForRange({ range, ...domain }).length,
+        resolveWeightTrendMonthMarkersForRange({
+          range,
+          minTimeMs,
+          maxTimeMs,
+          toChartX,
+        }).length,
       ).toBeGreaterThan(0);
     }
 
     for (const range of ["3Y", "5Y", "All"] as const) {
       expect(WEIGHT_TREND_MONTH_LABEL_RANGES.has(range)).toBe(false);
-      expect(resolveWeightTrendMonthMarkersForRange({ range, ...domain })).toEqual([]);
+      expect(
+        resolveWeightTrendMonthMarkersForRange({
+          range,
+          minTimeMs,
+          maxTimeMs,
+          toChartX,
+        }),
+      ).toEqual([]);
     }
   });
 });

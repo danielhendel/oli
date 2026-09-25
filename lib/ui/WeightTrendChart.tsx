@@ -8,9 +8,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { View, Text, StyleSheet, LayoutChangeEvent } from "react-native";
 import Svg, {
   Circle,
-  ClipPath,
   Defs,
-  G,
   LinearGradient,
   Path,
   Rect,
@@ -50,7 +48,6 @@ const CROSSHAIR_COLOR = "rgba(255,255,255,0.78)";
 const CROSSHAIR_GLOW = "rgba(255,255,255,0.28)";
 const CROSSHAIR_CORE_WIDTH = 2;
 const CROSSHAIR_GLOW_WIDTH = 5;
-const PLOT_CORNER_RADIUS = 12;
 const PLOT_EDGE_STROKE = "rgba(255,255,255,0.14)";
 const BAND_DIVIDER = "rgba(11,13,16,0.38)";
 const MONTH_LETTER_COLOR = "rgba(180, 196, 220, 0.72)";
@@ -482,8 +479,7 @@ export function WeightTrendChart({
           range,
           minTimeMs: minT,
           maxTimeMs: maxT,
-          plotLeft,
-          plotWidth,
+          toChartX,
         })
       : [];
 
@@ -510,70 +506,58 @@ export function WeightTrendChart({
               <Stop offset="45%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.10" />
               <Stop offset="100%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.01" />
             </LinearGradient>
-            <ClipPath id="weightTrendPlotClip">
-              <Rect
-                x={plotLeft}
-                y={plotTop}
-                width={plotWidth}
-                height={chartHeight}
-                rx={PLOT_CORNER_RADIUS}
-                ry={PLOT_CORNER_RADIUS}
-              />
-            </ClipPath>
           </Defs>
-          {/* Classification bands — clipped to rounded plot region; one solid color each. */}
-          <G clipPath="url(#weightTrendPlotClip)" pointerEvents="none">
-            {visibleBands.map((band) => (
-              <Rect
-                key={`band-${band.id}`}
-                x={plotLeft}
-                y={band.y}
-                width={plotWidth}
-                height={band.height}
-                fill={resolveWeightClassificationColor(band.tone)}
-              />
-            ))}
-            {visibleBands.slice(1).map((band) => (
+          {/* Classification bands — square plot edges; one solid Weight-card color each. */}
+          {visibleBands.map((band) => (
+            <Rect
+              key={`band-${band.id}`}
+              x={plotLeft}
+              y={band.y}
+              width={plotWidth}
+              height={band.height}
+              fill={resolveWeightClassificationColor(band.tone)}
+              pointerEvents="none"
+            />
+          ))}
+          {visibleBands.slice(1).map((band) => (
+            <Path
+              key={`band-div-${band.id}`}
+              d={`M ${plotLeft} ${band.y} L ${plotLeft + plotWidth} ${band.y}`}
+              stroke={BAND_DIVIDER}
+              strokeWidth={StyleSheet.hairlineWidth}
+              fill="none"
+              pointerEvents="none"
+            />
+          ))}
+          {/* Soft area fill only when classification bands are absent. */}
+          {areaD && visibleBands.length === 0 ? (
+            <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
+          ) : null}
+          {/* Horizontal grid aligned to Y-axis ticks */}
+          {yAxisTicks.map((tick) => {
+            const y = toChartY(tick.valueKg);
+            return (
               <Path
-                key={`band-div-${band.id}`}
-                d={`M ${plotLeft} ${band.y} L ${plotLeft + plotWidth} ${band.y}`}
-                stroke={BAND_DIVIDER}
-                strokeWidth={StyleSheet.hairlineWidth}
+                key={`grid-${tick.label}`}
+                d={`M ${plotLeft} ${y} L ${plotLeft + plotWidth} ${y}`}
+                stroke={GRID_COLOR}
+                strokeWidth={1}
                 fill="none"
               />
-            ))}
-            {/* Soft area fill only when classification bands are absent. */}
-            {areaD && visibleBands.length === 0 ? (
-              <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
-            ) : null}
-            {/* Horizontal grid aligned to Y-axis ticks */}
-            {yAxisTicks.map((tick) => {
-              const y = toChartY(tick.valueKg);
-              return (
-                <Path
-                  key={`grid-${tick.label}`}
-                  d={`M ${plotLeft} ${y} L ${plotLeft + plotWidth} ${y}`}
-                  stroke={GRID_COLOR}
-                  strokeWidth={1}
-                  fill="none"
-                />
-              );
-            })}
-          </G>
-          {/* Refined plot edge — light containment, no heavy card chrome. */}
+            );
+          })}
+          {/* Square plot edge — light containment, no rounded corners. */}
           <Rect
             x={plotLeft}
             y={plotTop}
             width={plotWidth}
             height={chartHeight}
-            rx={PLOT_CORNER_RADIUS}
-            ry={PLOT_CORNER_RADIUS}
             fill="none"
             stroke={PLOT_EDGE_STROKE}
             strokeWidth={StyleSheet.hairlineWidth}
             pointerEvents="none"
           />
-          {/* Clean Y-axis tick labels */}
+          {/* Y-axis tick labels — left of plot, 10 lb (or metric) increments */}
           {yAxisTicks.map((tick) => {
             const y = toChartY(tick.valueKg);
             return (

@@ -1,6 +1,6 @@
 /**
  * Deterministic Y-domain for Weight (and mass) trend charts.
- * Mass display units use clean axis ticks (5 lb / 2 kg).
+ * Mass display units use clean axis ticks (10 lb / 2 kg).
  * Observation-driven only — classification bands clip to this domain and must
  * not expand it.
  */

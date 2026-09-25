@@ -1,14 +1,14 @@
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
 
 describe("resolveWeightTrendYDomain", () => {
-  it("uses clean 5 lb axis domain for mass/lb", () => {
+  it("uses clean 10 lb axis domain for mass/lb", () => {
     const domain = resolveWeightTrendYDomain({
-      valuesKg: [162.1 / 2.2046226218, 166.5 / 2.2046226218],
+      valuesKg: [156.1 / 2.2046226218, 166.5 / 2.2046226218],
       valueKind: "mass",
       unitLabel: "lb",
     });
-    // Domain snaps to 160–170 lb in kg.
-    expect(domain.displayMin * 2.2046226218).toBeCloseTo(160, 5);
+    // Domain snaps to 150–170 lb in kg.
+    expect(domain.displayMin * 2.2046226218).toBeCloseTo(150, 5);
     expect(domain.displayMax * 2.2046226218).toBeCloseTo(170, 5);
   });
 
