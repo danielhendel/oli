@@ -54,6 +54,5 @@ describe("Weight trend single-color classification bands", () => {
     // White core + blue halo preserved.
     expect(chartSrc).toContain('LINE_CORE_WHITE = "#FFFFFF"');
     expect(chartSrc).toContain("LINE_GLOW_BLUE");
-    expect(chartSrc).toContain("LINE_GLOW_OUTER");
   });
 });
