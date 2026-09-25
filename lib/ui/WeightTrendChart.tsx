@@ -15,18 +15,24 @@ import Svg, {
   Stop,
   Text as SvgText,
 } from "react-native-svg";
-import { buildWeightAxisTicks } from "@/lib/body/presentation/buildWeightAxisTicks";
+import {
+  buildWeightAxisTicks,
+  type WeightAxisTicksModel,
+} from "@/lib/body/presentation/buildWeightAxisTicks";
 import {
   clipWeightTrendBandToDomain,
   type WeightTrendClassificationBandsModel,
 } from "@/lib/body/presentation/buildWeightTrendClassificationBands";
+import { WEIGHT_TREND_MONTH_LABEL_RANGES } from "@/lib/body/presentation/buildWeightTrendMonthMarkers";
 import {
-  resolveWeightTrendMonthMarkersForRange,
-  WEIGHT_TREND_MONTH_LABEL_RANGES,
-} from "@/lib/body/presentation/buildWeightTrendMonthMarkers";
+  buildWeightTrendMonthBuckets,
+  mapWeightTrendTimeToMonthBucketX,
+  placeWeightTrendMonthBucketLabels,
+  usesWeightTrendMonthBucketScale,
+  type WeightTrendMonthBucketScale,
+} from "@/lib/body/presentation/weightTrendMonthBucketScale";
 import {
   mapWeightTrendTimeToX,
-  mapWeightTrendXToTime,
   type WeightTrendTimeScale,
 } from "@/lib/body/presentation/weightTrendTimeScale";
 import { resolveWeightTrendYDomain } from "@/lib/body/presentation/resolveWeightTrendYDomain";
@@ -40,10 +46,16 @@ import {
   resolveWeightClassificationColor,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
-/** Plot inset — bottom reserves room for month-letter markers. */
-const PADDING = { left: 40, right: 12, top: 14, bottom: 30 };
+/**
+ * Plot inset — Y labels live on the RIGHT; left stays tight so plot width is preserved.
+ * Bottom reserves room for month-letter markers on ≤1Y ranges.
+ */
+export const WEIGHT_TREND_CHART_PADDING = { left: 12, right: 40, top: 14, bottom: 30 };
+const PADDING = WEIGHT_TREND_CHART_PADDING;
 const Y_LABEL_FONT_SIZE = 11;
 const Y_LABEL_COLOR = UI_TEXT_MUTED;
+/** Right-edge inset for Y tick text (textAnchor end). */
+const Y_LABEL_RIGHT_INSET = 4;
 /** Hero chart height — visually dominant on Weight detail. */
 const DEFAULT_CHART_HEIGHT = 320;
 const DOT_R = 5;
@@ -214,6 +226,11 @@ export type WeightTrendChartProps = {
    * classification background bands.
    */
   highContrastLine?: boolean;
+  /**
+   * Locked mass Y-axis from full Weight history (shared across all period selectors).
+   * When set, period switching must not rescale ticks.
+   */
+  sharedMassAxis?: WeightAxisTicksModel | null;
 };
 
 type ProcessedPoint = {
@@ -239,6 +256,7 @@ export function WeightTrendChart({
   onInspectChange,
   classificationBands = null,
   highContrastLine = false,
+  sharedMassAxis = null,
 }: WeightTrendChartProps) {
   void _formatValue;
   const CHART_HEIGHT = chartHeightProp;
@@ -318,14 +336,30 @@ export function WeightTrendChart({
   const minT = Math.min(...processed.map((p) => p.x));
   const maxT = Math.max(...processed.map((p) => p.x));
 
-  const { displayMin, displayMax, outlierCount } = resolveWeightTrendYDomain({
-    valuesKg: processed.map((p) => p.weightKg),
-    valueKind,
-    unitLabel,
-  });
+  const useSharedMassAxis =
+    sharedMassAxis != null &&
+    sharedMassAxis.status === "ready" &&
+    valueKind === "mass";
 
-  const massAxis =
-    valueKind === "mass" && (unitLabel === "lb" || unitLabel === "kg")
+  const { displayMin, displayMax, outlierCount } = useSharedMassAxis
+    ? {
+        displayMin: sharedMassAxis.domainMinKg,
+        displayMax: sharedMassAxis.domainMaxKg,
+        outlierCount: processed.filter(
+          (p) =>
+            p.weightKg < sharedMassAxis.domainMinKg ||
+            p.weightKg > sharedMassAxis.domainMaxKg,
+        ).length,
+      }
+    : resolveWeightTrendYDomain({
+        valuesKg: processed.map((p) => p.weightKg),
+        valueKind,
+        unitLabel,
+      });
+
+  const massAxis = useSharedMassAxis
+    ? sharedMassAxis
+    : valueKind === "mass" && (unitLabel === "lb" || unitLabel === "kg")
       ? buildWeightAxisTicks({
           minKg: Math.min(...processed.map((p) => p.weightKg)),
           maxKg: Math.max(...processed.map((p) => p.weightKg)),
@@ -335,6 +369,19 @@ export function WeightTrendChart({
 
   const rangeDisplay = displayMax - displayMin || 0.1;
 
+  const useMonthBuckets = usesWeightTrendMonthBucketScale(range);
+  const monthBuckets = useMonthBuckets
+    ? buildWeightTrendMonthBuckets({ minTimeMs: minT, maxTimeMs: maxT })
+    : [];
+  const monthBucketScale: WeightTrendMonthBucketScale | null =
+    useMonthBuckets && monthBuckets.length > 0
+      ? {
+          buckets: monthBuckets,
+          plotLeft: PADDING.left,
+          plotWidth: Math.max(0, chartWidth),
+        }
+      : null;
+
   const timeScale: WeightTrendTimeScale = {
     domainStartMs: minT,
     domainEndMs: maxT,
@@ -342,8 +389,14 @@ export function WeightTrendChart({
     plotWidth: Math.max(0, chartWidth),
   };
 
-  /** One shared timestamp → X scale for points, months, touch, and guide. */
-  const toChartX = (tMs: number) => mapWeightTrendTimeToX(tMs, timeScale);
+  /**
+   * ≤1Y: equal-width calendar-month buckets.
+   * 3Y / 5Y / All: continuous timestamp scale (no month initials).
+   */
+  const toChartX = (tMs: number) =>
+    monthBucketScale != null
+      ? mapWeightTrendTimeToMonthBucketX(tMs, monthBucketScale)
+      : mapWeightTrendTimeToX(tMs, timeScale);
   /** Y-axis: maps [displayMin, displayMax] to chart bottom–top; outliers are clamped to edges. */
   const toChartY = (w: number) =>
     PADDING.top + chartHeight - ((w - displayMin) / rangeDisplay) * chartHeight;
@@ -407,20 +460,15 @@ export function WeightTrendChart({
           { valueKg: actualMinW, label: genericLowLabel },
         ].filter((t, i, arr) => i === 0 || t.label !== arr[0]!.label);
 
-  /** Nearest-point selection by timestamp on the shared time scale. */
+  /** Nearest plotted screen-X — same mapping as line / guide / month buckets. */
   const handleTouch = useCallback(
     (ev: { locationX: number }) => {
       if (chartWidth <= 0 || pointsWithCoords.length === 0) return;
-      const tMsAtTouch = mapWeightTrendXToTime(ev.locationX, {
-        domainStartMs: minT,
-        domainEndMs: maxT,
-        plotLeft: PADDING.left,
-        plotWidth: chartWidth,
-      });
+      const touchX = ev.locationX;
       let best = 0;
-      let bestDist = Math.abs(pointsWithCoords[0]!.x - tMsAtTouch);
+      let bestDist = Math.abs(pointsWithCoords[0]!.cx - touchX);
       for (let i = 1; i < pointsWithCoords.length; i++) {
-        const d = Math.abs(pointsWithCoords[i]!.x - tMsAtTouch);
+        const d = Math.abs(pointsWithCoords[i]!.cx - touchX);
         if (d < bestDist) {
           bestDist = d;
           best = i;
@@ -438,7 +486,7 @@ export function WeightTrendChart({
         });
       }
     },
-    [chartWidth, maxT, minT, pointsWithCoords],
+    [chartWidth, pointsWithCoords],
   );
 
   const clearInspection = useCallback(() => {
@@ -461,6 +509,7 @@ export function WeightTrendChart({
   const plotWidth = Math.max(0, (layout?.width ?? 0) - PADDING.left - PADDING.right);
   const plotTop = PADDING.top;
   const plotBottom = PADDING.top + chartHeight;
+  const yLabelX = (layout?.width ?? 0) - Y_LABEL_RIGHT_INSET;
 
   const visibleBands =
     classificationBands?.status === "ready" && layout && layout.width > 0
@@ -488,11 +537,8 @@ export function WeightTrendChart({
       : [];
 
   const monthMarkers =
-    layout && layout.width > 0 && chartWidth > 0
-      ? resolveWeightTrendMonthMarkersForRange({
-          range,
-          scale: timeScale,
-        })
+    layout && layout.width > 0 && monthBucketScale != null
+      ? placeWeightTrendMonthBucketLabels({ scale: monthBucketScale })
       : [];
 
   const monthLabelY = plotBottom + 14;
@@ -569,17 +615,17 @@ export function WeightTrendChart({
             strokeWidth={StyleSheet.hairlineWidth}
             pointerEvents="none"
           />
-          {/* Y-axis tick labels — left of plot, 10 lb (or metric) increments */}
+          {/* Y-axis tick labels — RIGHT of plot, 10 lb (or metric) increments */}
           {yAxisTicks.map((tick) => {
             const y = toChartY(tick.valueKg);
             return (
               <SvgText
                 key={`ylab-${tick.label}`}
-                x={4}
+                x={yLabelX}
                 y={y}
                 fontSize={Y_LABEL_FONT_SIZE}
                 fill={Y_LABEL_COLOR}
-                textAnchor="start"
+                textAnchor="end"
                 alignmentBaseline="middle"
               >
                 {tick.label}
