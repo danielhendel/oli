@@ -20,10 +20,6 @@ import {
   type WeightAxisTicksModel,
 } from "@/lib/body/presentation/buildWeightAxisTicks";
 import {
-  clipWeightTrendBandToDomain,
-  type WeightTrendClassificationBandsModel,
-} from "@/lib/body/presentation/buildWeightTrendClassificationBands";
-import {
   buildWeightTrendXAxisTicks,
   type WeightXAxisTick,
 } from "@/lib/body/presentation/buildWeightTrendXAxisTicks";
@@ -38,9 +34,7 @@ import {
   SYSTEM_ACCENT_LUMINOUS_GLOW,
   SYSTEM_ACCENT_NAVY_DEPTH,
 } from "@/lib/ui/theme/systemAccent";
-import {
-  resolveWeightClassificationColor,
-} from "@/lib/ui/theme/bodyMetricClassificationChrome";
+import { UI_SCREEN_BG } from "@/lib/ui/theme/uiTokens";
 
 /**
  * Plot inset — Y labels on the RIGHT; left keeps modest room so x-labels never clip.
@@ -62,7 +56,8 @@ const CROSSHAIR_GLOW = "rgba(255,255,255,0.32)";
 const CROSSHAIR_CORE_WIDTH = 2;
 const CROSSHAIR_GLOW_WIDTH = 5;
 const PLOT_EDGE_STROKE = "rgba(255,255,255,0.14)";
-const BAND_DIVIDER = "rgba(11,13,16,0.38)";
+/** Near-black plot field — blends with Weight detail canvas (`UI_SCREEN_BG`). */
+const PLOT_BG = UI_SCREEN_BG;
 const X_LABEL_COLOR = "rgba(190, 206, 228, 0.82)";
 const X_LABEL_SIZE = 10;
 
@@ -217,13 +212,8 @@ export type WeightTrendChartProps = {
    */
   onInspectChange?: (point: WeightTrendChartInspectPoint | null) => void;
   /**
-   * Optional CDC/WHO Weight classification bands for chart background.
-   * When unavailable, chart renders without classification zones.
-   */
-  classificationBands?: WeightTrendClassificationBandsModel | null;
-  /**
-   * High-contrast white core + blue glow — preferred for Weight detail with
-   * classification background bands.
+   * High-contrast white core + blue glow — preferred for Weight detail on the
+   * plain dark plot (classification backgrounds live on the Body Weight card).
    */
   highContrastLine?: boolean;
   /**
@@ -254,13 +244,12 @@ export function WeightTrendChart({
   accessibilityLabel = "Weight trend chart",
   chartHeight: chartHeightProp = DEFAULT_CHART_HEIGHT,
   onInspectChange,
-  classificationBands = null,
   highContrastLine = false,
   sharedMassAxis = null,
 }: WeightTrendChartProps) {
   void _formatValue;
   const CHART_HEIGHT = chartHeightProp;
-  const useHighContrastLine = highContrastLine || classificationBands?.status === "ready";
+  const useHighContrastLine = highContrastLine;
   const lineStroke = useHighContrastLine ? LINE_CORE_WHITE : accentColor;
   const lineGlow = useHighContrastLine ? LINE_GLOW_BLUE : SYSTEM_ACCENT_LUMINOUS_GLOW;
   const pointFill = useHighContrastLine ? LINE_CORE_WHITE : accentColor;
@@ -510,31 +499,6 @@ export function WeightTrendChart({
   const plotBottom = PADDING.top + chartHeight;
   const yLabelX = (layout?.width ?? 0) - Y_LABEL_RIGHT_INSET;
 
-  const visibleBands =
-    classificationBands?.status === "ready" && layout && layout.width > 0
-      ? classificationBands.bands
-          .map((band) => {
-            const clipped = clipWeightTrendBandToDomain({
-              band,
-              displayMinKg: displayMin,
-              displayMaxKg: displayMax,
-              softMinKg: classificationBands.softExtentKg[0],
-              softMaxKg: classificationBands.softExtentKg[1],
-            });
-            if (clipped == null) return null;
-            const yTop = toChartY(clipped.upperKg);
-            const yBottom = toChartY(clipped.lowerKg);
-            return {
-              id: band.id,
-              label: band.label,
-              tone: band.tone,
-              y: yTop,
-              height: Math.max(0, yBottom - yTop),
-            };
-          })
-          .filter((b): b is NonNullable<typeof b> => b != null && b.height > 0)
-      : [];
-
   const xLabelY = plotBottom + 14;
 
   return (
@@ -559,30 +523,17 @@ export function WeightTrendChart({
               <Stop offset="100%" stopColor={SYSTEM_ACCENT_NAVY_DEPTH} stopOpacity="0.01" />
             </LinearGradient>
           </Defs>
-          {/* Classification bands — square plot edges; one solid Weight-card color each. */}
-          {visibleBands.map((band) => (
-            <Rect
-              key={`band-${band.id}`}
-              x={plotLeft}
-              y={band.y}
-              width={plotWidth}
-              height={band.height}
-              fill={resolveWeightClassificationColor(band.tone)}
-              pointerEvents="none"
-            />
-          ))}
-          {visibleBands.slice(1).map((band) => (
-            <Path
-              key={`band-div-${band.id}`}
-              d={`M ${plotLeft} ${band.y} L ${plotLeft + plotWidth} ${band.y}`}
-              stroke={BAND_DIVIDER}
-              strokeWidth={StyleSheet.hairlineWidth}
-              fill="none"
-              pointerEvents="none"
-            />
-          ))}
-          {/* Soft area fill only when classification bands are absent. */}
-          {areaD && visibleBands.length === 0 ? (
+          {/* Plain dark plot field — classification colors live on the Body Weight card. */}
+          <Rect
+            x={plotLeft}
+            y={plotTop}
+            width={plotWidth}
+            height={chartHeight}
+            fill={PLOT_BG}
+            pointerEvents="none"
+          />
+          {/* Soft area fill only for non–high-contrast (non-Weight) metrics. */}
+          {areaD && !useHighContrastLine ? (
             <Path d={areaD} fill="url(#weightTrendAreaFill)" stroke="none" />
           ) : null}
           {/* Horizontal grid — solid, aligned to Y ticks */}

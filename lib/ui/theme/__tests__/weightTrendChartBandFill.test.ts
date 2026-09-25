@@ -1,6 +1,6 @@
 /**
- * Weight trend classification bands: one solid Weight-card category color each.
- * No sheen overlay, no gradient, no multi-shade layering within a category.
+ * Weight classification colors remain owned by the Body Composition Weight card.
+ * Weight detail trend chart uses a plain dark plot — no classification fills.
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -12,7 +12,7 @@ import {
 
 const TONES = ["cool", "reference", "caution", "elevated"] as const;
 
-describe("Weight trend single-color classification bands", () => {
+describe("Weight classification colors (Body Weight card)", () => {
   it("resolves one exact Weight-card solid color per classification tone", () => {
     for (const tone of TONES) {
       const color = resolveWeightClassificationColor(tone);
@@ -29,42 +29,40 @@ describe("Weight trend single-color classification bands", () => {
     expect(resolveWeightClassificationColor("caution")).toBe("#F59E0B");
     expect(resolveWeightClassificationColor("elevated")).toBe("#EF4444");
   });
+});
 
-  it("WeightTrendChart renders one solid fill per band with no sheen or gradient", () => {
+describe("WeightTrendChart dark plot (no classification fills)", () => {
+  it("uses near-black plot background and does not paint classification bands", () => {
     const chartSrc = fs.readFileSync(
       path.join(__dirname, "../../WeightTrendChart.tsx"),
       "utf8",
     );
+    const detailSrc = fs.readFileSync(
+      path.join(__dirname, "../../body/BodyMetricTrendDetailView.tsx"),
+      "utf8",
+    );
+    const metricSrc = fs.readFileSync(
+      path.join(__dirname, "../../../../app/(app)/body/metric/[metric].tsx"),
+      "utf8",
+    );
 
-    expect(chartSrc).toContain("resolveWeightClassificationColor");
-    expect(chartSrc).not.toContain("resolveWeightClassificationSegmentVisual");
-    expect(chartSrc).not.toContain("fillHighlight");
-    expect(chartSrc).not.toContain("sheenLayerOpacity");
-    expect(chartSrc).not.toContain("sheenHeightRatio");
-    expect(chartSrc).not.toContain("WEIGHT_TREND_CHART_BAND_BASE_OPACITY");
-    // Classification bands: one Rect + solid color — no sheen/second layer.
-    expect(chartSrc).toMatch(
-      /visibleBands\.map\(\(band\) => \(\s*<Rect[\s\S]*?fill=\{resolveWeightClassificationColor\(band\.tone\)\}/,
-    );
-    expect(chartSrc).not.toMatch(
-      /visibleBands\.map[\s\S]{0,600}fillHighlight|visibleBands\.map[\s\S]{0,600}sheen|visibleBands\.map[\s\S]{0,600}fillOpacity/,
-    );
-    // Soft area fill only when bands absent — never under classification colors.
-    expect(chartSrc).toContain("visibleBands.length === 0");
-    // White core + blue halo preserved.
+    expect(chartSrc).toContain("PLOT_BG = UI_SCREEN_BG");
+    expect(chartSrc).toContain("fill={PLOT_BG}");
+    expect(chartSrc).not.toContain("resolveWeightClassificationColor");
+    expect(chartSrc).not.toContain("visibleBands");
+    expect(chartSrc).not.toContain("classificationBands");
+    expect(chartSrc).not.toContain("clipWeightTrendBandToDomain");
     expect(chartSrc).toContain('LINE_CORE_WHITE = "#FFFFFF"');
     expect(chartSrc).toContain("LINE_GLOW_BLUE");
-    expect(chartSrc).toContain("LINE_WIDTH = 2.05");
-    expect(chartSrc).toContain("buildWeightTrendXAxisTicks");
     expect(chartSrc).toContain("GRID_V_COLOR");
     expect(chartSrc).toContain("layoutAnchors");
-    expect(chartSrc).toContain('GRID_H_COLOR = "rgba(190, 206, 228, 0.55)"');
-    expect(chartSrc).toContain('GRID_V_COLOR = "rgba(190, 206, 228, 0.48)"');
-    expect(chartSrc).toContain('X_LABEL_COLOR = "rgba(190, 206, 228, 0.82)"');
-    expect(chartSrc).toContain("strokeDasharray={GRID_V_DASH}");
-    expect(chartSrc).toContain("CROSSHAIR_GLOW");
     expect(chartSrc).toContain("guidePt");
-    expect(chartSrc).not.toContain("PLOT_CORNER_RADIUS");
-    expect(chartSrc).not.toContain("weightTrendPlotClip");
+
+    expect(detailSrc).not.toContain("classificationBands");
+    expect(detailSrc).not.toMatch(/Weight ranges shown in the background/);
+    expect(detailSrc).toContain("highContrastLine={props.valueKind === \"mass\"}");
+
+    expect(metricSrc).not.toContain("buildWeightTrendClassificationBands");
+    expect(metricSrc).not.toContain("classificationBands=");
   });
 });

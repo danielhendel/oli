@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricTrendDetailModel } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
 import { buildBodyMetricTrendAccessibilitySummary } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
-import type { WeightTrendClassificationBandsModel } from "@/lib/body/presentation/buildWeightTrendClassificationBands";
 import type { WeightAxisTicksModel } from "@/lib/body/presentation/buildWeightAxisTicks";
 import {
   buildWeightTrendInspection,
@@ -58,8 +57,6 @@ export type BodyMetricTrendDetailViewProps = {
   /** When true, show last-known chart while refreshing. */
   retainChartWhileLoading?: boolean;
   previousReadyModel?: BodyMetricTrendDetailModel | null;
-  /** Weight-only classification bands for chart background. */
-  classificationBands?: WeightTrendClassificationBandsModel | null;
   /**
    * Locked Weight Y-axis from full available history — shared across all period selectors.
    */
@@ -153,10 +150,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
     observedCoverageLabel,
   });
 
-  const chartA11y =
-    props.classificationBands?.status === "ready"
-      ? `${a11y} Weight ranges shown in the background use the same screening categories as the Body Composition Weight card.`
-      : a11y;
+  const chartA11y = a11y;
 
   const showTrend =
     displayModel.latest != null &&
@@ -298,8 +292,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
             accessibilityLabel={chartA11y}
             chartHeight={320}
             onInspectChange={handleInspectChange}
-            classificationBands={props.classificationBands ?? null}
-            highContrastLine={props.classificationBands != null}
+            highContrastLine={props.valueKind === "mass"}
             sharedMassAxis={props.sharedMassAxis ?? null}
           />
           {observedCoverageLabel ? (
