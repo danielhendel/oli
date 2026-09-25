@@ -1,6 +1,9 @@
 /**
  * Range-aware Weight trend X-axis ticks (labels + vertical grid anchors).
- * Positions always come from {@link WeightTrendXScale} — never independent spacing.
+ *
+ * Presentation rule: labels and vertical grid share ONE even visual layout across
+ * the plot width (equal spacing, no edge clipping). Semantic `atMs` remains for
+ * accessibility / date meaning — layout positions are not raw time X.
  */
 
 import {
@@ -11,8 +14,13 @@ import { buildWeightTrendMonthBuckets } from "@/lib/body/presentation/weightTren
 import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
 
 export type WeightXAxisTick = {
+  /** Semantic timestamp for the tick (weekday/month/year meaning). */
   readonly atMs: number;
-  readonly normalizedX: number;
+  /**
+   * Even visual X in [0, 1] for labels + vertical grid.
+   * Half-slot centers keep first/last labels fully inside the plot.
+   */
+  readonly layoutNormalizedX: number;
   readonly label: string;
   readonly showGridLine: boolean;
   readonly showLabel: boolean;
@@ -24,24 +32,54 @@ function lerpMs(start: number, end: number, t: number): number {
   return start + (end - start) * t;
 }
 
-function applyLabelCollision(
-  ticks: readonly WeightXAxisTick[],
+/**
+ * Equal visual slots across the plot.
+ * First/last sit at half-slot insets so middle-anchored text never clips.
+ */
+export function evenLayoutNormalizedX(index: number, count: number): number {
+  if (count <= 0) return 0;
+  if (count === 1) return 0.5;
+  return (index + 0.5) / count;
+}
+
+type TickDraft = {
+  readonly atMs: number;
+  readonly label: string;
+  readonly showGridLine: boolean;
+};
+
+/** Thin a dense draft set to fit plot width, preserving even chronological sampling. */
+function thinDrafts(
+  drafts: readonly TickDraft[],
   plotWidthPx: number,
   minGapPx: number,
-): WeightXAxisTick[] {
-  if (plotWidthPx <= 0 || ticks.length === 0) {
-    return ticks.map((t) => ({ ...t, showLabel: false }));
-  }
-  const out: WeightXAxisTick[] = [];
-  let lastLabelX = Number.NEGATIVE_INFINITY;
-  for (const tick of ticks) {
-    const x = tick.normalizedX * plotWidthPx;
-    const showLabel =
-      tick.showLabel && (out.length === 0 || x - lastLabelX >= minGapPx);
-    if (showLabel) lastLabelX = x;
-    out.push({ ...tick, showLabel });
+): TickDraft[] {
+  if (drafts.length <= 1) return [...drafts];
+  if (!(plotWidthPx > 0) || !(minGapPx > 0)) return [...drafts];
+  const maxCount = Math.max(2, Math.floor(plotWidthPx / minGapPx));
+  if (drafts.length <= maxCount) return [...drafts];
+
+  const out: TickDraft[] = [];
+  const lastIdx = drafts.length - 1;
+  for (let i = 0; i < maxCount; i++) {
+    const idx = Math.round((i * lastIdx) / (maxCount - 1));
+    const draft = drafts[idx]!;
+    if (out.length === 0 || out[out.length - 1]!.atMs !== draft.atMs) {
+      out.push(draft);
+    }
   }
   return out;
+}
+
+function finalizeEvenTicks(drafts: readonly TickDraft[]): WeightXAxisTick[] {
+  const n = drafts.length;
+  return drafts.map((d, i) => ({
+    atMs: d.atMs,
+    layoutNormalizedX: evenLayoutNormalizedX(i, n),
+    label: d.label,
+    showGridLine: d.showGridLine,
+    showLabel: true,
+  }));
 }
 
 function monthCenterMs(year: number, month: number): number {
@@ -50,63 +88,47 @@ function monthCenterMs(year: number, month: number): number {
   return (start + end) / 2;
 }
 
-function build7DTicks(scale: WeightTrendXScale): WeightXAxisTick[] {
+function build7DDrafts(scale: WeightTrendXScale): TickDraft[] {
   const days = buildWeightTrendDayBuckets({
     minTimeMs: scale.domainStartMs,
     maxTimeMs: scale.domainEndMs,
   });
-  return days.map((day) => {
-    const atMs = (day.startMs + day.endMs) / 2;
-    // Prefer short weekday; single letter if very dense (handled by collision later).
-    const label = day.weekdayShort;
-    return {
-      atMs,
-      normalizedX: scale.toNormalizedX(atMs),
-      label,
-      showGridLine: true,
-      showLabel: true,
-    };
-  });
+  return days.map((day) => ({
+    atMs: (day.startMs + day.endMs) / 2,
+    label: day.weekdayShort,
+    showGridLine: true,
+  }));
 }
 
-/** ~5 evenly spaced date anchors across the observed domain. */
-function build30DTicks(scale: WeightTrendXScale): WeightXAxisTick[] {
+function build30DDrafts(scale: WeightTrendXScale): TickDraft[] {
   const count = 5;
-  const ticks: WeightXAxisTick[] = [];
+  const drafts: TickDraft[] = [];
   for (let i = 0; i < count; i++) {
     const t = i / (count - 1);
     const atMs = lerpMs(scale.domainStartMs, scale.domainEndMs, t);
-    const day = new Date(atMs).getUTCDate();
-    ticks.push({
+    drafts.push({
       atMs,
-      normalizedX: scale.toNormalizedX(atMs),
-      label: String(day),
+      label: String(new Date(atMs).getUTCDate()),
       showGridLine: true,
-      showLabel: true,
     });
   }
-  return ticks;
+  return drafts;
 }
 
-function buildMonthLetterTicks(
+function buildMonthLetterDrafts(
   scale: WeightTrendXScale,
   opts?: { readonly gridEveryOther?: boolean },
-): WeightXAxisTick[] {
+): TickDraft[] {
   const months = buildWeightTrendMonthBuckets({
     minTimeMs: scale.domainStartMs,
     maxTimeMs: scale.domainEndMs,
   });
   const gridEveryOther = opts?.gridEveryOther === true && months.length > 10;
-  return months.map((m, i) => {
-    const atMs = monthCenterMs(m.year, m.month);
-    return {
-      atMs,
-      normalizedX: scale.toNormalizedX(atMs),
-      label: MONTH_LETTERS[m.month]!,
-      showGridLine: !gridEveryOther || i % 2 === 0,
-      showLabel: true,
-    };
-  });
+  return months.map((m, i) => ({
+    atMs: monthCenterMs(m.year, m.month),
+    label: MONTH_LETTERS[m.month]!,
+    showGridLine: !gridEveryOther || i % 2 === 0,
+  }));
 }
 
 function yearsInDomain(startMs: number, endMs: number): number[] {
@@ -124,10 +146,7 @@ function yearAnchorMs(year: number, domainStartMs: number, domainEndMs: number):
   return jan1;
 }
 
-function buildYearTicks(
-  scale: WeightTrendXScale,
-  maxLabels: number,
-): WeightXAxisTick[] {
+function buildYearDrafts(scale: WeightTrendXScale, maxLabels: number): TickDraft[] {
   const years = yearsInDomain(scale.domainStartMs, scale.domainEndMs);
   if (years.length === 0) return [];
 
@@ -139,27 +158,20 @@ function buildYearTicks(
     if (selected[selected.length - 1] !== last) {
       selected = [...selected, last];
     }
-    // Trim if still over (first+last dense).
     while (selected.length > maxLabels && selected.length > 2) {
-      // Drop second-to-last intermediate.
       selected.splice(selected.length - 2, 1);
     }
   }
 
-  return selected.map((year) => {
-    const atMs = yearAnchorMs(year, scale.domainStartMs, scale.domainEndMs);
-    return {
-      atMs,
-      normalizedX: scale.toNormalizedX(atMs),
-      label: String(year),
-      showGridLine: true,
-      showLabel: true,
-    };
-  });
+  return selected.map((year) => ({
+    atMs: yearAnchorMs(year, scale.domainStartMs, scale.domainEndMs),
+    label: String(year),
+    showGridLine: true,
+  }));
 }
 
 /**
- * Build range-aware X-axis ticks positioned on the shared Weight X-scale.
+ * Build range-aware X-axis ticks with equal visual spacing for labels + vertical grid.
  */
 export function buildWeightTrendXAxisTicks(args: {
   readonly range: WeightRangeKey;
@@ -168,40 +180,43 @@ export function buildWeightTrendXAxisTicks(args: {
   readonly minGapPx?: number;
 }): readonly WeightXAxisTick[] {
   const { range, scale, plotWidthPx } = args;
-  const minGapPx = args.minGapPx ?? 14;
+  // Weekday labels need more gap than single month letters.
+  const minGapPx =
+    args.minGapPx ??
+    (range === "7D" ? 36 : range === "3Y" || range === "5Y" || range === "All" ? 48 : 16);
 
-  let ticks: WeightXAxisTick[] = [];
+  let drafts: TickDraft[] = [];
   switch (range) {
     case "7D":
-      ticks = build7DTicks(scale);
+      drafts = build7DDrafts(scale);
       break;
     case "30D":
-      ticks = build30DTicks(scale);
+      drafts = build30DDrafts(scale);
       break;
     case "90D":
-      ticks = buildMonthLetterTicks(scale);
+      drafts = buildMonthLetterDrafts(scale);
       break;
     case "6M":
-      ticks = buildMonthLetterTicks(scale);
+      drafts = buildMonthLetterDrafts(scale);
       break;
     case "1Y":
-      ticks = buildMonthLetterTicks(scale, { gridEveryOther: true });
+      drafts = buildMonthLetterDrafts(scale, { gridEveryOther: true });
       break;
     case "YTD":
-      ticks = buildMonthLetterTicks(scale);
+      drafts = buildMonthLetterDrafts(scale);
       break;
     case "3Y":
-      ticks = buildYearTicks(scale, 4);
+      drafts = buildYearDrafts(scale, 4);
       break;
     case "5Y":
-      ticks = buildYearTicks(scale, 6);
+      drafts = buildYearDrafts(scale, 6);
       break;
     case "All":
-      ticks = buildYearTicks(scale, 6);
+      drafts = buildYearDrafts(scale, 6);
       break;
     default:
-      ticks = [];
+      drafts = [];
   }
 
-  return applyLabelCollision(ticks, plotWidthPx, minGapPx);
+  return finalizeEvenTicks(thinDrafts(drafts, plotWidthPx, minGapPx));
 }

@@ -43,10 +43,10 @@ import {
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
 /**
- * Plot inset — Y labels on the RIGHT; left stays minimal so the series uses full plot width.
+ * Plot inset — Y labels on the RIGHT; left keeps modest room so x-labels never clip.
  * Bottom reserves room for range-aware x-axis labels.
  */
-export const WEIGHT_TREND_CHART_PADDING = { left: 4, right: 40, top: 14, bottom: 30 };
+export const WEIGHT_TREND_CHART_PADDING = { left: 10, right: 40, top: 14, bottom: 32 };
 const PADDING = WEIGHT_TREND_CHART_PADDING;
 const Y_LABEL_FONT_SIZE = 11;
 const Y_LABEL_COLOR = UI_TEXT_MUTED;
@@ -57,13 +57,13 @@ const DEFAULT_CHART_HEIGHT = 320;
 const DOT_R = 5;
 const DOT_GLOW_R = 10;
 /** Active inspection guide — stronger than vertical grid; high contrast on bands. */
-const CROSSHAIR_COLOR = "rgba(255,255,255,0.78)";
-const CROSSHAIR_GLOW = "rgba(255,255,255,0.28)";
+const CROSSHAIR_COLOR = "rgba(255,255,255,0.82)";
+const CROSSHAIR_GLOW = "rgba(255,255,255,0.32)";
 const CROSSHAIR_CORE_WIDTH = 2;
 const CROSSHAIR_GLOW_WIDTH = 5;
 const PLOT_EDGE_STROKE = "rgba(255,255,255,0.14)";
 const BAND_DIVIDER = "rgba(11,13,16,0.38)";
-const X_LABEL_COLOR = "rgba(180, 196, 220, 0.72)";
+const X_LABEL_COLOR = "rgba(190, 206, 228, 0.82)";
 const X_LABEL_SIZE = 10;
 
 const ACCENT_BLUE = SYSTEM_ACCENT_LUMINOUS;
@@ -74,10 +74,13 @@ const LINE_GLOW_SOFT = "rgba(255,255,255,0.14)";
 const LINE_WIDTH = 2.05;
 const LINE_GLOW_WIDTH = 5.5;
 const LINE_SOFT_WIDTH = 9;
-/** Horizontal grid — solid, low contrast. */
-const GRID_H_COLOR = "rgba(160, 176, 200, 0.14)";
-/** Vertical grid — dashed family, secondary to the active guide. */
-const GRID_V_COLOR = "rgba(160, 176, 200, 0.11)";
+/** Horizontal grid — solid, visible over classification bands, still secondary to the line. */
+const GRID_H_COLOR = "rgba(200, 214, 235, 0.28)";
+const GRID_H_WIDTH = 1;
+/** Vertical grid — dotted, aligned to even x-label slots. */
+const GRID_V_COLOR = "rgba(200, 214, 235, 0.24)";
+const GRID_V_WIDTH = 1;
+const GRID_V_DASH = "1.5 3.5";
 /** Max points used to draw path/area/dots; touch/inspection still use full data. */
 const MAX_RENDER_POINTS = 80;
 
@@ -579,23 +582,23 @@ export function WeightTrendChart({
                 key={`hgrid-${tick.label}`}
                 d={`M ${plotLeft} ${y} L ${plotLeft + plotWidth} ${y}`}
                 stroke={GRID_H_COLOR}
-                strokeWidth={1}
+                strokeWidth={GRID_H_WIDTH}
                 fill="none"
               />
             );
           })}
-          {/* Vertical grid — dashed, aligned to x-axis tick anchors */}
+          {/* Vertical grid — dotted, aligned to even x-label layout slots */}
           {xAxisTicks
             .filter((t) => t.showGridLine)
             .map((tick) => {
-              const x = plotLeft + tick.normalizedX * plotWidth;
+              const x = plotLeft + tick.layoutNormalizedX * plotWidth;
               return (
                 <Path
                   key={`vgrid-${tick.atMs}-${tick.label}`}
                   d={`M ${x} ${plotTop} L ${x} ${plotBottom}`}
                   stroke={GRID_V_COLOR}
-                  strokeWidth={1}
-                  strokeDasharray="3 4"
+                  strokeWidth={GRID_V_WIDTH}
+                  strokeDasharray={GRID_V_DASH}
                   fill="none"
                   pointerEvents="none"
                 />
@@ -701,13 +704,13 @@ export function WeightTrendChart({
               />
             </>
           ) : null}
-          {/* Range-aware x-axis labels — same scale as series / guide / vertical grid. */}
+          {/* Range-aware x-axis labels — even visual slots; same positions as vertical grid. */}
           {xAxisTicks
             .filter((t) => t.showLabel)
             .map((tick) => (
               <SvgText
                 key={`xlabel-${tick.atMs}-${tick.label}`}
-                x={plotLeft + tick.normalizedX * plotWidth}
+                x={plotLeft + tick.layoutNormalizedX * plotWidth}
                 y={xLabelY}
                 fontSize={X_LABEL_SIZE}
                 fill={X_LABEL_COLOR}
