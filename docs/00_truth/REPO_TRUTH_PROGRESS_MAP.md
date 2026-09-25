@@ -24,7 +24,7 @@
 **Stage 3C physical runtime SHA:** `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**; ancestor of `main`)
 **Stage 3C post-merge proof:** **PASS** (suites/tests/skipped: 1106 / 6714 / 0)
 **Stage 3D:** **NOT BEGUN / DEFERRED**
-**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` (product/data: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`)
+**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` — foundation V1 **implemented on branch, not merged** (product/data: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`; implementation truth: `docs/00_truth/phase3/STAGE_3E_BODY_SCANS_IMPLEMENTATION_TRUTH.md`)
 
 > **Rule:** If this map conflicts with merged code or CI, **code and CI win**. Update this map; do not invent product truth from docs alone.
 
@@ -301,6 +301,9 @@ Technical foundations from the August 10 audit remain valid unless merged code d
 - Base: `5835051715ceea5e1a1cece12f28a9af53e206e7`
 - Product/data: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`
 - Scope: periodic Body Scans (DXA / InBody / Evolt / Bod Pod / Other); designed results + original PDF; Document Ingestion OS reuse; Live Lean DXA adapter; no scan/scale trend mixing
+- Implementation truth: `docs/00_truth/phase3/STAGE_3E_BODY_SCANS_IMPLEMENTATION_TRUTH.md`
+- Implemented on branch (not merged): upload → extract → review → confirm → detail → reprocess → delete; DXA text-layer adapter (`live_lean_rx_dxa`); short-lived signed View Original; scan stores covered by export and account deletion; trend isolation enforced by **CHECK 23** / **I-21**
+- Known limits: 5 MiB shared Document OS upload limit; text-layer only (no OCR; image-only → manual review); DXA is the only structured adapter
 - Feature flag `bodyScans`: development enabled; production **disabled**
 - Physical real-PDF test **required** (personal PDF must not enter Git)
 - Release gates remain **OPEN**; no staging/production deploy from Stage 3E implementation agent

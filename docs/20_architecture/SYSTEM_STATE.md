@@ -13,7 +13,9 @@
 **Stage 3C physical runtime SHA:** `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**; ancestor of `main`)
 **Stage 3C post-merge proof:** **PASS** (1106 / 6714 / 0)
 **Stage 3D:** **NOT BEGUN / DEFERRED** (Body Facts and Measurement Provenance — must not auto-implement personal reference markers / numerical standards)
-**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` (spec: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`; not merged; production flag disabled)
+**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` — foundation V1 **implemented on branch** (spec: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`; implementation truth: `docs/00_truth/phase3/STAGE_3E_BODY_SCANS_IMPLEMENTATION_TRUTH.md`; not merged; production flag disabled)
+
+Body Scans run on the existing Document Ingestion OS — same upload intent, private Model A storage, ingestion job state machine, parser registry, and export/delete plumbing. Scan data lives in `users/{uid}/bodyScans`, `bodyScanDrafts`, and `bodyScanFacts`, all denied to direct client access and reachable only through `/users/me/body-scans`. Scan measurements never become samples on the continuous Weight / Body Fat / Lean Mass trends; that separation is enforced at runtime, in Firestore rules, and by **CHECK 23** (**I-21**). `GET /users/me/documents/{documentId}/view-original` now returns a 120-second signed read URL for the owner's stored original, which the client hands to the system preview.
 **Staging (historical Stage 2):** Cloud Run `oli-api-00276-hjm`; Gateway `oli-api-config-20260830-082245`; Firebase `oli-staging-fdbba`
 **Staging (historical Stage 1C):** Cloud Run `oli-api-00275-5sc`; deletion Function `onaccountdeleterequested-00067-puy`; ledger sweep ACTIVE; Firestore TTL `accountDeletions.expireAt` ACTIVE
 **Staging export (historical E2E):** Function `onAccountExportRequested` 4 GiB / 540 s

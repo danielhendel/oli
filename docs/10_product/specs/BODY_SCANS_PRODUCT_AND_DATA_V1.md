@@ -234,6 +234,12 @@ No staging or production deployment from the Stage 3E implementation agent.
 |-------|-------------------------------------|
 | Stage 3C | **MERGED** (PR #221; merge commit `5835051715ceea5e1a1cece12f28a9af53e206e7`; post-merge proof **PASS**) |
 | Stage 3D | **NOT BEGUN / DEFERRED** (Body Facts and Measurement Provenance — not required to begin 3E) |
-| Stage 3E | **ACTIVE** (this foundation) |
+| Stage 3E | **ACTIVE** (this foundation) — implemented on branch, **not merged** |
 
 Do **not** claim Stage 3E merged or production-ready from this specification alone.
+
+---
+
+## 16. Implementation record
+
+What the code actually does, including the reuse inventory, enforced boundaries, and known limits (5 MiB shared upload limit; text-layer extraction only; DXA is the only structured adapter), is recorded in `docs/00_truth/phase3/STAGE_3E_BODY_SCANS_IMPLEMENTATION_TRUTH.md`. Where this specification and that record disagree, the record describes the branch and this specification describes the intent.

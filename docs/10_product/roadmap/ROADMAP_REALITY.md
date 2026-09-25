@@ -20,7 +20,7 @@
 **Stage 3C physical runtime SHA:** `e4a23a552910f28241b10b25ae84b46529dab891` (physical-iPhone **PASS**; ancestor of `main`)
 **Stage 3C post-merge proof:** **PASS** (1106 / 6714 / 0)
 **Stage 3D:** **NOT BEGUN / DEFERRED**
-**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` (spec: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`)
+**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` — foundation V1 **implemented on branch, not merged** (spec: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`; implementation truth: `docs/00_truth/phase3/STAGE_3E_BODY_SCANS_IMPLEMENTATION_TRUTH.md`)
 **R0 baseline:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb` (PR #211)
 **Prior Stage 1A truth freeze:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (PR #209)
 **Product decisions:** [CONSUMER_LAUNCH_PRODUCT_DECISIONS.md](../decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md)
@@ -142,6 +142,9 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Base: `5835051715ceea5e1a1cece12f28a9af53e206e7`
 - Product/data: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`
 - Designed results + original PDF; Document Ingestion OS reuse; Live Lean DXA adapter; no scan/scale trend mixing
+- Implementation truth: `docs/00_truth/phase3/STAGE_3E_BODY_SCANS_IMPLEMENTATION_TRUTH.md`
+- Built on branch: upload → extract → review → confirm → detail → reprocess → delete; export and account-deletion coverage; short-lived signed View Original; trend isolation enforced by **CHECK 23** (**I-21**)
+- Limits: 5 MiB shared Document OS upload limit; text-layer only (no OCR; image-only → manual review); DXA is the only structured adapter
 - Feature flag `bodyScans`: development enabled; production **disabled**
 - Physical real-PDF test **required** (do not commit personal PDF)
 - **RG-LEGAL-01 OPEN**; **RG-SOURCE-PRIVACY-01 OPEN**; export coverage/scalability **OPEN**
