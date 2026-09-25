@@ -459,6 +459,7 @@ export default function BodyMetricDetailScreen() {
 
 const styles = StyleSheet.create({
   scroll: {
+    width: "100%",
     paddingHorizontal: 16,
     // Header owns top Safe Area. 16pt below header → intentional gap before selector.
     paddingTop: 16,

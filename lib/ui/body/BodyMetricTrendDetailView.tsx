@@ -302,10 +302,13 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
 
       {showTrend ? (
         <View style={styles.heroSummary} testID="body-metric-trend-latest">
-          <View style={styles.heroRow}>
-            <View style={styles.heroTextCol}>
+          <View style={styles.heroRow} testID="body-metric-trend-hero-row">
+            <View style={styles.heroTextCol} testID="body-metric-trend-hero-value">
               <Text
                 style={styles.latestValue}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.72}
                 accessibilityLabel={
                   inspecting && inspection.status === "active"
                     ? inspection.accessibilityLabel
@@ -314,10 +317,13 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
               >
                 {heroValueLabel}
               </Text>
-              <Text style={styles.latestDate}>{heroDateLabel}</Text>
+              <Text style={styles.latestDate} numberOfLines={1}>
+                {heroDateLabel}
+              </Text>
               {heroSourceLabel ? (
                 <Text
                   style={styles.latestSource}
+                  numberOfLines={1}
                   testID="body-metric-trend-inspection-source"
                 >
                   {heroSourceLabel}
@@ -325,6 +331,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
               ) : inspecting ? (
                 <Text
                   style={styles.latestSource}
+                  numberOfLines={1}
                   testID="body-metric-trend-inspection-source"
                 >
                   Historical
@@ -332,7 +339,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
               ) : null}
             </View>
             {props.displayModeToggle != null ? (
-              <View style={styles.heroToggleCol}>
+              <View style={styles.heroToggleCol} testID="body-metric-trend-hero-toggle">
                 <BodyMetricDisplayModeToggle
                   options={props.displayModeToggle.options}
                   selected={props.displayModeToggle.selected}
@@ -416,28 +423,44 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
 
 const styles = StyleSheet.create({
   root: {
+    width: "100%",
+    alignSelf: "stretch",
     gap: 0,
   },
   heroSummary: {
+    width: "100%",
     marginTop: 22,
     alignItems: "stretch",
     gap: 4,
     paddingVertical: 4,
   },
+  /**
+   * Bounded flex row inside page content insets. flexWrap lets the toggle drop
+   * to a trailing second row under large Dynamic Type / narrow widths instead
+   * of clipping off-screen.
+   */
   heroRow: {
+    width: "100%",
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: 12,
+    columnGap: 12,
+    rowGap: 8,
   },
   heroTextCol: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
     minWidth: 0,
+    maxWidth: "100%",
     alignItems: "flex-start",
     gap: 4,
   },
   heroToggleCol: {
+    flexGrow: 0,
     flexShrink: 0,
+    marginLeft: "auto",
     paddingTop: 8,
   },
   latestValue: {
@@ -445,17 +468,20 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: "700",
     letterSpacing: -0.9,
+    maxWidth: "100%",
   },
   latestDate: {
     color: UI_TEXT_SECONDARY,
     fontSize: 15,
     fontWeight: "500",
+    maxWidth: "100%",
   },
   latestSource: {
     color: UI_TEXT_MUTED,
     fontSize: 13,
     fontWeight: "500",
     marginTop: 2,
+    maxWidth: "100%",
   },
   chartWrap: {
     marginTop: 14,
@@ -482,6 +508,7 @@ const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "row",
     justifyContent: "flex-end",
+    flexShrink: 0,
     marginBottom: 8,
   },
   noDataPrimary: {
