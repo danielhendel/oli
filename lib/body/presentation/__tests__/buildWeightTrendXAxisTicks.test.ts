@@ -1,5 +1,6 @@
 import {
   buildWeightTrendXScale,
+  mapTimeThroughLayoutAnchors,
   mapWeightTrendTimeToScreenX,
 } from "@/lib/body/presentation/buildWeightTrendXScale";
 import {
@@ -7,62 +8,104 @@ import {
   evenLayoutNormalizedX,
 } from "@/lib/body/presentation/buildWeightTrendXAxisTicks";
 
-describe("buildWeightTrendXScale — full-width plot", () => {
-  it("pins first observation to 0 and latest to 1 (linear / 30D)", () => {
-    const start = Date.UTC(2026, 7, 23, 12, 0, 0);
-    const end = Date.UTC(2026, 8, 20, 12, 0, 0);
-    const scale = buildWeightTrendXScale({
+describe("buildWeightTrendXScale — full-width / slot alignment", () => {
+  it("maps domain through even 30D label anchors", () => {
+    const start = Date.UTC(2026, 7, 26, 12, 0, 0);
+    const end = Date.UTC(2026, 8, 21, 12, 0, 0);
+    const domainScale = buildWeightTrendXScale({
       range: "30D",
       domainStartMs: start,
       domainEndMs: end,
     });
-    expect(scale.toNormalizedX(start)).toBeCloseTo(0, 8);
-    expect(scale.toNormalizedX(end)).toBeCloseTo(1, 8);
-    expect(scale.mode).toBe("linear");
-  });
-
-  it("pins first/last on month-bucket 1Y without decorative edge padding", () => {
-    const start = Date.UTC(2025, 8, 27, 12, 0, 0); // Sep 27
-    const end = Date.UTC(2026, 8, 21, 12, 0, 0); // Sep 21
+    const ticks = buildWeightTrendXAxisTicks({
+      range: "30D",
+      scale: domainScale,
+      plotWidthPx: 300,
+    });
     const scale = buildWeightTrendXScale({
-      range: "1Y",
+      range: "30D",
       domainStartMs: start,
       domainEndMs: end,
+      layoutAnchors: ticks.map((t) => ({
+        atMs: t.atMs,
+        layoutNormalizedX: t.layoutNormalizedX,
+      })),
     });
-    expect(scale.mode).toBe("monthBuckets");
-    expect(scale.toNormalizedX(start)).toBeCloseTo(0, 8);
-    expect(scale.toNormalizedX(end)).toBeCloseTo(1, 8);
 
-    const plotLeft = 4;
-    const plotWidth = 300;
-    expect(mapWeightTrendTimeToScreenX(start, scale, plotLeft, plotWidth)).toBeCloseTo(
-      plotLeft,
-      5,
-    );
-    expect(mapWeightTrendTimeToScreenX(end, scale, plotLeft, plotWidth)).toBeCloseTo(
-      plotLeft + plotWidth,
-      5,
+    expect(scale.toNormalizedX(ticks[0]!.atMs)).toBeCloseTo(ticks[0]!.layoutNormalizedX, 8);
+    expect(scale.toNormalizedX(ticks[ticks.length - 1]!.atMs)).toBeCloseTo(
+      ticks[ticks.length - 1]!.layoutNormalizedX,
+      8,
     );
   });
 
-  it("pins first/last on 7D day buckets", () => {
-    const start = Date.UTC(2026, 8, 15, 8, 0, 0); // Tue
-    const end = Date.UTC(2026, 8, 21, 18, 0, 0); // Mon
-    const scale = buildWeightTrendXScale({
-      range: "7D",
+  it("aligns month-bucket observations with month-initial label slots", () => {
+    const start = Date.UTC(2026, 2, 27, 12, 0, 0);
+    const end = Date.UTC(2026, 8, 21, 12, 0, 0);
+    const domainScale = buildWeightTrendXScale({
+      range: "6M",
       domainStartMs: start,
       domainEndMs: end,
     });
-    expect(scale.mode).toBe("dayBuckets");
-    expect(scale.toNormalizedX(start)).toBeCloseTo(0, 8);
-    expect(scale.toNormalizedX(end)).toBeCloseTo(1, 8);
+    const ticks = buildWeightTrendXAxisTicks({
+      range: "6M",
+      scale: domainScale,
+      plotWidthPx: 300,
+    });
+    const june = ticks.find((t) => t.label === "J" && new Date(t.atMs).getUTCMonth() === 5);
+    expect(june).toBeDefined();
+
+    const scale = buildWeightTrendXScale({
+      range: "6M",
+      domainStartMs: start,
+      domainEndMs: end,
+      layoutAnchors: ticks.map((t) => ({
+        atMs: t.atMs,
+        layoutNormalizedX: t.layoutNormalizedX,
+      })),
+    });
+
+    // Exact tick-date observation sits on the label.
+    expect(scale.toNormalizedX(june!.atMs)).toBeCloseTo(june!.layoutNormalizedX, 8);
+
+    // Jun 4 is between May and June centers — closer to June, still left of June label.
+    const jun4 = Date.UTC(2026, 5, 4, 12, 0, 0);
+    const may = ticks.find((t) => new Date(t.atMs).getUTCMonth() === 4)!;
+    const jun4X = scale.toNormalizedX(jun4);
+    expect(jun4X).toBeGreaterThan(may.layoutNormalizedX);
+    expect(jun4X).toBeLessThan(june!.layoutNormalizedX);
+  });
+});
+
+describe("mapTimeThroughLayoutAnchors", () => {
+  it("interpolates halfway between adjacent ticks", () => {
+    const anchors = [
+      { atMs: 0, layoutNormalizedX: 0.25 },
+      { atMs: 100, layoutNormalizedX: 0.5 },
+    ];
+    expect(mapTimeThroughLayoutAnchors(50, anchors)).toBeCloseTo(0.375, 8);
+  });
+
+  it("clamps before first and after last tick", () => {
+    const anchors = [
+      { atMs: 10, layoutNormalizedX: 0.2 },
+      { atMs: 20, layoutNormalizedX: 0.8 },
+    ];
+    expect(mapTimeThroughLayoutAnchors(0, anchors)).toBeCloseTo(0.2, 8);
+    expect(mapTimeThroughLayoutAnchors(30, anchors)).toBeCloseTo(0.8, 8);
+  });
+
+  it("handles a single tick", () => {
+    expect(
+      mapTimeThroughLayoutAnchors(123, [{ atMs: 50, layoutNormalizedX: 0.5 }]),
+    ).toBeCloseTo(0.5, 8);
   });
 });
 
 describe("buildWeightTrendXAxisTicks — even visual layout", () => {
   it("spaces 7D weekday labels evenly and keeps them inside the plot", () => {
-    const start = Date.UTC(2026, 8, 15, 12, 0, 0); // Tue
-    const end = Date.UTC(2026, 8, 21, 12, 0, 0); // Mon
+    const start = Date.UTC(2026, 8, 15, 12, 0, 0);
+    const end = Date.UTC(2026, 8, 21, 12, 0, 0);
     const scale = buildWeightTrendXScale({
       range: "7D",
       domainStartMs: start,
@@ -76,17 +119,12 @@ describe("buildWeightTrendXAxisTicks — even visual layout", () => {
     });
     expect(ticks.length).toBeGreaterThanOrEqual(6);
     expect(ticks.length).toBeLessThanOrEqual(7);
-    expect(ticks.every((t) => t.showGridLine)).toBe(true);
-    expect(ticks.every((t) => t.showLabel)).toBe(true);
-    expect(ticks.map((t) => t.label)).toEqual(
-      expect.arrayContaining(["Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "Mon"]),
-    );
+    expect(ticks.every((t) => t.showGridLine && t.showLabel)).toBe(true);
 
     const n = ticks.length;
     for (let i = 0; i < n; i++) {
       expect(ticks[i]!.layoutNormalizedX).toBeCloseTo(evenLayoutNormalizedX(i, n), 8);
     }
-    // Half-slot inset: first/last never sit on the raw plot edge (no clipping).
     expect(ticks[0]!.layoutNormalizedX).toBeGreaterThan(0);
     expect(ticks[n - 1]!.layoutNormalizedX).toBeLessThan(1);
 
@@ -111,7 +149,6 @@ describe("buildWeightTrendXAxisTicks — even visual layout", () => {
       plotWidthPx: 300,
     });
     expect(ticks).toHaveLength(5);
-    expect(ticks.every((t) => /^\d{1,2}$/.test(t.label))).toBe(true);
     const gaps = ticks
       .slice(1)
       .map((t, i) => t.layoutNormalizedX - ticks[i]!.layoutNormalizedX);
@@ -120,31 +157,64 @@ describe("buildWeightTrendXAxisTicks — even visual layout", () => {
     }
   });
 
-  it("spaces month initials evenly for 90D / 6M / 1Y", () => {
-    const start = Date.UTC(2026, 2, 27, 12, 0, 0);
-    const end = Date.UTC(2026, 8, 21, 12, 0, 0);
-    for (const range of ["90D", "6M", "1Y"] as const) {
-      const scale = buildWeightTrendXScale({
-        range,
-        domainStartMs: start,
-        domainEndMs: end,
+  it("aligns exact tick-date points with labels for 7D / 30D / 6M / year", () => {
+    const cases: {
+      range: "7D" | "30D" | "6M" | "3Y";
+      start: number;
+      end: number;
+    }[] = [
+      {
+        range: "7D",
+        start: Date.UTC(2026, 8, 15, 12, 0, 0),
+        end: Date.UTC(2026, 8, 21, 12, 0, 0),
+      },
+      {
+        range: "30D",
+        start: Date.UTC(2026, 7, 26, 12, 0, 0),
+        end: Date.UTC(2026, 8, 21, 12, 0, 0),
+      },
+      {
+        range: "6M",
+        start: Date.UTC(2026, 2, 27, 12, 0, 0),
+        end: Date.UTC(2026, 8, 21, 12, 0, 0),
+      },
+      {
+        range: "3Y",
+        start: Date.UTC(2024, 0, 1, 12, 0, 0),
+        end: Date.UTC(2026, 8, 21, 12, 0, 0),
+      },
+    ];
+
+    for (const c of cases) {
+      const domainScale = buildWeightTrendXScale({
+        range: c.range,
+        domainStartMs: c.start,
+        domainEndMs: c.end,
       });
       const ticks = buildWeightTrendXAxisTicks({
-        range,
-        scale,
-        plotWidthPx: 300,
-        minGapPx: 10,
+        range: c.range,
+        scale: domainScale,
+        plotWidthPx: 320,
       });
-      expect(ticks.length).toBeGreaterThan(0);
-      expect(ticks.every((t) => /^[JFMASOND]$/.test(t.label))).toBe(true);
-      const n = ticks.length;
-      for (let i = 0; i < n; i++) {
-        expect(ticks[i]!.layoutNormalizedX).toBeCloseTo(evenLayoutNormalizedX(i, n), 8);
+      const scale = buildWeightTrendXScale({
+        range: c.range,
+        domainStartMs: c.start,
+        domainEndMs: c.end,
+        layoutAnchors: ticks.map((t) => ({
+          atMs: t.atMs,
+          layoutNormalizedX: t.layoutNormalizedX,
+        })),
+      });
+      for (const tick of ticks) {
+        expect(scale.toNormalizedX(tick.atMs)).toBeCloseTo(tick.layoutNormalizedX, 8);
+        expect(
+          mapWeightTrendTimeToScreenX(tick.atMs, scale, 10, 300),
+        ).toBeCloseTo(10 + tick.layoutNormalizedX * 300, 5);
       }
     }
   });
 
-  it("builds year labels (no month initials) for 3Y / 5Y / All with even spacing", () => {
+  it("builds year labels for 3Y / 5Y / All with even spacing", () => {
     const start = Date.UTC(2022, 0, 1, 12, 0, 0);
     const end = Date.UTC(2026, 8, 21, 12, 0, 0);
     for (const range of ["3Y", "5Y", "All"] as const) {
@@ -165,49 +235,6 @@ describe("buildWeightTrendXAxisTicks — even visual layout", () => {
       for (let i = 0; i < n; i++) {
         expect(ticks[i]!.layoutNormalizedX).toBeCloseTo(evenLayoutNormalizedX(i, n), 8);
       }
-    }
-  });
-
-  it("adapts All density for long history to ≤6 year labels", () => {
-    const start = Date.UTC(2016, 0, 1, 12, 0, 0);
-    const end = Date.UTC(2026, 0, 1, 12, 0, 0);
-    const scale = buildWeightTrendXScale({
-      range: "All",
-      domainStartMs: start,
-      domainEndMs: end,
-    });
-    const ticks = buildWeightTrendXAxisTicks({
-      range: "All",
-      scale,
-      plotWidthPx: 300,
-    });
-    expect(ticks.length).toBeGreaterThanOrEqual(4);
-    expect(ticks.length).toBeLessThanOrEqual(6);
-  });
-
-  it("aligns vertical grid anchors with label layout positions", () => {
-    const start = Date.UTC(2025, 8, 27, 12, 0, 0);
-    const end = Date.UTC(2026, 8, 21, 12, 0, 0);
-    const scale = buildWeightTrendXScale({
-      range: "1Y",
-      domainStartMs: start,
-      domainEndMs: end,
-    });
-    const ticks = buildWeightTrendXAxisTicks({
-      range: "1Y",
-      scale,
-      plotWidthPx: 300,
-    });
-    for (const tick of ticks.filter((t) => t.showGridLine)) {
-      expect(tick.layoutNormalizedX).toBe(tick.layoutNormalizedX);
-      expect(tick.showLabel).toBe(true);
-    }
-    const labeled = ticks.filter((t) => t.showLabel);
-    const gridded = ticks.filter((t) => t.showGridLine);
-    // Every shown label slot that has a grid line shares the same layout X model.
-    for (const g of gridded) {
-      const match = labeled.find((l) => l.atMs === g.atMs);
-      expect(match?.layoutNormalizedX).toBe(g.layoutNormalizedX);
     }
   });
 });

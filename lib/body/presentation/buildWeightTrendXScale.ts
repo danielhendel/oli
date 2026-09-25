@@ -1,14 +1,20 @@
 /**
  * Shared Weight trend X-scale — one mapping for points, guide, grid, and labels.
  *
- * Domain is always the first→last plotted observation (no decorative x-padding).
- * First observation → normalizedX 0; latest → normalizedX 1.
+ * Day/month ranges use equal-width calendar buckets (no edge pinning) so data
+ * sits in the same visual slots as evenly spaced axis labels.
+ * Linear ranges (30D / multi-year) map through the even label anchors.
  */
 
 import { buildWeightTrendMonthBuckets } from "@/lib/body/presentation/weightTrendMonthBucketScale";
 import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
 
 export type WeightTrendXScaleMode = "dayBuckets" | "monthBuckets" | "linear";
+
+export type WeightTrendXLayoutAnchor = {
+  readonly atMs: number;
+  readonly layoutNormalizedX: number;
+};
 
 export type WeightTrendXScale = {
   readonly mode: WeightTrendXScaleMode;
@@ -28,20 +34,21 @@ export type WeightTrendDayBucket = {
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
-function pinNormalized(
-  raw: number,
-  rawStart: number,
-  rawEnd: number,
-): number {
-  const span = rawEnd - rawStart;
-  if (!(span > 0)) return 0;
-  return (raw - rawStart) / span;
-}
-
 function clamp01(n: number): number {
   if (n < 0) return 0;
   if (n > 1) return 1;
   return n;
+}
+
+/**
+ * Equal visual slots across the plot.
+ * First/last sit at half-slot insets so middle-anchored text never clips.
+ * Shared by x-axis labels, vertical grid, and (for linear ranges) data anchors.
+ */
+export function evenLayoutNormalizedX(index: number, count: number): number {
+  if (count <= 0) return 0;
+  if (count === 1) return 0.5;
+  return (index + 0.5) / count;
 }
 
 /**
@@ -124,35 +131,77 @@ function bucketRawNorm(
 
 function resolveMode(range: WeightRangeKey): WeightTrendXScaleMode {
   if (range === "7D") return "dayBuckets";
-  if (range === "90D" || range === "6M" || range === "1Y") return "monthBuckets";
+  if (range === "90D" || range === "6M" || range === "1Y" || range === "YTD") {
+    return "monthBuckets";
+  }
   return "linear";
 }
 
 /**
+ * Piecewise-linear map through even label anchors so data lands on the same
+ * visual slots as x-axis labels / vertical grid.
+ */
+export function mapTimeThroughLayoutAnchors(
+  timeMs: number,
+  anchors: readonly WeightTrendXLayoutAnchor[],
+): number {
+  if (anchors.length === 0) return 0;
+  if (anchors.length === 1) return clamp01(anchors[0]!.layoutNormalizedX);
+
+  const sorted = [...anchors].sort((a, b) => a.atMs - b.atMs);
+  if (timeMs <= sorted[0]!.atMs) return clamp01(sorted[0]!.layoutNormalizedX);
+  const last = sorted[sorted.length - 1]!;
+  if (timeMs >= last.atMs) return clamp01(last.layoutNormalizedX);
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const a = sorted[i]!;
+    const b = sorted[i + 1]!;
+    if (timeMs >= a.atMs && timeMs <= b.atMs) {
+      const span = b.atMs - a.atMs || 1;
+      const t = (timeMs - a.atMs) / span;
+      return clamp01(a.layoutNormalizedX + t * (b.layoutNormalizedX - a.layoutNormalizedX));
+    }
+  }
+  return clamp01(last.layoutNormalizedX);
+}
+
+/**
  * Build the shared X-scale for a Weight trend range.
- * Domain pins: first observation → 0, last observation → 1.
+ *
+ * When `layoutAnchors` are provided (from the even x-axis tick model), ALL ranges
+ * map data through those anchors so points / guide / labels share one X model.
+ * Without anchors (tests / pre-layout), day/month use equal-width buckets and
+ * linear ranges use a half-slot fallback span.
  */
 export function buildWeightTrendXScale(args: {
   readonly range: WeightRangeKey;
   readonly domainStartMs: number;
   readonly domainEndMs: number;
+  readonly layoutAnchors?: readonly WeightTrendXLayoutAnchor[];
 }): WeightTrendXScale {
-  const { range, domainStartMs, domainEndMs } = args;
+  const { range, domainStartMs, domainEndMs, layoutAnchors } = args;
   const mode = resolveMode(range);
+
+  // Authoritative path: even label slots drive data + guide + grid.
+  if (layoutAnchors != null && layoutAnchors.length > 0) {
+    return {
+      mode,
+      domainStartMs,
+      domainEndMs,
+      toNormalizedX: (timeMs) => mapTimeThroughLayoutAnchors(timeMs, layoutAnchors),
+    };
+  }
 
   if (mode === "dayBuckets") {
     const buckets = buildWeightTrendDayBuckets({
       minTimeMs: domainStartMs,
       maxTimeMs: domainEndMs,
     });
-    const rawStart = bucketRawNorm(domainStartMs, buckets);
-    const rawEnd = bucketRawNorm(domainEndMs, buckets);
     return {
       mode,
       domainStartMs,
       domainEndMs,
-      toNormalizedX: (timeMs) =>
-        clamp01(pinNormalized(bucketRawNorm(timeMs, buckets), rawStart, rawEnd)),
+      toNormalizedX: (timeMs) => clamp01(bucketRawNorm(timeMs, buckets)),
     };
   }
 
@@ -161,24 +210,26 @@ export function buildWeightTrendXScale(args: {
       minTimeMs: domainStartMs,
       maxTimeMs: domainEndMs,
     });
-    const rawStart = bucketRawNorm(domainStartMs, buckets);
-    const rawEnd = bucketRawNorm(domainEndMs, buckets);
     return {
       mode,
       domainStartMs,
       domainEndMs,
-      toNormalizedX: (timeMs) =>
-        clamp01(pinNormalized(bucketRawNorm(timeMs, buckets), rawStart, rawEnd)),
+      toNormalizedX: (timeMs) => clamp01(bucketRawNorm(timeMs, buckets)),
     };
   }
 
+  // Fallback before ticks exist: map domain onto half-slot span for a default n.
+  const fallbackN = range === "30D" ? 5 : 4;
   const span = domainEndMs - domainStartMs || 1;
+  const first = evenLayoutNormalizedX(0, fallbackN);
+  const last = evenLayoutNormalizedX(fallbackN - 1, fallbackN);
+  const layoutSpan = last - first || 1;
   return {
     mode: "linear",
     domainStartMs,
     domainEndMs,
     toNormalizedX: (timeMs) =>
-      clamp01((timeMs - domainStartMs) / span),
+      clamp01(first + ((timeMs - domainStartMs) / span) * layoutSpan),
   };
 }
 

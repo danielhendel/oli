@@ -57,6 +57,11 @@ describe("Weight trend single-color classification bands", () => {
     expect(chartSrc).toContain("LINE_WIDTH = 2.05");
     expect(chartSrc).toContain("buildWeightTrendXAxisTicks");
     expect(chartSrc).toContain("GRID_V_COLOR");
+    expect(chartSrc).toContain("layoutAnchors");
+    expect(chartSrc).toContain('GRID_H_COLOR = "rgba(190, 206, 228, 0.55)"');
+    expect(chartSrc).toContain('GRID_V_COLOR = "rgba(190, 206, 228, 0.48)"');
+    expect(chartSrc).toContain('X_LABEL_COLOR = "rgba(190, 206, 228, 0.82)"');
+    expect(chartSrc).toContain("strokeDasharray={GRID_V_DASH}");
     expect(chartSrc).toContain("CROSSHAIR_GLOW");
     expect(chartSrc).toContain("guidePt");
     expect(chartSrc).not.toContain("PLOT_CORNER_RADIUS");

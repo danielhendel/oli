@@ -74,13 +74,12 @@ const LINE_GLOW_SOFT = "rgba(255,255,255,0.14)";
 const LINE_WIDTH = 2.05;
 const LINE_GLOW_WIDTH = 5.5;
 const LINE_SOFT_WIDTH = 9;
-/** Horizontal grid — solid, visible over classification bands, still secondary to the line. */
-const GRID_H_COLOR = "rgba(200, 214, 235, 0.28)";
-const GRID_H_WIDTH = 1;
-/** Vertical grid — dotted, aligned to even x-label slots. */
-const GRID_V_COLOR = "rgba(200, 214, 235, 0.24)";
-const GRID_V_WIDTH = 1;
-const GRID_V_DASH = "1.5 3.5";
+/** Grid uses the same gray family as axis labels — visible over classification bands. */
+const GRID_H_COLOR = "rgba(190, 206, 228, 0.55)";
+const GRID_H_WIDTH = 1.25;
+const GRID_V_COLOR = "rgba(190, 206, 228, 0.48)";
+const GRID_V_WIDTH = 1.25;
+const GRID_V_DASH = "2 3.5";
 /** Max points used to draw path/area/dots; touch/inspection still use full data. */
 const MAX_RENDER_POINTS = 80;
 
@@ -372,11 +371,32 @@ export function WeightTrendChart({
   const plotLeft = PADDING.left;
   const plotWidth = Math.max(0, chartWidth);
 
-  /** One shared X-scale: first observation → left edge, latest → right edge. */
+  /**
+   * 1) Domain scale seeds tick drafts.
+   * 2) Even label slots become layout anchors.
+   * 3) Shared X-scale maps all points / guide through those anchors.
+   */
+  const domainScale = buildWeightTrendXScale({
+    range,
+    domainStartMs: minT,
+    domainEndMs: maxT,
+  });
+  const xAxisTicks: readonly WeightXAxisTick[] =
+    layout && layout.width > 0 && plotWidth > 0
+      ? buildWeightTrendXAxisTicks({
+          range,
+          scale: domainScale,
+          plotWidthPx: plotWidth,
+        })
+      : [];
   const xScale = buildWeightTrendXScale({
     range,
     domainStartMs: minT,
     domainEndMs: maxT,
+    layoutAnchors: xAxisTicks.map((t) => ({
+      atMs: t.atMs,
+      layoutNormalizedX: t.layoutNormalizedX,
+    })),
   });
 
   const toChartX = (tMs: number) =>
@@ -513,15 +533,6 @@ export function WeightTrendChart({
             };
           })
           .filter((b): b is NonNullable<typeof b> => b != null && b.height > 0)
-      : [];
-
-  const xAxisTicks: readonly WeightXAxisTick[] =
-    layout && layout.width > 0 && plotWidth > 0
-      ? buildWeightTrendXAxisTicks({
-          range,
-          scale: xScale,
-          plotWidthPx: plotWidth,
-        })
       : [];
 
   const xLabelY = plotBottom + 14;

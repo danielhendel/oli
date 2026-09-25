@@ -8,6 +8,7 @@
 
 import {
   buildWeightTrendDayBuckets,
+  evenLayoutNormalizedX,
   type WeightTrendXScale,
 } from "@/lib/body/presentation/buildWeightTrendXScale";
 import { buildWeightTrendMonthBuckets } from "@/lib/body/presentation/weightTrendMonthBucketScale";
@@ -32,20 +33,11 @@ function lerpMs(start: number, end: number, t: number): number {
   return start + (end - start) * t;
 }
 
-/**
- * Equal visual slots across the plot.
- * First/last sit at half-slot insets so middle-anchored text never clips.
- */
-export function evenLayoutNormalizedX(index: number, count: number): number {
-  if (count <= 0) return 0;
-  if (count === 1) return 0.5;
-  return (index + 0.5) / count;
-}
+export { evenLayoutNormalizedX } from "@/lib/body/presentation/buildWeightTrendXScale";
 
 type TickDraft = {
   readonly atMs: number;
   readonly label: string;
-  readonly showGridLine: boolean;
 };
 
 /** Thin a dense draft set to fit plot width, preserving even chronological sampling. */
@@ -77,7 +69,7 @@ function finalizeEvenTicks(drafts: readonly TickDraft[]): WeightXAxisTick[] {
     atMs: d.atMs,
     layoutNormalizedX: evenLayoutNormalizedX(i, n),
     label: d.label,
-    showGridLine: d.showGridLine,
+    showGridLine: true,
     showLabel: true,
   }));
 }
@@ -96,7 +88,6 @@ function build7DDrafts(scale: WeightTrendXScale): TickDraft[] {
   return days.map((day) => ({
     atMs: (day.startMs + day.endMs) / 2,
     label: day.weekdayShort,
-    showGridLine: true,
   }));
 }
 
@@ -109,25 +100,19 @@ function build30DDrafts(scale: WeightTrendXScale): TickDraft[] {
     drafts.push({
       atMs,
       label: String(new Date(atMs).getUTCDate()),
-      showGridLine: true,
     });
   }
   return drafts;
 }
 
-function buildMonthLetterDrafts(
-  scale: WeightTrendXScale,
-  opts?: { readonly gridEveryOther?: boolean },
-): TickDraft[] {
+function buildMonthLetterDrafts(scale: WeightTrendXScale): TickDraft[] {
   const months = buildWeightTrendMonthBuckets({
     minTimeMs: scale.domainStartMs,
     maxTimeMs: scale.domainEndMs,
   });
-  const gridEveryOther = opts?.gridEveryOther === true && months.length > 10;
-  return months.map((m, i) => ({
+  return months.map((m) => ({
     atMs: monthCenterMs(m.year, m.month),
     label: MONTH_LETTERS[m.month]!,
-    showGridLine: !gridEveryOther || i % 2 === 0,
   }));
 }
 
@@ -166,7 +151,6 @@ function buildYearDrafts(scale: WeightTrendXScale, maxLabels: number): TickDraft
   return selected.map((year) => ({
     atMs: yearAnchorMs(year, scale.domainStartMs, scale.domainEndMs),
     label: String(year),
-    showGridLine: true,
   }));
 }
 
@@ -200,7 +184,7 @@ export function buildWeightTrendXAxisTicks(args: {
       drafts = buildMonthLetterDrafts(scale);
       break;
     case "1Y":
-      drafts = buildMonthLetterDrafts(scale, { gridEveryOther: true });
+      drafts = buildMonthLetterDrafts(scale);
       break;
     case "YTD":
       drafts = buildMonthLetterDrafts(scale);
