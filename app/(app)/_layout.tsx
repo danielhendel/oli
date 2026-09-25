@@ -164,6 +164,26 @@ export default function AppLayout() {
           <Stack.Screen name="body/overview" options={{ headerTitle: "" }} />
           <Stack.Screen name="body/dexa" options={{ headerTitle: "" }} />
           <Stack.Screen
+            name="body/scans/index"
+            options={{ title: "Body Scans", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="body/scans/new"
+            options={{ title: "Upload scan", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="body/scans/[scanId]/index"
+            options={{ title: "Scan", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="body/scans/[scanId]/review"
+            options={{ title: "Review scan", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
+            name="body/scans/[scanId]/report"
+            options={{ title: "Original report", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
             name="body/list"
             options={{ title: "Body Composition Log", ...workoutsStackNavigationOptions("detail") }}
           />

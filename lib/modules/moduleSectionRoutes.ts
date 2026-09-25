@@ -20,7 +20,7 @@ export const MODULE_SECTIONS = [
   // BODY
   { id: "body.overview", moduleId: "body", title: "Overview", href: "/(app)/body" },
   { id: "body.weight", moduleId: "body", title: "Weight", href: "/(app)/body" },
-  { id: "body.dexa", moduleId: "body", title: "DEXA", href: "/(app)/body/dexa" },
+  { id: "body.dexa", moduleId: "body", title: "Body Scans", href: "/(app)/body/scans" },
 
   // STRENGTH (stack: /workouts)
   { id: "workouts.overview", moduleId: "workouts", title: "Strength overview", href: "/(app)/workouts/overview" },

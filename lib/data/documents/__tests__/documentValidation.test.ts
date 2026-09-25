@@ -132,20 +132,23 @@ describe("validateDocumentUpload", () => {
     );
   });
 
-  it("rejects deferred domains such as dna, scans, and medical_history", () => {
-    expect(
-      issueCodes(
-        baseInput({
-          domain: "dna",
-          documentType: "dna_report",
-        }),
-      ),
-    ).toContain("DOMAIN_DEFERRED");
+  it("accepts scans now that Body Scans owns the domain end to end", () => {
     expect(
       issueCodes(
         baseInput({
           domain: "scans",
           documentType: "dexa_report",
+        }),
+      ),
+    ).not.toContain("DOMAIN_DEFERRED");
+  });
+
+  it("rejects deferred domains such as dna and medical_history", () => {
+    expect(
+      issueCodes(
+        baseInput({
+          domain: "dna",
+          documentType: "dna_report",
         }),
       ),
     ).toContain("DOMAIN_DEFERRED");

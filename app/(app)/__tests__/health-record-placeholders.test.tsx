@@ -27,7 +27,7 @@ jest.mock("@/lib/ui/HeaderBackButton", () => ({
   HeaderBackButton: "HeaderBackButton",
 }));
 
-import ScansPlaceholderScreen from "../scans/index";
+import ScansScreen from "../scans/index";
 import MedicationPlaceholderScreen from "../medication/index";
 import SupplementsPlaceholderScreen from "../supplements/index";
 import MedicalHistoryPlaceholderScreen from "../medical-history/index";
@@ -48,15 +48,14 @@ function assertSharedPlaceholder(str: string, opts: { testID: string; action: st
 }
 
 describe("Health record placeholder pages", () => {
-  it("renders Scans with shared placeholder and no duplicate page heading", async () => {
+  it("sends the legacy Scans route to Body Scans, which now owns the domain", async () => {
     let test!: renderer.ReactTestRenderer;
     await act(async () => {
-      test = renderer.create(<ScansPlaceholderScreen />);
+      test = renderer.create(<ScansScreen />);
     });
-    const str = JSON.stringify(test.toJSON());
-    assertSharedPlaceholder(str, { testID: "scans-placeholder", action: "Add Scan" });
-    expect(str).not.toContain("No scans added yet");
-    expect(str).not.toMatch(/DEXA|MRI|CT scan result/i);
+    const redirect = test.root.findByProps({ testID: "redirect" });
+    expect(redirect.props.href).toBe("/(app)/body/scans");
+    expect(JSON.stringify(test.toJSON())).not.toContain("scans-placeholder");
   });
 
   it("renders Medication with shared placeholder", async () => {

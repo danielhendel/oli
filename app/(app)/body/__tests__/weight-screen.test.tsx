@@ -56,6 +56,14 @@ jest.mock("@/lib/data/body/useBodyOverviewData", () => ({
   useBodyOverviewData: (...args: unknown[]) => mockHook(...args),
 }));
 
+jest.mock("@/lib/data/body-scans/useBodyScans", () => ({
+  useBodyScans: () => ({
+    status: "ready",
+    data: { ok: true, items: [], nextCursor: null },
+    refetch: jest.fn(),
+  }),
+}));
+
 const mockAccess = jest.fn();
 jest.mock("@/lib/data/body/useAppleHealthBodyAccessState", () => ({
   useAppleHealthBodyAccessState: () => mockAccess(),

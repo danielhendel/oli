@@ -112,6 +112,35 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     expect(text.indexOf("Body Fat")).toBeLessThan(text.indexOf("Lean Mass"));
   });
 
+  it("places Body Scans after Components and keeps it out of the metric cards", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        React.createElement(BodyCompositionSummaryScreen, {
+          ...baseScreenProps,
+          cards,
+          bodyScansSlot: React.createElement("Text", { testID: "body-scans-slot" }, "Body Scans"),
+        }),
+      );
+    });
+    const text = collectText(tree);
+    expect(tree.root.findByProps({ testID: "body-scans-slot" })).toBeDefined();
+    expect(text.indexOf("Lean Mass")).toBeLessThan(text.indexOf("Body Scans"));
+    expect(
+      tree.root.findByProps({ testID: "body-composition-metric-cards" }).props.children,
+    ).toBeDefined();
+  });
+
+  it("omits the Body Scans section entirely when no slot is supplied", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        React.createElement(BodyCompositionSummaryScreen, { ...baseScreenProps, cards }),
+      );
+    });
+    expect(collectText(tree)).not.toContain("Body Scans");
+  });
+
   it("Weight toggle exposes lb|BMI for imperial preference", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {

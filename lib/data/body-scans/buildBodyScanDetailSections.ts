@@ -54,6 +54,21 @@ function metricKey(metric: BodyScanMetricDto): string {
   return `${metric.metricId}:${metric.region}`;
 }
 
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+] as const;
+
+/** Calendar date as printed on the report — no timezone shifting, no time of day. */
+function formatScanDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const month = MONTHS[Number(match[2]) - 1];
+  if (!month) return null;
+  return `${month} ${Number(match[3])}, ${match[1]}`;
+}
+
 function buildLeanBalanceRows(metrics: readonly BodyScanMetricDto[]): BodyScanDetailRow[] {
   const byRegion = new Map<BodyScanRegion, BodyScanMetricDto>();
   for (const metric of metrics) {
@@ -114,7 +129,7 @@ function buildSourceRows(scan: BodyScanDetailDto): BodyScanDetailRow[] {
     {
       key: "source_performed_at",
       label: "Scan date",
-      valueText: scan.performedAt,
+      valueText: formatScanDate(scan.performedAt),
       corrected: false,
     },
   ];

@@ -12,6 +12,9 @@ import {
   BodyAppleHealthConnectSheet,
 } from "@/lib/ui/body/BodyAppleHealthConnectSheet";
 import { BodyCompositionSummaryScreen } from "@/lib/ui/body/BodyCompositionSummaryScreen";
+import { BodyScansLandingSection } from "@/lib/ui/body-scans/BodyScansLandingSection";
+import { isBodyScansV1Enabled } from "@/lib/data/body-scans/bodyScansFlag";
+import { useBodyScans } from "@/lib/data/body-scans/useBodyScans";
 import { BodyMetricManualEntrySheet } from "@/lib/ui/body/BodyMetricManualEntrySheet";
 import type { BodyMetricManualEntryMetric } from "@/lib/body/presentation/bodyMetricManualEntryValidation";
 import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
@@ -235,6 +238,18 @@ export default function BodyOverviewScreen() {
     pairingEvidence,
   ]);
 
+  const bodyScansEnabled = isBodyScansV1Enabled();
+  const bodyScans = useBodyScans({ enabled: bodyScansEnabled, limit: 3 });
+  const bodyScansSlot = bodyScansEnabled ? (
+    <BodyScansLandingSection
+      status={bodyScans.status}
+      {...(bodyScans.status === "ready" ? { items: bodyScans.data.items } : {})}
+      onPressScan={(scanId) => router.push(`/(app)/body/scans/${scanId}`)}
+      onPressSeeAll={() => router.push("/(app)/body/scans")}
+      onPressUpload={() => router.push("/(app)/body/scans/new")}
+    />
+  ) : null;
+
   const measurementErrorSlot = seriesError ? (
     <View style={styles.measurementError} testID="body-composition-measurement-error">
       <Text style={styles.measurementErrorTitle}>Couldn’t load Body measurements</Text>
@@ -300,6 +315,7 @@ export default function BodyOverviewScreen() {
             leanMassPrimaryView={leanMassPrimaryView}
             onChangeLeanMassPrimaryView={setLeanMassPrimaryView}
             measurementErrorSlot={measurementErrorSlot}
+            bodyScansSlot={bodyScansSlot}
           />
         </View>
       </ModuleScreenShell>

@@ -187,6 +187,14 @@ jest.mock("@/lib/api/usersMe", () => ({
   logWeight: (...args: unknown[]) => mockIngest(...args),
 }));
 
+jest.mock("@/lib/data/body-scans/useBodyScans", () => ({
+  useBodyScans: () => ({
+    status: "ready",
+    data: { ok: true, items: [], nextCursor: null },
+    refetch: jest.fn(),
+  }),
+}));
+
 const Screen = require("../../../../app/(app)/body/index").default as React.ComponentType;
 
 describe("Body Composition Stage 3B source privacy", () => {
