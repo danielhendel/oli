@@ -1,22 +1,29 @@
 /**
- * View Original preview hook (client).
+ * View Original preview hook (client) — B-3E-CACHE-01 hardened.
  *
- * Wires the pure controller to Expo file/system-preview primitives. No new native PDF
- * viewer dependency: the downloaded file is handed to the OS.
+ * Wires the pure controller to Expo file/system-preview primitives and the
+ * account-scoped Body Scan original cache. No new native PDF viewer dependency.
+ *
+ * Preview API semantics:
+ * - Prefer `WebBrowser.openBrowserAsync` (typically settles when dismissed) → immediate delete.
+ * - Fall back to `Linking.openURL` (settles at launch) → leave per-open file for stale sweep.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Linking } from "react-native";
-import * as FileSystem from "expo-file-system";
 import * as WebBrowser from "expo-web-browser";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { viewDocumentOriginal } from "@/lib/api/documents";
+import {
+  deleteCachedBodyScanOriginal,
+  downloadBodyScanOriginalToProtectedCache,
+  sweepStaleBodyScanOriginalCaches,
+} from "@/lib/data/body-scans/bodyScanOriginalCache";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import {
   documentOriginalPreviewMessage,
   openDocumentOriginal,
-  protectedOriginalCacheFilename,
   type DocumentOriginalPreviewOutcome,
 } from "@/lib/data/documents/documentOriginalPreview";
 
@@ -26,13 +33,29 @@ export type DocumentOriginalPreviewState = {
 };
 
 export function useDocumentOriginalPreview(documentId: string | null) {
-  const { getIdToken } = useAuth();
+  const { user, getIdToken } = useAuth();
   const [state, setState] = useState<DocumentOriginalPreviewState>({ busy: false, message: null });
+  const lastLocalUriRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    // Bounded stale sweep before the first open in this mount (and when document changes).
+    void sweepStaleBodyScanOriginalCaches();
+    return () => {
+      mountedRef.current = false;
+      lastLocalUriRef.current = null;
+    };
+  }, [documentId]);
 
   const open = useCallback(async (): Promise<DocumentOriginalPreviewOutcome | null> => {
-    if (!documentId) return null;
+    if (!documentId || !user?.uid) return null;
     setState({ busy: true, message: null });
 
+    // Sweep orphans from abnormal termination before allocating a new preview path.
+    await sweepStaleBodyScanOriginalCaches();
+
+    const userId = user.uid;
     const outcome = await openDocumentOriginal({
       requestGrant: async () => {
         const token = await getIdToken(false);
@@ -44,41 +67,56 @@ export function useDocumentOriginalPreview(documentId: string | null) {
         return parsed.status === "ready" ? parsed.data : null;
       },
       downloadToProtectedPath: async ({ url }) => {
-        const directory = FileSystem.cacheDirectory;
-        if (!directory) return { ok: false };
-        const localUri =
-          directory + protectedOriginalCacheFilename({ documentId, mediaType: "application/pdf" });
-        try {
-          const result = await FileSystem.downloadAsync(url, localUri);
-          if (result.status !== 200) return { ok: false };
-          return { ok: true, localUri: result.uri };
-        } catch {
-          return { ok: false };
-        }
+        const downloaded = await downloadBodyScanOriginalToProtectedCache({
+          userId,
+          documentId,
+          url,
+        });
+        if (!downloaded.ok) return { ok: false };
+        lastLocalUriRef.current = downloaded.localUri;
+        return { ok: true, localUri: downloaded.localUri };
       },
       openLocal: async (localUri) => {
+        // Prefer the API that settles when the viewer is dismissed.
+        try {
+          await WebBrowser.openBrowserAsync(localUri);
+          return { opened: true, deleteImmediately: true };
+        } catch {
+          // Fall through to Linking.
+        }
         try {
           if (await Linking.canOpenURL(localUri)) {
             await Linking.openURL(localUri);
-            return true;
+            // Resolves at launch — do not claim close cleanup; stale sweep covers orphans.
+            return { opened: true, deleteImmediately: false };
           }
         } catch {
-          // Fall through to the in-app system preview.
+          // Fall through.
         }
-        try {
-          await WebBrowser.openBrowserAsync(localUri);
-          return true;
-        } catch {
-          return false;
+        return { opened: false, deleteImmediately: true };
+      },
+      deleteLocal: async (localUri) => {
+        await deleteCachedBodyScanOriginal(localUri);
+        if (lastLocalUriRef.current === localUri) {
+          lastLocalUriRef.current = null;
         }
       },
     });
 
-    setState({ busy: false, message: documentOriginalPreviewMessage(outcome) });
+    if (mountedRef.current) {
+      setState({ busy: false, message: documentOriginalPreviewMessage(outcome) });
+    }
     return outcome;
-  }, [documentId, getIdToken]);
+  }, [documentId, getIdToken, user?.uid]);
 
-  const clearMessage = useCallback(() => setState((prev) => ({ ...prev, message: null })), []);
+  const clearMessage = useCallback(() => {
+    setState((prev) => ({ ...prev, message: null }));
+  }, []);
 
-  return { ...state, open, clearMessage };
+  const clearPreviewState = useCallback(() => {
+    lastLocalUriRef.current = null;
+    setState({ busy: false, message: null });
+  }, []);
+
+  return { ...state, open, clearMessage, clearPreviewState };
 }

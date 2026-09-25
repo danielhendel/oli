@@ -176,6 +176,7 @@ Stage 3E V1 stores comparability data but **does not** expose scan-to-scan Chang
 - Operational logs must not include patient name, DOB, PDF text, metric values, signed URLs, tokens, or Storage paths.
 - Real personal health PDFs must **never** enter Git or fixtures; use de-identified synthetic fixtures only.
 - Sensitive-document disclosure: reuse approved copy when present; otherwise development-only non-final copy with production flag off and a release blocker.
+- **Original-report local cache (B-3E-CACHE-01):** temporary app-private files only under an account-scoped `body-scans/` cache root; deleted after dismiss-style preview when the platform API supports it; otherwise removed by stale sweep (30 minutes) and by logout / account-switch / scan-delete / account-deletion. No persistent offline original storage in V1.
 
 ---
 

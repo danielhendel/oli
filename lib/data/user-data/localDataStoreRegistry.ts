@@ -158,6 +158,16 @@ export const LOCAL_DATA_STORE_REGISTRY: readonly LocalStorePolicy[] = [
     accountDeletion: "clear",
   },
   {
+    storeId: "body_scan_original_cache",
+    keyPattern: "body-scans/",
+    userScoped: true,
+    containsHealthData: true,
+    containsCredentials: false,
+    signOut: "clear_per_uid",
+    accountSwitch: "clear_per_uid",
+    accountDeletion: "clear",
+  },
+  {
     storeId: "deletion_recovery_marker",
     keyPattern: "oli:accountDeletion:recovery:v1",
     userScoped: false,

@@ -7,6 +7,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { healthAssessmentStore } from "@/lib/data/health-assessment/healthAssessmentStore";
 import { nutritionMealDraftStore } from "@/lib/data/nutrition/nutritionMealDraftStore";
 import { workoutProgramDesignStore } from "@/lib/data/program/workoutProgramDesignStore";
+import {
+  clearAllBodyScanOriginalCaches,
+  clearBodyScanOriginalCacheForAccount,
+} from "@/lib/data/body-scans/bodyScanOriginalCache";
 import { cleanupExportArchiveFiles } from "@/lib/data/user-data/export/cleanupExportArchive";
 import {
   ACCOUNT_DELETION_RECOVERY_MARKER_KEY,
@@ -53,6 +57,8 @@ async function clearPerUidKeys(uid: string): Promise<void> {
 
   await clearActiveWorkoutSessionId(uid).catch(() => undefined);
   await clearWorkoutsAnchor(uid).catch(() => undefined);
+  // B-3E-CACHE-01: remove account-scoped Body Scan original preview PDFs.
+  await clearBodyScanOriginalCacheForAccount(uid).catch(() => undefined);
 }
 
 async function clearDeviceGlobalIntegrationKeys(): Promise<void> {
@@ -80,6 +86,9 @@ async function clearGlobalHealthStores(): Promise<void> {
   clearTimelineAndEventsCaches();
   __testing_resetDailyFactsSessionCache();
   await cleanupExportArchiveFiles();
+  // B-3E-CACHE-01: belt-and-suspenders wipe of the dedicated Body Scan cache root so a
+  // failed per-uid clear cannot leave a prior account's report for the next session.
+  await clearAllBodyScanOriginalCaches().catch(() => undefined);
 }
 
 export async function clearUserScopedLocalData(args: {

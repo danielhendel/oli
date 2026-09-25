@@ -1,12 +1,19 @@
 /**
  * View Original preview controller (pure).
  *
- * The server hands back a short-lived signed URL. The client downloads it into the app's
- * own protected cache and hands the *local* file to the system preview, so the bearer URL
- * never travels further than the download call.
+ * The server hands back a short-lived signed URL. The client downloads it into an
+ * account-scoped app-private cache and hands the *local* file to the system preview,
+ * so the bearer URL never travels further than the download call.
  *
  * Nothing in this module returns, stores, or logs the URL or the local path — outcomes
  * carry status codes only.
+ *
+ * Cleanup contract (B-3E-CACHE-01):
+ * - Always delete the local file after a failed download/open path.
+ * - When `openLocal` reports `deleteImmediately: true` (viewer closed / promise settled
+ *   after dismiss), delete in `finally`.
+ * - When `openLocal` reports `deleteImmediately: false` (API resolves at launch), leave
+ *   the per-open file for the account-scoped stale sweep — never claim close cleanup.
  */
 
 import type { DocumentViewOriginalResponseDto } from "@oli/contracts";
@@ -15,6 +22,12 @@ export type DocumentOriginalPreviewOutcome =
   | { status: "opened" }
   | { status: "unavailable"; reasonCode: string }
   | { status: "error"; code: "GRANT_FAILED" | "DOWNLOAD_FAILED" | "OPEN_FAILED" | "EXPIRED" };
+
+export type DocumentOriginalOpenLocalResult = {
+  opened: boolean;
+  /** True when the open API settles after the user leaves the viewer. */
+  deleteImmediately: boolean;
+};
 
 export type DocumentOriginalPreviewEffects = {
   /** Ask the API for a grant. Returns null on transport/contract failure. */
@@ -25,7 +38,9 @@ export type DocumentOriginalPreviewEffects = {
     filename: string;
   }) => Promise<{ ok: true; localUri: string } | { ok: false }>;
   /** Hand the local file to the system preview. */
-  openLocal: (localUri: string) => Promise<boolean>;
+  openLocal: (localUri: string) => Promise<DocumentOriginalOpenLocalResult>;
+  /** Idempotent best-effort delete of a local preview file. */
+  deleteLocal?: (localUri: string) => Promise<void>;
   now?: () => number;
 };
 
@@ -48,8 +63,22 @@ export async function openDocumentOriginal(
   });
   if (!downloaded.ok) return { status: "error", code: "DOWNLOAD_FAILED" };
 
-  const opened = await effects.openLocal(downloaded.localUri);
-  return opened ? { status: "opened" } : { status: "error", code: "OPEN_FAILED" };
+  let deleteImmediately = true;
+  try {
+    const opened = await effects.openLocal(downloaded.localUri);
+    deleteImmediately = opened.deleteImmediately;
+    if (!opened.opened) {
+      return { status: "error", code: "OPEN_FAILED" };
+    }
+    return { status: "opened" };
+  } catch {
+    deleteImmediately = true;
+    return { status: "error", code: "OPEN_FAILED" };
+  } finally {
+    if (deleteImmediately && effects.deleteLocal) {
+      await effects.deleteLocal(downloaded.localUri).catch(() => undefined);
+    }
+  }
 }
 
 /** Consumer copy for a preview outcome. Never surfaces a URL, path, or reason code. */
@@ -75,8 +104,8 @@ export function documentOriginalPreviewMessage(
 }
 
 /**
- * Local cache filename for a downloaded original. Deliberately derived from the document
- * id rather than the consumer filename so nothing report-identifying lands on disk.
+ * @deprecated B-3E-CACHE-01 — use `createBodyScanOriginalPreviewPaths` for account-scoped
+ * per-open paths. Kept only for older unit assertions during migration.
  */
 export function protectedOriginalCacheFilename(args: {
   documentId: string;

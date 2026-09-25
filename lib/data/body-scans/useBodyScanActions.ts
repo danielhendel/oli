@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { confirmBodyScan, deleteBodyScan, reprocessBodyScan } from "@/lib/api/bodyScans";
 import type { BodyScanConfirmRequestDto } from "@/lib/contracts";
+import { clearBodyScanOriginalCacheForDocument } from "@/lib/data/body-scans/bodyScanOriginalCache";
 import { markDocumentDeleted } from "@/lib/data/documents/documentListInvalidate";
 
 export type BodyScanActionKind = "confirm" | "reprocess" | "delete";
@@ -30,7 +31,7 @@ const UNACKNOWLEDGED_MESSAGE =
  * runs on its own, and a low-confidence review is never auto-confirmed.
  */
 export function useBodyScanActions(scanId: string) {
-  const { getIdToken } = useAuth();
+  const { user, getIdToken } = useAuth();
   const [state, setState] = useState<ActionState>({ pending: null, errorMessage: null });
   const idempotencyKeys = useRef(new Map<BodyScanActionKind, string>());
 
@@ -93,9 +94,18 @@ export function useBodyScanActions(scanId: string) {
   const remove = useCallback(async () => {
     const outcome = await run("delete", (token) => deleteBodyScan(token, scanId));
     // Scan id and document id are the same record, so the document lists invalidate too.
-    if (outcome.ok) markDocumentDeleted(scanId);
+    if (outcome.ok) {
+      markDocumentDeleted(scanId);
+      // B-3E-CACHE-01: drop any local original preview after authoritative server delete.
+      if (user?.uid) {
+        await clearBodyScanOriginalCacheForDocument({
+          userId: user.uid,
+          documentId: scanId,
+        }).catch(() => undefined);
+      }
+    }
     return outcome;
-  }, [run, scanId]);
+  }, [run, scanId, user?.uid]);
 
   const clearError = useCallback(() => {
     setState((prev) => (prev.errorMessage == null ? prev : { ...prev, errorMessage: null }));

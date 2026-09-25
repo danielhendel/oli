@@ -81,7 +81,29 @@ This is enforced three ways: `assertBodyScanWriteTargetAllowed` guards every Bod
 
 ## 7. View Original
 
-`GET /users/me/documents/{documentId}/view-original` now mints a signed read URL valid for **120 seconds** for the owner's private object, or reports `VIEW_ORIGINAL_NOT_STORED` / `VIEW_ORIGINAL_UNAVAILABLE`. The client downloads it into the app-private cache and hands the local file to the system preview, so no new native PDF viewer dependency was added. The URL and the object path never appear in logs, telemetry, outcomes, or user-facing copy.
+`GET /users/me/documents/{documentId}/view-original` mints a signed read URL valid for **120 seconds** for the owner's private object, or reports `VIEW_ORIGINAL_NOT_STORED` / `VIEW_ORIGINAL_UNAVAILABLE`. The client downloads it into an **account-scoped app-private cache** and hands the local file to the system preview. The URL and the object path never appear in logs, telemetry, outcomes, or user-facing copy.
+
+### B-3E-CACHE-01 — original-report cache privacy (fix)
+
+**Blocker:** Independent Stage 3E gate STOP. Real-PDF testing remains prohibited until this fix is independently re-reviewed.
+
+**Root cause:** Pre-fix `useDocumentOriginalPreview` wrote `cacheDirectory/original-{documentId}.pdf` — not account-scoped, not deleted after preview, and not cleared on logout / account switch / scan delete / account deletion. `cleanupExportArchiveFiles` only covered export zip/bin artifacts.
+
+**Fix (implemented on this branch):**
+
+| Concern | Behavior |
+|---------|----------|
+| Cache root | `{cacheDirectory}/body-scans/{opaqueAccountScope}/{documentId}/{previewNonce}.pdf` |
+| Account isolation | Opaque scope key derived from UID (raw UID never in path/logs) |
+| Per-open path | Unique `previewNonce`; `.partial` then rename to `.pdf` after `%PDF` check |
+| Successful dismiss cleanup | Prefer `WebBrowser.openBrowserAsync` (settles on dismiss) → delete in `finally` |
+| Immediate-open fallback | `Linking.openURL` settles at launch → leave file for stale sweep (do not claim close cleanup) |
+| Stale TTL | `BODY_SCAN_ORIGINAL_CACHE_MAX_AGE_MS` = **30 minutes**; abandoned `.partial` removed on every sweep |
+| Sweep triggers | Before each preview; sign-out / account-switch / account-deletion lifecycle |
+| Scan delete | Clears that document’s cache directory after server delete succeeds |
+| Offline persistent source | **No** — Stage 3E V1 does not keep originals for offline viewing |
+
+**Still open after this fix:** Independent Stage 3E architecture / security / source-privacy re-gate. **RG-SOURCE-PRIVACY-01** remains OPEN. Real personal PDF must not be uploaded until that re-gate passes. Do not mark this independent gate PASS from the implementation agent.
 
 ---
 
@@ -108,8 +130,10 @@ Audit events (`body_scan_created`, `body_scan_extraction_completed`, `body_scan_
 - Production `bodyScans` flag **disabled**; development enabled.
 - **RG-LEGAL-01** and **RG-SOURCE-PRIVACY-01** remain **OPEN**.
 - Export coverage / scalability **OPEN**.
-- Controlled physical real-PDF test **required** and not yet performed; the test PDF must never enter Git.
+- **B-3E-CACHE-01** implementation fix landed; **independent security re-gate required** before real-PDF testing.
+- Controlled physical real-PDF test **required** and not yet performed; the test PDF must never enter Git; blocked until re-gate PASS.
 - Independent Stage 3E architecture / security / staging gate **required**.
 - No staging or production deployment from this work.
 
 Do **not** claim Stage 3E merged or production-ready.
+Do **not** claim the independent source-privacy gate PASS from this document alone.
