@@ -7,6 +7,7 @@ import {
   buildBodyMetricTrendDetailModel,
   type BodyMetricTrendDetailModel,
 } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
+import { buildWeightDetailSharedDomain } from "@/lib/body/presentation/buildWeightDetailSharedDomain";
 import { buildWeightTrendClassificationBands } from "@/lib/body/presentation/buildWeightTrendClassificationBands";
 import { resolveBodyMetricEducationalReferencePresentation } from "@/lib/body/standards/resolveEducationalReferencePresentation";
 import {
@@ -109,7 +110,13 @@ export default function BodyMetricDetailScreen() {
     historyMetric: historyMetric ?? "weight",
   });
 
-  const trends = useBodyMetricTrends(range, metric, { enabled: metric !== undefined });
+  /**
+   * Weight detail loads the full available history once (All → 5Y window) so
+   * Y-domain stays locked across period selectors; client filters by `range`.
+   * Other metrics keep range-scoped fetches.
+   */
+  const trendsFetchRange: WeightRangeKey = metric === "weight" ? "All" : range;
+  const trends = useBodyMetricTrends(trendsFetchRange, metric, { enabled: metric !== undefined });
 
   const points = useMemo(() => {
     if (trends.status !== "ready" || !metric) return [];
@@ -134,6 +141,15 @@ export default function BodyMetricDetailScreen() {
       }),
     [range, points, stats, trends],
   );
+
+  const sharedMassAxis = useMemo(() => {
+    if (metric !== "weight" || points.length === 0) return null;
+    if (unit !== "lb" && unit !== "kg") return null;
+    return buildWeightDetailSharedDomain({
+      valuesKg: points.map((p) => p.weightKg),
+      unit,
+    });
+  }, [metric, points, unit]);
 
   useEffect(() => {
     if (model.status === "ready" || model.status === "insufficient") {
@@ -238,6 +254,7 @@ export default function BodyMetricDetailScreen() {
           retainChartWhileLoading
           previousReadyModel={previousReadyRef.current}
           classificationBands={classificationBands}
+          sharedMassAxis={sharedMassAxis}
         />
 
         {historyMetric === "bodyFat" || historyMetric === "leanTissue" ? (

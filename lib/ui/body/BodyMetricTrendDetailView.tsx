@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { BodyMetricTrendDetailModel } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
 import { buildBodyMetricTrendAccessibilitySummary } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
 import type { WeightTrendClassificationBandsModel } from "@/lib/body/presentation/buildWeightTrendClassificationBands";
+import type { WeightAxisTicksModel } from "@/lib/body/presentation/buildWeightAxisTicks";
 import {
   buildWeightTrendInspection,
   WEIGHT_TREND_INSPECTION_IDLE,
@@ -59,6 +60,10 @@ export type BodyMetricTrendDetailViewProps = {
   previousReadyModel?: BodyMetricTrendDetailModel | null;
   /** Weight-only classification bands for chart background. */
   classificationBands?: WeightTrendClassificationBandsModel | null;
+  /**
+   * Locked Weight Y-axis from full available history — shared across all period selectors.
+   */
+  sharedMassAxis?: WeightAxisTicksModel | null;
 };
 
 /**
@@ -295,6 +300,7 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
             onInspectChange={handleInspectChange}
             classificationBands={props.classificationBands ?? null}
             highContrastLine={props.classificationBands != null}
+            sharedMassAxis={props.sharedMassAxis ?? null}
           />
           {observedCoverageLabel ? (
             <Text
