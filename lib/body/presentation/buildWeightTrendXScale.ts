@@ -3,7 +3,9 @@
  *
  * Day/month ranges use equal-width calendar buckets (no edge pinning) so data
  * sits in the same visual slots as evenly spaced axis labels.
- * Linear ranges (30D / multi-year) map through the even label anchors.
+ * Short linear ranges (30D) map through even label anchors.
+ * Long ranges (3Y / 5Y / All) use continuous timestamps so same-year points
+ * never collapse onto a single year-label slot.
  */
 
 import { buildWeightTrendMonthBuckets } from "@/lib/body/presentation/weightTrendMonthBucketScale";
@@ -40,10 +42,29 @@ function clamp01(n: number): number {
   return n;
 }
 
+/** True for multi-year chart ranges that must preserve within-year dates. */
+export function isWeightTrendLongRange(range: WeightRangeKey): boolean {
+  return range === "3Y" || range === "5Y" || range === "All";
+}
+
+/**
+ * Continuous normalized X across the plotted domain.
+ * First observed timestamp → 0; last → 1.
+ */
+export function continuousNormalizedX(
+  timeMs: number,
+  domainStartMs: number,
+  domainEndMs: number,
+): number {
+  const span = domainEndMs - domainStartMs;
+  if (!(span > 0) || !Number.isFinite(span)) return 0.5;
+  return clamp01((timeMs - domainStartMs) / span);
+}
+
 /**
  * Equal visual slots across the plot.
  * First/last sit at half-slot insets so middle-anchored text never clips.
- * Shared by x-axis labels, vertical grid, and (for linear ranges) data anchors.
+ * Shared by short-range x-axis labels, vertical grid, and (for 30D) data anchors.
  */
 export function evenLayoutNormalizedX(index: number, count: number): number {
   if (count <= 0) return 0;
@@ -139,7 +160,7 @@ function resolveMode(range: WeightRangeKey): WeightTrendXScaleMode {
 
 /**
  * Piecewise-linear map through even label anchors so data lands on the same
- * visual slots as x-axis labels / vertical grid.
+ * visual slots as x-axis labels / vertical grid (short ranges only).
  */
 export function mapTimeThroughLayoutAnchors(
   timeMs: number,
@@ -166,12 +187,10 @@ export function mapTimeThroughLayoutAnchors(
 }
 
 /**
- * Build the shared X-scale for a Weight trend range.
+ * Build the shared X-scale for a Weight / Body Fat trend range.
  *
- * When `layoutAnchors` are provided (from the even x-axis tick model), ALL ranges
- * map data through those anchors so points / guide / labels share one X model.
- * Without anchors (tests / pre-layout), day/month use equal-width buckets and
- * linear ranges use a half-slot fallback span.
+ * Short ranges with `layoutAnchors`: even label slots drive data + guide + grid.
+ * Long ranges (3Y / 5Y / All): continuous timestamps — same-year points stay distinct.
  */
 export function buildWeightTrendXScale(args: {
   readonly range: WeightRangeKey;
@@ -182,7 +201,18 @@ export function buildWeightTrendXScale(args: {
   const { range, domainStartMs, domainEndMs, layoutAnchors } = args;
   const mode = resolveMode(range);
 
-  // Authoritative path: even label slots drive data + guide + grid.
+  // Multi-year: continuous time — never collapse onto year-label slots.
+  if (isWeightTrendLongRange(range)) {
+    return {
+      mode: "linear",
+      domainStartMs,
+      domainEndMs,
+      toNormalizedX: (timeMs) =>
+        continuousNormalizedX(timeMs, domainStartMs, domainEndMs),
+    };
+  }
+
+  // Short-range authoritative path: even label slots drive data + guide + grid.
   if (layoutAnchors != null && layoutAnchors.length > 0) {
     return {
       mode,
@@ -218,7 +248,7 @@ export function buildWeightTrendXScale(args: {
     };
   }
 
-  // Fallback before ticks exist: map domain onto half-slot span for a default n.
+  // Fallback before ticks exist (e.g. 30D): continuous half-slot span.
   const fallbackN = range === "30D" ? 5 : 4;
   const span = domainEndMs - domainStartMs || 1;
   const first = evenLayoutNormalizedX(0, fallbackN);

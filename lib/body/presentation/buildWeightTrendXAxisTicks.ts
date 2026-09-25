@@ -1,14 +1,16 @@
 /**
- * Range-aware Weight trend X-axis ticks (labels + vertical grid anchors).
+ * Range-aware Weight / Body Fat trend X-axis ticks (labels + vertical grid).
  *
- * Presentation rule: labels and vertical grid share ONE even visual layout across
- * the plot width (equal spacing, no edge clipping). Semantic `atMs` remains for
- * accessibility / date meaning — layout positions are not raw time X.
+ * Short ranges: labels and vertical grid share equal visual slots (no edge clip).
+ * Long ranges (3Y / 5Y / All): year labels sit on the same continuous timestamp
+ * scale as data points — Jan 1 anchors inside the observed extent.
  */
 
 import {
   buildWeightTrendDayBuckets,
+  continuousNormalizedX,
   evenLayoutNormalizedX,
+  isWeightTrendLongRange,
   type WeightTrendXScale,
 } from "@/lib/body/presentation/buildWeightTrendXScale";
 import { buildWeightTrendMonthBuckets } from "@/lib/body/presentation/weightTrendMonthBucketScale";
@@ -18,8 +20,8 @@ export type WeightXAxisTick = {
   /** Semantic timestamp for the tick (weekday/month/year meaning). */
   readonly atMs: number;
   /**
-   * Even visual X in [0, 1] for labels + vertical grid.
-   * Half-slot centers keep first/last labels fully inside the plot.
+   * Visual X in [0, 1] for labels + vertical grid.
+   * Short ranges: half-slot centers. Long ranges: continuous time position.
    */
   readonly layoutNormalizedX: number;
   readonly label: string;
@@ -68,6 +70,21 @@ function finalizeEvenTicks(drafts: readonly TickDraft[]): WeightXAxisTick[] {
   return drafts.map((d, i) => ({
     atMs: d.atMs,
     layoutNormalizedX: evenLayoutNormalizedX(i, n),
+    label: d.label,
+    showGridLine: true,
+    showLabel: true,
+  }));
+}
+
+/** Year ticks share the continuous timestamp scale used by long-range data points. */
+function finalizeContinuousTicks(
+  drafts: readonly TickDraft[],
+  domainStartMs: number,
+  domainEndMs: number,
+): WeightXAxisTick[] {
+  return drafts.map((d) => ({
+    atMs: d.atMs,
+    layoutNormalizedX: continuousNormalizedX(d.atMs, domainStartMs, domainEndMs),
     label: d.label,
     showGridLine: true,
     showLabel: true,
@@ -155,7 +172,8 @@ function buildYearDrafts(scale: WeightTrendXScale, maxLabels: number): TickDraft
 }
 
 /**
- * Build range-aware X-axis ticks with equal visual spacing for labels + vertical grid.
+ * Build range-aware X-axis ticks.
+ * Short ranges: equal visual spacing. Long ranges: continuous year anchors.
  */
 export function buildWeightTrendXAxisTicks(args: {
   readonly range: WeightRangeKey;
@@ -202,5 +220,9 @@ export function buildWeightTrendXAxisTicks(args: {
       drafts = [];
   }
 
-  return finalizeEvenTicks(thinDrafts(drafts, plotWidthPx, minGapPx));
+  const thinned = thinDrafts(drafts, plotWidthPx, minGapPx);
+  if (isWeightTrendLongRange(range)) {
+    return finalizeContinuousTicks(thinned, scale.domainStartMs, scale.domainEndMs);
+  }
+  return finalizeEvenTicks(thinned);
 }

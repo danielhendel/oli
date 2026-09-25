@@ -345,8 +345,9 @@ export function WeightTrendChart({
 
   /**
    * 1) Domain scale seeds tick drafts.
-   * 2) Even label slots become layout anchors.
-   * 3) Shared X-scale maps all points / guide through those anchors.
+   * 2) Short ranges: even label slots become layout anchors for data + guide.
+   * 3) Long ranges (3Y / 5Y / All): continuous timestamps — layoutAnchors ignored
+   *    so same-year points never collapse onto a single year label.
    */
   const domainScale = buildWeightTrendXScale({
     range,
