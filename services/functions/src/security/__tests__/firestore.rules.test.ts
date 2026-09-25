@@ -163,4 +163,51 @@ describe("Firestore security rules (I-01 / I-04)", () => {
     const dbB = userDb({ uid: uidB });
     await assertFails(dbB.doc(`users/${uidA}/dailyFacts/${day}`).get());
   });
+
+  describe("Body Scans (Stage 3E)", () => {
+    const uid = "user_a";
+    const other = "user_b";
+    const scanId = "scan_1";
+
+    beforeEach(async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx: RulesTestContext) => {
+        const db = ctx.firestore();
+        await db.doc(`users/${uid}/bodyScans/${scanId}`).set({ userId: uid, id: scanId });
+        await db
+          .doc(`users/${uid}/bodyScanDrafts/draft_${scanId}`)
+          .set({ userId: uid, scanId });
+        await db
+          .doc(`users/${uid}/bodyScanFacts/fact_${scanId}`)
+          .set({ userId: uid, scanId, excludedFromContinuousTrends: true });
+      });
+    });
+
+    it("denies the owner direct client access, so scans are read through the API only", async () => {
+      const db = userDb({ uid });
+      await assertFails(db.doc(`users/${uid}/bodyScans/${scanId}`).get());
+      await assertFails(db.doc(`users/${uid}/bodyScanDrafts/draft_${scanId}`).get());
+      await assertFails(db.doc(`users/${uid}/bodyScanFacts/fact_${scanId}`).get());
+    });
+
+    it("denies the owner any client write, so nothing is confirmed outside review", async () => {
+      const db = userDb({ uid });
+      await assertFails(db.doc(`users/${uid}/bodyScans/${scanId}`).set({ status: "verified" }));
+      await assertFails(db.doc(`users/${uid}/bodyScans/${scanId}`).update({ status: "verified" }));
+      await assertFails(db.doc(`users/${uid}/bodyScans/${scanId}`).delete());
+      await assertFails(
+        db.doc(`users/${uid}/bodyScanFacts/fact_${scanId}`).set({ userId: uid, scanId }),
+      );
+      await assertFails(db.doc(`users/${uid}/bodyScanDrafts/draft_${scanId}`).delete());
+    });
+
+    it("denies another account any access to these scans", async () => {
+      const db = userDb({ uid: other });
+      await assertFails(db.doc(`users/${uid}/bodyScans/${scanId}`).get());
+      await assertFails(db.doc(`users/${uid}/bodyScanFacts/fact_${scanId}`).get());
+      await assertFails(db.doc(`users/${uid}/bodyScans/${scanId}`).delete());
+      await assertFails(
+        db.doc(`users/${other}/bodyScans/${scanId}`).set({ userId: other, id: scanId }),
+      );
+    });
+  });
 });

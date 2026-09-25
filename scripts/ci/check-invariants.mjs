@@ -1376,6 +1376,120 @@ function checkPhase2DefinitionDoc() {
 }
 
 /**
+ * CHECK 23 — Body Scan measurements never enter the continuous trends
+ *
+ * A DXA scan is a point-in-time measurement taken on a different instrument from the
+ * scale a user steps on each morning. Mixing the two would silently corrupt the Weight,
+ * Body Fat, and Lean Mass trends with values that are not comparable.
+ *
+ * Enforces, statically:
+ *  - the isolation module exists and names both the allowed and the forbidden stores
+ *  - Body Scan code never writes to a derived or canonical collection
+ *  - trend and derived-fact code never reads a Body Scan store
+ *  - Firestore rules deny direct client access to the Body Scan stores
+ */
+function checkBodyScanTrendIsolation() {
+  const isolationPath = path.join(ROOT, "lib", "data", "body-scans", "bodyScanTrendIsolation.ts");
+  if (!exists(isolationPath)) {
+    fail(
+      `CHECK 23 (Body Scan trend isolation) failed:\n` +
+        `- Missing lib/data/body-scans/bodyScanTrendIsolation.ts\n\n` +
+        `Fix: restore the isolation module that guards every Body Scan write.`,
+    );
+  }
+
+  const isolationText = readText(isolationPath);
+  for (const symbol of [
+    "BODY_SCAN_ALLOWED_WRITE_COLLECTIONS",
+    "BODY_SCAN_FORBIDDEN_WRITE_COLLECTIONS",
+    "BODY_SCAN_FORBIDDEN_TREND_METRICS",
+    "assertBodyScanWriteTargetAllowed",
+  ]) {
+    if (!isolationText.includes(symbol)) {
+      fail(
+        `CHECK 23 (Body Scan trend isolation) failed:\n` +
+          `- lib/data/body-scans/bodyScanTrendIsolation.ts no longer exports ${symbol}\n\n` +
+          `Fix: keep the allow list, the deny list, and the runtime guard in one place.`,
+      );
+    }
+  }
+
+  const FORBIDDEN_TARGETS = [
+    "dailyFacts",
+    "rawEvents",
+    "events",
+    "insights",
+    "intelligenceContext",
+    "healthScores",
+    "healthSignals",
+  ];
+
+  const bodyScanSources = [
+    path.join(ROOT, "lib", "data", "body-scans"),
+    path.join(ROOT, "services", "api", "src", "lib", "bodyScans"),
+  ]
+    .filter(exists)
+    .flatMap((dir) => walk(dir, { includeExts: [".ts"], ignoreDirs: ["__tests__", "__fixtures__"] }));
+
+  const routeFile = path.join(ROOT, "services", "api", "src", "routes", "bodyScansMe.ts");
+  if (exists(routeFile)) bodyScanSources.push(routeFile);
+
+  const writeOffenders = [];
+  for (const file of bodyScanSources) {
+    // The isolation module names the forbidden stores in order to deny them.
+    if (file === isolationPath) continue;
+    const text = readText(file);
+    for (const target of FORBIDDEN_TARGETS) {
+      if (new RegExp(`userCollection\\s*\\([^)]*["'\`]${target}["'\`]`).test(text)) {
+        writeOffenders.push(`${rel(file)} targets ${target}`);
+      }
+    }
+  }
+
+  const READER_ROOTS = [
+    path.join(ROOT, "lib", "body"),
+    path.join(ROOT, "services", "functions", "src", "dailyFacts"),
+  ];
+  const readOffenders = [];
+  for (const root of READER_ROOTS) {
+    if (!exists(root)) continue;
+    for (const file of walk(root, { includeExts: [".ts"], ignoreDirs: ["__tests__"] })) {
+      const text = readText(file);
+      if (/\bbodyScan(s|Facts|Drafts)\b/.test(text)) {
+        readOffenders.push(`${rel(file)} reads a Body Scan store`);
+      }
+    }
+  }
+
+  if (writeOffenders.length || readOffenders.length) {
+    fail(
+      `CHECK 23 (Body Scan trend isolation) failed:\n` +
+        [...writeOffenders, ...readOffenders].map((o) => `- ${o}`).join("\n") +
+        `\n\nFix: scan measurements belong in bodyScans / bodyScanDrafts / bodyScanFacts only, ` +
+        `and must never be read as a sample on the Weight, Body Fat, or Lean Mass trends.`,
+    );
+  }
+
+  const rulesPath = path.join(ROOT, "services", "functions", "firestore.rules");
+  if (exists(rulesPath)) {
+    const rulesText = readText(rulesPath);
+    for (const collection of ["bodyScans", "bodyScanDrafts", "bodyScanFacts"]) {
+      if (!new RegExp(`match /${collection}/`).test(rulesText)) {
+        fail(
+          `CHECK 23 (Body Scan trend isolation) failed:\n` +
+            `- services/functions/firestore.rules has no explicit rule for ${collection}\n\n` +
+            `Fix: deny direct client access so scans are reachable only through the API.`,
+        );
+      }
+    }
+  }
+
+  console.log(
+    "✅ CHECK 23 passed: Body Scan stores are isolated from derived truth and from the continuous body trends.",
+  );
+}
+
+/**
  * Console discipline — Jest guard must be enabled in test runs.
  * Ensures scripts/test/jest.setup.ts wires the console guard so proof-gate and npm test
  * fail on unexpected console.error/console.warn. Does not duplicate the gate; just verifies
@@ -1429,6 +1543,7 @@ const CHECKS = [
   { id: 20, fn: checkReadinessDrift },
   { id: 21, fn: checkPhase1DefinitionDocMatchesEnforcedReality },
   { id: 22, fn: checkPhase2DefinitionDoc },
+  { id: 23, fn: checkBodyScanTrendIsolation },
 ];
 
 function main() {

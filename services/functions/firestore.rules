@@ -200,6 +200,31 @@ service cloud.firestore {
                     && request.auth.uid == userId;
         allow create, update, delete: if false;
       }
+
+      // ----------------------------------------------------------
+      // BODY SCANS (Stage 3E)
+      //
+      // ❗ Backend-owned. The app reaches scans only through the Cloud Run
+      //    API (/users/me/body-scans), which uses the Admin SDK and bypasses
+      //    these rules. Direct client reads and writes are denied so the app
+      //    cannot confirm measurements, or fabricate scan facts, without
+      //    going through review.
+      //
+      //    bodyScanFacts are confirmed scan measurements. They are deliberately
+      //    kept out of dailyFacts and the continuous Weight / Body Fat /
+      //    Lean Mass trends; nothing here may become a trend sample.
+      // ----------------------------------------------------------
+      match /bodyScans/{scanId} {
+        allow read, write: if false;
+      }
+
+      match /bodyScanDrafts/{draftId} {
+        allow read, write: if false;
+      }
+
+      match /bodyScanFacts/{factId} {
+        allow read, write: if false;
+      }
     }
 
     // ============================================================

@@ -47,6 +47,7 @@ This file is required by CI and is audited.
 | I-18 | Readiness vocabulary is canonical (missing, partial, ready, error) — no drift | CI static scan of app/lib/components for disallowed strings | **CHECK 20** | Readiness semantics fragment; UI/redux drift; downstream bugs |
 | I-19 | Phase 1 definition doc must match enforced routes + readiness (repo-truth LAW) | CI reads PHASE_1_DEFINITION.md and asserts content | **CHECK 21** | LAW doc drifts from CI-enforced reality; auditors get wrong contract |
 | I-20 | Phase 2 definition doc must contain Authority & Truth Contract, Logging Primitives, No Proactive Prompts, Uncertainty (Visibility or First-Class Truth) (LAW) | CI reads PHASE_2_DEFINITION.md and asserts required sections | **CHECK 22** | Phase 2 LAW drifts from CI-enforced reality; truthful capture invariants unverified |
+| I-21 | Body Scan measurements stay in Body Scan stores and never become samples on the continuous Weight / Body Fat / Lean Mass trends | Runtime write guard + Firestore rules + CI static scan | **CHECK 23** + Firestore rules test + unit tests | Point-in-time scan values silently corrupt day-to-day body trends taken on a different instrument |
 
 
 ---
@@ -305,6 +306,23 @@ Any change to this file requires:
   - `docs/00_truth/phase1/PHASE_1_DEFINITION.md`
   - `scripts/ci/check-invariants.mjs` (**CHECK 21**)
   - `scripts/ci/__tests__/phase1-definition-invariant.test.ts`
+
+### I-21 — Body Scan measurements never enter the continuous body trends
+- **Enforced by**: Runtime write guard + Firestore rules + CI static scan
+- **Mechanism**:
+  - Every Body Scan write passes `assertBodyScanWriteTargetAllowed`, which allows only `bodyScans`, `bodyScanDrafts`, `bodyScanFacts` and fails closed on anything else
+  - Confirmed scan measurements carry `excludedFromContinuousTrends: true`
+  - Firestore rules deny direct client access to all three stores, so scans are reachable only through the Cloud Run API
+  - CI blocks Body Scan code from targeting derived or canonical collections, and blocks trend/derived-fact code from reading a Body Scan store
+- **Verified by**:
+  - **CHECK 23** (CI)
+  - Firestore emulator rules tests + unit tests
+- **Files**:
+  - `lib/data/body-scans/bodyScanTrendIsolation.ts`
+  - `services/api/src/lib/bodyScans/persistBodyScan.ts`
+  - `services/functions/firestore.rules`
+  - `scripts/ci/check-invariants.mjs` (**CHECK 23**)
+  - `lib/data/body-scans/__tests__/bodyScanTrendIsolation.test.ts`
 
 ### I-20 — Phase 2 definition doc must contain required LAW sections
 - **Enforced by**: CI invariant tripwire
