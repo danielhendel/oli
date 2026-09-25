@@ -52,8 +52,10 @@ describe("WeightTrendChart dark plot (no classification fills)", () => {
     expect(chartSrc).not.toContain("visibleBands");
     expect(chartSrc).not.toContain("classificationBands");
     expect(chartSrc).not.toContain("clipWeightTrendBandToDomain");
-    expect(chartSrc).toContain('LINE_CORE_WHITE = "#FFFFFF"');
+    expect(chartSrc).toContain("LINE_CORE_BLUE = SYSTEM_ACCENT_LUMINOUS");
+    expect(chartSrc).not.toContain("LINE_CORE_WHITE");
     expect(chartSrc).toContain("LINE_GLOW_BLUE");
+    expect(chartSrc).toContain('LINE_GLOW_SOFT = "rgba(91, 140, 255, 0.16)"');
     expect(chartSrc).toContain("GRID_V_COLOR");
     expect(chartSrc).toContain("layoutAnchors");
     expect(chartSrc).toContain("guidePt");

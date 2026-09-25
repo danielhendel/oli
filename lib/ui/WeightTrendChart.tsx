@@ -62,13 +62,16 @@ const X_LABEL_COLOR = "rgba(190, 206, 228, 0.82)";
 const X_LABEL_SIZE = 10;
 
 const ACCENT_BLUE = SYSTEM_ACCENT_LUMINOUS;
-/** High-contrast Weight trend core — thin, elevated over classification bands. */
-const LINE_CORE_WHITE = "#FFFFFF";
-const LINE_GLOW_BLUE = "rgba(91, 140, 255, 0.30)";
-const LINE_GLOW_SOFT = "rgba(255,255,255,0.14)";
+/**
+ * High-contrast Weight trend — bright electric blue core + soft blue glow so the
+ * line reads blue-first and feels slightly elevated on the dark plot.
+ */
+const LINE_CORE_BLUE = SYSTEM_ACCENT_LUMINOUS;
+const LINE_GLOW_BLUE = "rgba(91, 140, 255, 0.36)";
+const LINE_GLOW_SOFT = "rgba(91, 140, 255, 0.16)";
 const LINE_WIDTH = 2.05;
-const LINE_GLOW_WIDTH = 5.5;
-const LINE_SOFT_WIDTH = 9;
+const LINE_GLOW_WIDTH = 6.5;
+const LINE_SOFT_WIDTH = 11;
 /** Grid uses the same gray family as axis labels — visible over classification bands. */
 const GRID_H_COLOR = "rgba(190, 206, 228, 0.55)";
 const GRID_H_WIDTH = 1.25;
@@ -212,8 +215,8 @@ export type WeightTrendChartProps = {
    */
   onInspectChange?: (point: WeightTrendChartInspectPoint | null) => void;
   /**
-   * High-contrast white core + blue glow — preferred for Weight detail on the
-   * plain dark plot (classification backgrounds live on the Body Weight card).
+   * Bright electric blue core + soft blue outer glow — preferred for Weight
+   * detail on the plain dark plot so the trend floats and reads blue-first.
    */
   highContrastLine?: boolean;
   /**
@@ -250,10 +253,11 @@ export function WeightTrendChart({
   void _formatValue;
   const CHART_HEIGHT = chartHeightProp;
   const useHighContrastLine = highContrastLine;
-  const lineStroke = useHighContrastLine ? LINE_CORE_WHITE : accentColor;
+  const lineStroke = useHighContrastLine ? LINE_CORE_BLUE : accentColor;
   const lineGlow = useHighContrastLine ? LINE_GLOW_BLUE : SYSTEM_ACCENT_LUMINOUS_GLOW;
-  const pointFill = useHighContrastLine ? LINE_CORE_WHITE : accentColor;
-  const pointRing = useHighContrastLine ? ACCENT_BLUE : "#FFFFFF";
+  const pointFill = useHighContrastLine ? LINE_CORE_BLUE : accentColor;
+  /** Crisp white rim keeps the blue disk readable on the dark plot. */
+  const pointRing = "#FFFFFF";
   const [layout, setLayout] = useState<{ width: number; height: number } | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const onInspectRef = useRef(onInspectChange);
@@ -594,7 +598,7 @@ export function WeightTrendChart({
               </SvgText>
             );
           })}
-          {/* Soft elevated halo — restrained so the thin white core floats */}
+          {/* Soft outer blue glow — floating elevation under the bright core */}
           {pathD ? (
             <Path
               d={pathD}
@@ -615,7 +619,7 @@ export function WeightTrendChart({
               strokeLinejoin="round"
             />
           ) : null}
-          {/* Thin crisp white (or accent) core */}
+          {/* Thin crisp blue (or accent) core */}
           {pathD ? (
             <Path
               d={pathD}
