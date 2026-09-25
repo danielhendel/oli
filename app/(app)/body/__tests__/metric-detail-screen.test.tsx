@@ -222,7 +222,9 @@ describe("Body metric detail — Weight trend redesign", () => {
     mockPush.mockClear();
     mockTrends.mockClear();
     mockMetricParam = "weight";
-    mockTrends.mockReturnValue(readyTrends("weight"));
+    mockTrends.mockImplementation((_range: unknown, filterMetric?: string) =>
+      readyTrends((filterMetric as "weight" | "body_fat_percent" | "lean_body_mass") ?? "weight"),
+    );
   });
 
   it("places Weight title beside back (not centered) with calendar/history on the right", async () => {
@@ -308,7 +310,6 @@ describe("Body metric detail — Weight trend redesign", () => {
 
   it("Body Fat removes education panel and keeps Weight-parity trend surface", async () => {
     mockMetricParam = "body-fat";
-    mockTrends.mockReturnValue(readyTrends("body_fat_percent"));
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(React.createElement(MetricScreen));
@@ -323,31 +324,73 @@ describe("Body metric detail — Weight trend redesign", () => {
     expect(text).not.toMatch(/Population, method, and evidence/i);
   });
 
-  it("Body Fat keeps full-history fetch across range switches so Y-domain stays locked", async () => {
-    mockMetricParam = "body-fat";
-    mockTrends.mockReturnValue(readyTrends("body_fat_percent"));
+  it("Lean Mass removes all detail education and keeps trend surface", async () => {
+    mockMetricParam = "lean-mass";
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(React.createElement(MetricScreen));
     });
-    const first = mockTrends.mock.calls[0];
-    expect(first?.[0]).toBe("All");
-    expect(first?.[1]).toBe("body_fat_percent");
+    expect(tree.root.findAllByProps({ testID: "body-metric-detail-education" })).toHaveLength(0);
+    expect(tree.root.findByProps({ testID: "body-metric-trend-detail" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-display-mode-toggle" })).toBeDefined();
+    const text = collectText(tree);
+    expect(text).not.toMatch(/EDUCATIONAL REFERENCE|Educational context only|Additional limitations/i);
+    expect(text).not.toMatch(/Population, method, and evidence|Total lean mass/i);
+  });
+
+  it("Weight shows lb|BMI display toggle and switches to BMI hero", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(React.createElement(MetricScreen));
+    });
+    expect(tree.root.findByProps({ testID: "body-metric-display-mode-toggle" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-display-mode-toggle-bmi" })).toBeDefined();
+    await act(async () => {
+      tree.root.findByProps({ testID: "body-metric-display-mode-toggle-bmi" }).props.onPress();
+    });
+    const text = collectText(tree);
+    expect(text).toMatch(/BMI/);
+  });
+
+  it("Body Fat shows %|lb display toggle", async () => {
+    mockMetricParam = "body-fat";
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(React.createElement(MetricScreen));
+    });
+    expect(tree.root.findByProps({ testID: "body-metric-display-mode-toggle-percentage" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-display-mode-toggle-fatMass" })).toBeDefined();
+  });
+
+  it("Body Fat keeps full-history fetch across range switches so Y-domain stays locked", async () => {
+    mockMetricParam = "body-fat";
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(React.createElement(MetricScreen));
+    });
+    const metricCalls = mockTrends.mock.calls.filter((c) => c[1] === "body_fat_percent");
+    expect(metricCalls[0]?.[0]).toBe("All");
     await act(async () => {
       tree.root.findByProps({ testID: "range-30D" }).props.onPress();
     });
-    const last = mockTrends.mock.calls[mockTrends.mock.calls.length - 1];
-    expect(last?.[0]).toBe("All");
-    expect(last?.[1]).toBe("body_fat_percent");
+    const after = mockTrends.mock.calls.filter((c) => c[1] === "body_fat_percent");
+    expect(after[after.length - 1]?.[0]).toBe("All");
   });
 
   it("empty Weight history shows Add measurement, not a fake chart", async () => {
-    mockTrends.mockReturnValue({
-      ...readyTrends("weight"),
-      data: {
-        ...readyTrends("weight").data,
-        byMetric: { ...readyTrends("weight").data.byMetric, weight: [] },
-      },
+    mockTrends.mockImplementation((_range: unknown, filterMetric?: string) => {
+      const key = (filterMetric as "weight" | "body_fat_percent" | "lean_body_mass") ?? "weight";
+      const base = readyTrends(key);
+      if (key === "weight") {
+        return {
+          ...base,
+          data: {
+            ...base.data,
+            byMetric: { ...base.data.byMetric, weight: [] },
+          },
+        };
+      }
+      return base;
     });
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {

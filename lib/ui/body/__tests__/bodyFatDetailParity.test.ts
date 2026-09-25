@@ -42,13 +42,15 @@ describe("Body Fat detail parity with Weight", () => {
   it("locks a Body Fat-specific shared Y-domain and fetches All history", () => {
     expect(metricSrc).toContain("buildBodyFatDetailSharedDomain");
     expect(metricSrc).toContain("sharedPercentAxis");
-    expect(metricSrc).toContain('metric === "weight" || metric === "body_fat_percent" ? "All"');
+    expect(metricSrc).toContain('metric === "body_fat_percent"');
+    expect(metricSrc).toContain('? "All"');
   });
 
-  it("does not mount educational detail content for Body Fat", () => {
-    expect(metricSrc).toContain('historyMetric === "leanTissue"');
-    expect(metricSrc).not.toMatch(/historyMetric === "bodyFat" \|\| historyMetric === "leanTissue"/);
+  it("does not mount educational detail content for Body Fat or Lean Mass", () => {
+    expect(metricSrc).not.toContain("BodyMetricDetailEducationPanel");
     expect(metricSrc).not.toContain("BODY_FAT_EXTRA_LIMITATIONS");
-    expect(metricSrc).toContain("Body Fat education lives on the landing card");
+    expect(metricSrc).not.toContain("LEAN_MASS_EXTRA_LIMITATIONS");
+    expect(metricSrc).not.toContain("EDUCATIONAL REFERENCE");
+    expect(metricSrc).toContain("BodyMetricDisplayModeToggle");
   });
 });
