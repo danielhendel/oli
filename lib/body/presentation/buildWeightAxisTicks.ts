@@ -1,7 +1,8 @@
 /**
  * Deterministic Weight trend Y-axis ticks.
- * Imperial: clean 10 lb steps. Metric: clean 2 kg steps.
+ * Imperial: clean 10 lb steps. Metric: clean 5 kg steps.
  * Observation-driven — no zero-floor, no healthy-band padding.
+ * Adds one intentional upper headroom tick above the rounded ceiling.
  */
 
 export type WeightAxisUnit = "lb" | "kg";
@@ -22,7 +23,7 @@ export type WeightAxisTicksModel = {
   /** Chart domain max in kg. */
   readonly domainMaxKg: number;
   readonly ticks: readonly WeightAxisTick[];
-  /** Step in display units (10 for lb, 2 for kg, or a multiple thereof). */
+  /** Step in display units (10 for lb, 5 for kg, or a multiple thereof). */
   readonly step: number;
   readonly unit: WeightAxisUnit;
 };
@@ -37,7 +38,8 @@ export type BuildWeightAxisTicksInput = {
 
 const LBS_PER_KG = 2.2046226218;
 const STEP_LB = 10;
-const STEP_KG = 2;
+/** Clean metric step with intentional headroom (mirrors 10 lb imperial). */
+const STEP_KG = 5;
 /** Prefer 3–5 tick levels (2–4 intervals). */
 const MAX_INTERVALS = 4;
 const MIN_INTERVALS = 2;
@@ -129,6 +131,10 @@ export function buildWeightAxisTicks(
   if (hiDisplay >= axisMax - 1e-9) {
     axisMax += base;
   }
+
+  // Intentional upper headroom tick above the highest rounded ceiling.
+  // Example: 156–166.5 lb → 150 / 160 / 170 / 180.
+  axisMax += base;
 
   // At least two intervals so a single/narrow cluster does not exaggerate change.
   let span = axisMax - axisMin;
