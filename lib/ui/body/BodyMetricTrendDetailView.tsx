@@ -63,7 +63,7 @@ export type BodyMetricTrendDetailViewProps = {
 
 /**
  * Hero longitudinal trend surface for Body metric detail.
- * Chart lives on the page canvas — no heavy card chrome around the plot.
+ * Chart is the visual star — elevated plot module, balanced page rhythm.
  * Chart inspection uses the fixed hero region (no floating tooltip).
  */
 export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps) {
@@ -349,43 +349,46 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   heroSummary: {
-    marginTop: 22,
+    marginTop: 18,
     alignItems: "flex-start",
-    gap: 4,
-    paddingVertical: 4,
+    gap: 3,
+    paddingVertical: 2,
   },
   latestValue: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 48,
+    fontSize: 46,
     fontWeight: "700",
-    letterSpacing: -0.9,
+    letterSpacing: -1.0,
+    lineHeight: 52,
   },
   latestDate: {
     color: UI_TEXT_SECONDARY,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "500",
+    letterSpacing: 0.1,
   },
   latestSource: {
     color: UI_TEXT_MUTED,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "500",
-    marginTop: 2,
+    marginTop: 1,
   },
   chartWrap: {
-    marginTop: 14,
+    marginTop: 12,
     minHeight: 320,
     backgroundColor: "transparent",
   },
   observedCoverage: {
-    marginTop: 12,
-    marginBottom: 4,
+    marginTop: 10,
+    marginBottom: 2,
     textAlign: "center",
     color: UI_TEXT_MUTED,
     fontSize: 12,
     fontWeight: "500",
+    letterSpacing: 0.15,
   },
   statsWrap: {
-    marginTop: 20,
+    marginTop: 14,
   },
   emptyBlock: {
     gap: 10,

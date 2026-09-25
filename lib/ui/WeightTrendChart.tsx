@@ -1,4 +1,7 @@
 import {
+  UI_CARD_ELEVATED_BORDER,
+  UI_CARD_SURFACE,
+  UI_GROUPED_CARD_RADIUS,
   UI_TEXT_MUTED,
 } from "@/lib/ui/theme/uiTokens";
 
@@ -31,23 +34,26 @@ import {
   resolveWeightClassificationColor,
 } from "@/lib/ui/theme/bodyMetricClassificationChrome";
 
-const PADDING = { left: 40, right: 10, top: 14, bottom: 18 };
+const PADDING = { left: 42, right: 14, top: 16, bottom: 18 };
 const Y_LABEL_FONT_SIZE = 11;
-const Y_LABEL_COLOR = UI_TEXT_MUTED;
+const Y_LABEL_COLOR = "rgba(160, 176, 200, 0.62)";
 /** Hero chart height — visually dominant on Weight detail. */
 const DEFAULT_CHART_HEIGHT = 320;
-const DOT_R = 5.5;
-const DOT_GLOW_R = 11;
-const CROSSHAIR_COLOR = "rgba(255,255,255,0.28)";
+const DOT_R = 6;
+const DOT_GLOW_R = 13;
+const CROSSHAIR_COLOR = "rgba(255,255,255,0.34)";
 
 const ACCENT_BLUE = SYSTEM_ACCENT_LUMINOUS;
 /** High-contrast Weight trend core — pops over semantic classification bands. */
 const LINE_CORE_WHITE = "#FFFFFF";
-const LINE_GLOW_BLUE = "rgba(91, 140, 255, 0.42)";
-const LINE_WIDTH = 2.85;
-const LINE_GLOW_WIDTH = 8;
-/** Neutral grid — quieter so exact Weight-card band fills stay crisp. */
-const GRID_COLOR = "rgba(160, 176, 200, 0.10)";
+const LINE_GLOW_BLUE = "rgba(91, 140, 255, 0.36)";
+/** Softer outer halo — depth without noise. */
+const LINE_GLOW_OUTER = "rgba(91, 140, 255, 0.16)";
+const LINE_WIDTH = 3;
+const LINE_GLOW_WIDTH = 7.5;
+const LINE_GLOW_OUTER_WIDTH = 14;
+/** Neutral grid — calm, readable, never competing with bands or line. */
+const GRID_COLOR = "rgba(160, 176, 200, 0.09)";
 /** Max points used to draw path/area/dots; touch/inspection still use full data. */
 const MAX_RENDER_POINTS = 80;
 
@@ -453,17 +459,21 @@ export function WeightTrendChart({
 
   return (
     <View
-      style={[styles.container, { minHeight: CHART_HEIGHT }]}
-      onLayout={onLayout}
-      onStartShouldSetResponder={() => true}
-      onResponderGrant={(e) => handleTouch(e.nativeEvent)}
-      onResponderMove={(e) => handleTouch(e.nativeEvent)}
-      onResponderRelease={clearInspection}
-      onResponderTerminate={clearInspection}
-      accessibilityRole="image"
-      accessibilityLabel={accessibilityLabel}
-      testID="weight-trend-chart"
+      style={[styles.module, { minHeight: CHART_HEIGHT }]}
+      testID="weight-trend-chart-module"
     >
+      <View
+        style={[styles.container, { minHeight: CHART_HEIGHT }]}
+        onLayout={onLayout}
+        onStartShouldSetResponder={() => true}
+        onResponderGrant={(e) => handleTouch(e.nativeEvent)}
+        onResponderMove={(e) => handleTouch(e.nativeEvent)}
+        onResponderRelease={clearInspection}
+        onResponderTerminate={clearInspection}
+        accessibilityRole="image"
+        accessibilityLabel={accessibilityLabel}
+        testID="weight-trend-chart"
+      >
       {layout && layout.width > 0 && (
         <Svg width={layout.width} height={CHART_HEIGHT} style={styles.svg}>
           <Defs>
@@ -519,7 +529,17 @@ export function WeightTrendChart({
               </SvgText>
             );
           })}
-          {/* Soft luminous halo under the crisp line */}
+          {/* Soft dual-layer luminous halo under the crisp white line */}
+          {pathD ? (
+            <Path
+              d={pathD}
+              stroke={useHighContrastLine ? LINE_GLOW_OUTER : lineGlow}
+              strokeWidth={LINE_GLOW_OUTER_WIDTH}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ) : null}
           {pathD ? (
             <Path
               d={pathD}
@@ -547,6 +567,12 @@ export function WeightTrendChart({
               <Circle
                 cx={latestPt.cx}
                 cy={latestPt.cy}
+                r={DOT_GLOW_R + 2}
+                fill={useHighContrastLine ? LINE_GLOW_OUTER : lineGlow}
+              />
+              <Circle
+                cx={latestPt.cx}
+                cy={latestPt.cy}
                 r={DOT_GLOW_R}
                 fill={lineGlow}
               />
@@ -556,7 +582,7 @@ export function WeightTrendChart({
                 r={DOT_R}
                 fill={pointFill}
                 stroke={pointRing}
-                strokeWidth={2.25}
+                strokeWidth={2.5}
               />
             </>
           ) : null}
@@ -566,9 +592,15 @@ export function WeightTrendChart({
               <Path
                 d={`M ${selected.cx} ${PADDING.top} L ${selected.cx} ${PADDING.top + chartHeight}`}
                 stroke={CROSSHAIR_COLOR}
-                strokeWidth={1}
-                strokeDasharray="4 2"
+                strokeWidth={1.25}
+                strokeDasharray="3 3"
                 fill="none"
+              />
+              <Circle
+                cx={selected.cx}
+                cy={selected.cy}
+                r={DOT_GLOW_R + 3}
+                fill={useHighContrastLine ? LINE_GLOW_OUTER : lineGlow}
               />
               <Circle
                 cx={selected.cx}
@@ -579,10 +611,10 @@ export function WeightTrendChart({
               <Circle
                 cx={selected.cx}
                 cy={selected.cy}
-                r={DOT_R + 1.5}
+                r={DOT_R + 1.25}
                 fill={pointFill}
                 stroke={pointRing}
-                strokeWidth={2.5}
+                strokeWidth={2.75}
               />
             </>
           ) : null}
@@ -598,13 +630,27 @@ export function WeightTrendChart({
           Not enough weigh-ins in this range
         </Text>
       )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  module: {
+    borderRadius: UI_GROUPED_CARD_RADIUS + 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
   container: {
     minHeight: DEFAULT_CHART_HEIGHT,
+    borderRadius: UI_GROUPED_CARD_RADIUS + 2,
+    overflow: "hidden",
+    backgroundColor: UI_CARD_SURFACE,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: UI_CARD_ELEVATED_BORDER,
   },
   svg: {
     backgroundColor: "transparent",
@@ -613,11 +659,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: UI_TEXT_MUTED,
     marginTop: 6,
+    marginHorizontal: 12,
     fontStyle: "italic",
   },
   sparseNote: {
     fontSize: 11,
     color: UI_TEXT_MUTED,
     marginTop: 6,
+    marginHorizontal: 12,
   },
 });

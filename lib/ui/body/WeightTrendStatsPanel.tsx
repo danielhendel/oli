@@ -2,9 +2,9 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import {
-  SYSTEM_ACCENT_NAVY_DEPTH,
-} from "@/lib/ui/theme/systemAccent";
-import {
+  UI_CARD_ELEVATED_BORDER,
+  UI_CARD_SURFACE,
+  UI_GROUPED_CARD_RADIUS,
   UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
 } from "@/lib/ui/theme/uiTokens";
@@ -23,8 +23,9 @@ export type WeightTrendStatsPanelProps = {
 };
 
 /**
- * Premium equal-width Change / High / Low mini-cards under the Weight chart.
+ * Premium equal-width Low / High / Change mini-cards under the Weight chart.
  * Presentation only — values come from the selected-range trend model.
+ * Surfaces match Body Composition elevated cards.
  */
 export function WeightTrendStatsPanel(props: WeightTrendStatsPanelProps) {
   if (props.rows.length === 0) return null;
@@ -68,34 +69,39 @@ const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "row",
     alignItems: "stretch",
-    gap: 10,
+    gap: 8,
   },
   card: {
     flex: 1,
     minWidth: 0,
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: SYSTEM_ACCENT_NAVY_DEPTH,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 15,
+    borderRadius: UI_GROUPED_CARD_RADIUS,
+    backgroundColor: UI_CARD_SURFACE,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(91, 140, 255, 0.28)",
+    borderColor: UI_CARD_ELEVATED_BORDER,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   label: {
-    color: "rgba(168, 188, 230, 0.78)",
-    fontSize: 12,
+    color: UI_TEXT_MUTED,
+    fontSize: 11,
     fontWeight: "600",
-    letterSpacing: 0.2,
+    letterSpacing: 0.35,
     textTransform: "uppercase",
     textAlign: "center",
   },
   value: {
     color: UI_TEXT_PRIMARY,
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: "700",
-    letterSpacing: -0.4,
+    letterSpacing: -0.35,
     textAlign: "center",
   },
   caption: {
@@ -106,6 +112,6 @@ const styles = StyleSheet.create({
     minHeight: 14,
   },
   captionSpacer: {
-    minHeight: 14,
+    minHeight: 4,
   },
 });
