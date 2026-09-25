@@ -69,11 +69,11 @@ describe("weightTrendMonthBucketScale", () => {
     expect(dec2X).toBe(mapWeightTrendTimeToMonthBucketX(Date.UTC(2025, 11, 2, 12, 0, 0), scale));
   });
 
-  it("enables month buckets for ≤1Y and disables for 3Y / 5Y / All", () => {
-    for (const range of ["7D", "30D", "90D", "6M", "1Y"] as const) {
+  it("enables month buckets for 90D / 6M / 1Y and disables for 7D / 30D / 3Y / 5Y / All", () => {
+    for (const range of ["90D", "6M", "1Y"] as const) {
       expect(usesWeightTrendMonthBucketScale(range)).toBe(true);
     }
-    for (const range of ["3Y", "5Y", "All"] as const) {
+    for (const range of ["7D", "30D", "3Y", "5Y", "All"] as const) {
       expect(usesWeightTrendMonthBucketScale(range)).toBe(false);
     }
   });

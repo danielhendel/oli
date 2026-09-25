@@ -5,9 +5,8 @@ import {
 } from "@/lib/body/presentation/buildWeightTrendMonthMarkers";
 
 /**
- * Legacy month-start marker builder retained for coverage helpers.
- * Chart ≤1Y placement now uses equal-width month buckets
- * ({@link weightTrendMonthBucketScale}).
+ * Legacy month-start marker helpers — chart ≤1Y presentation now uses
+ * {@link buildWeightTrendXAxisTicks} on the shared pinned X-scale.
  */
 describe("buildWeightTrendMonthMarkers (calendar month list)", () => {
   it("lists calendar months intersecting the domain", () => {
@@ -20,11 +19,11 @@ describe("buildWeightTrendMonthMarkers (calendar month list)", () => {
     expect(markers.map((m) => m.letter).join("")).toContain("SONDJFMAMJJAS");
   });
 
-  it("shows month label ranges for ≤1Y and omits for 3Y / 5Y / All", () => {
-    for (const range of ["7D", "30D", "90D", "6M", "1Y"] as const) {
+  it("month-bucket ranges are 90D / 6M / 1Y / YTD; long ranges omit months", () => {
+    for (const range of ["90D", "6M", "1Y", "YTD"] as const) {
       expect(WEIGHT_TREND_MONTH_LABEL_RANGES.has(range)).toBe(true);
     }
-    for (const range of ["3Y", "5Y", "All"] as const) {
+    for (const range of ["7D", "30D", "3Y", "5Y", "All"] as const) {
       expect(WEIGHT_TREND_MONTH_LABEL_RANGES.has(range)).toBe(false);
       expect(
         resolveWeightTrendMonthMarkersForRange({

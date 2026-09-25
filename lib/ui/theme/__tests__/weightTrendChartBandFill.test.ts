@@ -55,7 +55,8 @@ describe("Weight trend single-color classification bands", () => {
     expect(chartSrc).toContain('LINE_CORE_WHITE = "#FFFFFF"');
     expect(chartSrc).toContain("LINE_GLOW_BLUE");
     expect(chartSrc).toContain("LINE_WIDTH = 2.05");
-    expect(chartSrc).toContain("placeWeightTrendMonthBucketLabels");
+    expect(chartSrc).toContain("buildWeightTrendXAxisTicks");
+    expect(chartSrc).toContain("GRID_V_COLOR");
     expect(chartSrc).toContain("CROSSHAIR_GLOW");
     expect(chartSrc).toContain("guidePt");
     expect(chartSrc).not.toContain("PLOT_CORNER_RADIUS");
