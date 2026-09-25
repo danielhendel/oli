@@ -34,9 +34,9 @@ function withUniqueCacheBust(opts: GetOptions | undefined, seq: number): GetOpti
 /**
  * Body Composition history list.
  *
- * Weight: paginates the same unbounded raw-events stream as the Weight chart "All"
- * path (kinds=weight, no start/end) so History can reach every stored Weight event
- * the chart can see — not a first-page 100-row cap.
+ * Weight + Body Fat: paginate the unbounded raw-events stream (no start/end) so
+ * History can reach every stored event the All chart can see — not a first-page
+ * 100-row cap or a silent 5Y window.
  *
  * Other metrics: paginate within the shared 5Y Body history window.
  */
@@ -57,8 +57,8 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
         : (["weight", "body_composition"] as const),
     [metric],
   );
-  /** Weight History matches chart All: unbounded pagination. */
-  const unboundedWeight = metric === "weight";
+  /** Weight + Body Fat History match chart All: unbounded pagination. */
+  const unboundedHistory = metric === "weight" || metric === "bodyFat";
 
   const reqSeq = useRef(0);
   const [state, setState] = useState<LogState>({ status: "partial" });
@@ -102,7 +102,7 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
           kinds: [...kinds],
           limit: BODY_COMPOSITION_LOG_PAGE_SIZE,
           includePayload: true,
-          ...(unboundedWeight
+          ...(unboundedHistory
             ? {}
             : { start: boundedWindow.start, end: boundedWindow.end }),
           ...(cursor ? { cursor } : {}),
@@ -135,7 +135,7 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
           return;
         }
         cursor = outcome.data.nextCursor;
-        if (typeof __DEV__ !== "undefined" && __DEV__ && unboundedWeight) {
+        if (typeof __DEV__ !== "undefined" && __DEV__ && unboundedHistory) {
           const observedAts = accumulated
             .map((it) => it.observedAt)
             .filter((t): t is string => typeof t === "string" && t.length > 0)
@@ -162,7 +162,7 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
         }
       }
 
-      if (typeof __DEV__ !== "undefined" && __DEV__ && unboundedWeight) {
+      if (typeof __DEV__ !== "undefined" && __DEV__ && unboundedHistory) {
         const observedAts = accumulated
           .map((it) => it.observedAt)
           .filter((t): t is string => typeof t === "string" && t.length > 0)
@@ -185,7 +185,7 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
       getIdToken,
       initializing,
       kinds,
-      unboundedWeight,
+      unboundedHistory,
       user,
     ],
   );
@@ -210,11 +210,11 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
       "history_list",
       entries.map((e) => e.observedAt),
       {
-        requestedRange: unboundedWeight ? "unbounded" : "5Y",
+        requestedRange: unboundedHistory ? "unbounded" : "5Y",
         operation: "useBodyCompositionLog",
       },
     );
-  }, [metric, state.status, entries, unboundedWeight]);
+  }, [metric, state.status, entries, unboundedHistory]);
 
   if (state.status === "error") {
     return {

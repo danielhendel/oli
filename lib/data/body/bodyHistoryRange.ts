@@ -19,8 +19,9 @@ export type BodyHistoryQueryWindowOpts = {
 };
 
 /**
- * Body chart "All" maps to the same horizon as Apple Health body backfill
- * (`APPLE_HEALTH_BODY_BACKFILL_YEARS` in `runAppleHealthBodyBackfill.ts`).
+ * Body chart "All" for Weight remains the governed 5Y fetch window
+ * (`APPLE_HEALTH_BODY_BACKFILL_YEARS`). Body Fat `All` is unbounded at the
+ * trend/list layer — see `useBodyMetricTrends` / `useBodyCompositionLog`.
  */
 export const BODY_CHART_ALL_EFFECTIVE_RANGE: Exclude<WeightRangeKey, "All"> = "5Y";
 

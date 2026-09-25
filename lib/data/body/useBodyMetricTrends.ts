@@ -110,9 +110,9 @@ type TrendRow = {
 };
 
 /**
- * Body chart trends: always queries a **bounded** `observedAt` window derived from `chartRange`
- * (maps "All" → 5Y). Apple Health source filter + optional list `includePayload` avoids unbounded scans
- * and N+1 GETs when the API embeds payload.
+ * Body chart trends: queries a bounded `observedAt` window derived from `chartRange`
+ * for finite ranges. Body Fat `All` paginates all stored RawEvents (no start/end) —
+ * Weight `All` remains the governed 5Y chart window via {@link resolveBodyHistoryQueryWindow}.
  *
  * @param filterMetric — when set, only that metric is populated (and only the matching raw `kind(s)` are requested).
  * @param opts.enabled — when false, skips network (e.g. invalid route guard).
@@ -162,12 +162,17 @@ export function useBodyMetricTrends(
       const optsUnique = withUniqueCacheBust(opts, seq);
       const tz = getDeviceTimezone();
       const anchor = anchorDayKeyRef.current;
-      const { start, end } = resolveBodyHistoryQueryWindow(
-        rangeRef.current,
-        anchor !== undefined ? { anchorDayKey: anchor } : undefined,
-      );
       const fm = metricRef.current;
       const kinds = fm ? trendKindsForMetric(fm) : (["weight", "body_composition"] as const);
+      /** Body Fat All = all stored history. Weight All stays 5Y-bounded. */
+      const unboundedBodyFatAll =
+        fm === "body_fat_percent" && rangeRef.current === "All";
+      const boundedWindow = unboundedBodyFatAll
+        ? null
+        : resolveBodyHistoryQueryWindow(
+            rangeRef.current,
+            anchor !== undefined ? { anchorDayKey: anchor } : undefined,
+          );
 
       const accumulated: TrendRow[] = [];
       let cursor: string | null = null;
@@ -178,8 +183,9 @@ export function useBodyMetricTrends(
         if (seq !== reqSeq.current) return;
         pagesLoaded += 1;
         const listRes = await getRawEvents(token, {
-          start,
-          end,
+          ...(boundedWindow
+            ? { start: boundedWindow.start, end: boundedWindow.end }
+            : {}),
           kinds: [...kinds],
           limit: MAX_FETCH,
           includePayload: true,
