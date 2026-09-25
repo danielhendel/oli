@@ -1,5 +1,6 @@
 import {
   buildWeightTrendXScale,
+  continuousNormalizedX,
   mapTimeThroughLayoutAnchors,
   mapWeightTrendTimeToScreenX,
 } from "@/lib/body/presentation/buildWeightTrendXScale";
@@ -214,7 +215,7 @@ describe("buildWeightTrendXAxisTicks — even visual layout", () => {
     }
   });
 
-  it("builds year labels for 3Y / 5Y / All with even spacing", () => {
+  it("builds year labels for 3Y / 5Y / All on continuous timestamp positions", () => {
     const start = Date.UTC(2022, 0, 1, 12, 0, 0);
     const end = Date.UTC(2026, 8, 21, 12, 0, 0);
     for (const range of ["3Y", "5Y", "All"] as const) {
@@ -231,9 +232,15 @@ describe("buildWeightTrendXAxisTicks — even visual layout", () => {
       expect(ticks.length).toBeGreaterThan(0);
       expect(ticks.length).toBeLessThanOrEqual(6);
       expect(ticks.every((t) => /^\d{4}$/.test(t.label))).toBe(true);
-      const n = ticks.length;
-      for (let i = 0; i < n; i++) {
-        expect(ticks[i]!.layoutNormalizedX).toBeCloseTo(evenLayoutNormalizedX(i, n), 8);
+      for (const tick of ticks) {
+        expect(tick.layoutNormalizedX).toBeCloseTo(
+          continuousNormalizedX(tick.atMs, start, end),
+          8,
+        );
+      }
+      // Year ticks must be monotonically ordered by continuous time (not even slots).
+      for (let i = 1; i < ticks.length; i++) {
+        expect(ticks[i]!.layoutNormalizedX).toBeGreaterThan(ticks[i - 1]!.layoutNormalizedX);
       }
     }
   });
