@@ -91,12 +91,21 @@ describe("userDataRetentionRegistry", () => {
       "medications_placeholder",
       "supplements_placeholder",
       "medical_history_placeholder",
-      "scans_placeholder",
       "dna_placeholder",
     ] as const) {
       expect(USER_DATA_RETENTION_REGISTRY[id].dataCategory).toBe("placeholder");
       expect(USER_DATA_RETENTION_REGISTRY[id].currentExportCoverage).toBe("n_a");
       expect(USER_DATA_RETENTION_REGISTRY[id].currentDeleteCoverage).toBe("n_a");
+    }
+  });
+
+  it("requires export and deletion for every Body Scan store", () => {
+    for (const id of ["body_scans", "body_scan_drafts", "body_scan_facts"] as const) {
+      const path = USER_DATA_RETENTION_REGISTRY[id];
+      expect(path.exportRequired).toBe(true);
+      expect(path.deleteRequired).toBe(true);
+      expect(path.currentExportCoverage).toBe("covered");
+      expect(path.currentDeleteCoverage).toBe("covered");
     }
   });
 });

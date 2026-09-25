@@ -135,7 +135,7 @@ export async function persistBodyScanFromIngestion(args: {
   document: UserDocumentRecord;
   draft: BodyScanExtractionDraft | null;
   now: string;
-}): Promise<BodyScanRecord> {
+}): Promise<{ record: BodyScanRecord; created: boolean }> {
   const scanId = bodyScanIdForDocument(args.document.id);
   const previous = await loadBodyScanRecord(args.deps, scanId);
   const record = buildBodyScanRecord({
@@ -168,5 +168,5 @@ export async function persistBodyScanFromIngestion(args: {
       .catch(() => undefined);
   }
 
-  return record;
+  return { record, created: previous == null };
 }

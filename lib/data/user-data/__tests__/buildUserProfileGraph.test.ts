@@ -52,7 +52,7 @@ describe("buildUserProfileGraph", () => {
 
   it("marks placeholder record domains as not implemented (not empty records)", () => {
     const graph = buildUserProfileGraph({ authPresent: true });
-    for (const domainId of ["scans", "medical_history", "medications", "supplements", "dna"] as const) {
+    for (const domainId of ["medical_history", "medications", "supplements", "dna"] as const) {
       const row = graph.records.find((r) => r.domainId === domainId);
       expect(row?.recordState).toBe("not_implemented");
       expect(row?.statusLabel).toMatch(/Not set up/i);

@@ -53,12 +53,21 @@ describe("userDataSourceRegistry", () => {
   });
 
   it("marks placeholder sources and does not treat them as implemented product truth", () => {
-    for (const id of ["scans_upload", "dna_upload", "medical_history", "medications", "supplements"] as const) {
+    for (const id of ["dna_upload", "medical_history", "medications", "supplements"] as const) {
       const src = getUserDataSource(id);
       expect(src.placeholder).toBe(true);
       expect(src.currentProductTruth).toBe(false);
       expect(src.supportStatus).toBe("placeholder");
     }
+  });
+
+  it("treats body scan uploads as a real source with export and deletion", () => {
+    const scans = getUserDataSource("scans_upload");
+    expect(scans.placeholder).toBe(false);
+    expect(scans.currentProductTruth).toBe(true);
+    expect(scans.exportCapable).toBe(true);
+    expect(scans.deletionCapable).toBe(true);
+    expect(scans.syncCapable).toBe(false);
   });
 
   it("keeps export and deletion flags explicit on every source", () => {

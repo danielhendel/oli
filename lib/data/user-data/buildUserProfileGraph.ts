@@ -116,6 +116,7 @@ export type BuildUserProfileGraphInput = {
   ouraLastSyncKnown?: boolean | null;
   /** Categorical only: "none" | "some" | "unknown" — never numeric health values. */
   labUploadCountCategory?: "none" | "some" | "unknown";
+  bodyScanCountCategory?: "none" | "some" | "unknown";
   labsStructuredExtractionAvailable?: boolean;
   withingsFirestoreConnectedFlag?: boolean | null;
   withingsHasHistoricalRawEvents?: boolean | null;
@@ -631,6 +632,30 @@ function buildRecordSummaries(input: BuildUserProfileGraphInput): UserProfileRec
         };
       }
       if (input.labUploadCountCategory === "none") {
+        return {
+          domainId,
+          displayName: domain.displayName,
+          recordState: "no_records",
+          statusLabel: "No records",
+        };
+      }
+      return {
+        domainId,
+        displayName: domain.displayName,
+        recordState: "needs_attention",
+        statusLabel: "Needs attention",
+      };
+    }
+    if (domainId === "scans") {
+      if (input.bodyScanCountCategory === "some") {
+        return {
+          domainId,
+          displayName: domain.displayName,
+          recordState: "available",
+          statusLabel: "Available",
+        };
+      }
+      if (input.bodyScanCountCategory === "none") {
         return {
           domainId,
           displayName: domain.displayName,

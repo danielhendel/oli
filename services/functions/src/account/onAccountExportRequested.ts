@@ -193,6 +193,9 @@ export const onAccountExportRequested = onMessagePublished(
           labExtractionDrafts: collectionsData.labExtractionDrafts ?? [],
           labReviews: collectionsData.labReviews ?? [],
           labAcceptedResults: collectionsData.labAcceptedResults ?? [],
+          bodyScans: collectionsData.bodyScans ?? [],
+          bodyScanDrafts: collectionsData.bodyScanDrafts ?? [],
+          bodyScanFacts: collectionsData.bodyScanFacts ?? [],
         },
         readObjectBytes: async (objectPath) => {
           try {

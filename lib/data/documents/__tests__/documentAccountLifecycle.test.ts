@@ -146,6 +146,32 @@ describe("documentAccountLifecycle export records", () => {
   });
 });
 
+describe("Body Scan account coverage", () => {
+  const BODY_SCAN_COLLECTIONS = ["bodyScans", "bodyScanDrafts", "bodyScanFacts"] as const;
+
+  it("removes every Body Scan store on account delete", () => {
+    const {
+      ACCOUNT_DELETION_FIRESTORE_COLLECTIONS,
+    } = require("../../user-data/accountDeletionFirestoreCollections");
+    for (const collection of BODY_SCAN_COLLECTIONS) {
+      expect(ACCOUNT_DELETION_FIRESTORE_COLLECTIONS).toContain(collection);
+      expect(planDocumentAccountDelete(SYNTHETIC_UID).firestoreCollections).toContain(collection);
+    }
+  });
+
+  it("reads every Body Scan store during account export", () => {
+    for (const collection of BODY_SCAN_COLLECTIONS) {
+      expect([...DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS]).toContain(collection);
+    }
+  });
+
+  it("keeps the stored scan report inside the deleted storage prefixes", () => {
+    expect(documentAccountStoragePrefixes(SYNTHETIC_UID)).toContain(
+      `users/${SYNTHETIC_UID}/documents/`,
+    );
+  });
+});
+
 describe("documentAccountDelete plan and storage prefix delete", () => {
   it("plans user-scoped firestore collections and storage prefixes", () => {
     expect([...DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS]).toEqual([
@@ -157,6 +183,9 @@ describe("documentAccountDelete plan and storage prefix delete", () => {
       "labExtractionDrafts",
       "labReviews",
       "labAcceptedResults",
+      "bodyScans",
+      "bodyScanDrafts",
+      "bodyScanFacts",
     ]);
     expect(documentAccountStoragePrefixes(SYNTHETIC_UID)).toEqual([
       `users/${SYNTHETIC_UID}/documents/`,

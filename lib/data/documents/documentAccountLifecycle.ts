@@ -12,6 +12,9 @@ export const DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS = [
   "labExtractionDrafts",
   "labReviews",
   "labAcceptedResults",
+  "bodyScans",
+  "bodyScanDrafts",
+  "bodyScanFacts",
 ] as const;
 
 export type DocumentAccountFirestoreCollection = (typeof DOCUMENT_ACCOUNT_FIRESTORE_COLLECTIONS)[number];

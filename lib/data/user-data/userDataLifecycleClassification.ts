@@ -275,10 +275,20 @@ export const USER_DATA_LIFECYCLE_CLASSIFICATION: Record<
     disposition: "NOT_APPLICABLE",
     rationale: "No durable store implemented.",
   },
-  scans_placeholder: {
-    pathId: "scans_placeholder",
-    disposition: "NOT_APPLICABLE",
-    rationale: "No durable store implemented.",
+  body_scans: {
+    pathId: "body_scans",
+    disposition: "EXPORTED_AND_DELETED",
+    rationale: "Scan records exported and deleted.",
+  },
+  body_scan_drafts: {
+    pathId: "body_scan_drafts",
+    disposition: "EXPORTED_AND_DELETED",
+    rationale: "Extraction candidates exported and deleted.",
+  },
+  body_scan_facts: {
+    pathId: "body_scan_facts",
+    disposition: "EXPORTED_AND_DELETED",
+    rationale: "Confirmed scan measurements exported and deleted.",
   },
   dna_placeholder: {
     pathId: "dna_placeholder",

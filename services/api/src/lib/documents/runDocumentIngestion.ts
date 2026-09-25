@@ -285,7 +285,7 @@ async function persistBodyScanForDocument(args: {
   const { bodyScansCol, bodyScanDraftsCol, bodyScanFactsCol } = args.deps;
   if (!bodyScansCol || !bodyScanDraftsCol || !bodyScanFactsCol) return;
 
-  const record = await persistBodyScanFromIngestion({
+  const { record, created } = await persistBodyScanFromIngestion({
     deps: {
       bodyScansCol: bodyScansCol as never,
       bodyScanDraftsCol: bodyScanDraftsCol as never,
@@ -296,6 +296,15 @@ async function persistBodyScanForDocument(args: {
     draft: args.draft,
     now: args.now,
   });
+
+  if (created) {
+    logBodyScanEvent("body_scan_created", {
+      scanToken: redactedBodyScanToken(record.id),
+      scanType: record.scanType,
+      method: record.method,
+      status: record.status,
+    });
+  }
 
   logBodyScanEvent("body_scan_extraction_completed", {
     scanToken: redactedBodyScanToken(record.id),

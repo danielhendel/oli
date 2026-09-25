@@ -19,7 +19,7 @@ describe("buildUserDataInventoryViewModel", () => {
     expect(vm.sourceRows.some((r) => r.title === "Withings")).toBe(true);
     expect(vm.sourceRows.find((r) => r.title === "Withings")?.statusChip).not.toBe("Connected");
     expect(vm.recordRows.find((r) => r.id === "labs")?.statusChip).toBe("Stored, not structured");
-    expect(vm.recordRows.find((r) => r.id === "scans")?.statusChip).toBe("Not set up");
+    expect(vm.recordRows.find((r) => r.id === "scans")?.statusChip).not.toBe("Not set up");
     expect(vm.privacy.exportCoverageComplete).toBe(false);
     expect(vm.privacy.deleteCoverageComplete).toBe(true);
   });

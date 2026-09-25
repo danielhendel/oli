@@ -39,11 +39,20 @@ describe("userDataDomainRegistry", () => {
   });
 
   it("marks placeholder domains and never counts them as implemented", () => {
-    for (const id of ["medical_history", "medications", "supplements", "scans", "dna"] as const) {
+    for (const id of ["medical_history", "medications", "supplements", "dna"] as const) {
       expect(isPlaceholderDomain(id)).toBe(true);
       expect(getUserDataDomain(id).capabilityLevel).toBe("placeholder");
       expect(getUserDataDomain(id).structuredPersistenceExists).toBe(false);
     }
+  });
+
+  it("treats Body Scans as a real domain with export and deletion coverage", () => {
+    const scans = getUserDataDomain("scans");
+    expect(isPlaceholderDomain("scans")).toBe(false);
+    expect(scans.structuredPersistenceExists).toBe(true);
+    expect(scans.exportCoveredInRegistry).toBe(true);
+    expect(scans.deletionCoveredInRegistry).toBe(true);
+    expect(scans.knownGaps.some((g) => /trend/i.test(g))).toBe(true);
   });
 
   it("does not mark Labs as having a real structured parser", () => {
