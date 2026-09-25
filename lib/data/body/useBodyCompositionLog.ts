@@ -134,6 +134,20 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
           return;
         }
         cursor = outcome.data.nextCursor;
+        if (typeof __DEV__ !== "undefined" && __DEV__ && unboundedWeight) {
+          const observedAts = accumulated
+            .map((it) => it.observedAt)
+            .filter((t): t is string => typeof t === "string" && t.length > 0)
+            .sort();
+          console.info("[WEIGHT_HISTORY_PAGINATION]", {
+            pagesLoaded: pageCount,
+            rowsLoaded: accumulated.length,
+            oldestTimestamp: observedAts[0] ?? null,
+            newestTimestamp: observedAts[observedAts.length - 1] ?? null,
+            hasNextPage: cursor != null,
+            selectedWindow: "unbounded",
+          });
+        }
         if (cursor == null) break;
         // Safety: never infinite-loop if API keeps returning the same cursor.
         if (pageCount > 200) {
@@ -145,6 +159,21 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
           });
           return;
         }
+      }
+
+      if (typeof __DEV__ !== "undefined" && __DEV__ && unboundedWeight) {
+        const observedAts = accumulated
+          .map((it) => it.observedAt)
+          .filter((t): t is string => typeof t === "string" && t.length > 0)
+          .sort();
+        console.info("[WEIGHT_HISTORY_PAGINATION]", {
+          pagesLoaded: pageCount,
+          rowsLoaded: accumulated.length,
+          oldestTimestamp: observedAts[0] ?? null,
+          newestTimestamp: observedAts[observedAts.length - 1] ?? null,
+          hasNextPage: false,
+          selectedWindow: "unbounded",
+        });
       }
 
       safeSet({ status: "ready", items: accumulated });
