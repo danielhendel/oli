@@ -19,6 +19,8 @@ import {
   buildWeightAxisTicks,
   type WeightAxisTicksModel,
 } from "@/lib/body/presentation/buildWeightAxisTicks";
+import type { BodyFatAxisTicksModel } from "@/lib/body/presentation/buildBodyFatAxisTicks";
+import { buildBodyFatAxisTicks } from "@/lib/body/presentation/buildBodyFatAxisTicks";
 import {
   buildWeightTrendXAxisTicks,
   type WeightXAxisTick,
@@ -148,7 +150,7 @@ export type WeightTrendChartProps = {
   unitLabel: string;
   formatValue: (weightKg: number) => string;
   range: WeightRangeKey;
-  valueKind?: "mass" | "generic";
+  valueKind?: "mass" | "generic" | "percent";
   accentColor?: string;
   onChartError?: (message: string) => void;
   /** Always mark the chronologically latest observation (not a classification). */
@@ -163,7 +165,7 @@ export type WeightTrendChartProps = {
   onInspectChange?: (point: WeightTrendChartInspectPoint | null) => void;
   /**
    * Crisp bright-blue core + single low-opacity blue halo — preferred for
-   * Weight detail on the plain dark plot (reads blue-first, not blurry).
+   * Weight / Body Fat detail on the plain dark plot (reads blue-first, not blurry).
    */
   highContrastLine?: boolean;
   /**
@@ -171,6 +173,10 @@ export type WeightTrendChartProps = {
    * When set, period switching must not rescale ticks.
    */
   sharedMassAxis?: WeightAxisTicksModel | null;
+  /**
+   * Locked Body Fat % Y-axis from full available history (shared across all period selectors).
+   */
+  sharedPercentAxis?: BodyFatAxisTicksModel | null;
 };
 
 type ProcessedPoint = {
@@ -196,6 +202,7 @@ export function WeightTrendChart({
   onInspectChange,
   highContrastLine = false,
   sharedMassAxis = null,
+  sharedPercentAxis = null,
 }: WeightTrendChartProps) {
   void _formatValue;
   const CHART_HEIGHT = chartHeightProp;
@@ -281,6 +288,11 @@ export function WeightTrendChart({
     sharedMassAxis.status === "ready" &&
     valueKind === "mass";
 
+  const useSharedPercentAxis =
+    sharedPercentAxis != null &&
+    sharedPercentAxis.status === "ready" &&
+    valueKind === "percent";
+
   const { displayMin, displayMax, outlierCount } = useSharedMassAxis
     ? {
         displayMin: sharedMassAxis.domainMinKg,
@@ -291,11 +303,21 @@ export function WeightTrendChart({
             p.weightKg > sharedMassAxis.domainMaxKg,
         ).length,
       }
-    : resolveWeightTrendYDomain({
-        valuesKg: processed.map((p) => p.weightKg),
-        valueKind,
-        unitLabel,
-      });
+    : useSharedPercentAxis
+      ? {
+          displayMin: sharedPercentAxis.domainMinPercent,
+          displayMax: sharedPercentAxis.domainMaxPercent,
+          outlierCount: processed.filter(
+            (p) =>
+              p.weightKg < sharedPercentAxis.domainMinPercent ||
+              p.weightKg > sharedPercentAxis.domainMaxPercent,
+          ).length,
+        }
+      : resolveWeightTrendYDomain({
+          valuesKg: processed.map((p) => p.weightKg),
+          valueKind: valueKind === "percent" ? "generic" : valueKind,
+          unitLabel,
+        });
 
   const massAxis = useSharedMassAxis
     ? sharedMassAxis
@@ -304,6 +326,15 @@ export function WeightTrendChart({
           minKg: Math.min(...processed.map((p) => p.weightKg)),
           maxKg: Math.max(...processed.map((p) => p.weightKg)),
           unit: unitLabel,
+        })
+      : null;
+
+  const percentAxis = useSharedPercentAxis
+    ? sharedPercentAxis
+    : valueKind === "percent"
+      ? buildBodyFatAxisTicks({
+          minPercent: Math.min(...processed.map((p) => p.weightKg)),
+          maxPercent: Math.max(...processed.map((p) => p.weightKg)),
         })
       : null;
 
@@ -391,11 +422,16 @@ export function WeightTrendChart({
 
   const yAxisTicks =
     massAxis?.status === "ready"
-      ? massAxis.ticks
-      : [
-          { valueKg: actualMaxW, label: genericHighLabel },
-          { valueKg: actualMinW, label: genericLowLabel },
-        ].filter((t, i, arr) => i === 0 || t.label !== arr[0]!.label);
+      ? massAxis.ticks.map((t) => ({ valueKg: t.valueKg, label: t.label }))
+      : percentAxis?.status === "ready"
+        ? percentAxis.ticks.map((t) => ({
+            valueKg: t.valuePercent,
+            label: t.label,
+          }))
+        : [
+            { valueKg: actualMaxW, label: genericHighLabel },
+            { valueKg: actualMinW, label: genericLowLabel },
+          ].filter((t, i, arr) => i === 0 || t.label !== arr[0]!.label);
 
   /** Nearest plotted screen-X — same mapping as line / guide / x-axis ticks. */
   const handleTouch = useCallback(

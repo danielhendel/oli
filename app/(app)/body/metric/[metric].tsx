@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 
+import { buildBodyFatDetailSharedDomain } from "@/lib/body/presentation/buildBodyFatDetailSharedDomain";
 import {
   buildBodyMetricTrendDetailModel,
   type BodyMetricTrendDetailModel,
@@ -47,14 +48,6 @@ const METRIC_TITLES: Record<BodyTrendMetric, string> = {
   resting_metabolic_rate: "RMR",
 };
 
-const BODY_FAT_EXTRA_LIMITATIONS = [
-  "Body Fat card ranges use Gallagher et al. 2000 BMI-equivalent adult screening bands (version 2000.1) as a general educational screening reference from the combined African American / White Table 4.",
-  "The source paper also reported separate Asian models; Oli does not silently choose a personal ethnic model from name, appearance, Apple Health, or account metadata.",
-  "Higher on the landing card combines the source Elevated and Obesity-linked upper regions — not a diagnosis or performance rating.",
-  "Body fat percentage is method-dependent; Apple Health is transport, not a measurement method. Personal placement stays withheld until method and reference-population eligibility pass.",
-  "Oli does not treat ACE Essential / Athletic / Fitness / Average categories as health truth.",
-] as const;
-
 const LEAN_MASS_EXTRA_LIMITATIONS = [
   "This metric is total Lean Mass — not skeletal muscle, appendicular lean mass, ALM, or ALMI.",
   "The current Lean Mass graph shows share of total mass only — not a population reference or health rating.",
@@ -64,10 +57,10 @@ const LEAN_MASS_EXTRA_LIMITATIONS = [
   "Numerical Lean Mass reference research is deferred — not abandoned — pending Stage 3D measurement provenance and a separate non-inferred reference-population decision.",
 ] as const;
 
+/** Detail-page education remains Lean Mass only — Body Fat education lives on the landing card. */
 function educationMetricKey(
   historyMetric: BodyHistoryMetricFilter | null,
-): "bodyFat" | "leanTissue" | null {
-  if (historyMetric === "bodyFat") return "bodyFat";
+): "leanTissue" | null {
   if (historyMetric === "leanTissue") return "leanTissue";
   return null;
 }
@@ -100,11 +93,12 @@ export default function BodyMetricDetailScreen() {
   });
 
   /**
-   * Weight detail loads the full available history once (All → 5Y window) so
+   * Weight + Body Fat load full available history once (All → 5Y window) so
    * Y-domain stays locked across period selectors; client filters by `range`.
    * Other metrics keep range-scoped fetches.
    */
-  const trendsFetchRange: WeightRangeKey = metric === "weight" ? "All" : range;
+  const trendsFetchRange: WeightRangeKey =
+    metric === "weight" || metric === "body_fat_percent" ? "All" : range;
   const trends = useBodyMetricTrends(trendsFetchRange, metric, { enabled: metric !== undefined });
 
   const points = useMemo(() => {
@@ -140,6 +134,13 @@ export default function BodyMetricDetailScreen() {
     });
   }, [metric, points, unit]);
 
+  const sharedPercentAxis = useMemo(() => {
+    if (metric !== "body_fat_percent" || points.length === 0) return null;
+    return buildBodyFatDetailSharedDomain({
+      valuesPercent: points.map((p) => p.weightKg),
+    });
+  }, [metric, points]);
+
   useEffect(() => {
     if (model.status === "ready" || model.status === "insufficient") {
       previousReadyRef.current = model;
@@ -157,11 +158,7 @@ export default function BodyMetricDetailScreen() {
   }, [historyMetric, points.length]);
 
   const extraLimitations =
-    historyMetric === "bodyFat"
-      ? BODY_FAT_EXTRA_LIMITATIONS
-      : historyMetric === "leanTissue"
-        ? LEAN_MASS_EXTRA_LIMITATIONS
-        : undefined;
+    historyMetric === "leanTissue" ? LEAN_MASS_EXTRA_LIMITATIONS : undefined;
 
   const formatTrendValue = (value: number): string => {
     if (!metric) return String(value);
@@ -227,7 +224,13 @@ export default function BodyMetricDetailScreen() {
           formatValue={formatTrendValue}
           formatChange={formatTrendChange}
           unitLabel={chartUnitLabel()}
-          valueKind={metric === "weight" || metric === "lean_body_mass" ? "mass" : "generic"}
+          valueKind={
+            metric === "weight" || metric === "lean_body_mass"
+              ? "mass"
+              : metric === "body_fat_percent"
+                ? "percent"
+                : "generic"
+          }
           onRetry={() => trends.refetch()}
           {...(entryMetric != null
             ? { onPressAddMeasurement: () => setManualEntryOpen(true) }
@@ -235,9 +238,10 @@ export default function BodyMetricDetailScreen() {
           retainChartWhileLoading
           previousReadyModel={previousReadyRef.current}
           sharedMassAxis={sharedMassAxis}
+          sharedPercentAxis={sharedPercentAxis}
         />
 
-        {historyMetric === "bodyFat" || historyMetric === "leanTissue" ? (
+        {historyMetric === "leanTissue" ? (
           <View style={styles.educationWrap}>
             <BodyMetricDetailEducationPanel
               model={educationalModel}

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyMetricTrendDetailModel } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
 import { buildBodyMetricTrendAccessibilitySummary } from "@/lib/body/presentation/buildBodyMetricTrendDetailModel";
+import type { BodyFatAxisTicksModel } from "@/lib/body/presentation/buildBodyFatAxisTicks";
 import type { WeightAxisTicksModel } from "@/lib/body/presentation/buildWeightAxisTicks";
 import {
   buildWeightTrendInspection,
@@ -51,7 +52,7 @@ export type BodyMetricTrendDetailViewProps = {
   /** Format a signed change (kg delta) — neutral, no judgment color. */
   formatChange?: (deltaKg: number) => string;
   unitLabel: string;
-  valueKind: "mass" | "generic";
+  valueKind: "mass" | "generic" | "percent";
   onRetry?: () => void;
   onPressAddMeasurement?: () => void;
   /** When true, show last-known chart while refreshing. */
@@ -61,6 +62,10 @@ export type BodyMetricTrendDetailViewProps = {
    * Locked Weight Y-axis from full available history — shared across all period selectors.
    */
   sharedMassAxis?: WeightAxisTicksModel | null;
+  /**
+   * Locked Body Fat % Y-axis from full available history — shared across all period selectors.
+   */
+  sharedPercentAxis?: BodyFatAxisTicksModel | null;
 };
 
 /**
@@ -292,8 +297,11 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
             accessibilityLabel={chartA11y}
             chartHeight={320}
             onInspectChange={handleInspectChange}
-            highContrastLine={props.valueKind === "mass"}
+            highContrastLine={
+              props.valueKind === "mass" || props.valueKind === "percent"
+            }
             sharedMassAxis={props.sharedMassAxis ?? null}
+            sharedPercentAxis={props.sharedPercentAxis ?? null}
           />
           {observedCoverageLabel ? (
             <Text
