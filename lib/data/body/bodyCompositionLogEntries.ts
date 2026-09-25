@@ -119,19 +119,39 @@ export function buildBodyCompositionLogEntries(
     if (typeof observedAt !== "string" || observedAt.length === 0) continue;
 
     if (item.kind === "weight") {
+      const payload = item.payload as
+        | { weightKg?: number; time?: string; timezone?: string; bodyFatPercent?: number }
+        | undefined;
+      // Prefer strict manual schema; fall back to chart-compatible weightKg extraction
+      // so Apple Health history rows are not dropped while the trend still shows them.
       const parsed = manualWeightPayloadSchema.safeParse(item.payload);
-      if (!parsed.success) continue;
-      const payload = parsed.data;
-      const weightKg = payload.weightKg;
-      if (!(weightKg > 0)) continue;
-      const dayKey = deriveWeightPointDayKey(payload, observedAt, timeZone);
+      let weightKg: number | null = null;
+      let bodyFatPercent: number | null = null;
+      let leanBodyMassKg: number | null = null;
+      let dayKeyPayload: { time?: string; timezone?: string } = {};
+
+      if (parsed.success) {
+        weightKg = parsed.data.weightKg > 0 ? parsed.data.weightKg : null;
+        bodyFatPercent =
+          parsed.data.bodyFatPercent != null && Number.isFinite(parsed.data.bodyFatPercent)
+            ? parsed.data.bodyFatPercent
+            : null;
+        const leanFields = parseCompositionFields(parsed.data);
+        leanBodyMassKg = leanFields.leanBodyMassKg;
+        dayKeyPayload = parsed.data;
+      } else if (typeof payload?.weightKg === "number" && payload.weightKg > 0) {
+        weightKg = payload.weightKg;
+        bodyFatPercent =
+          payload.bodyFatPercent != null && Number.isFinite(payload.bodyFatPercent)
+            ? payload.bodyFatPercent
+            : null;
+        dayKeyPayload = payload;
+      }
+
+      if (weightKg == null) continue;
+      const dayKey = deriveWeightPointDayKey(dayKeyPayload, observedAt, timeZone);
       const provider = inferWeightEntryProvider(item.sourceId);
       const eligibility = eligibilityForProvider(provider);
-      const bodyFatPercent =
-        payload.bodyFatPercent != null && Number.isFinite(payload.bodyFatPercent)
-          ? payload.bodyFatPercent
-          : null;
-      const leanFields = parseCompositionFields(payload);
 
       out.push({
         rawEventId: item.id,
@@ -139,7 +159,7 @@ export function buildBodyCompositionLogEntries(
         dayKey,
         weightKg,
         bodyFatPercent,
-        leanBodyMassKg: leanFields.leanBodyMassKg,
+        leanBodyMassKg,
         provider,
         sourceId: item.sourceId,
         ...eligibility,

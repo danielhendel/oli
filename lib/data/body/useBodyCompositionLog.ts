@@ -15,9 +15,9 @@ import { getDeviceTimeZone } from "@/lib/data/body/deviceTimeZone";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 /** Per-page limit for getRawEvents (API max 100). */
-const MAX_LOG_ITEMS_FETCH = 100;
+export const BODY_COMPOSITION_LOG_PAGE_SIZE = 100;
 /** Cap total history rows so a runaway cursor cannot hang the screen. */
-const MAX_TOTAL_LOG_ITEMS = 5000;
+export const BODY_COMPOSITION_LOG_MAX_ITEMS = 5000;
 
 type LogState =
   | { status: "partial" }
@@ -31,8 +31,13 @@ function withUniqueCacheBust(opts: GetOptions | undefined, seq: number): GetOpti
 }
 
 /**
- * Body Composition history list — paginates raw events across the shared 5Y window
- * so Weight History is not truncated at the first page (~100 rows).
+ * Body Composition history list.
+ *
+ * Weight: paginates the same unbounded raw-events stream as the Weight chart "All"
+ * path (kinds=weight, no start/end) so History can reach every stored Weight event
+ * the chart can see — not a first-page 100-row cap.
+ *
+ * Other metrics: paginate within the shared 5Y Body history window.
  */
 export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"): {
   status: "partial" | "error" | "ready";
@@ -43,7 +48,7 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
 } {
   const { user, initializing, getIdToken } = useAuth();
   const tz = getDeviceTimeZone();
-  const { start, end } = useMemo(() => resolveBodyHistoryQueryWindow("5Y"), []);
+  const boundedWindow = useMemo(() => resolveBodyHistoryQueryWindow("5Y"), []);
   const kinds = useMemo(
     () =>
       metric === "weight"
@@ -51,6 +56,8 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
         : (["weight", "body_composition"] as const),
     [metric],
   );
+  /** Weight History matches chart All: unbounded pagination. */
+  const unboundedWeight = metric === "weight";
 
   const reqSeq = useRef(0);
   const [state, setState] = useState<LogState>({ status: "partial" });
@@ -85,15 +92,18 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
       const accumulated: RawEventListItem[] = [];
       let cursor: string | null = null;
       let lastRequestId: string | null = null;
+      let pageCount = 0;
 
       for (;;) {
         if (seq !== reqSeq.current) return;
+        pageCount += 1;
         const listRes = await getRawEvents(token, {
-          start,
-          end,
           kinds: [...kinds],
-          limit: MAX_LOG_ITEMS_FETCH,
+          limit: BODY_COMPOSITION_LOG_PAGE_SIZE,
           includePayload: true,
+          ...(unboundedWeight
+            ? {}
+            : { start: boundedWindow.start, end: boundedWindow.end }),
           ...(cursor ? { cursor } : {}),
           ...optsUnique,
         });
@@ -111,10 +121,13 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
           return;
         }
         accumulated.push(...outcome.data.items);
-        if (accumulated.length >= MAX_TOTAL_LOG_ITEMS && outcome.data.nextCursor) {
+        if (
+          accumulated.length >= BODY_COMPOSITION_LOG_MAX_ITEMS &&
+          outcome.data.nextCursor
+        ) {
           safeSet({
             status: "error",
-            error: `Body history exceeds ${MAX_TOTAL_LOG_ITEMS} entries in this window.`,
+            error: `Body history exceeds ${BODY_COMPOSITION_LOG_MAX_ITEMS} entries.`,
             requestId: lastRequestId,
             reason: "contract",
           });
@@ -122,11 +135,29 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
         }
         cursor = outcome.data.nextCursor;
         if (cursor == null) break;
+        // Safety: never infinite-loop if API keeps returning the same cursor.
+        if (pageCount > 200) {
+          safeSet({
+            status: "error",
+            error: "Body history pagination exceeded maximum page count.",
+            requestId: lastRequestId,
+            reason: "contract",
+          });
+          return;
+        }
       }
 
       safeSet({ status: "ready", items: accumulated });
     },
-    [end, getIdToken, initializing, kinds, start, user],
+    [
+      boundedWindow.end,
+      boundedWindow.start,
+      getIdToken,
+      initializing,
+      kinds,
+      unboundedWeight,
+      user,
+    ],
   );
 
   useEffect(() => {
