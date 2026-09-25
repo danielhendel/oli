@@ -109,6 +109,19 @@ export {
   type RunAppleHealthBodyBackfillResult,
 } from "./runAppleHealthBodyBackfill";
 export {
+  runAppleHealthBodyFatHistoryImport,
+  discoverOldestBodyFatObservedAt,
+  isBodyFatHistoryCompletionImplausible,
+  type RunAppleHealthBodyFatHistoryImportDeps,
+  type RunAppleHealthBodyFatHistoryImportResult,
+  type BodyFatHistoryExtentDiscovery,
+} from "./runAppleHealthBodyFatHistoryImport";
+export {
+  APPLE_HEALTH_EARLIEST_SAFE_BOUNDARY_ISO,
+  APPLE_HEALTH_BODY_FAT_HISTORY_CHUNK_DAYS,
+  resolveBodyFatHistorySearchBoundary,
+} from "./bodyFatHistoryBoundary";
+export {
   diagnoseAppleHealthWeightHistoryExtent,
   type AppleHealthWeightHistoryExtentDiagnostic,
 } from "./diagnoseAppleHealthWeightHistoryExtent";

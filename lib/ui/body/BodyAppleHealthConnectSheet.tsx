@@ -72,6 +72,15 @@ export function BodyAppleHealthConnectSheet(props: BodyAppleHealthConnectSheetPr
     ...(props.statusChipLabel !== undefined
       ? { statusChipOverride: props.statusChipLabel }
       : {}),
+    ...(props.activeMetric === "bodyFat"
+      ? {
+          historyPrimaryLabel:
+            props.historyLabel === "Not yet" || props.historyLabel == null
+              ? "Import Body Fat history"
+              : "Resume Body Fat history",
+          importingProgressLabel: "Importing Body Fat history…",
+        }
+      : {}),
   });
   const busy =
     props.phase === "requestingPermission" ||

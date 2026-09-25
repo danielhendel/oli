@@ -84,10 +84,16 @@ export function resolveBodyMetricAppleHealthCardAction(
 export function resolveBodyMetricHistoryLabel(opts: {
   metricScopeOn: boolean;
   domainBackfillStatus: "not_started" | "in_progress" | "completed" | "failed" | null;
+  /** When set (Body Fat), this metric-scoped status overrides the domain checkpoint. */
+  metricBackfillStatus?: "not_started" | "in_progress" | "completed" | "failed" | null;
 }): string {
   if (!opts.metricScopeOn) return "Off";
-  if (opts.domainBackfillStatus === "in_progress") return "Importing";
-  if (opts.domainBackfillStatus === "failed") return "Incomplete";
-  if (opts.domainBackfillStatus === "completed") return "Up to date";
+  const status =
+    opts.metricBackfillStatus !== undefined
+      ? opts.metricBackfillStatus
+      : opts.domainBackfillStatus;
+  if (status === "in_progress") return "Importing";
+  if (status === "failed") return "Incomplete";
+  if (status === "completed") return "Up to date";
   return "Not yet";
 }

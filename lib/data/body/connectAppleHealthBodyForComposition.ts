@@ -18,14 +18,17 @@ import {
   requestAppleHealthReadPermissions,
   requestBodyCompositionPermissions,
   runAppleHealthBodyBackfill,
+  runAppleHealthBodyFatHistoryImport,
   runAppleHealthBodySync,
 } from "@/lib/integrations/appleHealth";
 import {
   enableAppleHealthDomain,
   getAppleHealthBodyBackfillState,
+  getAppleHealthBodyFatBackfillState,
   getAppleHealthConnected,
   getAppleHealthNotAvailable,
   setAppleHealthBodyBackfillState,
+  setAppleHealthBodyFatBackfillState,
   setAppleHealthBodyLastCheckedAt,
   setAppleHealthMetricLastCheckedAt,
   setLastSyncAt,
@@ -53,7 +56,12 @@ function scopedBodyPull(
   uid: string | undefined,
   includeOverride?: { weight: boolean; bodyFat: boolean; leanTissue: boolean },
 ) {
-  return async (opts: { startDate: string; endDate: string; limit?: number }) => {
+  return async (opts: {
+    startDate: string;
+    endDate: string;
+    limit?: number;
+    ascending?: boolean;
+  }) => {
     const include = includeOverride ?? (await bodySyncIncludeForUid(uid));
     if (
       include &&
@@ -67,6 +75,23 @@ function scopedBodyPull(
       ...opts,
       ...(include ? { include } : {}),
     });
+  };
+}
+
+function bodyFatHistoryDeps(uid: string, tokenPullUid?: string) {
+  return {
+    pullBodyCompositionSamples: scopedBodyPull(tokenPullUid ?? uid, {
+      weight: false,
+      bodyFat: true,
+      leanTissue: false,
+    }),
+    ingestRawEvent,
+    appleHealthBodyWeightIdempotencyKey,
+    appleHealthBodyCompositionIdempotencyKey,
+    getDeviceTimezone,
+    getBackfillState: () => getAppleHealthBodyFatBackfillState(uid),
+    setBackfillState: (state: Parameters<typeof setAppleHealthBodyFatBackfillState>[1]) =>
+      setAppleHealthBodyFatBackfillState(uid, state),
   };
 }
 
@@ -320,8 +345,12 @@ export async function connectAppleHealthBodyForComposition(
 
 /** Resume Body history from checkpoint after partial/failed import. */
 export async function resumeAppleHealthBodyHistoryImport(
-  deps: AppleHealthBodyCompositionConnectDeps,
+  deps: AppleHealthBodyCompositionConnectDeps & { metricId?: BodyAppleHealthMetricId },
 ): Promise<AppleHealthBodyCompositionConnectResult> {
+  if (deps.metricId === "bodyFat") {
+    return resumeAppleHealthBodyFatHistoryImport(deps);
+  }
+
   const connected = await getAppleHealthConnected().catch(() => false);
   if (!connected) {
     return {
@@ -384,6 +413,94 @@ export async function resumeAppleHealthBodyHistoryImport(
 
   if (typeof __DEV__ !== "undefined" && __DEV__) {
     await diagnoseAppleHealthWeightHistoryExtent();
+    await diagnoseAppleHealthBodyFatHistoryExtent();
+  }
+
+  deps.onLatestSynced?.();
+  deps.onPhase?.("upToDate");
+  return {
+    ok: true,
+    sourceState: "connected",
+    historyState: "complete",
+    phase: "upToDate",
+    samplesIngested: backfill.samplesIngested,
+    alreadyConnected: true,
+  };
+}
+
+/**
+ * Explicit Body Fat all-history import/resume — metric-scoped checkpoint, no 5Y cap.
+ */
+export async function resumeAppleHealthBodyFatHistoryImport(
+  deps: AppleHealthBodyCompositionConnectDeps,
+): Promise<AppleHealthBodyCompositionConnectResult> {
+  const connected = await getAppleHealthConnected().catch(() => false);
+  if (!connected) {
+    return {
+      ok: false,
+      sourceState: "disconnected",
+      historyState: "notStarted",
+      reason: "unavailable",
+      message: "Connect Apple Health before importing history.",
+      safeErrorCode: "not_connected",
+    };
+  }
+  const uid = deps.uid;
+  if (!uid) {
+    return {
+      ok: false,
+      sourceState: "connected",
+      historyState: "paused",
+      reason: "no_token",
+      message: "Sign in to import Body Fat history.",
+      safeErrorCode: "no_uid",
+    };
+  }
+  const token = await deps.getIdToken(false);
+  if (!token) {
+    return {
+      ok: false,
+      sourceState: "connected",
+      historyState: "paused",
+      reason: "no_token",
+      message: "Sign in to resume Body Fat history import.",
+      safeErrorCode: "no_token",
+    };
+  }
+
+  deps.onPhase?.("importingEarlier");
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    await diagnoseAppleHealthBodyFatHistoryExtent();
+  }
+
+  const existing = await getAppleHealthBodyFatBackfillState(uid).catch(() => null);
+  const forceRestart = existing?.status === "completed";
+  const backfill = await runAppleHealthBodyFatHistoryImport(
+    { token, ...(forceRestart ? { forceRestart: true as const } : {}) },
+    {
+      nowIso,
+      ...bodyFatHistoryDeps(uid),
+    },
+  );
+
+  if (!backfill.ok) {
+    logBodyOp("apple_health_body_fat_history_failed", {
+      safeErrorCode: "history_batch_failed",
+      resume: true,
+    });
+    deps.onPhase?.("historyIncomplete");
+    return {
+      ok: true,
+      sourceState: "connected",
+      historyState: "failed",
+      phase: "historyIncomplete",
+      samplesIngested: 0,
+      alreadyConnected: true,
+      safeErrorCode: "history_batch_failed",
+    };
+  }
+
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
     await diagnoseAppleHealthBodyFatHistoryExtent();
   }
 
@@ -624,6 +741,60 @@ export async function connectAppleHealthBodyMetricForComposition(
   deps.onLatestSynced?.();
 
   deps.onPhase?.("importingEarlier");
+  if (deps.metricId === "bodyFat") {
+    if (!deps.uid) {
+      deps.onPhase?.("historyIncomplete");
+      return {
+        ok: true,
+        sourceState: "connected",
+        historyState: "failed",
+        phase: "historyIncomplete",
+        samplesIngested: syncResult.ingested,
+        alreadyConnected: wasConnected,
+        safeErrorCode: "history_batch_failed",
+      };
+    }
+    if (typeof __DEV__ !== "undefined" && __DEV__) {
+      await diagnoseAppleHealthBodyFatHistoryExtent();
+    }
+    const bfExisting = await getAppleHealthBodyFatBackfillState(deps.uid).catch(() => null);
+    const bfForce = bfExisting?.status === "completed";
+    const bfBackfill = await runAppleHealthBodyFatHistoryImport(
+      { token, ...(bfForce ? { forceRestart: true as const } : {}) },
+      {
+        nowIso,
+        ...bodyFatHistoryDeps(deps.uid),
+      },
+    );
+    if (!bfBackfill.ok) {
+      deps.onPhase?.("historyIncomplete");
+      return {
+        ok: true,
+        sourceState: "connected",
+        historyState: "failed",
+        phase: "historyIncomplete",
+        samplesIngested: syncResult.ingested,
+        alreadyConnected: wasConnected,
+        safeErrorCode: "history_batch_failed",
+      };
+    }
+    if (typeof __DEV__ !== "undefined" && __DEV__) {
+      await diagnoseAppleHealthBodyFatHistoryExtent();
+    }
+    deps.onLatestSynced?.();
+    const bfPhase =
+      syncResult.ingested > 0 || bfBackfill.samplesIngested > 0 ? "upToDate" : "connectedNoData";
+    deps.onPhase?.(bfPhase === "connectedNoData" ? "upToDate" : bfPhase);
+    return {
+      ok: true,
+      sourceState: "connected",
+      historyState: "complete",
+      phase: bfPhase === "connectedNoData" ? "connectedNoData" : "upToDate",
+      samplesIngested: syncResult.ingested + bfBackfill.samplesIngested,
+      alreadyConnected: wasConnected,
+    };
+  }
+
   const backfill = await runAppleHealthBodyBackfill(
     { token },
     {
