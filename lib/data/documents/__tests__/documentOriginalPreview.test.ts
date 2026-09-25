@@ -21,7 +21,7 @@ function effects(overrides: Partial<DocumentOriginalPreviewEffects> = {}): Docum
   return {
     requestGrant: async () => GRANT,
     downloadToProtectedPath: async () => ({ ok: true, localUri: "file:///cache/original-doc1.pdf" }),
-    openLocal: async () => true,
+    openLocal: async () => ({ opened: true, deleteImmediately: true }),
     ...overrides,
   };
 }
@@ -31,9 +31,12 @@ describe("openDocumentOriginal", () => {
     const downloadToProtectedPath = jest.fn(
       async () => ({ ok: true, localUri: "file:///cache/original-doc1.pdf" }) as const,
     );
-    const openLocal = jest.fn(async () => true);
+    const openLocal = jest.fn(async () => ({ opened: true, deleteImmediately: true }));
+    const deleteLocal = jest.fn(async () => undefined);
 
-    const outcome = await openDocumentOriginal(effects({ downloadToProtectedPath, openLocal }));
+    const outcome = await openDocumentOriginal(
+      effects({ downloadToProtectedPath, openLocal, deleteLocal }),
+    );
 
     expect(outcome).toEqual({ status: "opened" });
     expect(downloadToProtectedPath).toHaveBeenCalledWith({
@@ -42,6 +45,31 @@ describe("openDocumentOriginal", () => {
     });
     // The system preview only ever sees the local file, never the bearer URL.
     expect(openLocal).toHaveBeenCalledWith("file:///cache/original-doc1.pdf");
+    expect(deleteLocal).toHaveBeenCalledWith("file:///cache/original-doc1.pdf");
+  });
+
+  it("leaves the file when the open API does not wait for dismiss", async () => {
+    const deleteLocal = jest.fn(async () => undefined);
+    const outcome = await openDocumentOriginal(
+      effects({
+        openLocal: async () => ({ opened: true, deleteImmediately: false }),
+        deleteLocal,
+      }),
+    );
+    expect(outcome).toEqual({ status: "opened" });
+    expect(deleteLocal).not.toHaveBeenCalled();
+  });
+
+  it("deletes the local file after an open failure", async () => {
+    const deleteLocal = jest.fn(async () => undefined);
+    const outcome = await openDocumentOriginal(
+      effects({
+        openLocal: async () => ({ opened: false, deleteImmediately: true }),
+        deleteLocal,
+      }),
+    );
+    expect(outcome).toEqual({ status: "error", code: "OPEN_FAILED" });
+    expect(deleteLocal).toHaveBeenCalledWith("file:///cache/original-doc1.pdf");
   });
 
   it("reports the server reason when no grant is available", async () => {
@@ -75,7 +103,9 @@ describe("openDocumentOriginal", () => {
     ).resolves.toEqual({ status: "error", code: "DOWNLOAD_FAILED" });
 
     await expect(
-      openDocumentOriginal(effects({ openLocal: async () => false })),
+      openDocumentOriginal(
+        effects({ openLocal: async () => ({ opened: false, deleteImmediately: true }) }),
+      ),
     ).resolves.toEqual({ status: "error", code: "OPEN_FAILED" });
 
     await expect(
@@ -98,7 +128,7 @@ describe("openDocumentOriginal", () => {
     expect(documentOriginalPreviewMessage({ status: "opened" })).toBeNull();
   });
 
-  it("derives the cache filename from the document id, not the report name", () => {
+  it("derives the legacy cache filename from the document id, not the report name", () => {
     expect(
       protectedOriginalCacheFilename({ documentId: "doc/../1", mediaType: "application/pdf" }),
     ).toBe("original-doc1.pdf");
