@@ -20,14 +20,16 @@ export type BuildBodyFatDetailSharedDomainInput = {
 export function buildBodyFatDetailSharedDomain(
   input: BuildBodyFatDetailSharedDomainInput,
 ): BodyFatAxisTicksModel {
-  const values = input.valuesPercent.filter((v) => Number.isFinite(v) && v > 0);
+  const values = input.valuesPercent.filter(
+    (v) => Number.isFinite(v) && v > 0 && v <= 100,
+  );
   if (values.length === 0) {
     return {
       status: "unavailable",
       domainMinPercent: 0,
       domainMaxPercent: 1,
       ticks: [],
-      step: 1,
+      step: 2,
     };
   }
   return buildBodyFatAxisTicks({
