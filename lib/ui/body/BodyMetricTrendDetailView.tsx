@@ -15,6 +15,7 @@ import {
   formatWeightTrendObservedCoverageLabel,
   WEIGHT_TREND_NO_DATA_AVAILABLE,
 } from "@/lib/body/presentation/formatWeightTrendDates";
+import { diagnoseBodyFatExtentFromObservedAts } from "@/lib/body/presentation/diagnoseBodyFatExtent";
 import type { WeightRangeKey } from "@/lib/data/useWeightSeries";
 import { WeightTrendStatsPanel } from "@/lib/ui/body/WeightTrendStatsPanel";
 import { ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
@@ -99,6 +100,24 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
   useEffect(() => {
     setInspection(WEIGHT_TREND_INSPECTION_IDLE);
   }, [props.range, pointsContentKey]);
+
+  useEffect(() => {
+    if (props.valueKind !== "percent") return;
+    if (
+      displayModel.status !== "ready" &&
+      displayModel.status !== "insufficient"
+    ) {
+      return;
+    }
+    diagnoseBodyFatExtentFromObservedAts(
+      "rendered",
+      displayModel.points.map((p) => p.observedAt),
+      {
+        requestedRange: props.range,
+        operation: "BodyMetricTrendDetailView",
+      },
+    );
+  }, [displayModel.points, displayModel.status, props.range, props.valueKind]);
 
   useEffect(() => {
     if (inspection.status !== "active") return;

@@ -13,6 +13,7 @@ import {
 } from "@/lib/data/body/bodyCompositionLogEntries";
 import { getDeviceTimeZone } from "@/lib/data/body/deviceTimeZone";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
+import { diagnoseBodyFatExtentFromObservedAts } from "@/lib/body/presentation/diagnoseBodyFatExtent";
 
 /** Per-page limit for getRawEvents (API max 100). */
 export const BODY_COMPOSITION_LOG_PAGE_SIZE = 100;
@@ -202,6 +203,18 @@ export function useBodyCompositionLog(metric: BodyHistoryMetricFilter = "weight"
     const all = buildBodyCompositionLogEntries(state.items, tz);
     return filterBodyCompositionLogEntriesForMetric(all, metric);
   }, [state, tz, metric]);
+
+  useEffect(() => {
+    if (metric !== "bodyFat" || state.status !== "ready") return;
+    diagnoseBodyFatExtentFromObservedAts(
+      "history_list",
+      entries.map((e) => e.observedAt),
+      {
+        requestedRange: unboundedWeight ? "unbounded" : "5Y",
+        operation: "useBodyCompositionLog",
+      },
+    );
+  }, [metric, state.status, entries, unboundedWeight]);
 
   if (state.status === "error") {
     return {

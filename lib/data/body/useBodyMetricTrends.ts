@@ -13,6 +13,7 @@ import {
 
 const MAX_FETCH = 100;
 import { trendKindsForMetric } from "@/lib/data/body/trendKindsForMetric";
+import { diagnoseBodyFatExtentFromObservedAts } from "@/lib/body/presentation/diagnoseBodyFatExtent";
 
 /** Safety cap for rows within a bounded `start`/`end` window (multi-metric × backfill). */
 const MAX_TOTAL_BOUNDED = 25000;
@@ -171,9 +172,11 @@ export function useBodyMetricTrends(
       const accumulated: TrendRow[] = [];
       let cursor: string | null = null;
       let lastRequestId: string | null = null;
+      let pagesLoaded = 0;
 
       for (;;) {
         if (seq !== reqSeq.current) return;
+        pagesLoaded += 1;
         const listRes = await getRawEvents(token, {
           start,
           end,
@@ -333,6 +336,21 @@ export function useBodyMetricTrends(
           .filter((point) => isAppleHealthBodyReadSourceId(point.sourceId))
           .sort((a, b) => a.observedAt.localeCompare(b.observedAt));
       });
+
+      if (fm === "body_fat_percent" || fm == null) {
+        const bfAts = byMetric.body_fat_percent.map((p) => p.observedAt);
+        diagnoseBodyFatExtentFromObservedAts("stored", bfAts, {
+          pagesLoaded,
+          requestedRange: rangeRef.current,
+          operation: "useBodyMetricTrends",
+        });
+        diagnoseBodyFatExtentFromObservedAts("trend", bfAts, {
+          pagesLoaded,
+          requestedRange: rangeRef.current,
+          operation: "useBodyMetricTrends_pre_range_filter",
+        });
+      }
+
       const statsByMetric = {
         weight: buildStats(byMetric.weight),
         body_fat_percent: buildStats(byMetric.body_fat_percent),

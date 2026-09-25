@@ -271,6 +271,11 @@ function normalizePercent(raw: number): number | null {
   return normalized;
 }
 
+/** Exported for unit coverage — HealthKit may return body fat as a fraction. */
+export function normalizeAppleHealthBodyFatPercent(raw: number): number | null {
+  return normalizePercent(raw);
+}
+
 function normalizePositive(raw: number): number | null {
   if (!Number.isFinite(raw)) return null;
   if (raw <= 0) return null;
