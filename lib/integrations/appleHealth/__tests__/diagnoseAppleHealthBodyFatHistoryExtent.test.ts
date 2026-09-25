@@ -1,4 +1,6 @@
-import { diagnoseAppleHealthBodyFatHistoryExtent } from "@/lib/integrations/appleHealth/diagnoseAppleHealthBodyFatHistoryExtent";
+import {
+  diagnoseAppleHealthBodyFatHistoryExtent,
+} from "@/lib/integrations/appleHealth/diagnoseAppleHealthBodyFatHistoryExtent";
 
 jest.mock("@/lib/integrations/appleHealth/healthKit", () => ({
   pullBodyCompositionSamples: jest.fn(),
@@ -13,27 +15,25 @@ const mockPull = pullBodyCompositionSamples as jest.MockedFunction<
 describe("diagnoseAppleHealthBodyFatHistoryExtent", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockPull.mockResolvedValue({
-      ok: true,
-      data: [
-        {
-          observedAt: "2023-06-15T10:00:00.000Z",
-          bodyFatPercent: 17.5,
-        } as never,
-      ],
-    });
   });
 
   it("emits privacy-safe extent metadata without Body Fat values", async () => {
+    mockPull.mockImplementation(async (opts) => {
+      if (opts.ascending && opts.limit === 1) {
+        return {
+          ok: true,
+          data: [{ observedAt: "2017-06-10T10:00:00.000Z", bodyFatPercent: 17.5 } as never],
+        };
+      }
+      return { ok: true, data: [] };
+    });
     const spy = jest.spyOn(console, "info").mockImplementation(() => undefined);
     const diag = await diagnoseAppleHealthBodyFatHistoryExtent({
       nowIso: "2026-01-15T00:00:00.000Z",
-      years: 1,
-      chunkDays: 200,
     });
     expect(diag.metric).toBe("bodyFat");
     expect(diag.status).toBe("ok");
-    expect(diag.oldestObservedAt).toBe("2023-06-15T10:00:00.000Z");
+    expect(diag.oldestObservedAt).toBe("2017-06-10T10:00:00.000Z");
     expect(diag.sampleCountBucket).toMatch(/^[0-9+-]+$/);
     expect(JSON.stringify(diag)).not.toMatch(/17\.5|bodyFatPercent|uid|email|token/i);
     expect(spy).toHaveBeenCalledWith(
