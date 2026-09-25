@@ -1,6 +1,8 @@
 /**
  * Stage 3C — Body Fat complete Apple Health history policy
  *
+ * Physical runtime SHA (full Stage 3C PASS): e4a23a552910f28241b10b25ae84b46529dab891
+ *
  * Leadership decision (physical evidence Sep 25, 2026):
  *
  * - Apple Health “All Recorded Data” shows Body Fat from **2017-06-10**

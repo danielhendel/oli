@@ -1,13 +1,13 @@
 # Repo-Truth Progress Map
 
 **Status:** Current operational truth (subordinate to code + CI)
-**Last verified:** 2026-09-20
+**Last verified:** 2026-09-25
 **Merged `main` SHA:** `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
 **Prior Stage 1A truth freeze (historical):** Merged (PR #209) at `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e`
 **Audit baseline SHA (historical):** `d43ae878373534dbb4cef84c4958221ace826792`
-**Current execution-stage label:** `Stage 3C — Asymmetric Body References` (**LEADERSHIP APPROVED — PHYSICAL RETEST REQUIRED**). Physical runtime lineage `ebecd45…` (+ leadership finalize). Prior physical candidate `050d338e…` **SUPERSEDED**. Stage 3B **MERGED** (PR #220). Stage 3A docs **MERGED** (PR #219). Stage 3D **NOT BEGUN**.
+**Current execution-stage label:** `Stage 3C — Body Composition Standards and Trend Details` (**implementation COMPLETE**; **independent merge gate PENDING**). Physical runtime SHA `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**). Prior physical candidates `050d338e…` / `ebecd45…` **SUPERSEDED**. Stage 3B **MERGED** (PR #220). Stage 3A docs **MERGED** (PR #219). Stage 3D **NOT BEGUN**. Stage 3E Body Scans **NOT BEGUN**.
 **Stage 1B:** **MERGED** (PR #214 at `3d4859e45d537813b6846ecaf4cb49222519ef80`)
 **Stage 1C:** **MERGED** (PR #215 at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`)
 **Build hygiene:** **MERGED** (PR #216 at `8027c1c1d3b1a97a408c237d9a6655174a05aa0e`)
@@ -20,7 +20,9 @@
 **Stage 3B branch (historical):** `feat/body-composition-stage3b-value-first-shell`
 **Stage 3B physical runtime SHA:** `c962d36ef947e67e03092df9ed8207de17aef9de` (**PASS**; ancestor of `main`)
 **Stage 3C branch:** `feat/body-composition-stage3c-standards-graphs-v1`
+**Stage 3C physical runtime SHA:** `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**; on branch; not yet on `main`)
 **Stage 3D:** **NOT BEGUN**
+**Stage 3E Body Scans:** **NOT BEGUN**
 
 > **Rule:** If this map conflicts with merged code or CI, **code and CI win**. Update this map; do not invent product truth from docs alone.
 
@@ -42,7 +44,7 @@
 >
 > **Stage 3B status:** **MERGED** (PR [#220](https://github.com/danielhendel/oli/pull/220) at `0124c641f119150c7ed105cef8fd0b8f7d19cd8d`). Physical runtime SHA `c962d36ef947e67e03092df9ed8207de17aef9de` **PASS** (product leadership 2026-09-20; ancestor of `main`). Weight CDC/WHO adult BMI screening **IMPLEMENTED** — Weight remains the **only** classified Body metric. Body Fat / Lean Mass **unclassified** at Stage 3C start (presentation + compatible derivations only). Metric-specific Apple Health popups + local `appleHealth:metricSyncScopes:{uid}` preference **IMPLEMENTED**. Backend/Firestore schema **unchanged**. Release gates remain **OPEN**.
 >
-> **Stage 3C status:** **ASYMMETRIC V1 LEADERSHIP-APPROVED** on branch `feat/body-composition-stage3c-standards-graphs-v1`. Prior physical candidate `050d338e62749d7920988900f25d61b847fdbad4` **SUPERSEDED**. Landing IA **APPROVED**: Total Mass → Weight; Components → Body Fat + Lean Mass. Body Fat numerical educational screening ranges **APPROVED FOR STAGE 3C V1** (`gallagher-4c-bmi-equivalent-body-fat-reference` / `2000.1`; Lower / Mid-range / Higher); personal Body Fat placement **BLOCKED**. Lean Mass numerical reference **DEFERRED / BLOCKED** (Kelly Table S5 no pooled non-inferred reference); Stage 3C fallback **COMPOSITION-SHARE VISUALIZATION** **APPROVED**. Visual symmetry does not override scientific truth. Weight remains the **only** approved personal Body classifier. ACE **REJECTED**. Stage 3D **NOT BEGUN**. Physical-iPhone retest **REQUIRED**. No staging/production deploy. No new Firestore standards path.
+> **Stage 3C status:** **implementation COMPLETE**; **independent merge gate PENDING** on branch `feat/body-composition-stage3c-standards-graphs-v1`. Physical runtime SHA `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**, 2026-09-25). Prior physical candidates `050d338e…` / `ebecd45…` **SUPERSEDED**. Landing IA **APPROVED**: Total Mass → Weight; Components → Body Fat + Lean Mass. Body Fat Gallagher educational ranges **APPROVED FOR STAGE 3C V1** (`gallagher-4c-bmi-equivalent-body-fat-reference` / `2000.1`); personal Body Fat classification **BLOCKED**. Lean Mass numerical reference **BLOCKED**; composition-share **APPROVED**. Detail trend pages + display modes (Weight mass/BMI; Body Fat %/fat-mass; Lean Mass mass/%) **COMPLETE** (presentation-only derivations). Complete Body Fat Apple Health history (**5Y** = five years; **All** = all governed history; checkpoint `appleHealth:bodyFatBackfillState:{uid}`). Weight remains the **only** approved personal Body classifier. ACE **REJECTED**. No Body score; no Muscle Mass. Stage 3D **NOT BEGUN**. Stage 3E Body Scans **NOT BEGUN**. No staging/production deploy. No new Firestore standards path. Completion audit: `docs/90_audits/2026-09-25-stage3c-body-composition-standards-graphs-completion.md`.
 
 ---
 

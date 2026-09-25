@@ -11,8 +11,8 @@
 **Schema/persistence authorized:** No
 **Official classification authorized:** No
 **Stage 3B shell authorized:** Yes (value-first shell)
-**Stage 3B runtime:** **COMPLETE on branch** `feat/body-composition-stage3b-value-first-shell` (physical `c962d36ef947e67e03092df9ed8207de17aef9de`, 2026-09-20); Draft PR pending; **not merged**
-**Stage 3C:** **NOT BEGUN**
+**Stage 3B runtime:** **MERGED** (PR #220 at `0124c641…`; physical `c962d36ef947e67e03092df9ed8207de17aef9de`, 2026-09-20)
+**Stage 3C:** **implementation COMPLETE** on `feat/body-composition-stage3c-standards-graphs-v1` (physical `e4a23a552910f28241b10b25ae84b46529dab891` **PASS**, 2026-09-25); **independent merge gate PENDING**; Stage 3D / 3E **NOT BEGUN**
 
 ---
 
