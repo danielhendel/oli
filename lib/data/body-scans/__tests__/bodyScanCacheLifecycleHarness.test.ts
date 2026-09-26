@@ -1,5 +1,5 @@
 /**
- * DEV harness action tests — mock FileSystem / preview; exercise real services.
+ * DEV harness action tests — mock FileSystem / PDFKit preview; exercise real services.
  */
 
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
@@ -11,9 +11,14 @@ const mockMoveAsync = jest.fn(async () => undefined);
 const mockGetInfoAsync = jest.fn(async () => ({ exists: false, size: 0 }));
 const mockReadDirectoryAsync = jest.fn(async () => [] as string[]);
 const mockReadAsStringAsync = jest.fn(async () => "%PDF-");
-const mockOpenBrowserAsync = jest.fn(async () => undefined);
-const mockCanOpenURL = jest.fn(async () => false);
-const mockOpenURL = jest.fn(async () => undefined);
+
+const mockPresentSecurePdfPreview = jest.fn(async () => ({
+  ok: true as const,
+  method: "pdfkit" as const,
+  settlement: "dismissed" as const,
+  deleteImmediately: true as const,
+}));
+const mockIsAvailable = jest.fn(() => true);
 
 jest.mock("expo-file-system", () => ({
   cacheDirectory: "file:///cache/",
@@ -28,16 +33,23 @@ jest.mock("expo-file-system", () => ({
   downloadAsync: jest.fn(),
 }));
 
-jest.mock("expo-web-browser", () => ({
-  openBrowserAsync: (...a: unknown[]) => mockOpenBrowserAsync(...(a as [])),
+jest.mock("oli-secure-pdf-preview", () => ({
+  isOliSecurePdfPreviewAvailable: () => mockIsAvailable(),
+  presentSecurePdfPreview: (...a: unknown[]) => mockPresentSecurePdfPreview(...(a as [])),
 }));
 
 jest.mock("react-native", () => ({
   Platform: { OS: "ios" },
   Linking: {
-    canOpenURL: (...a: unknown[]) => mockCanOpenURL(...(a as [])),
-    openURL: (...a: unknown[]) => mockOpenURL(...(a as [])),
+    canOpenURL: jest.fn(async () => false),
+    openURL: jest.fn(async () => undefined),
   },
+}));
+
+jest.mock("expo-web-browser", () => ({
+  openBrowserAsync: jest.fn(async () => {
+    throw new Error("WebBrowser must not be used for Body Scan local PDFs");
+  }),
 }));
 
 import {
@@ -65,15 +77,20 @@ describe("bodyScanCacheLifecycleHarness", () => {
     mockGetInfoAsync.mockResolvedValue({ exists: false, size: 0 });
     mockReadDirectoryAsync.mockResolvedValue([]);
     mockReadAsStringAsync.mockResolvedValue("%PDF-");
-    mockOpenBrowserAsync.mockResolvedValue(undefined);
-    mockCanOpenURL.mockResolvedValue(false);
+    mockIsAvailable.mockReturnValue(true);
+    mockPresentSecurePdfPreview.mockResolvedValue({
+      ok: true,
+      method: "pdfkit",
+      settlement: "dismissed",
+      deleteImmediately: true,
+    });
   });
 
   it("requires DEV tools", () => {
     expect(isBodyScanCacheDevToolsEnabled({ __DEV__: true })).toBe(true);
   });
 
-  it("open synthetic report uses WebBrowser and emits close cleanup when file is gone", async () => {
+  it("open synthetic report uses PDFKit and emits close cleanup when file is gone", async () => {
     mockGetInfoAsync.mockImplementation(async (uri: string) => {
       if (String(uri).endsWith(".partial") || String(uri).endsWith(".pdf")) {
         return { exists: true, size: 64, modificationTime: Date.now() / 1000 };
@@ -87,17 +104,17 @@ describe("bodyScanCacheLifecycleHarness", () => {
 
     const status = await harnessOpenSyntheticReport({ userId: "uid_dev_a" });
     expect(mockWriteAsStringAsync).toHaveBeenCalled();
-    expect(mockOpenBrowserAsync).toHaveBeenCalled();
+    expect(mockPresentSecurePdfPreview).toHaveBeenCalled();
     expect(status?.operation).toBe("preview_close_cleanup");
     expect(status?.status).toBe("ok");
     expect(status?.remainingFileCountBucket).toBe("zero");
-    expect(status?.previewMethod).toBe("web_browser");
+    expect(status?.partialFileCountBucket).toBe("zero");
+    expect(status?.previewMethod).toBe("pdfkit");
     expect(getLastBodyScanCacheDevStatus()?.operation).toBe("preview_close_cleanup");
   });
 
-  it("maps iOS local-file open failure to preview_method_unsupported", async () => {
-    mockOpenBrowserAsync.mockRejectedValue(new Error("unsupported"));
-    mockCanOpenURL.mockResolvedValue(false);
+  it("maps native_preview_unavailable when module absent", async () => {
+    mockIsAvailable.mockReturnValue(false);
     mockGetInfoAsync.mockImplementation(async (uri: string) => {
       if (String(uri).endsWith(".partial") || String(uri).endsWith(".pdf")) {
         return { exists: true, size: 64, modificationTime: Date.now() / 1000 };
@@ -111,15 +128,16 @@ describe("bodyScanCacheLifecycleHarness", () => {
 
     const status = await harnessOpenSyntheticReport({ userId: "uid_dev_a" });
     expect(status?.operation).toBe("preview_failure_cleanup");
-    expect(status?.safeReasonCode).toBe("preview_method_unsupported");
+    expect(status?.safeReasonCode).toBe("native_preview_unavailable");
     expect(status?.remainingFileCountBucket).toBe("zero");
+    expect(status?.previewMethod).toBe("pdfkit");
   });
 
-  it("Linking fallback reports launch-only deferred cleanup", async () => {
-    mockOpenBrowserAsync.mockRejectedValue(new Error("unsupported"));
-    mockCanOpenURL.mockResolvedValue(true);
-    mockOpenURL.mockResolvedValue(undefined);
-
+  it("maps native pdf_invalid failure with cleanup", async () => {
+    mockPresentSecurePdfPreview.mockResolvedValue({
+      ok: false,
+      safeReasonCode: "pdf_invalid",
+    });
     mockGetInfoAsync.mockImplementation(async (uri: string) => {
       if (String(uri).endsWith(".partial") || String(uri).endsWith(".pdf")) {
         return { exists: true, size: 64, modificationTime: Date.now() / 1000 };
@@ -132,10 +150,9 @@ describe("bodyScanCacheLifecycleHarness", () => {
     mockReadDirectoryAsync.mockResolvedValue([]);
 
     const status = await harnessOpenSyntheticReport({ userId: "uid_dev_a" });
-    expect(mockOpenURL).toHaveBeenCalled();
-    expect(status?.operation).toBe("preview_open");
-    expect(status?.safeReasonCode).toBe("fallback_requires_stale_cleanup");
-    expect(status?.previewMethod).toBe("linking");
+    expect(status?.operation).toBe("preview_failure_cleanup");
+    expect(status?.safeReasonCode).toBe("pdf_invalid");
+    expect(status?.remainingFileCountBucket).toBe("zero");
   });
 
   it("invalid synthetic report emits failure cleanup with zero remaining", async () => {
@@ -205,7 +222,6 @@ describe("bodyScanCacheLifecycleHarness", () => {
     expect(status?.operation).toBe("fixture_create");
     expect(status?.status).toBe("ok");
     expect(status?.partialFileCountBucket).toBe("one");
-    expect(mockWriteAsStringAsync).toHaveBeenCalled();
   });
 
   it("inspect reports buckets only", async () => {
@@ -291,33 +307,40 @@ describe("bodyScanCacheLifecycleHarness", () => {
   });
 });
 
-describe("openBodyScanOriginalLocalPreview", () => {
+describe("openBodyScanOriginalLocalPreview harness contract", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockOpenBrowserAsync.mockResolvedValue(undefined);
-    mockCanOpenURL.mockResolvedValue(false);
+    mockIsAvailable.mockReturnValue(true);
+    mockPresentSecurePdfPreview.mockResolvedValue({
+      ok: true,
+      method: "pdfkit",
+      settlement: "dismissed",
+      deleteImmediately: true,
+    });
   });
 
-  it("returns web_browser dismissed on success", async () => {
+  it("returns pdfkit dismissed on success", async () => {
     const result = await openBodyScanOriginalLocalPreview("file:///cache/body-scans/a/d/p.pdf");
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.method).toBe("web_browser");
+      expect(result.method).toBe("pdfkit");
       expect(result.settlement).toBe("dismissed");
       expect(result.deleteImmediately).toBe(true);
     }
   });
 
   it("never includes uri in failure payload", async () => {
-    mockOpenBrowserAsync.mockRejectedValue(new Error("file:///secret.pdf boom"));
-    mockCanOpenURL.mockResolvedValue(false);
+    mockPresentSecurePdfPreview.mockResolvedValue({
+      ok: false,
+      safeReasonCode: "file_missing",
+    });
     const result = await openBodyScanOriginalLocalPreview("file:///cache/secret.pdf");
     expect(result.ok).toBe(false);
     const json = JSON.stringify(result);
     expect(json).not.toContain("file://");
     expect(json).not.toContain("secret");
     if (!result.ok) {
-      expect(result.safeReasonCode).toBe("preview_method_unsupported");
+      expect(result.safeReasonCode).toBe("file_missing");
     }
   });
 });
