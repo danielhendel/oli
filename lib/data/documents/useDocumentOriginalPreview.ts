@@ -24,7 +24,10 @@ import {
   downloadBodyScanOriginalToProtectedCache,
   sweepStaleBodyScanOriginalCaches,
 } from "@/lib/data/body-scans/bodyScanOriginalCache";
-import { openBodyScanOriginalLocalPreview } from "@/lib/data/body-scans/openBodyScanOriginalLocalPreview";
+import {
+  openBodyScanOriginalLocalPreview,
+  type BodyScanLocalPreviewSafeReason,
+} from "@/lib/data/body-scans/openBodyScanOriginalLocalPreview";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import {
   documentOriginalPreviewMessage,
@@ -37,11 +40,35 @@ export type DocumentOriginalPreviewState = {
   message: string | null;
 };
 
+function mapPreviewOpenSafeReason(
+  code: BodyScanLocalPreviewSafeReason | undefined,
+):
+  | "open_failed"
+  | "local_pdf_invalid"
+  | "preview_method_unsupported"
+  | "web_browser_open_failed"
+  | "linking_open_failed"
+  | "system_preview_open_failed"
+  | "unknown_open_failure" {
+  switch (code) {
+    case "local_pdf_invalid":
+    case "preview_method_unsupported":
+    case "web_browser_open_failed":
+    case "linking_open_failed":
+    case "system_preview_open_failed":
+    case "unknown_open_failure":
+      return code;
+    default:
+      return "open_failed";
+  }
+}
+
 export function useDocumentOriginalPreview(documentId: string | null) {
   const { user, getIdToken } = useAuth();
   const [state, setState] = useState<DocumentOriginalPreviewState>({ busy: false, message: null });
   const lastLocalUriRef = useRef<string | null>(null);
   const lastDeleteImmediatelyRef = useRef(true);
+  const lastOpenSafeReasonRef = useRef<BodyScanLocalPreviewSafeReason | undefined>(undefined);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -61,6 +88,7 @@ export function useDocumentOriginalPreview(documentId: string | null) {
 
     const userId = user.uid;
     lastDeleteImmediatelyRef.current = true;
+    lastOpenSafeReasonRef.current = undefined;
     const outcome = await openDocumentOriginal({
       requestGrant: async () => {
         const token = await getIdToken(false);
@@ -84,7 +112,11 @@ export function useDocumentOriginalPreview(documentId: string | null) {
       openLocal: async (localUri) => {
         const result = await openBodyScanOriginalLocalPreview(localUri);
         lastDeleteImmediatelyRef.current = result.deleteImmediately;
-        return result;
+        lastOpenSafeReasonRef.current = result.ok ? undefined : result.safeReasonCode;
+        return {
+          opened: result.opened,
+          deleteImmediately: result.deleteImmediately,
+        };
       },
       deleteLocal: async (localUri) => {
         await deleteCachedBodyScanOriginal(localUri);
@@ -113,7 +145,7 @@ export function useDocumentOriginalPreview(documentId: string | null) {
         remainingFileCountBucket: countToDevBucket(inv.remainingFiles),
         removedFileCountBucket: "unknown",
         partialFileCountBucket: countToPartialBucket(inv.partialFiles),
-        safeReasonCode: "open_failed",
+        safeReasonCode: mapPreviewOpenSafeReason(lastOpenSafeReasonRef.current),
       });
     } else if (outcome.status === "opened") {
       const inv = await countBodyScanCacheInventory({ userId, documentId });

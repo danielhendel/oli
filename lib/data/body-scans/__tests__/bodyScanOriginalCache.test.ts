@@ -252,13 +252,36 @@ describe("bodyScanOriginalCache stale sweep", () => {
       .mockResolvedValueOnce(["stale.pdf", "fresh.pdf", "orphan.partial", "weird.bin"])
       .mockResolvedValueOnce(["fresh.pdf"]); // remaining after deletes
 
-    const status = await sweepStaleBodyScanOriginalCaches({ now: () => now });
+    const status = await sweepStaleBodyScanOriginalCaches({ nowMs: now });
     expect(status.ok).toBe(true);
     const deleted = mockDeleteAsync.mock.calls.map((c) => String(c[0]));
     expect(deleted.some((u) => u.endsWith("stale.pdf"))).toBe(true);
     expect(deleted.some((u) => u.endsWith("orphan.partial"))).toBe(true);
     expect(deleted.some((u) => u.endsWith("weird.bin"))).toBe(true);
     expect(deleted.some((u) => u.endsWith("fresh.pdf"))).toBe(false);
+  });
+
+  it("accepts injected nowMs so harness can advance the comparison clock", async () => {
+    const fileModSeconds = Date.now() / 1000;
+    mockGetInfoAsync.mockImplementation(async (uri: string) => {
+      if (uri === "file:///cache/body-scans/") return { exists: true, isDirectory: true };
+      if (String(uri).endsWith(".pdf")) {
+        return { exists: true, size: 10, modificationTime: fileModSeconds };
+      }
+      return { exists: true, isDirectory: true, size: 0 };
+    });
+    mockReadDirectoryAsync
+      .mockResolvedValueOnce(["ascope"])
+      .mockResolvedValueOnce(["doc1"])
+      .mockResolvedValueOnce(["fresh_looking.pdf"])
+      .mockResolvedValueOnce([]);
+
+    const futureNow = Date.now() + BODY_SCAN_ORIGINAL_CACHE_MAX_AGE_MS + 60_000;
+    const status = await sweepStaleBodyScanOriginalCaches({ nowMs: futureNow });
+    expect(status.ok).toBe(true);
+    expect(mockDeleteAsync.mock.calls.some((c) => String(c[0]).endsWith("fresh_looking.pdf"))).toBe(
+      true,
+    );
   });
 
   it("formats safe cleanup status without paths or ids", () => {

@@ -14,7 +14,6 @@ import {
   clearBodyScanCacheDevStatus,
   getLastBodyScanCacheDevStatus,
   isBodyScanCacheDevToolsEnabled,
-  serializeBodyScanCacheDevStatus,
   subscribeBodyScanCacheDevStatus,
   type BodyScanCacheDevStatus,
 } from "@/lib/data/body-scans/bodyScanCacheDevStatus";
@@ -25,6 +24,7 @@ import {
   harnessCreateCurrentAccountTestCache,
   harnessCreateInvalidSyntheticReport,
   harnessCreateStaleSyntheticPdf,
+  harnessInspectBodyScanTestCache,
   harnessOpenSyntheticReport,
   harnessRunStaleSweep,
   harnessSimulatePostDeleteLocalCleanup,
@@ -35,6 +35,7 @@ type ActionId =
   | "invalid"
   | "stale"
   | "partial"
+  | "inspect"
   | "sweep"
   | "accountCache"
   | "postDelete"
@@ -107,6 +108,13 @@ export default function BodyScanCacheTestScreen() {
         testID="harness-partial"
       />
       <Action
+        label="Inspect Body Scan test cache"
+        busy={busy === "inspect"}
+        disabled={busy != null}
+        onPress={() => void run("inspect", () => harnessInspectBodyScanTestCache(uid ? { userId: uid } : {}))}
+        testID="harness-inspect"
+      />
+      <Action
         label="Run stale sweep"
         busy={busy === "sweep"}
         disabled={busy != null}
@@ -144,12 +152,20 @@ export default function BodyScanCacheTestScreen() {
 
       <View style={styles.statusCard} testID="harness-status">
         <Text style={styles.statusTitle}>Safe status</Text>
-        <Text style={styles.statusBody} selectable>
-          {status ? serializeBodyScanCacheDevStatus(status) : "No status yet"}
-        </Text>
         {status ? (
-          <Text style={styles.meta}>observedAtMs: {status.observedAtMs}</Text>
-        ) : null}
+          <View style={styles.statusRows}>
+            <StatusRow label="operation" value={status.operation} />
+            <StatusRow label="status" value={status.status} />
+            <StatusRow label="remaining" value={status.remainingFileCountBucket} />
+            <StatusRow label="removed" value={status.removedFileCountBucket} />
+            <StatusRow label="partial" value={status.partialFileCountBucket} />
+            <StatusRow label="reason" value={status.safeReasonCode ?? "—"} />
+            <StatusRow label="previewMethod" value={status.previewMethod ?? "—"} />
+            <StatusRow label="observedAtMs" value={String(status.observedAtMs)} />
+          </View>
+        ) : (
+          <Text style={styles.statusBody}>No status yet</Text>
+        )}
         <Pressable
           onPress={() => {
             clearBodyScanCacheDevStatus();
@@ -162,6 +178,17 @@ export default function BodyScanCacheTestScreen() {
         </Pressable>
       </View>
     </ScrollView>
+  );
+}
+
+function StatusRow(props: { label: string; value: string }) {
+  return (
+    <View style={styles.statusRow}>
+      <Text style={styles.statusLabel}>{props.label}</Text>
+      <Text style={styles.statusValue} selectable>
+        {props.value}
+      </Text>
+    </View>
   );
 }
 
@@ -210,7 +237,10 @@ const styles = StyleSheet.create({
   },
   statusTitle: { fontWeight: "700", fontSize: 14 },
   statusBody: { fontFamily: "Menlo", fontSize: 11 },
-  meta: { fontSize: 11, color: "#666" },
+  statusRows: { gap: 4 },
+  statusRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+  statusLabel: { fontSize: 12, color: "#666", fontWeight: "600" },
+  statusValue: { fontSize: 12, fontFamily: "Menlo", flexShrink: 1, textAlign: "right" },
   clearStatus: { paddingVertical: 8 },
   clearStatusLabel: { fontSize: 14, fontWeight: "600", color: "#007AFF" },
 });

@@ -13,7 +13,9 @@ export type BodyScanCacheDevOperation =
   | "preview_failure_cleanup"
   | "stale_sweep"
   | "account_cleanup"
-  | "document_cleanup";
+  | "document_cleanup"
+  | "fixture_create"
+  | "cache_inspect";
 
 export type BodyScanCacheDevStatusValue = "started" | "ok" | "failed";
 
@@ -31,9 +33,24 @@ export type BodyScanCacheDevSafeReason =
   | "invalid_pdf_rejected"
   | "download_or_materialize_failed"
   | "open_failed"
+  | "local_pdf_invalid"
+  | "preview_method_unsupported"
+  | "web_browser_open_failed"
+  | "linking_open_failed"
+  | "system_preview_open_failed"
+  | "unknown_open_failure"
+  | "fixture_create_failed"
+  | "fixture_missing_before_sweep"
+  | "removed_count_zero_unexpected"
   | "cleanup_failed"
   | "not_dev"
   | "no_auth";
+
+export type BodyScanCacheDevPreviewMethod =
+  | "web_browser"
+  | "linking"
+  | "system_preview"
+  | "existing_secure_viewer";
 
 export type BodyScanCacheDevStatus = {
   readonly operation: BodyScanCacheDevOperation;
@@ -42,6 +59,7 @@ export type BodyScanCacheDevStatus = {
   readonly removedFileCountBucket: BodyScanCacheDevCountBucket;
   readonly partialFileCountBucket: BodyScanCacheDevPartialBucket;
   readonly safeReasonCode?: BodyScanCacheDevSafeReason;
+  readonly previewMethod?: BodyScanCacheDevPreviewMethod;
   readonly observedAtMs: number;
 };
 
@@ -52,6 +70,8 @@ const ALLOWED_OPERATIONS = new Set<string>([
   "stale_sweep",
   "account_cleanup",
   "document_cleanup",
+  "fixture_create",
+  "cache_inspect",
 ]);
 
 const ALLOWED_STATUSES = new Set<string>(["started", "ok", "failed"]);
@@ -62,9 +82,24 @@ const ALLOWED_REASONS = new Set<string>([
   "invalid_pdf_rejected",
   "download_or_materialize_failed",
   "open_failed",
+  "local_pdf_invalid",
+  "preview_method_unsupported",
+  "web_browser_open_failed",
+  "linking_open_failed",
+  "system_preview_open_failed",
+  "unknown_open_failure",
+  "fixture_create_failed",
+  "fixture_missing_before_sweep",
+  "removed_count_zero_unexpected",
   "cleanup_failed",
   "not_dev",
   "no_auth",
+]);
+const ALLOWED_PREVIEW_METHODS = new Set<string>([
+  "web_browser",
+  "linking",
+  "system_preview",
+  "existing_secure_viewer",
 ]);
 
 export function isBodyScanCacheDevToolsEnabled(
@@ -135,6 +170,11 @@ export function sanitizeBodyScanCacheDevStatus(
     typeof reasonRaw === "string" && ALLOWED_REASONS.has(reasonRaw)
       ? (reasonRaw as BodyScanCacheDevSafeReason)
       : undefined;
+  const methodRaw = input.previewMethod;
+  const previewMethod =
+    typeof methodRaw === "string" && ALLOWED_PREVIEW_METHODS.has(methodRaw)
+      ? (methodRaw as BodyScanCacheDevPreviewMethod)
+      : undefined;
 
   const base: BodyScanCacheDevStatus = {
     operation,
@@ -144,7 +184,11 @@ export function sanitizeBodyScanCacheDevStatus(
     partialFileCountBucket,
     observedAtMs: now(),
   };
-  return safeReasonCode != null ? { ...base, safeReasonCode } : base;
+  return {
+    ...base,
+    ...(safeReasonCode != null ? { safeReasonCode } : {}),
+    ...(previewMethod != null ? { previewMethod } : {}),
+  };
 }
 
 export function serializeBodyScanCacheDevStatus(status: BodyScanCacheDevStatus): string {
@@ -156,6 +200,7 @@ export function serializeBodyScanCacheDevStatus(status: BodyScanCacheDevStatus):
     removedFileCountBucket: safe.removedFileCountBucket,
     partialFileCountBucket: safe.partialFileCountBucket,
     ...(safe.safeReasonCode != null ? { safeReasonCode: safe.safeReasonCode } : {}),
+    ...(safe.previewMethod != null ? { previewMethod: safe.previewMethod } : {}),
   });
 }
 

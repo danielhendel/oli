@@ -354,6 +354,9 @@ export async function clearAllBodyScanOriginalCaches(): Promise<BodyScanOriginal
 }
 
 type SweepDeps = {
+  /** Preferred injectable clock (epoch ms). Production default: Date.now(). */
+  nowMs?: number;
+  /** @deprecated Prefer nowMs — retained for existing call sites/tests. */
   now?: () => number;
   maxAgeMs?: number;
 };
@@ -361,13 +364,19 @@ type SweepDeps = {
 /**
  * Bounded stale sweep over the dedicated Body Scan cache root only.
  * Never touches unrelated app cache.
+ *
+ * Optional `nowMs` advances the comparison clock without changing the device clock
+ * (required for DEV harness stale fixtures when FS mtime cannot be backdated).
  */
 export async function sweepStaleBodyScanOriginalCaches(
   deps: SweepDeps = {},
 ): Promise<BodyScanOriginalCacheCleanupStatus> {
   const root = getBodyScanOriginalCacheRootUri();
   if (!root) return { ok: false, reasonCode: "NO_CACHE_DIR" };
-  const now = (deps.now ?? Date.now)();
+  const now =
+    typeof deps.nowMs === "number" && Number.isFinite(deps.nowMs)
+      ? deps.nowMs
+      : (deps.now ?? Date.now)();
   const maxAgeMs = deps.maxAgeMs ?? BODY_SCAN_ORIGINAL_CACHE_MAX_AGE_MS;
   let deleted = 0;
 

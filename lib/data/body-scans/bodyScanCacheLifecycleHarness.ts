@@ -14,6 +14,7 @@ import {
   emitBodyScanCacheDevStatus,
   isBodyScanCacheDevToolsEnabled,
   mapLegacyDeletedBucket,
+  type BodyScanCacheDevSafeReason,
   type BodyScanCacheDevStatus,
 } from "@/lib/data/body-scans/bodyScanCacheDevStatus";
 import {
@@ -43,6 +44,8 @@ async function inventoryBuckets(userId?: string, documentId?: string) {
     ...(documentId != null ? { documentId } : {}),
   });
   return {
+    remainingFiles: counts.remainingFiles,
+    partialFiles: counts.partialFiles,
     remainingFileCountBucket: countToDevBucket(counts.remainingFiles),
     partialFileCountBucket: countToPartialBucket(counts.partialFiles),
   };
@@ -58,6 +61,27 @@ function notDevStatus(): BodyScanCacheDevStatus {
     safeReasonCode: "not_dev",
     observedAtMs: Date.now(),
   };
+}
+
+function mapPreviewFailureReason(
+  code: string | undefined,
+): BodyScanCacheDevSafeReason {
+  switch (code) {
+    case "local_pdf_invalid":
+      return "local_pdf_invalid";
+    case "preview_method_unsupported":
+      return "preview_method_unsupported";
+    case "web_browser_open_failed":
+      return "web_browser_open_failed";
+    case "linking_open_failed":
+      return "linking_open_failed";
+    case "system_preview_open_failed":
+      return "system_preview_open_failed";
+    case "unknown_open_failure":
+      return "unknown_open_failure";
+    default:
+      return "open_failed";
+  }
 }
 
 export async function harnessOpenSyntheticReport(args: {
@@ -78,6 +102,9 @@ export async function harnessOpenSyntheticReport(args: {
   const bytes = buildSyntheticBodyScanCachePdfBytes();
   const bytesBase64 = uint8ToBase64(bytes);
   let localUri: string | null = null;
+  let lastPreviewReason: string | undefined;
+  let lastPreviewMethod: BodyScanCacheDevStatus["previewMethod"];
+  let lastDeleteImmediately = true;
 
   const outcome = await openDocumentOriginal({
     requestGrant: async () => ({
@@ -99,7 +126,21 @@ export async function harnessOpenSyntheticReport(args: {
       localUri = materialized.localUri;
       return { ok: true, localUri: materialized.localUri };
     },
-    openLocal: openBodyScanOriginalLocalPreview,
+    openLocal: async (uri) => {
+      const result = await openBodyScanOriginalLocalPreview(uri);
+      if (result.ok) {
+        lastPreviewMethod = result.method;
+        lastDeleteImmediately = result.deleteImmediately;
+        return {
+          opened: true,
+          deleteImmediately: result.deleteImmediately,
+        };
+      }
+      lastPreviewReason = result.safeReasonCode;
+      lastPreviewMethod = result.attemptedMethod;
+      lastDeleteImmediately = true;
+      return { opened: false, deleteImmediately: true };
+    },
     deleteLocal: async (uri) => {
       await deleteCachedBodyScanOriginal(uri);
     },
@@ -125,12 +166,27 @@ export async function harnessOpenSyntheticReport(args: {
       remainingFileCountBucket: inv.remainingFileCountBucket,
       removedFileCountBucket: "unknown",
       partialFileCountBucket: inv.partialFileCountBucket,
-      safeReasonCode: "open_failed",
+      safeReasonCode: mapPreviewFailureReason(lastPreviewReason),
+      ...(lastPreviewMethod != null ? { previewMethod: lastPreviewMethod } : {}),
     });
   }
 
-  // After openDocumentOriginal returns: if deleteImmediately ran, file should be gone.
   const inv = await inventoryBuckets(args.userId, SYNTHETIC_BODY_SCAN_CACHE_DOCUMENT_ID);
+
+  // Launch-only APIs must never claim close-cleanup success.
+  if (!lastDeleteImmediately) {
+    void localUri;
+    return emitBodyScanCacheDevStatus({
+      operation: "preview_open",
+      status: "ok",
+      remainingFileCountBucket: inv.remainingFileCountBucket,
+      removedFileCountBucket: "zero",
+      partialFileCountBucket: inv.partialFileCountBucket,
+      safeReasonCode: "fallback_requires_stale_cleanup",
+      ...(lastPreviewMethod != null ? { previewMethod: lastPreviewMethod } : {}),
+    });
+  }
+
   if (inv.remainingFileCountBucket === "zero" && inv.partialFileCountBucket === "zero") {
     return emitBodyScanCacheDevStatus({
       operation: "preview_close_cleanup",
@@ -138,10 +194,10 @@ export async function harnessOpenSyntheticReport(args: {
       remainingFileCountBucket: "zero",
       removedFileCountBucket: "one",
       partialFileCountBucket: "zero",
+      ...(lastPreviewMethod != null ? { previewMethod: lastPreviewMethod } : {}),
     });
   }
 
-  // Linking fallback left the file — do not claim close cleanup.
   void localUri;
   return emitBodyScanCacheDevStatus({
     operation: "preview_open",
@@ -150,6 +206,7 @@ export async function harnessOpenSyntheticReport(args: {
     removedFileCountBucket: "zero",
     partialFileCountBucket: inv.partialFileCountBucket,
     safeReasonCode: "fallback_requires_stale_cleanup",
+    ...(lastPreviewMethod != null ? { previewMethod: lastPreviewMethod } : {}),
   });
 }
 
@@ -169,7 +226,10 @@ export async function harnessCreateInvalidSyntheticReport(args: {
   const after = await inventoryBuckets(args.userId, SYNTHETIC_BODY_SCAN_CACHE_DOCUMENT_ID);
   return emitBodyScanCacheDevStatus({
     operation: "preview_failure_cleanup",
-    status: after.remainingFileCountBucket === "zero" && after.partialFileCountBucket === "zero" ? "ok" : "failed",
+    status:
+      after.remainingFileCountBucket === "zero" && after.partialFileCountBucket === "zero"
+        ? "ok"
+        : "failed",
     remainingFileCountBucket: after.remainingFileCountBucket,
     removedFileCountBucket: "unknown",
     partialFileCountBucket: after.partialFileCountBucket,
@@ -181,20 +241,48 @@ export async function harnessCreateStaleSyntheticPdf(args: {
   userId: string;
 }): Promise<BodyScanCacheDevStatus | null> {
   if (!isBodyScanCacheDevToolsEnabled()) return notDevStatus();
+  const before = await inventoryBuckets(args.userId);
   const bytesBase64 = uint8ToBase64(buildSyntheticBodyScanCachePdfBytes());
-  await materializeBodyScanOriginalFromBytes({
+  const materialized = await materializeBodyScanOriginalFromBytes({
     userId: args.userId,
     documentId: `${SYNTHETIC_BODY_SCAN_CACHE_DOCUMENT_ID}_stale`,
     bytesBase64,
     previewNonce: `pstale${Date.now().toString(36)}`,
   });
-  const inv = await inventoryBuckets(args.userId);
+  const after = await inventoryBuckets(args.userId);
+  const created =
+    materialized.ok &&
+    after.remainingFiles >= before.remainingFiles + 1 &&
+    after.remainingFiles >= 1;
+
+  // Verify the final PDF actually exists (not merely that write returned).
+  let verified = false;
+  if (materialized.ok) {
+    try {
+      const info = await FileSystem.getInfoAsync(materialized.localUri);
+      verified = info.exists === true;
+    } catch {
+      verified = false;
+    }
+  }
+
+  if (!created || !verified) {
+    return emitBodyScanCacheDevStatus({
+      operation: "fixture_create",
+      status: "failed",
+      remainingFileCountBucket: after.remainingFileCountBucket,
+      removedFileCountBucket: "zero",
+      partialFileCountBucket: after.partialFileCountBucket,
+      safeReasonCode: "fixture_create_failed",
+    });
+  }
+
   return emitBodyScanCacheDevStatus({
-    operation: "preview_open",
+    operation: "fixture_create",
     status: "ok",
-    remainingFileCountBucket: inv.remainingFileCountBucket,
+    remainingFileCountBucket: after.remainingFileCountBucket,
     removedFileCountBucket: "zero",
-    partialFileCountBucket: inv.partialFileCountBucket,
+    partialFileCountBucket: after.partialFileCountBucket,
   });
 }
 
@@ -202,18 +290,71 @@ export async function harnessCreateAbandonedPartial(args: {
   userId: string;
 }): Promise<BodyScanCacheDevStatus | null> {
   if (!isBodyScanCacheDevToolsEnabled()) return notDevStatus();
+  const before = await inventoryBuckets(args.userId);
   const paths = createBodyScanOriginalPreviewPaths({
     userId: args.userId,
     documentId: `${SYNTHETIC_BODY_SCAN_CACHE_DOCUMENT_ID}_partial`,
     previewNonce: `ppart${Date.now().toString(36)}`,
   });
-  await FileSystem.makeDirectoryAsync(paths.directoryUri, { intermediates: true });
-  await FileSystem.writeAsStringAsync(paths.partialUri, "abandoned", {
-    encoding: FileSystem.EncodingType.UTF8,
-  });
-  const inv = await inventoryBuckets(args.userId);
+  try {
+    await FileSystem.makeDirectoryAsync(paths.directoryUri, { intermediates: true });
+    await FileSystem.writeAsStringAsync(paths.partialUri, "abandoned", {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+  } catch {
+    const afterFail = await inventoryBuckets(args.userId);
+    return emitBodyScanCacheDevStatus({
+      operation: "fixture_create",
+      status: "failed",
+      remainingFileCountBucket: afterFail.remainingFileCountBucket,
+      removedFileCountBucket: "zero",
+      partialFileCountBucket: afterFail.partialFileCountBucket,
+      safeReasonCode: "fixture_create_failed",
+    });
+  }
+
+  let verified = false;
+  try {
+    const info = await FileSystem.getInfoAsync(paths.partialUri);
+    verified = info.exists === true;
+  } catch {
+    verified = false;
+  }
+
+  const after = await inventoryBuckets(args.userId);
+  const created =
+    verified &&
+    after.partialFiles >= before.partialFiles + 1 &&
+    after.remainingFiles >= before.remainingFiles + 1;
+
+  if (!created) {
+    return emitBodyScanCacheDevStatus({
+      operation: "fixture_create",
+      status: "failed",
+      remainingFileCountBucket: after.remainingFileCountBucket,
+      removedFileCountBucket: "zero",
+      partialFileCountBucket: after.partialFileCountBucket,
+      safeReasonCode: "fixture_create_failed",
+    });
+  }
+
   return emitBodyScanCacheDevStatus({
-    operation: "preview_open",
+    operation: "fixture_create",
+    status: "ok",
+    remainingFileCountBucket: after.remainingFileCountBucket,
+    removedFileCountBucket: "zero",
+    partialFileCountBucket: after.partialFileCountBucket,
+  });
+}
+
+/** Safe DEV-only inventory probe — buckets only, never paths/IDs. */
+export async function harnessInspectBodyScanTestCache(args?: {
+  userId?: string;
+}): Promise<BodyScanCacheDevStatus | null> {
+  if (!isBodyScanCacheDevToolsEnabled()) return notDevStatus();
+  const inv = await inventoryBuckets(args?.userId);
+  return emitBodyScanCacheDevStatus({
+    operation: "cache_inspect",
     status: "ok",
     remainingFileCountBucket: inv.remainingFileCountBucket,
     removedFileCountBucket: "zero",
@@ -222,26 +363,68 @@ export async function harnessCreateAbandonedPartial(args: {
 }
 
 /**
- * Runs the real stale sweep. Uses a future "now" so freshly created harness files
- * appear past BODY_SCAN_ORIGINAL_CACHE_MAX_AGE_MS (device FS may not support backdating).
+ * Runs the real stale sweep. Advances the comparison clock via `nowMs` so freshly
+ * created harness PDFs classify as stale (device FS may not support backdating mtime).
+ * Abandoned `.partial` files are removed regardless of age (production policy).
+ *
+ * Fails the harness action when no files were present to remove, or when the sweep
+ * reports a zero removed bucket despite a non-zero pre-sweep inventory.
  */
 export async function harnessRunStaleSweep(): Promise<BodyScanCacheDevStatus | null> {
   if (!isBodyScanCacheDevToolsEnabled()) return notDevStatus();
   const before = await countBodyScanCacheInventory();
+  if (before.remainingFiles === 0) {
+    return emitBodyScanCacheDevStatus({
+      operation: "stale_sweep",
+      status: "failed",
+      remainingFileCountBucket: "zero",
+      removedFileCountBucket: "zero",
+      partialFileCountBucket: "zero",
+      safeReasonCode: "fixture_missing_before_sweep",
+    });
+  }
+
   const result = await sweepStaleBodyScanOriginalCaches({
-    now: () => Date.now() + BODY_SCAN_ORIGINAL_CACHE_MAX_AGE_MS + 60_000,
+    nowMs: Date.now() + BODY_SCAN_ORIGINAL_CACHE_MAX_AGE_MS + 60_000,
   });
   const after = await countBodyScanCacheInventory();
-  const removed = Math.max(0, before.remainingFiles - after.remainingFiles);
+  const removedByInventory = Math.max(0, before.remainingFiles - after.remainingFiles);
+  // Prefer actual inventory delta (counts files, not directories).
+  const removedBucket = countToDevBucket(removedByInventory);
+  const sweepOk = result.ok === true;
+  const removedNonZero = removedByInventory > 0;
+  const remainingClear = after.remainingFiles === 0 && after.partialFiles === 0;
+
+  if (!sweepOk) {
+    return emitBodyScanCacheDevStatus({
+      operation: "stale_sweep",
+      status: "failed",
+      remainingFileCountBucket: countToDevBucket(after.remainingFiles),
+      removedFileCountBucket: removedBucket,
+      partialFileCountBucket: countToPartialBucket(after.partialFiles),
+      safeReasonCode: "cleanup_failed",
+    });
+  }
+
+  if (!removedNonZero) {
+    return emitBodyScanCacheDevStatus({
+      operation: "stale_sweep",
+      status: "failed",
+      remainingFileCountBucket: countToDevBucket(after.remainingFiles),
+      removedFileCountBucket: "zero",
+      partialFileCountBucket: countToPartialBucket(after.partialFiles),
+      safeReasonCode: "removed_count_zero_unexpected",
+    });
+  }
+
   return emitBodyScanCacheDevStatus({
     operation: "stale_sweep",
-    status: result.ok ? "ok" : "failed",
+    status: remainingClear ? "ok" : "failed",
     remainingFileCountBucket: countToDevBucket(after.remainingFiles),
-    removedFileCountBucket: result.ok
-      ? mapLegacyDeletedBucket(result.deletedCountBucket)
-      : countToDevBucket(removed),
+    removedFileCountBucket: removedBucket,
     partialFileCountBucket: countToPartialBucket(after.partialFiles),
-    ...(result.ok ? {} : { safeReasonCode: "cleanup_failed" as const }),
+    // Keep sweep's own bucket available for cross-check in tests via mapLegacy when needed.
+    ...(remainingClear ? {} : { safeReasonCode: "cleanup_failed" as const }),
   });
 }
 
@@ -249,21 +432,24 @@ export async function harnessCreateCurrentAccountTestCache(args: {
   userId: string;
 }): Promise<BodyScanCacheDevStatus | null> {
   if (!isBodyScanCacheDevToolsEnabled()) return notDevStatus();
-  // Ensure opaque scope differs per account without exposing it.
   void opaqueAccountScopeKey(args.userId);
+  const before = await inventoryBuckets(args.userId);
   const bytesBase64 = uint8ToBase64(buildSyntheticBodyScanCachePdfBytes());
-  await materializeBodyScanOriginalFromBytes({
+  const materialized = await materializeBodyScanOriginalFromBytes({
     userId: args.userId,
     documentId: `${SYNTHETIC_BODY_SCAN_CACHE_DOCUMENT_ID}_acct`,
     bytesBase64,
   });
-  const inv = await inventoryBuckets(args.userId);
+  const after = await inventoryBuckets(args.userId);
+  const ok =
+    materialized.ok && after.remainingFiles >= before.remainingFiles + 1 && after.remainingFiles >= 1;
   return emitBodyScanCacheDevStatus({
-    operation: "preview_open",
-    status: "ok",
-    remainingFileCountBucket: inv.remainingFileCountBucket,
+    operation: "fixture_create",
+    status: ok ? "ok" : "failed",
+    remainingFileCountBucket: after.remainingFileCountBucket,
     removedFileCountBucket: "zero",
-    partialFileCountBucket: inv.partialFileCountBucket,
+    partialFileCountBucket: after.partialFileCountBucket,
+    ...(ok ? {} : { safeReasonCode: "fixture_create_failed" as const }),
   });
 }
 
@@ -279,7 +465,6 @@ export async function harnessSimulatePostDeleteLocalCleanup(args: {
     userId: args.userId,
     documentId: SYNTHETIC_BODY_SCAN_CACHE_DOCUMENT_ID,
   });
-  // Also clear known harness sibling document ids used by other actions.
   await clearBodyScanOriginalCacheForDocument({
     userId: args.userId,
     documentId: `${SYNTHETIC_BODY_SCAN_CACHE_DOCUMENT_ID}_stale`,

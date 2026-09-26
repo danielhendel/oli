@@ -110,13 +110,31 @@ Physical-device proof was blocked by three gaps: no safe synthetic PDF for iOS `
 **Bounded solution (this branch):**
 
 - DEV-only route: `/debug/body-scan-cache` (also linked from Debug index + Settings Dev rows; fail-closed with `Redirect` when `__DEV__` is false).
-- Synthetic PDF bytes generated in-process (`syntheticBodyScanCachePdf.ts`) — approved non-health text only; never leaves the device; no Body Scan API/upload/extraction.
+- Synthetic PDF bytes generated in-process (`syntheticBodyScanCachePdf.ts`) — approved non-health text only; never leaves the device; no Body Scan API/upload/extraction. Parser-validated via pdfjs (one page, approved text only).
 - Harness writes through the same `.partial` → verify → `.pdf` → preview → cleanup pipeline as production (`materializeBodyScanOriginalFromBytes` + `openDocumentOriginal` + `openBodyScanOriginalLocalPreview`).
-- Safe runtime status via `[BODY_SCAN_CACHE_DEV]` events and on-screen JSON buckets (no paths/IDs/UID/URLs).
+- Safe runtime status via `[BODY_SCAN_CACHE_DEV]` events and on-screen labeled buckets (no paths/IDs/UID/URLs). Fixture create / cache inspect / stale sweep fail closed when files are missing or removed count is zero.
+- Stale sweep accepts optional `nowMs` (DEV harness advances the comparison clock; production default remains `Date.now()`).
 - Existing development Auth may be used for sign-out / account-switch; that is **not** a staging Body Scan deployment.
 - LOCAL_DEV architecture unchanged; no emulators added.
+- Cache harness remains **API-independent**. A configured backend `GET /users/me/body-scans` **404** does not block this local cache gate; full real-PDF Body Scan E2E still requires a controlled Stage 3E staging deployment/security gate later. Do not conflate the two.
 
-**Still open:** Independent synthetic physical-iPhone re-gate. Real personal PDF remains blocked. **RG-SOURCE-PRIVACY-01** remains OPEN. Do not mark physical check PASS from the implementation agent.
+#### Physical evidence (starting SHA `6c39764a`) — OPEN blockers
+
+| ID | Evidence | Status |
+|----|----------|--------|
+| **B-3E-PREVIEW-OPEN-01** | `Open synthetic report` → `preview_failure_cleanup` / `open_failed` (cleanup ok; PDF never displayed). Synthetic PDF is **parser-valid**. `WebBrowser` + `Linking` cannot open app-private `file://` PDFs on physical iOS. No `expo-sharing` / Quick Look / WebView module is installed in this native binary. | **OPEN — native preview architecture decision required** |
+| **B-3E-STALE-HARNESS-01** | After create stale + abandoned partial + sweep → `removedFileCountBucket: zero` (could not prove create/remove). Root cause: create actions did not verify existence; sweep could report ok with zero removed. | **Code correction on this branch** (inspect + verified fixture_create + fail on zero removed / missing fixtures) |
+| **B-3E-CACHE-01** | Physical cache lifecycle gate | **Still physically OPEN** until preview path is approved and independent iPhone re-gate PASSes |
+
+**Proposed preview dependency (not added automatically):**
+
+1. Preferred privacy: Quick Look (`QLPreviewController`) via a small approved native module — dismiss callback enables immediate cleanup; no share sheet required.
+2. Faster Expo-catalog option: `expo-sharing` (~13.1.5 in SDK `bundledNativeModules`) — requires `npx expo install` + **dev-client rebuild**. Share sheet may expose AirDrop/Save (privacy review required before production View Original of health PDFs). Settlement is typically launch-adjacent → honest `fallback_requires_stale_cleanup`.
+3. `react-native-webview` in-app PDF — also a new native dep; weaker UX.
+
+Do **not** add any of these without an explicit architecture decision.
+
+**Still open:** Independent synthetic physical-iPhone re-gate after native preview decision. Real personal PDF remains blocked. **RG-SOURCE-PRIVACY-01** remains OPEN. Do not mark physical check PASS from the implementation agent.
 
 ---
 
@@ -143,9 +161,11 @@ Audit events (`body_scan_created`, `body_scan_extraction_completed`, `body_scan_
 - Production `bodyScans` flag **disabled**; development enabled.
 - **RG-LEGAL-01** and **RG-SOURCE-PRIVACY-01** remain **OPEN**.
 - Export coverage / scalability **OPEN**.
-- **B-3E-CACHE-01** implementation fix landed; DEV synthetic harness landed for physical cache proof.
-- **Synthetic physical-iPhone cache lifecycle gate required** (next independent agent).
+- **B-3E-CACHE-01** implementation fix landed; DEV synthetic harness landed; stale-harness observability corrected.
+- **B-3E-PREVIEW-OPEN-01 OPEN** — physical iOS cannot open app-private local PDFs via installed WebBrowser/Linking; native preview decision required (no dependency added).
+- **Synthetic physical-iPhone cache lifecycle gate required** after preview path is approved (next independent agent).
 - Controlled physical **real** DXA PDF test remains **blocked** until synthetic cache gate + independent re-gate PASS; the personal PDF must never enter Git.
+- Full real-PDF E2E also requires Stage 3E staging API deployment (separate from the API-independent cache harness; `/users/me/body-scans` 404 on the currently configured backend is out of scope for the cache gate).
 - Independent Stage 3E architecture / security / staging gate **required**.
 - No staging or production deployment from this work.
 
