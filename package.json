@@ -60,6 +60,7 @@
     "expo-video": "~2.2.2",
     "expo-web-browser": "~14.2.0",
     "firebase": "^12.7.0",
+    "oli-secure-pdf-preview": "file:./modules/oli-secure-pdf-preview",
     "react": "19.0.0",
     "react-native": "0.79.6",
     "react-native-gesture-handler": "~2.24.0",
@@ -108,13 +109,20 @@
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["oli-secure-pdf-preview"]
+      }
+    }
+  },
   "jest": {
     "preset": "jest-expo",
     "setupFilesAfterEnv": [
       "<rootDir>/scripts/test/jest.setup.ts"
     ],
     "transformIgnorePatterns": [
-      "node_modules/(?!(jest-)?expo|@expo(nent)?/.*|@expo-google-fonts/.*|react-native|@react-native(-community)?/.*|@react-navigation/.*|firebase/.*)"
+      "node_modules/(?!(jest-)?expo|@expo(nent)?/.*|@expo-google-fonts/.*|react-native|@react-native(-community)?/.*|@react-navigation/.*|firebase/.*|oli-secure-pdf-preview)"
     ],
     "moduleNameMapper": {
       "^@/lib/(.*)$": "<rootDir>/lib/$1",
@@ -122,6 +130,8 @@
       "^@oli/contracts$": "<rootDir>/lib/contracts/index.ts",
       "^@oli/contracts/(.*)$": "<rootDir>/lib/contracts/$1",
       "^@oli/lib/(.*)$": "<rootDir>/lib/$1",
+      "^oli-secure-pdf-preview$": "<rootDir>/modules/oli-secure-pdf-preview/index.ts",
+      "^oli-secure-pdf-preview/(.*)$": "<rootDir>/modules/oli-secure-pdf-preview/$1",
       "^@react-navigation/bottom-tabs/lib/module/utils/BottomTabBarHeightContext\\.js$": "<rootDir>/node_modules/@react-navigation/bottom-tabs/lib/module/utils/BottomTabBarHeightContext.js",
       "^@react-navigation/bottom-tabs/lib/module/utils/BottomTabBarHeightCallbackContext\\.js$": "<rootDir>/node_modules/@react-navigation/bottom-tabs/lib/module/utils/BottomTabBarHeightCallbackContext.js"
     },

@@ -1,12 +1,12 @@
 /**
  * View Original preview hook (client) — B-3E-CACHE-01 hardened.
  *
- * Wires the pure controller to Expo file/system-preview primitives and the
- * account-scoped Body Scan original cache. No new native PDF viewer dependency.
+ * Wires the pure controller to the account-scoped Body Scan original cache and
+ * the OliSecurePdfPreview PDFKit viewer (iOS). Cache lifecycle remains JS-owned.
  *
- * Preview API semantics:
- * - Prefer `WebBrowser.openBrowserAsync` (typically settles when dismissed) → immediate delete.
- * - Fall back to `Linking.openURL` (settles at launch) → leave per-open file for stale sweep.
+ * Preview API semantics (Stage 3E V1):
+ * - iOS PDFKit dismiss settlement → immediate delete in `finally`.
+ * - Never WebBrowser / Linking / expo-sharing / Quick Look for local Body Scan PDFs.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -17,6 +17,7 @@ import {
   countToDevBucket,
   countToPartialBucket,
   emitBodyScanCacheDevStatus,
+  type BodyScanCacheDevSafeReason,
 } from "@/lib/data/body-scans/bodyScanCacheDevStatus";
 import {
   countBodyScanCacheInventory,
@@ -25,7 +26,9 @@ import {
   sweepStaleBodyScanOriginalCaches,
 } from "@/lib/data/body-scans/bodyScanOriginalCache";
 import {
+  nativePdfPreviewUnavailableDevMessage,
   openBodyScanOriginalLocalPreview,
+  type BodyScanLocalPreviewMethod,
   type BodyScanLocalPreviewSafeReason,
 } from "@/lib/data/body-scans/openBodyScanOriginalLocalPreview";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
@@ -42,17 +45,22 @@ export type DocumentOriginalPreviewState = {
 
 function mapPreviewOpenSafeReason(
   code: BodyScanLocalPreviewSafeReason | undefined,
-):
-  | "open_failed"
-  | "local_pdf_invalid"
-  | "preview_method_unsupported"
-  | "web_browser_open_failed"
-  | "linking_open_failed"
-  | "system_preview_open_failed"
-  | "unknown_open_failure" {
+): BodyScanCacheDevSafeReason {
   switch (code) {
     case "local_pdf_invalid":
     case "preview_method_unsupported":
+    case "native_preview_unavailable":
+    case "invalid_file_uri":
+    case "outside_allowed_cache_root":
+    case "file_missing":
+    case "pdf_invalid":
+    case "pdf_locked":
+    case "pdf_empty":
+    case "presenter_unavailable":
+    case "preview_already_presented":
+    case "presentation_failed":
+    case "dismissal_failed":
+    case "unknown_native_preview_failure":
     case "web_browser_open_failed":
     case "linking_open_failed":
     case "system_preview_open_failed":
@@ -69,6 +77,7 @@ export function useDocumentOriginalPreview(documentId: string | null) {
   const lastLocalUriRef = useRef<string | null>(null);
   const lastDeleteImmediatelyRef = useRef(true);
   const lastOpenSafeReasonRef = useRef<BodyScanLocalPreviewSafeReason | undefined>(undefined);
+  const lastPreviewMethodRef = useRef<BodyScanLocalPreviewMethod | undefined>(undefined);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -89,6 +98,7 @@ export function useDocumentOriginalPreview(documentId: string | null) {
     const userId = user.uid;
     lastDeleteImmediatelyRef.current = true;
     lastOpenSafeReasonRef.current = undefined;
+    lastPreviewMethodRef.current = undefined;
     const outcome = await openDocumentOriginal({
       requestGrant: async () => {
         const token = await getIdToken(false);
@@ -110,9 +120,14 @@ export function useDocumentOriginalPreview(documentId: string | null) {
         return { ok: true, localUri: downloaded.localUri };
       },
       openLocal: async (localUri) => {
-        const result = await openBodyScanOriginalLocalPreview(localUri);
+        const result = await openBodyScanOriginalLocalPreview(localUri, {
+          title: "Original Report",
+        });
         lastDeleteImmediatelyRef.current = result.deleteImmediately;
         lastOpenSafeReasonRef.current = result.ok ? undefined : result.safeReasonCode;
+        lastPreviewMethodRef.current = result.ok
+          ? result.method
+          : result.attemptedMethod;
         return {
           opened: result.opened,
           deleteImmediately: result.deleteImmediately,
@@ -146,6 +161,9 @@ export function useDocumentOriginalPreview(documentId: string | null) {
         removedFileCountBucket: "unknown",
         partialFileCountBucket: countToPartialBucket(inv.partialFiles),
         safeReasonCode: mapPreviewOpenSafeReason(lastOpenSafeReasonRef.current),
+        ...(lastPreviewMethodRef.current != null
+          ? { previewMethod: lastPreviewMethodRef.current }
+          : {}),
       });
     } else if (outcome.status === "opened") {
       const inv = await countBodyScanCacheInventory({ userId, documentId });
@@ -156,6 +174,9 @@ export function useDocumentOriginalPreview(documentId: string | null) {
           remainingFileCountBucket: countToDevBucket(inv.remainingFiles),
           removedFileCountBucket: inv.remainingFiles === 0 ? "one" : "unknown",
           partialFileCountBucket: countToPartialBucket(inv.partialFiles),
+          ...(lastPreviewMethodRef.current != null
+            ? { previewMethod: lastPreviewMethodRef.current }
+            : {}),
         });
       } else {
         emitBodyScanCacheDevStatus({
@@ -165,12 +186,23 @@ export function useDocumentOriginalPreview(documentId: string | null) {
           removedFileCountBucket: "zero",
           partialFileCountBucket: countToPartialBucket(inv.partialFiles),
           safeReasonCode: "fallback_requires_stale_cleanup",
+          ...(lastPreviewMethodRef.current != null
+            ? { previewMethod: lastPreviewMethodRef.current }
+            : {}),
         });
       }
     }
 
     if (mountedRef.current) {
-      setState({ busy: false, message: documentOriginalPreviewMessage(outcome) });
+      let message = documentOriginalPreviewMessage(outcome);
+      if (
+        __DEV__ &&
+        outcome.status === "error" &&
+        lastOpenSafeReasonRef.current === "native_preview_unavailable"
+      ) {
+        message = nativePdfPreviewUnavailableDevMessage();
+      }
+      setState({ busy: false, message });
     }
     return outcome;
   }, [documentId, getIdToken, user?.uid]);

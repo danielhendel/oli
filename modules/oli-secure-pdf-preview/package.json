@@ -1,0 +1,21 @@
+{
+  "name": "oli-secure-pdf-preview",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Oli view-only PDFKit preview for app-private Body Scan originals.",
+  "main": "index.ts",
+  "types": "index.ts",
+  "sideEffects": false,
+  "keywords": [
+    "react-native",
+    "expo",
+    "oli",
+    "pdfkit"
+  ],
+  "license": "UNLICENSED",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

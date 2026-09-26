@@ -9,11 +9,10 @@
  * - Final preview files older than BODY_SCAN_ORIGINAL_CACHE_MAX_AGE_MS are removed.
  * - Abandoned `.partial` files are removed aggressively on every sweep.
  *
- * Platform preview semantics:
- * - `WebBrowser.openBrowserAsync` typically resolves when the viewer is dismissed →
- *   immediate per-open cleanup in `finally`.
- * - `Linking.openURL` resolves immediately after launch → file is left for the
- *   stale sweep / account lifecycle (do not claim close-callback cleanup).
+ * Platform preview semantics (Stage 3E V1):
+ * - iOS `OliSecurePdfPreview` (PDFKit) resolves when the viewer is dismissed →
+ *   immediate per-open cleanup in `finally` (`deleteImmediately: true`).
+ * - This module owns cache paths / cleanup only — it does not present PDFs.
  */
 
 import * as FileSystem from "expo-file-system";

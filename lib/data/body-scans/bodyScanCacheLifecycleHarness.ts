@@ -71,6 +71,30 @@ function mapPreviewFailureReason(
       return "local_pdf_invalid";
     case "preview_method_unsupported":
       return "preview_method_unsupported";
+    case "native_preview_unavailable":
+      return "native_preview_unavailable";
+    case "invalid_file_uri":
+      return "invalid_file_uri";
+    case "outside_allowed_cache_root":
+      return "outside_allowed_cache_root";
+    case "file_missing":
+      return "file_missing";
+    case "pdf_invalid":
+      return "pdf_invalid";
+    case "pdf_locked":
+      return "pdf_locked";
+    case "pdf_empty":
+      return "pdf_empty";
+    case "presenter_unavailable":
+      return "presenter_unavailable";
+    case "preview_already_presented":
+      return "preview_already_presented";
+    case "presentation_failed":
+      return "presentation_failed";
+    case "dismissal_failed":
+      return "dismissal_failed";
+    case "unknown_native_preview_failure":
+      return "unknown_native_preview_failure";
     case "web_browser_open_failed":
       return "web_browser_open_failed";
     case "linking_open_failed":

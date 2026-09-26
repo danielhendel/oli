@@ -35,6 +35,18 @@ export type BodyScanCacheDevSafeReason =
   | "open_failed"
   | "local_pdf_invalid"
   | "preview_method_unsupported"
+  | "native_preview_unavailable"
+  | "invalid_file_uri"
+  | "outside_allowed_cache_root"
+  | "file_missing"
+  | "pdf_invalid"
+  | "pdf_locked"
+  | "pdf_empty"
+  | "presenter_unavailable"
+  | "preview_already_presented"
+  | "presentation_failed"
+  | "dismissal_failed"
+  | "unknown_native_preview_failure"
   | "web_browser_open_failed"
   | "linking_open_failed"
   | "system_preview_open_failed"
@@ -47,6 +59,7 @@ export type BodyScanCacheDevSafeReason =
   | "no_auth";
 
 export type BodyScanCacheDevPreviewMethod =
+  | "pdfkit"
   | "web_browser"
   | "linking"
   | "system_preview"
@@ -84,6 +97,18 @@ const ALLOWED_REASONS = new Set<string>([
   "open_failed",
   "local_pdf_invalid",
   "preview_method_unsupported",
+  "native_preview_unavailable",
+  "invalid_file_uri",
+  "outside_allowed_cache_root",
+  "file_missing",
+  "pdf_invalid",
+  "pdf_locked",
+  "pdf_empty",
+  "presenter_unavailable",
+  "preview_already_presented",
+  "presentation_failed",
+  "dismissal_failed",
+  "unknown_native_preview_failure",
   "web_browser_open_failed",
   "linking_open_failed",
   "system_preview_open_failed",
@@ -96,6 +121,7 @@ const ALLOWED_REASONS = new Set<string>([
   "no_auth",
 ]);
 const ALLOWED_PREVIEW_METHODS = new Set<string>([
+  "pdfkit",
   "web_browser",
   "linking",
   "system_preview",
