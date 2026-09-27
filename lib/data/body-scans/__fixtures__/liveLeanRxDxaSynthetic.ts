@@ -110,3 +110,122 @@ export const SYNTHETIC_DXA_EXPECTATIONS = {
   boneMineralDensity: 1.186,
   performedAt: "2026-02-17T00:00:00.000Z",
 } as const;
+
+/**
+ * Single-space pdfjs-style layout with (lbs) columns — models a common real GE Lunar /
+ * Live Lean text-layer reconstruction without copying any personal report content.
+ * Invented numbers only.
+ */
+const DXA_SINGLE_SPACE_LBS = [
+  "Body Composition",
+  "Live Lean Rx",
+  "GE Healthcare Lunar Prodigy",
+  "Scan Date: 2026-03-08",
+  "",
+  "Region Total Fat % Total Mass (lbs) Fat Mass (lbs) Lean Mass (lbs) BMC (lbs) Fat Free (lbs)",
+  "Left Arm 30.5% 10.1 3.1 lbs 6.8 lbs 0.37 lbs 7.2 lbs",
+  "Right Arm 28.6% 10.4 3.0 lbs 7.0 lbs 0.38 lbs 7.4 lbs",
+  "Trunk 24.8% 80.0 19.9 lbs 58.2 lbs 1.94 lbs 60.1 lbs",
+  "Left Leg 23.1% 29.8 6.9 lbs 21.8 lbs 1.15 lbs 22.9 lbs",
+  "Right Leg 23.3% 30.2 7.0 lbs 21.9 lbs 1.17 lbs 23.1 lbs",
+  "Android 27.9% 11.7 3.3 lbs 8.2 lbs 0.21 lbs 8.4 lbs",
+  "Gynoid 30.2% 27.1 8.2 lbs 17.9 lbs 0.93 lbs 18.8 lbs",
+  "Total 24.8% 170.9 42.3 lbs 121.9 lbs 6.57 lbs 128.5 lbs",
+  "",
+  "Adipose Indices",
+  "Total Fat % 24.8 %",
+  "VAT Mass: 688 g",
+  "Young Adult A/G Ratio (no units) 0.92",
+  "Bone Summary",
+  "BMD: 1.186 g/cm2",
+  "",
+  "Left / Right Diff Arms Lean Mass (lbs) Lean % Fat Mass (lbs) Fat % Total Mass (lbs)",
+  "Right Arm 7.0 70.0 3.0 28.6 10.4",
+  "Left Arm 6.8 68.0 3.1 30.5 10.1",
+].join("\n");
+
+/** Whitespace / punctuation / wrapping variants of the canonical synthetic family. */
+export function syntheticDxaWhitespaceVariantInput(): BodyScanAdapterInput {
+  return syntheticDxaAdapterInput({
+    pages: [
+      {
+        pageNumber: 1,
+        text: [
+          "Body Composition Report",
+          "GE Healthcare",
+          "Lunar   iDXA",
+          "Scan Date:2026-02-17",
+          "",
+          "Region   Region (%Fat)   Fat (g)   Lean (g)   BMC (g)   Total Mass (kg)",
+          "Total    24.8            19,204    55,310    2,980     77.5",
+        ].join("\n"),
+      },
+      {
+        pageNumber: 2,
+        text: [
+          "Total Body % Fat:24.8%",
+          "Visceral Adipose Tissue (VAT) Mass:688g",
+          "Android / Gynoid Ratio:0.92",
+          "Total Body BMD:1.186 g/cm²",
+        ].join("\n"),
+      },
+    ],
+  });
+}
+
+/** Single-space + lbs layout that mirrors pdfjs reconstruction of the report family. */
+export function syntheticDxaSingleSpaceLbsInput(): BodyScanAdapterInput {
+  return syntheticDxaAdapterInput({
+    pages: [{ pageNumber: 1, text: DXA_SINGLE_SPACE_LBS }],
+  });
+}
+
+/** DXA modality spelled without "DEXA" or "Lunar" — must still detect via DXA token. */
+export function syntheticDxaDxOnlyModalityInput(): BodyScanAdapterInput {
+  return syntheticDxaAdapterInput({
+    pages: [
+      {
+        pageNumber: 1,
+        text: [
+          "Body Composition Report",
+          "DXA Whole Body",
+          "Scan Date: 2026-02-17",
+          "Region        Region (%Fat)   Fat (g)    Lean (g)    BMC (g)   Total Mass (kg)",
+          "Total         24.8            19,204     55,310      2,980     77.5",
+          "Total Body % Fat: 24.8 %",
+        ].join("\n"),
+      },
+    ],
+  });
+}
+
+/** Quest-style lab PDF text — must never be claimed by the DXA adapter. */
+export function syntheticQuestLabRejectInput(): BodyScanAdapterInput {
+  return syntheticDxaAdapterInput({
+    pages: [
+      {
+        pageNumber: 1,
+        text: [
+          "Quest Diagnostics",
+          "Comprehensive Metabolic Panel",
+          "Glucose  98  mg/dL",
+          "Creatinine  0.9  mg/dL",
+        ].join("\n"),
+      },
+    ],
+  });
+}
+
+export const SYNTHETIC_DXA_LBS_EXPECTATIONS = {
+  totalFatPercent: 24.8,
+  // 42.3 lbs → kg
+  totalFatMassKg: Number((42.3 * 0.45359237).toFixed(4)),
+  totalLeanMassKg: Number((121.9 * 0.45359237).toFixed(4)),
+  totalBoneMineralContentG: Number((6.57 * 453.59237).toFixed(4)),
+  totalMassKg: Number((170.9 * 0.45359237).toFixed(4)),
+  visceralFatMassKg: 0.688,
+  androidGynoidRatio: 0.92,
+  boneMineralDensity: 1.186,
+  leftArmLeanKg: Number((6.8 * 0.45359237).toFixed(4)),
+  rightArmLeanKg: Number((7.0 * 0.45359237).toFixed(4)),
+} as const;

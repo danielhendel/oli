@@ -67,6 +67,45 @@ describe("liveLeanRxDxaParser", () => {
     expect(parser.id).toBe("live_lean_rx_dxa");
   });
 
+  it("selects live_lean_rx_dxa for scans/dexa_report metadata matching the Body Scan UI path", async () => {
+    // Mirrors app/(app)/body/scans/new.tsx → useDocumentUploadFlow({ domain: "scans" })
+    // which classifies uploads as dexa_report + application/pdf.
+    const parser = await resolveDocumentParserForInput({
+      documentType: "dexa_report",
+      input: parserInput({
+        domain: "scans",
+        documentType: "dexa_report",
+        mediaType: "application/pdf",
+      }),
+    });
+    expect(parser.id).toBe("live_lean_rx_dxa");
+    const { draft } = await parseLiveLeanRxDxaBundle(
+      parserInput({ domain: "scans", documentType: "dexa_report", mediaType: "application/pdf" }),
+    );
+    expect(draft.adapter.id).toBe("live_lean_rx_dxa");
+    expect(draft.fields.length).toBeGreaterThan(0);
+    expect(draft.status).not.toBe("unsupported");
+  });
+
+  it("selects live_lean_rx_dxa for single-space lbs pdfjs-style text layers", async () => {
+    const {
+      syntheticDxaSingleSpaceLbsInput,
+    } = require("../../../../../../lib/data/body-scans/__fixtures__/liveLeanRxDxaSynthetic");
+    const input = syntheticDxaSingleSpaceLbsInput();
+    textLayer.pages = [...input.pages];
+    textLayer.warningCodes = [];
+    const parser = await resolveDocumentParserForInput({
+      documentType: "dexa_report",
+      input: parserInput({ domain: "scans" }),
+    });
+    expect(parser.id).toBe("live_lean_rx_dxa");
+    const { draft } = await parseLiveLeanRxDxaBundle(parserInput({ domain: "scans" }));
+    expect(draft.fields.some((f: { fieldId: string }) => f.fieldId === "total:lean_mass")).toBe(true);
+    expect(draft.fields.some((f: { fieldId: string }) => f.fieldId === "total:android_gynoid_ratio")).toBe(
+      true,
+    );
+  });
+
   it("cascades to the unsupported scan stub when the PDF has no text layer", async () => {
     useImageOnlyTextLayer();
     const parser = await resolveDocumentParserForInput({
