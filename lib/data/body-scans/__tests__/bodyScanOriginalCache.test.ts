@@ -14,7 +14,7 @@ const mockReadAsStringAsync = jest.fn(async () => "%PDF-");
 const mockReadDirectoryAsync = jest.fn(async () => [] as string[]);
 const mockDownloadSignedUrlArrayBuffer = jest.fn(async () => ({
   ok: true as const,
-  buffer: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]).buffer,
+  bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]).buffer,
 }));
 
 jest.mock("expo-file-system", () => ({
@@ -126,7 +126,7 @@ describe("bodyScanOriginalCache download and cleanup", () => {
     mockReadAsStringAsync.mockResolvedValue("%PDF-");
     mockDownloadSignedUrlArrayBuffer.mockResolvedValue({
       ok: true,
-      buffer: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]).buffer,
+      bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]).buffer,
     });
   });
 
@@ -134,7 +134,7 @@ describe("bodyScanOriginalCache download and cleanup", () => {
     const result = await downloadBodyScanOriginalToProtectedCache({
       userId: "uid_a",
       documentId: "doc1",
-      url: "https://example.test/signed?X-Goog-Signature=abc",
+      url: "https://storage.googleapis.com/bucket/obj?X-Goog-Signature=abc",
       previewNonce: "pabc",
     });
     expect(result.ok).toBe(true);
@@ -153,11 +153,55 @@ describe("bodyScanOriginalCache download and cleanup", () => {
     const result = await downloadBodyScanOriginalToProtectedCache({
       userId: "uid_a",
       documentId: "doc1",
-      url: "https://example.test/signed",
+      url: "https://storage.googleapis.com/bucket/obj",
       previewNonce: "pfail",
     });
     expect(result).toEqual({ ok: false, safeReasonCode: "download_http_failed" });
     expect(mockDeleteAsync).toHaveBeenCalled();
+    expect(mockWriteAsStringAsync).not.toHaveBeenCalled();
+  });
+
+  it("maps timeout and content_too_large without writing base64", async () => {
+    mockDownloadSignedUrlArrayBuffer.mockResolvedValueOnce({ ok: false, reason: "timeout" });
+    await expect(
+      downloadBodyScanOriginalToProtectedCache({
+        userId: "uid_a",
+        documentId: "doc1",
+        url: "https://storage.googleapis.com/bucket/obj",
+        previewNonce: "ptime",
+      }),
+    ).resolves.toEqual({ ok: false, safeReasonCode: "download_timeout" });
+    expect(mockWriteAsStringAsync).not.toHaveBeenCalled();
+
+    mockDownloadSignedUrlArrayBuffer.mockResolvedValueOnce({
+      ok: false,
+      reason: "content_too_large",
+    });
+    await expect(
+      downloadBodyScanOriginalToProtectedCache({
+        userId: "uid_a",
+        documentId: "doc1",
+        url: "https://storage.googleapis.com/bucket/obj",
+        previewNonce: "pbig",
+      }),
+    ).resolves.toEqual({ ok: false, safeReasonCode: "download_content_too_large" });
+    expect(mockWriteAsStringAsync).not.toHaveBeenCalled();
+  });
+
+  it("maps URL policy failures to download_url_rejected and cleans up", async () => {
+    mockDownloadSignedUrlArrayBuffer.mockResolvedValueOnce({
+      ok: false,
+      reason: "host_not_allowed",
+    });
+    const result = await downloadBodyScanOriginalToProtectedCache({
+      userId: "uid_a",
+      documentId: "doc1",
+      url: "https://evil.example/x",
+      previewNonce: "purl",
+    });
+    expect(result).toEqual({ ok: false, safeReasonCode: "download_url_rejected" });
+    expect(mockDeleteAsync).toHaveBeenCalled();
+    expect(mockWriteAsStringAsync).not.toHaveBeenCalled();
   });
 
   it("rejects a non-PDF and deletes the candidate", async () => {
@@ -165,7 +209,7 @@ describe("bodyScanOriginalCache download and cleanup", () => {
     const result = await downloadBodyScanOriginalToProtectedCache({
       userId: "uid_a",
       documentId: "doc1",
-      url: "https://example.test/signed",
+      url: "https://storage.googleapis.com/bucket/obj",
       previewNonce: "pbad",
     });
     expect(result).toEqual({ ok: false, safeReasonCode: "invalid_pdf_rejected" });

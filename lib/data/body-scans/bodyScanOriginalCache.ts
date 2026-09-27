@@ -17,7 +17,10 @@
 
 import * as FileSystem from "expo-file-system";
 
-import { downloadSignedUrlArrayBuffer } from "@/lib/api/signedUrlDownload";
+import {
+  downloadSignedUrlArrayBuffer,
+  type SignedUrlDownloadFailureReason,
+} from "@/lib/api/signedUrlDownload";
 
 /** Maximum age for a completed local preview PDF before stale sweep removes it. */
 export const BODY_SCAN_ORIGINAL_CACHE_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
@@ -175,9 +178,35 @@ async function ensureDirectory(uri: string): Promise<boolean> {
 export type BodyScanOriginalDownloadFailureReason =
   | "download_http_failed"
   | "download_empty"
+  | "download_timeout"
+  | "download_content_too_large"
+  | "download_url_rejected"
   | "invalid_pdf_rejected"
   | "materialize_write_failed"
   | "download_or_materialize_failed";
+
+function mapSignedUrlDownloadFailure(
+  reason: SignedUrlDownloadFailureReason,
+): BodyScanOriginalDownloadFailureReason {
+  switch (reason) {
+    case "http_failed":
+      return "download_http_failed";
+    case "empty_response":
+      return "download_empty";
+    case "timeout":
+      return "download_timeout";
+    case "content_too_large":
+      return "download_content_too_large";
+    case "invalid_url":
+    case "insecure_scheme":
+    case "host_not_allowed":
+    case "redirect_rejected":
+      return "download_url_rejected";
+    case "network_failed":
+    default:
+      return "download_or_materialize_failed";
+  }
+}
 
 export async function downloadBodyScanOriginalToProtectedCache(args: {
   userId: string;
@@ -197,15 +226,10 @@ export async function downloadBodyScanOriginalToProtectedCache(args: {
     if (!downloaded.ok) {
       await deleteUriIdempotent(paths.partialUri);
       await deleteUriIdempotent(paths.finalUri);
-      if (downloaded.reason === "http_failed") {
-        return { ok: false, safeReasonCode: "download_http_failed" };
-      }
-      if (downloaded.reason === "empty") {
-        return { ok: false, safeReasonCode: "download_empty" };
-      }
-      return { ok: false, safeReasonCode: "download_or_materialize_failed" };
+      return { ok: false, safeReasonCode: mapSignedUrlDownloadFailure(downloaded.reason) };
     }
-    const base64 = arrayBufferToBase64(downloaded.buffer);
+    // Oversized buffers are rejected by the helper before this point — never base64 them.
+    const base64 = arrayBufferToBase64(downloaded.bytes);
     await FileSystem.writeAsStringAsync(paths.partialUri, base64, {
       encoding: FileSystem.EncodingType.Base64,
     });

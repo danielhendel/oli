@@ -86,7 +86,32 @@ function checkFetchOnlyInHttp() {
     );
   }
 
-  console.log("✅ CHECK 1 passed: fetch( only in lib/api/http.ts");
+  // The signed-URL helper is an intentional exception only while it enforces a narrow policy.
+  const signedHelper = path.join(ROOT, "lib", "api", "signedUrlDownload.ts");
+  if (!fs.existsSync(signedHelper)) {
+    fail("CHECK 1b failed: lib/api/signedUrlDownload.ts is missing");
+  }
+  const signedSrc = readText(signedHelper);
+  const requiredPolicyTokens = [
+    'protocol !== "https:"',
+    "SIGNED_URL_DOWNLOAD_ALLOWED_HOSTS",
+    'redirect: "manual"',
+    'credentials: "omit"',
+    "DOCUMENT_MAX_BYTE_SIZE",
+    "AbortController",
+    "storage.googleapis.com",
+  ];
+  const missing = requiredPolicyTokens.filter((t) => !signedSrc.includes(t));
+  if (missing.length) {
+    fail(
+      `CHECK 1b (signed URL helper policy) failed:\n` +
+        `- lib/api/signedUrlDownload.ts must enforce scheme/host/redirect/size/timeout\n` +
+        `- Missing markers:\n` +
+        missing.map((t) => `  - ${t}`).join("\n"),
+    );
+  }
+
+  console.log("✅ CHECK 1 passed: fetch( only in lib/api/http.ts (+ hardened signedUrlDownload)");
 }
 
 /**

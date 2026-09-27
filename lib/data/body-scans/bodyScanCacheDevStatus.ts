@@ -34,6 +34,9 @@ export type BodyScanCacheDevSafeReason =
   | "download_or_materialize_failed"
   | "download_http_failed"
   | "download_empty"
+  | "download_timeout"
+  | "download_content_too_large"
+  | "download_url_rejected"
   | "materialize_write_failed"
   | "open_failed"
   | "local_pdf_invalid"
@@ -99,6 +102,9 @@ const ALLOWED_REASONS = new Set<string>([
   "download_or_materialize_failed",
   "download_http_failed",
   "download_empty",
+  "download_timeout",
+  "download_content_too_large",
+  "download_url_rejected",
   "materialize_write_failed",
   "open_failed",
   "local_pdf_invalid",

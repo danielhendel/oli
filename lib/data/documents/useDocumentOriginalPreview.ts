@@ -157,6 +157,9 @@ export function useDocumentOriginalPreview(documentId: string | null) {
       const safeReasonCode: BodyScanCacheDevSafeReason =
         downloadReason === "download_http_failed" ||
         downloadReason === "download_empty" ||
+        downloadReason === "download_timeout" ||
+        downloadReason === "download_content_too_large" ||
+        downloadReason === "download_url_rejected" ||
         downloadReason === "invalid_pdf_rejected" ||
         downloadReason === "materialize_write_failed"
           ? downloadReason
