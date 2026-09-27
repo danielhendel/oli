@@ -103,11 +103,15 @@ This is enforced three ways: `assertBodyScanWriteTargetAllowed` guards every Bod
 
 **Native XCTest:** The committed `ios/` app has no XCTest target. Path/PDF validation is covered by compile + TypeScript wrapper/harness tests; see `modules/oli-secure-pdf-preview/ios/Tests/NATIVE_TEST_LIMITATION.md`.
 
+**Viewer chrome (B-3E-PDFKIT-CONTRAST-01):** Navigation uses forced dark `overrideUserInterfaceStyle` with UIKit semantic colors (`.secondarySystemBackground` header, `.label` title, `.systemBlue` Close). Close retains VoiceOver label `Close original report` and ≥44pt target. No share/export chrome.
+
+**EXConstants restoration:** Adding the PDFKit module triggered `pod install` while a hoisted `expo-constants@56` (iOS 16.4+) sat at `node_modules/expo-constants`, so CocoaPods dropped `EXConstants` on the iOS 15.1 app. Fix: declare SDK 53–compatible `expo-constants@~17.1.8` as a direct dependency and re-run `pod install`. `OliSecurePdfPreview` remains linked. Do not suppress the runtime warning in JS.
+
 ### B-3E-CACHE-01 — original-report cache privacy (fix)
 
-**Blocker:** Independent Stage 3E gate STOP. Real-PDF testing remains prohibited until this fix is independently re-reviewed.
+**Status:** Physically CLOSED by independent synthetic iPhone gate (preserve). Real personal PDF remains blocked until later gates.
 
-**Root cause:** Pre-fix `useDocumentOriginalPreview` wrote `cacheDirectory/original-{documentId}.pdf` — not account-scoped, not deleted after preview, and not cleared on logout / account switch / scan delete / account deletion. `cleanupExportArchiveFiles` only covered export zip/bin artifacts.
+**Root cause (historical):** Pre-fix `useDocumentOriginalPreview` wrote `cacheDirectory/original-{documentId}.pdf` — not account-scoped, not deleted after preview, and not cleared on logout / account switch / scan delete / account deletion.
 
 **Fix (implemented on this branch):**
 
@@ -125,28 +129,23 @@ This is enforced three ways: `assertBodyScanWriteTargetAllowed` guards every Bod
 
 ### Synthetic physical cache harness (DEV-only)
 
-Physical-device proof was blocked by three gaps: no safe synthetic PDF for iOS `View Original`, cleanup status only asserted in unit tests, and LOCAL_DEV does not support Firebase emulators / local mobile APIs.
-
-**Bounded solution (this branch):**
-
-- DEV-only route: `/debug/body-scan-cache` (also linked from Debug index + Settings Dev rows; fail-closed with `Redirect` when `__DEV__` is false).
-- Synthetic PDF bytes generated in-process (`syntheticBodyScanCachePdf.ts`) — approved non-health text only; never leaves the device; no Body Scan API/upload/extraction. Parser-validated via pdfjs (one page, approved text only).
-- Harness writes through the same `.partial` → verify → `.pdf` → **PDFKit preview** → cleanup pipeline as production (`materializeBodyScanOriginalFromBytes` + `openDocumentOriginal` + `openBodyScanOriginalLocalPreview`).
-- Successful physical close emits `[BODY_SCAN_CACHE_DEV]` `preview_close_cleanup` / `ok` / `previewMethod=pdfkit` / remaining+partial buckets `zero` (no paths/IDs/UID/URLs).
-- Stale sweep accepts optional `nowMs` (DEV harness advances the comparison clock; production default remains `Date.now()`).
-- Existing development Auth may be used for sign-out / account-switch; that is **not** a staging Body Scan deployment.
-- LOCAL_DEV architecture unchanged; no emulators added.
-- Cache harness remains **API-independent**. A configured backend `GET /users/me/body-scans` **404** does not block this local viewer/cache gate; full real-PDF Body Scan E2E still requires a controlled Stage 3E staging deployment/security gate later. Do not conflate the two.
+- DEV-only route: `/debug/body-scan-cache` (fail-closed outside `__DEV__`).
+- Synthetic PDF never leaves the device; no Body Scan API/upload/extraction.
+- Harness uses the same cache/preview/cleanup pipeline as production View Original.
+- Safe `[BODY_SCAN_CACHE_DEV]` status buckets only (no paths/IDs/UID/URLs).
+- Cache harness remains **API-independent** (`GET /users/me/body-scans` 404 is out of scope for this gate).
 
 #### Physical evidence / blockers
 
 | ID | Evidence | Status |
 |----|----------|--------|
-| **B-3E-PREVIEW-OPEN-01** | Code path now PDFKit; physical iPhone display still requires **rebuilt** development client + independent retest | **CODE CLOSED / PHYSICAL RETEST REQUIRED** |
-| **B-3E-STALE-HARNESS-01** | Fixture create verifies existence; sweep fails on zero removed / missing fixtures | **CODE CLOSED / PHYSICAL RETEST REQUIRED** |
-| **B-3E-CACHE-01** | Physical cache lifecycle gate | **PHYSICAL RETEST REQUIRED** (do not mark physically closed from this agent) |
+| **B-3E-PREVIEW-OPEN-01** | PDFKit opens on physical iPhone (scroll/zoom/close/swipe/repeat/double-tap) | **PHYSICALLY CLOSED** (preserve) |
+| **B-3E-STALE-HARNESS-01** | Stale PDF + abandoned partial create/inspect/sweep proven physically | **PHYSICALLY CLOSED** (preserve) |
+| **B-3E-CACHE-01** | Account/document/sign-out isolation + clear-all + safe DEV logs proven | **PHYSICALLY CLOSED** (preserve) |
+| **B-3E-PDFKIT-CONTRAST-01** | Close / “Original Report” too dark on dark nav chrome | **CODE FIX on this pass** — narrow physical retest |
+| **EXConstants regression** | `No native ExponentConstants module found` after PDFKit pod install | **CODE FIX on this pass** — narrow physical retest |
 
-**Still open:** Independent synthetic physical-iPhone re-gate against the new SHA + rebuilt client. Real personal PDF remains blocked. **RG-SOURCE-PRIVACY-01** / **RG-LEGAL-01** remain OPEN. Do not mark physical check PASS from the implementation agent. No backend deployment in this pass. No PR from this pass.
+**Still open for this pass:** Narrow independent physical verification of contrast + EXConstants only. Real personal PDF remains blocked. **RG-SOURCE-PRIVACY-01** / **RG-LEGAL-01** remain OPEN. No backend deployment. No PR from this pass.
 
 ---
 
@@ -173,11 +172,10 @@ Audit events (`body_scan_created`, `body_scan_extraction_completed`, `body_scan_
 - Production `bodyScans` flag **disabled**; development enabled.
 - **RG-LEGAL-01** and **RG-SOURCE-PRIVACY-01** remain **OPEN**.
 - Export coverage / scalability **OPEN**.
-- **B-3E-CACHE-01** implementation fix landed; DEV synthetic harness landed; PDFKit viewer landed; **physical retest required** on rebuilt development client.
-- **B-3E-PREVIEW-OPEN-01** code path closed (PDFKit); **physical iPhone retest required** after rebuild.
-- **B-3E-STALE-HARNESS-01** code closed; physical retest required.
-- Controlled physical **real** DXA PDF test remains **blocked** until synthetic cache gate + independent re-gate PASS; the personal PDF must never enter Git.
-- Full real-PDF E2E also requires Stage 3E staging API deployment (separate from the API-independent viewer/cache gate; `/users/me/body-scans` 404 on the currently configured backend is out of scope for the viewer gate).
+- **B-3E-CACHE-01**, **B-3E-PREVIEW-OPEN-01**, **B-3E-STALE-HARNESS-01**: physically CLOSED (preserve).
+- **B-3E-PDFKIT-CONTRAST-01** + **EXConstants** restoration: code fix on this pass; narrow physical retest required.
+- Controlled physical **real** DXA PDF test remains **blocked**; the personal PDF must never enter Git.
+- Full real-PDF E2E also requires Stage 3E staging API deployment (separate from the API-independent viewer/cache gate; `/users/me/body-scans` 404 is out of scope here).
 - Independent Stage 3E architecture / security / staging gate **required**.
 - No staging or production deployment from this work.
 
