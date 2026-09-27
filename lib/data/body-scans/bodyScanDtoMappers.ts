@@ -15,6 +15,7 @@ import type {
   BodyScanReviewFieldDto,
   BodyScanReviewResponseDto,
 } from "@oli/contracts";
+import { resolveConsumerSafeDocumentDisplayName } from "../documents/consumerSafeDocumentDisplayName";
 import { bodyScanMetricDisplayLabel } from "./bodyScanMetricCatalog";
 import {
   bodyScanStatusLabel,
@@ -27,6 +28,11 @@ const ADAPTER_DISPLAY_NAMES: Record<string, string> = {
   live_lean_rx_dxa: "Live Lean Rx DXA",
   manual_review: "Manual review",
 };
+
+/** Consumer-facing source label — never the raw device filename. */
+export function bodyScanSourceDisplayLabel(rawFilename: string | null | undefined): string {
+  return resolveConsumerSafeDocumentDisplayName(rawFilename ?? "", { domain: "scans" });
+}
 
 export function bodyScanDeviceLabel(device: BodyScanDevice): string | null {
   const parts = [device.manufacturer, device.model].filter(

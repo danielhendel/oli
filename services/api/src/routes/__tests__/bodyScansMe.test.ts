@@ -246,6 +246,20 @@ describe("Body Scans routes", () => {
     expect(serialized).not.toContain(DOCUMENT.checksumSha256);
   });
 
+  it("detail uses a non-identifying Body Scan source label", async () => {
+    storeFor("user_123", "documents").set("doc_1", {
+      ...DOCUMENT,
+      originalFilename: "Patient_LiveLean_Clinic_Report.pdf",
+      safeDisplayFilename: "Patient_LiveLean_Clinic_Report.pdf",
+    });
+    storeFor("user_123", "bodyScans").set("doc_1", { ...SCAN });
+    const res = await fetch(`${baseUrl}/users/me/body-scans/doc_1`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.scan.sourceFilename).toBe("Original DXA report");
+    expect(JSON.stringify(json).toLowerCase()).not.toContain("patient");
+  });
+
   it("does not expose another account's scan", async () => {
     storeFor("user_999", "bodyScans").set("doc_1", { ...SCAN, userId: "user_999" });
     const res = await fetch(`${baseUrl}/users/me/body-scans/doc_1`);

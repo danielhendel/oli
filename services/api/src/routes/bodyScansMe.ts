@@ -47,6 +47,7 @@ import {
 } from "../lib/bodyScans/persistBodyScan";
 import { confirmBodyScanMetrics } from "../../../../lib/data/body-scans/confirmBodyScanMetrics";
 import {
+  bodyScanSourceDisplayLabel,
   safeBodyScanWarnings,
   toBodyScanDetailDto,
   toBodyScanListItemDto,
@@ -232,7 +233,7 @@ router.get(
     const draft = await loadDraft(uid, record.extractionDraftId);
     const detail = toBodyScanDetailDto({
       record,
-      sourceFilename: document?.safeDisplayFilename ?? "Body Scan report",
+      sourceFilename: bodyScanSourceDisplayLabel(document?.safeDisplayFilename),
       safeWarnings: safeBodyScanWarnings(draftWarningCodes(draft)),
     });
 

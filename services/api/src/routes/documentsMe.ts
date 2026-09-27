@@ -1063,7 +1063,10 @@ router.get(
       // Only a finalized upload has durable bytes behind it.
       objectPath = record.status === "uploading" ? null : record.storageObjectId;
       mediaType = record.mediaType;
-      filename = record.safeDisplayFilename;
+      filename =
+        record.domain === "scans"
+          ? "Original DXA report.pdf"
+          : record.safeDisplayFilename;
     }
 
     const unavailable = (reasonCode: DocumentViewOriginalUnavailableReason) => {

@@ -408,6 +408,9 @@ describe("Document Ingestion OS routes", () => {
     expect(json.available).toBe(true);
     expect(json.url).toContain("https://");
     expect(json.mediaType).toBe("application/pdf");
+    // Body Scan grants never echo the raw device filename into the client grant payload.
+    expect(json.filename).toBe("Original DXA report.pdf");
+    expect(String(json.filename).toLowerCase()).not.toContain("patient");
     // Short-lived: the grant must expire within minutes, not hours.
     const ttlMs = Date.parse(json.expiresAt) - before;
     expect(ttlMs).toBeGreaterThan(0);

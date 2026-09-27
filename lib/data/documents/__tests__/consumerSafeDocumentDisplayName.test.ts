@@ -8,7 +8,7 @@ import {
 
 describe("consumerSafeDocumentDisplayName", () => {
   it("exports version constant", () => {
-    expect(CONSUMER_SAFE_DOCUMENT_DISPLAY_NAME_VERSION).toBe("1.1.0");
+    expect(CONSUMER_SAFE_DOCUMENT_DISPLAY_NAME_VERSION).toBe("1.2.0");
   });
 
   it("keeps normal user-visible filenames", () => {
@@ -17,6 +17,16 @@ describe("consumerSafeDocumentDisplayName", () => {
     expect(resolveConsumerSafeDocumentDisplayName("Quest_Labs_2022.pdf", { domain: "labs" })).toBe(
       "Quest_Labs_2022.pdf",
     );
+  });
+
+  it("never surfaces raw Body Scan picker filenames on consumer surfaces", () => {
+    expect(
+      resolveConsumerSafeDocumentDisplayName("Patient_LiveLean_Report_2026.pdf", { domain: "scans" }),
+    ).toBe("Original DXA report");
+    expect(resolveConsumerSafeDocumentDisplayName("scan.pdf", { domain: "scans" })).toBe(
+      "Original DXA report",
+    );
+    expect(resolveConsumerSafeDocumentDisplayName("", { domain: "scans" })).toBe("Original DXA report");
   });
 
   it("falls back for missing or empty names", () => {

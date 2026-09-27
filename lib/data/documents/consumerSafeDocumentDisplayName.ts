@@ -7,7 +7,7 @@ import type { DocumentDomain } from "@oli/contracts";
 /** Keep in sync with DOCUMENT_MAX_FILENAME_LENGTH in documentValidation.ts (avoid circular import). */
 const MAX_DISPLAY_FILENAME_LENGTH = 255;
 
-export const CONSUMER_SAFE_DOCUMENT_DISPLAY_NAME_VERSION = "1.1.0";
+export const CONSUMER_SAFE_DOCUMENT_DISPLAY_NAME_VERSION = "1.2.0";
 
 const UUID_LIKE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -71,6 +71,7 @@ function looksLikeOpaqueGeneratedFilename(filename: string): boolean {
 
 function fallbackDisplayName(domain?: DocumentDomain): string {
   if (domain === "labs") return "Lab report";
+  if (domain === "scans") return "Original DXA report";
   return "Document";
 }
 
@@ -87,11 +88,17 @@ export type ConsumerSafeDisplayNameOptions = {
 /**
  * Resolve a human-friendly display filename for lists and detail views.
  * Opaque generated IDs fall back to domain-appropriate labels.
+ *
+ * Body Scan consumer surfaces never show the raw picker filename — device exports
+ * often embed identifying tokens. Evidence remains available via View Original.
  */
 export function resolveConsumerSafeDocumentDisplayName(
   originalFilename: string,
   options: ConsumerSafeDisplayNameOptions = {},
 ): string {
+  if (options.domain === "scans") {
+    return fallbackDisplayName("scans");
+  }
   const sanitized = sanitizeBasics(originalFilename);
   if (!sanitized) {
     return options.domain === "labs" ? "Lab report" : "Document";
