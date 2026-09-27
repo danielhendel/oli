@@ -25,6 +25,8 @@ final class OliSecurePdfViewController: UIViewController, PDFViewDelegate, UIAda
       sheet.prefersGrabberVisible = false
       sheet.prefersScrollingExpandsWhenScrolledToEdge = false
     }
+    // Dark chrome regardless of host Light/Dark Mode so title/Close stay high-contrast.
+    overrideUserInterfaceStyle = OliSecurePdfViewerChrome.forcedUserInterfaceStyle
   }
 
   @available(*, unavailable)
@@ -34,30 +36,21 @@ final class OliSecurePdfViewController: UIViewController, PDFViewDelegate, UIAda
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    view.backgroundColor = .black
+    view.backgroundColor = OliSecurePdfViewerChrome.canvasBackgroundColor
 
-    let closeItem = UIBarButtonItem(
-      title: "Close",
-      style: .plain,
+    let closeItem = OliSecurePdfViewerChrome.makeCloseBarButtonItem(
       target: self,
       action: #selector(closeTapped)
     )
-    closeItem.accessibilityLabel = "Close original report"
 
     let navBar = UINavigationBar()
     navBar.translatesAutoresizingMaskIntoConstraints = false
     navBar.prefersLargeTitles = false
-    let appearance = UINavigationBarAppearance()
-    appearance.configureWithOpaqueBackground()
-    appearance.backgroundColor = UIColor(white: 0.08, alpha: 1)
-    appearance.titleTextAttributes = [
-      .foregroundColor: UIColor.label,
-      .font: UIFont.preferredFont(forTextStyle: .headline),
-    ]
+    let appearance = OliSecurePdfViewerChrome.makeNavigationBarAppearance()
     navBar.standardAppearance = appearance
     navBar.scrollEdgeAppearance = appearance
     navBar.compactAppearance = appearance
-    navBar.tintColor = .label
+    navBar.tintColor = OliSecurePdfViewerChrome.closeTintColor
 
     let navItem = UINavigationItem(title: navTitle)
     navItem.leftBarButtonItem = closeItem
@@ -68,7 +61,7 @@ final class OliSecurePdfViewController: UIViewController, PDFViewDelegate, UIAda
     pdfView.displayDirection = .vertical
     pdfView.displayMode = .singlePageContinuous
     pdfView.displaysPageBreaks = true
-    pdfView.backgroundColor = UIColor(white: 0.12, alpha: 1)
+    pdfView.backgroundColor = OliSecurePdfViewerChrome.pdfViewBackgroundColor
     pdfView.enableDataDetectors = false
     pdfView.delegate = self
     // Set document only after native validation (caller responsibility).
