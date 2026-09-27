@@ -112,4 +112,42 @@ describe("DocumentUploadFlowContent contrast", () => {
     expect(tree.root.findByProps({ testID: "document-upload-view-labs" })).toBeTruthy();
     expect(tree.root.findByProps({ testID: "document-upload-how-processed" })).toBeTruthy();
   });
+
+  it("uses Body Scan copy on Scans upload and never mentions Quest lab", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DocumentUploadFlowContent
+          phase="idle"
+          errorMessage={null}
+          onStart={() => undefined}
+          onCancel={() => undefined}
+          onReset={() => undefined}
+          domainLabel="Scans"
+        />,
+      );
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("PDF body scan reports are stored securely");
+    expect(json).toContain("Supported DXA reports can be extracted for review");
+    expect(json.toLowerCase()).not.toContain("quest");
+  });
+
+  it("keeps Quest lab wording on Labs upload", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DocumentUploadFlowContent
+          phase="idle"
+          errorMessage={null}
+          onStart={() => undefined}
+          onCancel={() => undefined}
+          onReset={() => undefined}
+          domainLabel="Labs"
+        />,
+      );
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain("Supported Quest lab PDFs are imported automatically");
+  });
 });

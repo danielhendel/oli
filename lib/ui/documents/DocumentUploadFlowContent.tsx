@@ -136,6 +136,7 @@ export function DocumentUploadFlowContent({
 }: DocumentUploadFlowContentProps) {
   const busy = phase === "picking" || phase === "uploading" || phase === "processing";
   const isLabs = domainLabel.toLowerCase() === "labs";
+  const isScans = domainLabel.toLowerCase() === "scans";
   const labsCopy = isLabs ? labsSuccessCopy({ terminalStatus, importSummary }) : null;
   const successLabel = labsCopy
     ? labsCopy.title
@@ -156,7 +157,9 @@ export function DocumentUploadFlowContent({
         <Text style={styles.body}>
           {isLabs
             ? "Supported Quest lab PDFs are imported automatically. Oli verifies resolvable exceptions — you do not need to review each row."
-            : "Files are stored securely. Supported Quest lab PDFs are extracted; unsupported formats keep the original for later processing."}
+            : isScans
+              ? "PDF body scan reports are stored securely. Supported DXA reports can be extracted for review; unsupported reports keep the original so you can review them later."
+              : "Files are stored securely. Supported formats are extracted when available; unsupported formats keep the original for later processing."}
         </Text>
 
         {phase === "idle" ? (
