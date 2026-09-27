@@ -7,14 +7,15 @@ import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 
 const mockDeleteAsync = jest.fn(async () => undefined);
 const mockMakeDirectoryAsync = jest.fn(async () => undefined);
-const mockDownloadAsync = jest.fn(async (_url: string, fileUri: string) => ({
-  status: 200,
-  uri: fileUri,
-}));
+const mockWriteAsStringAsync = jest.fn(async () => undefined);
 const mockMoveAsync = jest.fn(async () => undefined);
 const mockGetInfoAsync = jest.fn(async () => ({ exists: true, size: 128, modificationTime: Date.now() / 1000 }));
 const mockReadAsStringAsync = jest.fn(async () => "%PDF-");
 const mockReadDirectoryAsync = jest.fn(async () => [] as string[]);
+const mockDownloadSignedUrlArrayBuffer = jest.fn(async () => ({
+  ok: true as const,
+  buffer: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]).buffer,
+}));
 
 jest.mock("expo-file-system", () => ({
   cacheDirectory: "file:///cache/",
@@ -22,13 +23,17 @@ jest.mock("expo-file-system", () => ({
   EncodingType: { UTF8: "utf8", Base64: "base64" },
   deleteAsync: (...args: unknown[]) => mockDeleteAsync(...(args as [])),
   makeDirectoryAsync: (...args: unknown[]) => mockMakeDirectoryAsync(...(args as [])),
-  downloadAsync: (...args: unknown[]) => mockDownloadAsync(...(args as [string, string])),
+  writeAsStringAsync: (...args: unknown[]) => mockWriteAsStringAsync(...(args as [])),
   moveAsync: (...args: unknown[]) => mockMoveAsync(...(args as [])),
   getInfoAsync: (...args: unknown[]) => mockGetInfoAsync(...(args as [])),
   readAsStringAsync: (...args: unknown[]) => mockReadAsStringAsync(...(args as [])),
   readDirectoryAsync: (...args: unknown[]) => mockReadDirectoryAsync(...(args as [])),
 }));
 
+jest.mock("@/lib/api/signedUrlDownload", () => ({
+  downloadSignedUrlArrayBuffer: (...args: unknown[]) =>
+    mockDownloadSignedUrlArrayBuffer(...(args as [])),
+}));
 import {
   BODY_SCAN_ORIGINAL_CACHE_MAX_AGE_MS,
   BODY_SCAN_ORIGINAL_CACHE_ROOT_NAME,
@@ -119,38 +124,39 @@ describe("bodyScanOriginalCache download and cleanup", () => {
       modificationTime: Date.now() / 1000,
     }));
     mockReadAsStringAsync.mockResolvedValue("%PDF-");
-    mockDownloadAsync.mockImplementation(async (_url: string, fileUri: string) => ({
-      status: 200,
-      uri: fileUri,
-    }));
+    mockDownloadSignedUrlArrayBuffer.mockResolvedValue({
+      ok: true,
+      buffer: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]).buffer,
+    });
   });
 
-  it("downloads via .partial then moves to .pdf", async () => {
+  it("downloads via signed-url helper into .partial then moves to .pdf", async () => {
     const result = await downloadBodyScanOriginalToProtectedCache({
       userId: "uid_a",
       documentId: "doc1",
-      url: "https://example.test/signed",
+      url: "https://example.test/signed?X-Goog-Signature=abc",
       previewNonce: "pabc",
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(mockMakeDirectoryAsync).toHaveBeenCalled();
-    expect(mockDownloadAsync).toHaveBeenCalled();
-    const downloadTarget = mockDownloadAsync.mock.calls[0]![1] as string;
-    expect(downloadTarget.endsWith(".partial")).toBe(true);
+    expect(mockDownloadSignedUrlArrayBuffer).toHaveBeenCalled();
+    expect(mockWriteAsStringAsync).toHaveBeenCalled();
+    const writeTarget = mockWriteAsStringAsync.mock.calls[0]![0] as string;
+    expect(writeTarget.endsWith(".partial")).toBe(true);
     expect(mockMoveAsync).toHaveBeenCalled();
     expect(result.localUri.endsWith(".pdf")).toBe(true);
   });
 
-  it("deletes partial and final candidates on download failure", async () => {
-    mockDownloadAsync.mockResolvedValueOnce({ status: 500, uri: "file:///cache/x.partial" });
+  it("deletes partial and final candidates on HTTP download failure", async () => {
+    mockDownloadSignedUrlArrayBuffer.mockResolvedValueOnce({ ok: false, reason: "http_failed" });
     const result = await downloadBodyScanOriginalToProtectedCache({
       userId: "uid_a",
       documentId: "doc1",
       url: "https://example.test/signed",
       previewNonce: "pfail",
     });
-    expect(result.ok).toBe(false);
+    expect(result).toEqual({ ok: false, safeReasonCode: "download_http_failed" });
     expect(mockDeleteAsync).toHaveBeenCalled();
   });
 
@@ -162,7 +168,7 @@ describe("bodyScanOriginalCache download and cleanup", () => {
       url: "https://example.test/signed",
       previewNonce: "pbad",
     });
-    expect(result.ok).toBe(false);
+    expect(result).toEqual({ ok: false, safeReasonCode: "invalid_pdf_rejected" });
     expect(mockDeleteAsync).toHaveBeenCalled();
   });
 

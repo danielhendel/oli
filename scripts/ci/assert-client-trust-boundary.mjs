@@ -46,11 +46,14 @@ function rel(p) {
 }
 
 /**
- * CHECK 1 — fetch( only in lib/api/http.ts
+ * CHECK 1 — fetch( only in lib/api/http.ts (+ signed-URL download helper)
  */
 function checkFetchOnlyInHttp() {
-  const allowedPath = path.join(ROOT, "lib", "api", "http.ts");
-  const allowedRel = rel(allowedPath);
+  const allowedRels = new Set([
+    rel(path.join(ROOT, "lib", "api", "http.ts")),
+    // Short-lived Storage signed URLs for View Original — not Gateway API traffic.
+    rel(path.join(ROOT, "lib", "api", "signedUrlDownload.ts")),
+  ]);
 
   const clientDirs = [
     path.join(ROOT, "app"),
@@ -69,14 +72,14 @@ function checkFetchOnlyInHttp() {
     const text = readText(f);
     if (!fetchRx.test(text)) continue;
     const r = rel(f);
-    if (r === allowedRel) continue;
+    if (allowedRels.has(r)) continue;
     offenders.push(r);
   }
 
   if (offenders.length) {
     fail(
       `CHECK 1 (fetch only in http.ts) failed:\n` +
-        `- fetch( must only appear in lib/api/http.ts\n` +
+        `- fetch( must only appear in lib/api/http.ts (or lib/api/signedUrlDownload.ts)\n` +
         `- Offenders:\n` +
         offenders.map((p) => `  - ${p}`).join("\n") +
         `\nFix: All network calls must go through lib/api/http.ts. Use apiGetZodAuthed (via usersMe, failures, derivedLedgerMe) for Phase 1 surfaces.`,

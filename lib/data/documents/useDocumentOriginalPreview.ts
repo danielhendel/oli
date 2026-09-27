@@ -24,6 +24,7 @@ import {
   deleteCachedBodyScanOriginal,
   downloadBodyScanOriginalToProtectedCache,
   sweepStaleBodyScanOriginalCaches,
+  type BodyScanOriginalDownloadFailureReason,
 } from "@/lib/data/body-scans/bodyScanOriginalCache";
 import {
   nativePdfPreviewUnavailableDevMessage,
@@ -77,6 +78,9 @@ export function useDocumentOriginalPreview(documentId: string | null) {
   const lastLocalUriRef = useRef<string | null>(null);
   const lastDeleteImmediatelyRef = useRef(true);
   const lastOpenSafeReasonRef = useRef<BodyScanLocalPreviewSafeReason | undefined>(undefined);
+  const lastDownloadSafeReasonRef = useRef<BodyScanOriginalDownloadFailureReason | undefined>(
+    undefined,
+  );
   const lastPreviewMethodRef = useRef<BodyScanLocalPreviewMethod | undefined>(undefined);
   const mountedRef = useRef(true);
 
@@ -98,6 +102,7 @@ export function useDocumentOriginalPreview(documentId: string | null) {
     const userId = user.uid;
     lastDeleteImmediatelyRef.current = true;
     lastOpenSafeReasonRef.current = undefined;
+    lastDownloadSafeReasonRef.current = undefined;
     lastPreviewMethodRef.current = undefined;
     const outcome = await openDocumentOriginal({
       requestGrant: async () => {
@@ -115,8 +120,12 @@ export function useDocumentOriginalPreview(documentId: string | null) {
           documentId,
           url,
         });
-        if (!downloaded.ok) return { ok: false };
+        if (!downloaded.ok) {
+          lastDownloadSafeReasonRef.current = downloaded.safeReasonCode;
+          return { ok: false };
+        }
         lastLocalUriRef.current = downloaded.localUri;
+        lastDownloadSafeReasonRef.current = undefined;
         return { ok: true, localUri: downloaded.localUri };
       },
       openLocal: async (localUri) => {
@@ -144,13 +153,21 @@ export function useDocumentOriginalPreview(documentId: string | null) {
     // DEV-only observability for physical cache gate (no paths/IDs).
     if (outcome.status === "error" && outcome.code === "DOWNLOAD_FAILED") {
       const inv = await countBodyScanCacheInventory({ userId, documentId });
+      const downloadReason = lastDownloadSafeReasonRef.current;
+      const safeReasonCode: BodyScanCacheDevSafeReason =
+        downloadReason === "download_http_failed" ||
+        downloadReason === "download_empty" ||
+        downloadReason === "invalid_pdf_rejected" ||
+        downloadReason === "materialize_write_failed"
+          ? downloadReason
+          : "download_or_materialize_failed";
       emitBodyScanCacheDevStatus({
         operation: "preview_failure_cleanup",
         status: inv.remainingFiles === 0 ? "ok" : "failed",
         remainingFileCountBucket: countToDevBucket(inv.remainingFiles),
         removedFileCountBucket: "unknown",
         partialFileCountBucket: countToPartialBucket(inv.partialFiles),
-        safeReasonCode: "download_or_materialize_failed",
+        safeReasonCode,
       });
     } else if (outcome.status === "error") {
       const inv = await countBodyScanCacheInventory({ userId, documentId });

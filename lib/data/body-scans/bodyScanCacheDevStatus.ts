@@ -32,6 +32,9 @@ export type BodyScanCacheDevSafeReason =
   | "fallback_requires_stale_cleanup"
   | "invalid_pdf_rejected"
   | "download_or_materialize_failed"
+  | "download_http_failed"
+  | "download_empty"
+  | "materialize_write_failed"
   | "open_failed"
   | "local_pdf_invalid"
   | "preview_method_unsupported"
@@ -94,6 +97,9 @@ const ALLOWED_REASONS = new Set<string>([
   "fallback_requires_stale_cleanup",
   "invalid_pdf_rejected",
   "download_or_materialize_failed",
+  "download_http_failed",
+  "download_empty",
+  "materialize_write_failed",
   "open_failed",
   "local_pdf_invalid",
   "preview_method_unsupported",

@@ -17,6 +17,8 @@
 
 import * as FileSystem from "expo-file-system";
 
+import { downloadSignedUrlArrayBuffer } from "@/lib/api/signedUrlDownload";
+
 /** Maximum age for a completed local preview PDF before stale sweep removes it. */
 export const BODY_SCAN_ORIGINAL_CACHE_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -162,32 +164,77 @@ async function ensureDirectory(uri: string): Promise<boolean> {
 
 /**
  * Download a short-lived signed URL into a per-open private path.
+ *
+ * Uses `fetch` + base64 write rather than `FileSystem.downloadAsync`: GCS V4 signed
+ * URLs carry long query strings that have failed silently on device downloadAsync
+ * paths while the same URL downloads successfully outside the app.
+ *
  * Writes `.partial` first, verifies a PDF header, then renames to `.pdf`.
  * On any failure, both candidates are deleted.
  */
+export type BodyScanOriginalDownloadFailureReason =
+  | "download_http_failed"
+  | "download_empty"
+  | "invalid_pdf_rejected"
+  | "materialize_write_failed"
+  | "download_or_materialize_failed";
+
 export async function downloadBodyScanOriginalToProtectedCache(args: {
   userId: string;
   documentId: string;
   url: string;
   previewNonce?: string;
-}): Promise<{ ok: true; localUri: string; paths: BodyScanOriginalPreviewPaths } | { ok: false }> {
+}): Promise<
+  | { ok: true; localUri: string; paths: BodyScanOriginalPreviewPaths }
+  | { ok: false; safeReasonCode: BodyScanOriginalDownloadFailureReason }
+> {
   const prepared = await prepareBodyScanOriginalPreviewPaths(args);
-  if (!prepared.ok) return { ok: false };
+  if (!prepared.ok) return { ok: false, safeReasonCode: "download_or_materialize_failed" };
   const { paths } = prepared;
 
   try {
-    const result = await FileSystem.downloadAsync(args.url, paths.partialUri);
-    if (result.status < 200 || result.status >= 300) {
+    const downloaded = await downloadSignedUrlArrayBuffer(args.url);
+    if (!downloaded.ok) {
       await deleteUriIdempotent(paths.partialUri);
       await deleteUriIdempotent(paths.finalUri);
-      return { ok: false };
+      if (downloaded.reason === "http_failed") {
+        return { ok: false, safeReasonCode: "download_http_failed" };
+      }
+      if (downloaded.reason === "empty") {
+        return { ok: false, safeReasonCode: "download_empty" };
+      }
+      return { ok: false, safeReasonCode: "download_or_materialize_failed" };
     }
-    return await finalizeBodyScanOriginalFromPartial(paths);
+    const base64 = arrayBufferToBase64(downloaded.buffer);
+    await FileSystem.writeAsStringAsync(paths.partialUri, base64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const finalized = await finalizeBodyScanOriginalFromPartial(paths);
+    if (!finalized.ok) {
+      return { ok: false, safeReasonCode: "invalid_pdf_rejected" };
+    }
+    return finalized;
   } catch {
     await deleteUriIdempotent(paths.partialUri);
     await deleteUriIdempotent(paths.finalUri);
-    return { ok: false };
+    return { ok: false, safeReasonCode: "materialize_write_failed" };
   }
+}
+
+/** Encode PDF bytes for FileSystem without pulling in Node Buffer. */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  if (typeof globalThis.btoa === "function") {
+    return globalThis.btoa(binary);
+  }
+  // Jest / Node fallback when btoa is absent.
+  return Buffer.from(bytes).toString("base64");
 }
 
 /**
