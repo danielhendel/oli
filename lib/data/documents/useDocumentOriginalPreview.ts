@@ -27,17 +27,23 @@ import {
   type BodyScanOriginalDownloadFailureReason,
 } from "@/lib/data/body-scans/bodyScanOriginalCache";
 import {
+  byteLengthToDevBucket,
+  emitBodyScanRuntimeDevStatus,
+  httpStatusToDevBucket,
+  type BodyScanRuntimeDevSafeReason,
+} from "@/lib/data/body-scans/bodyScanRuntimeDevStatus";
+import {
   nativePdfPreviewUnavailableDevMessage,
   openBodyScanOriginalLocalPreview,
   type BodyScanLocalPreviewMethod,
   type BodyScanLocalPreviewSafeReason,
 } from "@/lib/data/body-scans/openBodyScanOriginalLocalPreview";
-import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import {
   documentOriginalPreviewMessage,
   openDocumentOriginal,
   type DocumentOriginalPreviewOutcome,
 } from "@/lib/data/documents/documentOriginalPreview";
+import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 
 export type DocumentOriginalPreviewState = {
   busy: boolean;
@@ -94,8 +100,21 @@ export function useDocumentOriginalPreview(documentId: string | null) {
   }, [documentId]);
 
   const open = useCallback(async (): Promise<DocumentOriginalPreviewOutcome | null> => {
-    if (!documentId || !user?.uid) return null;
+    if (!documentId || !user?.uid) {
+      emitBodyScanRuntimeDevStatus({
+        operation: "original_report",
+        stage: "early_return",
+        status: "failed",
+        safeReasonCode: !user?.uid ? "missing_auth" : "unknown",
+      });
+      return null;
+    }
     setState({ busy: true, message: null });
+    emitBodyScanRuntimeDevStatus({
+      operation: "original_report",
+      stage: "press",
+      status: "started",
+    });
 
     await sweepStaleBodyScanOriginalCaches();
 
@@ -106,19 +125,107 @@ export function useDocumentOriginalPreview(documentId: string | null) {
     lastPreviewMethodRef.current = undefined;
     const outcome = await openDocumentOriginal({
       requestGrant: async () => {
+        emitBodyScanRuntimeDevStatus({
+          operation: "original_report",
+          stage: "grant_start",
+          status: "started",
+        });
         const token = await getIdToken(false);
-        if (!token) return null;
+        if (!token) {
+          emitBodyScanRuntimeDevStatus({
+            operation: "original_report",
+            stage: "grant_failed",
+            status: "failed",
+            safeReasonCode: "missing_auth",
+          });
+          return null;
+        }
         const res = await viewDocumentOriginal(token, documentId, {
           cacheBust: `view-original-${Date.now()}`,
         });
         const parsed = truthOutcomeFromApiResult(res);
-        return parsed.status === "ready" ? parsed.data : null;
+        if (parsed.status !== "ready") {
+          emitBodyScanRuntimeDevStatus({
+            operation: "original_report",
+            stage: "grant_failed",
+            status: "failed",
+            httpBucket: httpStatusToDevBucket(res.status),
+            safeReasonCode: "http_failed",
+          });
+          return null;
+        }
+        emitBodyScanRuntimeDevStatus({
+          operation: "original_report",
+          stage: "grant_success",
+          status: "ok",
+          httpBucket: httpStatusToDevBucket(res.status),
+        });
+        return parsed.data;
       },
       downloadToProtectedPath: async ({ url }) => {
         const downloaded = await downloadBodyScanOriginalToProtectedCache({
           userId,
           documentId,
           url,
+          onDownloadStage: (event) => {
+            if (event.stage === "policy_pass" || event.stage === "policy_fail") {
+              emitBodyScanRuntimeDevStatus({
+                operation: "original_report",
+                stage: event.stage === "policy_pass" ? "policy_pass" : "policy_fail",
+                status: event.ok ? "ok" : "failed",
+                ...(event.reason
+                  ? { safeReasonCode: event.reason as BodyScanRuntimeDevSafeReason }
+                  : {}),
+              });
+              return;
+            }
+            if (event.stage === "fetch_start") {
+              emitBodyScanRuntimeDevStatus({
+                operation: "original_report",
+                stage: "fetch_start",
+                status: "started",
+              });
+              return;
+            }
+            if (event.stage === "fetch_response") {
+              emitBodyScanRuntimeDevStatus({
+                operation: "original_report",
+                stage: "fetch_response",
+                status: event.ok ? "ok" : "failed",
+                httpBucket: httpStatusToDevBucket(event.httpStatus),
+              });
+              return;
+            }
+            if (event.stage === "bytes_validated") {
+              emitBodyScanRuntimeDevStatus({
+                operation: "original_report",
+                stage: "bytes_validated",
+                status: event.ok ? "ok" : "failed",
+                byteBucket:
+                  typeof event.byteLength === "number"
+                    ? byteLengthToDevBucket(event.byteLength)
+                    : "unknown",
+                ...(event.reason
+                  ? { safeReasonCode: event.reason as BodyScanRuntimeDevSafeReason }
+                  : {}),
+              });
+            }
+          },
+          onMaterializeStage: (event) => {
+            emitBodyScanRuntimeDevStatus({
+              operation: "original_report",
+              stage: event.stage,
+              status: event.ok ? "ok" : "failed",
+              ...(event.ok
+                ? {}
+                : {
+                    safeReasonCode:
+                      event.stage === "pdf_validation"
+                        ? "invalid_pdf_rejected"
+                        : "materialize_write_failed",
+                  }),
+            });
+          },
         });
         if (!downloaded.ok) {
           lastDownloadSafeReasonRef.current = downloaded.safeReasonCode;
@@ -129,14 +236,23 @@ export function useDocumentOriginalPreview(documentId: string | null) {
         return { ok: true, localUri: downloaded.localUri };
       },
       openLocal: async (localUri) => {
+        emitBodyScanRuntimeDevStatus({
+          operation: "original_report",
+          stage: "native_open",
+          status: "started",
+        });
         const result = await openBodyScanOriginalLocalPreview(localUri, {
           title: "Original Report",
         });
         lastDeleteImmediatelyRef.current = result.deleteImmediately;
         lastOpenSafeReasonRef.current = result.ok ? undefined : result.safeReasonCode;
-        lastPreviewMethodRef.current = result.ok
-          ? result.method
-          : result.attemptedMethod;
+        lastPreviewMethodRef.current = result.ok ? result.method : result.attemptedMethod;
+        emitBodyScanRuntimeDevStatus({
+          operation: "original_report",
+          stage: "native_open",
+          status: result.opened ? "ok" : "failed",
+          ...(result.opened ? {} : { safeReasonCode: "open_failed" }),
+        });
         return {
           opened: result.opened,
           deleteImmediately: result.deleteImmediately,
@@ -172,6 +288,12 @@ export function useDocumentOriginalPreview(documentId: string | null) {
         partialFileCountBucket: countToPartialBucket(inv.partialFiles),
         safeReasonCode,
       });
+      emitBodyScanRuntimeDevStatus({
+        operation: "original_report",
+        stage: "cleanup_complete",
+        status: inv.remainingFiles === 0 && inv.partialFiles === 0 ? "ok" : "failed",
+        safeReasonCode: safeReasonCode as BodyScanRuntimeDevSafeReason,
+      });
     } else if (outcome.status === "error") {
       const inv = await countBodyScanCacheInventory({ userId, documentId });
       emitBodyScanCacheDevStatus({
@@ -197,6 +319,16 @@ export function useDocumentOriginalPreview(documentId: string | null) {
           ...(lastPreviewMethodRef.current != null
             ? { previewMethod: lastPreviewMethodRef.current }
             : {}),
+        });
+        emitBodyScanRuntimeDevStatus({
+          operation: "original_report",
+          stage: "native_close",
+          status: "ok",
+        });
+        emitBodyScanRuntimeDevStatus({
+          operation: "original_report",
+          stage: "cleanup_complete",
+          status: inv.remainingFiles === 0 && inv.partialFiles === 0 ? "ok" : "failed",
         });
       } else {
         emitBodyScanCacheDevStatus({

@@ -1,10 +1,15 @@
-import React, { useCallback, useLayoutEffect, useMemo } from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 
 import { isBodyScansV1Enabled } from "@/lib/data/body-scans/bodyScansFlag";
 import { useBodyScanActions } from "@/lib/data/body-scans/useBodyScanActions";
 import { useBodyScanDetail } from "@/lib/data/body-scans/useBodyScanDetail";
+import {
+  BODY_SCAN_RUNTIME_JS_TOKEN,
+  emitBodyScanRuntimeDevStatus,
+  emitBodyScanRuntimeJsToken,
+} from "@/lib/data/body-scans/bodyScanRuntimeDevStatus";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import {
@@ -13,6 +18,7 @@ import {
 } from "@/lib/ui/body-scans/BodyScanDetailContent";
 import { EmptyState } from "@/lib/ui/ScreenStates";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
+import { UI_TEXT_TERTIARY_LABEL } from "@/lib/ui/theme/uiTokens";
 
 export default function BodyScanDetailScreen() {
   const navigation = useNavigation();
@@ -22,6 +28,10 @@ export default function BodyScanDetailScreen() {
   const enabled = isBodyScansV1Enabled() && scanId.length > 0;
   const detail = useBodyScanDetail({ scanId, enabled });
   const actions = useBodyScanActions(scanId);
+
+  useEffect(() => {
+    emitBodyScanRuntimeJsToken();
+  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -34,9 +44,37 @@ export default function BodyScanDetailScreen() {
   const scan = detail.status === "ready" ? detail.data.scan : undefined;
 
   const onReprocess = useCallback(async () => {
+    emitBodyScanRuntimeDevStatus({
+      operation: "reprocess",
+      stage: "press",
+      status: "started",
+      hasScanId: scanId.length > 0,
+    });
+    if (!scan?.canRetry) {
+      emitBodyScanRuntimeDevStatus({
+        operation: "reprocess",
+        stage: "early_return",
+        status: "failed",
+        safeReasonCode: "not_retryable",
+        hasScanId: scanId.length > 0,
+      });
+      return;
+    }
     const outcome = await actions.reprocess();
-    if (outcome.ok) detail.refetch({ cacheBust: `reprocess-${Date.now()}` });
-  }, [actions, detail]);
+    if (outcome.ok) {
+      emitBodyScanRuntimeDevStatus({
+        operation: "reprocess",
+        stage: "refetch_start",
+        status: "started",
+      });
+      detail.refetch({ cacheBust: `reprocess-${Date.now()}` });
+      emitBodyScanRuntimeDevStatus({
+        operation: "reprocess",
+        stage: "refetch_complete",
+        status: "ok",
+      });
+    }
+  }, [actions, detail, scan?.canRetry, scanId.length]);
 
   const onDelete = useCallback(async () => {
     const outcome = await actions.remove();
@@ -96,6 +134,11 @@ export default function BodyScanDetailScreen() {
   return (
     <View style={styles.root}>
       <ModuleScreenShell title="Scan" hideTitleChrome>
+        {__DEV__ ? (
+          <Text style={styles.devToken} testID="body-scan-runtime-js-token">
+            {`JS ${BODY_SCAN_RUNTIME_JS_TOKEN}`}
+          </Text>
+        ) : null}
         <BodyScanDetailContent
           status={detail.status === "idle" ? "partial" : detail.status}
           {...(detail.status === "error"
@@ -113,4 +156,10 @@ export default function BodyScanDetailScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  devToken: {
+    color: UI_TEXT_TERTIARY_LABEL,
+    fontSize: 11,
+    marginBottom: 4,
+    fontVariant: ["tabular-nums"],
+  },
 });

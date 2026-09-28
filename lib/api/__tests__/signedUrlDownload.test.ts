@@ -27,6 +27,8 @@ function mockResponse(init: {
   headers?: Record<string, string>;
   body?: ArrayBuffer | null;
   bodyFactory?: () => Promise<ArrayBuffer>;
+  url?: string;
+  redirected?: boolean;
 }): Response {
   const status = init.status ?? 200;
   const headers = new Headers(init.headers ?? {});
@@ -36,6 +38,8 @@ function mockResponse(init: {
     status,
     type: init.type ?? "basic",
     headers,
+    url: init.url ?? "",
+    redirected: init.redirected ?? false,
     arrayBuffer: init.bodyFactory ?? (async () => body as ArrayBuffer),
   } as unknown as Response;
 }
@@ -124,29 +128,48 @@ describe("downloadSignedUrlArrayBuffer", () => {
     jest.restoreAllMocks();
   });
 
-  it("fetches an approved URL with omit credentials and manual redirects", async () => {
-    const fetchMock = jest.fn(async () => mockResponse({}));
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
+  it("fetches an approved URL with omit credentials and no unsupported redirect mode", async () => {
+    const response = mockResponse({
+      type: "default" as ResponseType,
+      url: approvedSignedUrl(),
+      redirected: false,
+    });
+    globalThis.fetch = jest.fn(async () => response) as unknown as typeof fetch;
 
     const result = await downloadSignedUrlArrayBuffer(approvedSignedUrl());
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.bytes.byteLength).toBe(PDF_BYTES.byteLength);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [, init] = fetchMock.mock.calls[0]!;
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    const [, init] = (globalThis.fetch as jest.Mock).mock.calls[0]!;
     expect(init).toMatchObject({
       method: "GET",
-      redirect: "manual",
       credentials: "omit",
     });
+    expect(init).not.toHaveProperty("redirect");
     expect(init).toHaveProperty("signal");
   });
 
-  it("rejects 301/302/307/308 redirects", async () => {
+  it("rejects when native stack redirects off the allowlisted host", async () => {
+    const response = mockResponse({
+      status: 200,
+      ok: true,
+      type: "default" as ResponseType,
+      url: "https://evil.example/stolen",
+      redirected: true,
+    });
+    globalThis.fetch = jest.fn(async () => response) as unknown as typeof fetch;
+    await expect(downloadSignedUrlArrayBuffer(approvedSignedUrl())).resolves.toEqual({
+      ok: false,
+      reason: "redirect_rejected",
+    });
+  });
+
+  it("rejects residual 301/302/307/308 responses", async () => {
     for (const status of [301, 302, 307, 308]) {
       globalThis.fetch = jest.fn(async () =>
-        mockResponse({ status, ok: false, type: "basic" }),
+        mockResponse({ status, ok: false, type: "basic", url: approvedSignedUrl() }),
       ) as unknown as typeof fetch;
       const result = await downloadSignedUrlArrayBuffer(approvedSignedUrl());
       expect(result).toEqual({ ok: false, reason: "redirect_rejected" });

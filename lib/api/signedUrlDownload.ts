@@ -9,6 +9,13 @@
  *
  * Server emission (documentsMe view-original → Admin Storage getSignedUrl without
  * virtualHostedStyle/cname): path-style HTTPS host `storage.googleapis.com` only.
+ *
+ * React Native / Expo note:
+ * Expo's native fetch (winter/fetch) does not implement `redirect: "manual"`.
+ * Redirects are followed by the native stack. We therefore:
+ * - omit the unsupported redirect mode (do not pretend browser semantics);
+ * - re-validate the final `response.url` host against the exact allowlist;
+ * - fail closed if a redirect lands off-allowlist or final URL is missing after redirect.
  */
 
 import { DOCUMENT_MAX_BYTE_SIZE } from "@/lib/data/documents/documentValidation";
@@ -36,6 +43,22 @@ export type SignedUrlDownloadFailureReason =
 export type SignedUrlDownloadResult =
   | { ok: true; bytes: ArrayBuffer }
   | { ok: false; reason: SignedUrlDownloadFailureReason };
+
+export type SignedUrlDownloadStage =
+  | "policy_pass"
+  | "policy_fail"
+  | "fetch_start"
+  | "fetch_response"
+  | "bytes_validated";
+
+export type SignedUrlDownloadStageEvent = {
+  stage: SignedUrlDownloadStage;
+  ok: boolean;
+  reason?: SignedUrlDownloadFailureReason;
+  httpStatus?: number;
+  byteLength?: number;
+  redirected?: boolean;
+};
 
 /**
  * Parse + policy-check a candidate signed URL without fetching.
@@ -103,18 +126,79 @@ function parseContentLengthHeader(
 }
 
 /**
+ * After native fetch (which may auto-follow redirects), ensure the final URL
+ * still matches the exact GCS allowlist. Fail closed on off-allowlist landings.
+ */
+export function evaluateSignedUrlFinalResponse(
+  response: Pick<Response, "url" | "status" | "type" | "redirected" | "ok">,
+): { ok: true } | { ok: false; reason: SignedUrlDownloadFailureReason } {
+  // Browser opaque-redirect semantic (not emitted by Expo winter fetch, which uses type "default").
+  if (response.type === "opaqueredirect") {
+    return { ok: false, reason: "redirect_rejected" };
+  }
+  if (response.status >= 300 && response.status < 400) {
+    return { ok: false, reason: "redirect_rejected" };
+  }
+
+  const finalUrl = typeof response.url === "string" ? response.url.trim() : "";
+  const redirected = response.redirected === true;
+
+  if (finalUrl.length > 0) {
+    const policy = evaluateSignedUrlDownloadPolicy(finalUrl);
+    if (!policy.ok) {
+      return {
+        ok: false,
+        reason:
+          policy.reason === "host_not_allowed" || policy.reason === "insecure_scheme"
+            ? "redirect_rejected"
+            : policy.reason,
+      };
+    }
+    return { ok: true };
+  }
+
+  // Expo should expose response.url; if a redirect occurred without a final URL, fail closed.
+  if (redirected) {
+    return { ok: false, reason: "redirect_rejected" };
+  }
+  return { ok: true };
+}
+
+async function readResponseArrayBuffer(response: Response): Promise<ArrayBuffer | null> {
+  if (typeof response.arrayBuffer === "function") {
+    return await response.arrayBuffer();
+  }
+  // Narrow RN fallback if arrayBuffer is missing but blob exists.
+  const withBlob = response as Response & { blob?: () => Promise<Blob> };
+  if (typeof withBlob.blob === "function") {
+    const blob = await withBlob.blob();
+    if (typeof blob.arrayBuffer === "function") {
+      return await blob.arrayBuffer();
+    }
+  }
+  return null;
+}
+
+/**
  * Fetch bytes from an Oli-issued GCS signed URL under a hard security policy.
  *
- * - HTTPS only, exact host allowlist, no redirects
+ * - HTTPS only, exact host allowlist (request + final response URL)
  * - credentials omitted (signed query is the auth)
  * - Content-Length + actual byteLength ≤ DOCUMENT_MAX_BYTE_SIZE (5 MiB)
  * - AbortController timeout
+ * - No `redirect: "manual"` (unsupported on Expo native fetch)
  */
 export async function downloadSignedUrlArrayBuffer(
   urlString: string,
+  opts?: { onStage?: (event: SignedUrlDownloadStageEvent) => void },
 ): Promise<SignedUrlDownloadResult> {
+  const emit = opts?.onStage;
   const policy = evaluateSignedUrlDownloadPolicy(urlString);
-  if (!policy.ok) return policy;
+  if (!policy.ok) {
+    emit?.({ stage: "policy_fail", ok: false, reason: policy.reason });
+    return policy;
+  }
+  emit?.({ stage: "policy_pass", ok: true });
 
   const controller = new AbortController();
   const timer = setTimeout(() => {
@@ -122,16 +206,25 @@ export async function downloadSignedUrlArrayBuffer(
   }, SIGNED_URL_DOWNLOAD_TIMEOUT_MS);
 
   try {
+    emit?.({ stage: "fetch_start", ok: true });
+    // Intentionally omit `redirect`: Expo native fetch does not support redirect modes.
+    // Final host is re-validated via evaluateSignedUrlFinalResponse after the call.
     const response = await fetch(policy.url.toString(), {
       method: "GET",
-      redirect: "manual",
       credentials: "omit",
       signal: controller.signal,
     });
 
-    // GCS path-style signed reads return 2xx directly; reject all redirects.
-    if (response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400)) {
-      return { ok: false, reason: "redirect_rejected" };
+    emit?.({
+      stage: "fetch_response",
+      ok: response.ok,
+      httpStatus: response.status,
+      redirected: response.redirected === true,
+    });
+
+    const finalCheck = evaluateSignedUrlFinalResponse(response);
+    if (!finalCheck.ok) {
+      return finalCheck;
     }
 
     if (!response.ok) {
@@ -146,14 +239,27 @@ export async function downloadSignedUrlArrayBuffer(
       return { ok: false, reason: "content_too_large" };
     }
 
-    const bytes = await response.arrayBuffer();
+    const bytes = await readResponseArrayBuffer(response);
     if (!bytes || bytes.byteLength < MIN_PDF_CANDIDATE_BYTES) {
+      emit?.({
+        stage: "bytes_validated",
+        ok: false,
+        reason: "empty_response",
+        byteLength: bytes?.byteLength ?? 0,
+      });
       return { ok: false, reason: "empty_response" };
     }
     if (bytes.byteLength > DOCUMENT_MAX_BYTE_SIZE) {
+      emit?.({
+        stage: "bytes_validated",
+        ok: false,
+        reason: "content_too_large",
+        byteLength: bytes.byteLength,
+      });
       return { ok: false, reason: "content_too_large" };
     }
 
+    emit?.({ stage: "bytes_validated", ok: true, byteLength: bytes.byteLength });
     return { ok: true, bytes };
   } catch (err) {
     if (isAbortError(err)) {

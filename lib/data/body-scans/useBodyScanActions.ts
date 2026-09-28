@@ -5,6 +5,10 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { confirmBodyScan, deleteBodyScan, reprocessBodyScan } from "@/lib/api/bodyScans";
 import type { BodyScanConfirmRequestDto } from "@/lib/contracts";
 import { clearBodyScanOriginalCacheForDocument } from "@/lib/data/body-scans/bodyScanOriginalCache";
+import {
+  emitBodyScanRuntimeDevStatus,
+  httpStatusToDevBucket,
+} from "@/lib/data/body-scans/bodyScanRuntimeDevStatus";
 import { markDocumentDeleted } from "@/lib/data/documents/documentListInvalidate";
 
 export type BodyScanActionKind = "confirm" | "reprocess" | "delete";
@@ -35,13 +39,16 @@ export function useBodyScanActions(scanId: string) {
   const [state, setState] = useState<ActionState>({ pending: null, errorMessage: null });
   const idempotencyKeys = useRef(new Map<BodyScanActionKind, string>());
 
-  const idempotencyKeyFor = useCallback((kind: BodyScanActionKind) => {
-    const existing = idempotencyKeys.current.get(kind);
-    if (existing) return existing;
-    const key = `${kind}-${scanId}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    idempotencyKeys.current.set(kind, key);
-    return key;
-  }, [scanId]);
+  const idempotencyKeyFor = useCallback(
+    (kind: BodyScanActionKind) => {
+      const existing = idempotencyKeys.current.get(kind);
+      if (existing) return existing;
+      const key = `${kind}-${scanId}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      idempotencyKeys.current.set(kind, key);
+      return key;
+    },
+    [scanId],
+  );
 
   const run = useCallback(
     async (
@@ -49,18 +56,83 @@ export function useBodyScanActions(scanId: string) {
       call: (token: string, idempotencyKey: string) => Promise<{ ok: boolean; status?: number }>,
     ): Promise<BodyScanActionOutcome> => {
       setState({ pending: kind, errorMessage: null });
+      if (kind === "reprocess") {
+        emitBodyScanRuntimeDevStatus({
+          operation: "reprocess",
+          stage: "handler_enter",
+          status: "started",
+          hasScanId: scanId.length > 0,
+        });
+      }
       const token = await getIdToken(false);
       if (!token) {
         const message = MESSAGES[kind];
         setState({ pending: null, errorMessage: message });
+        if (kind === "reprocess") {
+          emitBodyScanRuntimeDevStatus({
+            operation: "reprocess",
+            stage: "early_return",
+            status: "failed",
+            safeReasonCode: "missing_auth",
+            hasScanId: scanId.length > 0,
+          });
+        }
+        return { ok: false, kind, message };
+      }
+      if (kind === "reprocess" && scanId.length === 0) {
+        const message = MESSAGES[kind];
+        setState({ pending: null, errorMessage: message });
+        emitBodyScanRuntimeDevStatus({
+          operation: "reprocess",
+          stage: "early_return",
+          status: "failed",
+          safeReasonCode: "missing_scan_id",
+          hasScanId: false,
+        });
         return { ok: false, kind, message };
       }
 
+      if (kind === "reprocess") {
+        // Always mint a fresh key so a timed-out prior attempt cannot idempotent-replay
+        // an old unsupported extraction without re-running ingestion.
+        idempotencyKeys.current.delete("reprocess");
+        emitBodyScanRuntimeDevStatus({
+          operation: "reprocess",
+          stage: "request_start",
+          status: "started",
+          hasScanId: true,
+        });
+      }
+
       const res = await call(token, idempotencyKeyFor(kind));
+      if (kind === "reprocess") {
+        emitBodyScanRuntimeDevStatus({
+          operation: "reprocess",
+          stage: "response",
+          status: res.ok ? "ok" : "failed",
+          httpBucket: httpStatusToDevBucket(res.status),
+          hasScanId: true,
+          ...(res.ok
+            ? {}
+            : {
+                safeReasonCode:
+                  res.status === 409
+                    ? "not_retryable"
+                    : res.status && res.status > 0
+                      ? "http_failed"
+                      : "network_failed",
+              }),
+        });
+      }
       if (res.ok) {
         idempotencyKeys.current.delete(kind);
         setState({ pending: null, errorMessage: null });
         return { ok: true, kind };
+      }
+
+      // Drop failed reprocess keys so the next tap cannot silently replay a stale job.
+      if (kind === "reprocess") {
+        idempotencyKeys.current.delete("reprocess");
       }
 
       const message =
@@ -72,7 +144,7 @@ export function useBodyScanActions(scanId: string) {
       setState({ pending: null, errorMessage: message });
       return { ok: false, kind, message };
     },
-    [getIdToken, idempotencyKeyFor],
+    [getIdToken, idempotencyKeyFor, scanId],
   );
 
   const confirm = useCallback(

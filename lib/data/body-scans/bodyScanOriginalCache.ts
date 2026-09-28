@@ -20,6 +20,7 @@ import * as FileSystem from "expo-file-system";
 import {
   downloadSignedUrlArrayBuffer,
   type SignedUrlDownloadFailureReason,
+  type SignedUrlDownloadStageEvent,
 } from "@/lib/api/signedUrlDownload";
 
 /** Maximum age for a completed local preview PDF before stale sweep removes it. */
@@ -208,11 +209,21 @@ function mapSignedUrlDownloadFailure(
   }
 }
 
+export type BodyScanOriginalMaterializeStage =
+  | "partial_write"
+  | "pdf_validation"
+  | "rename_final";
+
 export async function downloadBodyScanOriginalToProtectedCache(args: {
   userId: string;
   documentId: string;
   url: string;
   previewNonce?: string;
+  onDownloadStage?: (event: SignedUrlDownloadStageEvent) => void;
+  onMaterializeStage?: (event: {
+    stage: BodyScanOriginalMaterializeStage;
+    ok: boolean;
+  }) => void;
 }): Promise<
   | { ok: true; localUri: string; paths: BodyScanOriginalPreviewPaths }
   | { ok: false; safeReasonCode: BodyScanOriginalDownloadFailureReason }
@@ -222,7 +233,10 @@ export async function downloadBodyScanOriginalToProtectedCache(args: {
   const { paths } = prepared;
 
   try {
-    const downloaded = await downloadSignedUrlArrayBuffer(args.url);
+    const downloaded = await downloadSignedUrlArrayBuffer(
+    args.url,
+    args.onDownloadStage ? { onStage: args.onDownloadStage } : {},
+  );
     if (!downloaded.ok) {
       await deleteUriIdempotent(paths.partialUri);
       await deleteUriIdempotent(paths.finalUri);
@@ -233,14 +247,19 @@ export async function downloadBodyScanOriginalToProtectedCache(args: {
     await FileSystem.writeAsStringAsync(paths.partialUri, base64, {
       encoding: FileSystem.EncodingType.Base64,
     });
+    args.onMaterializeStage?.({ stage: "partial_write", ok: true });
     const finalized = await finalizeBodyScanOriginalFromPartial(paths);
     if (!finalized.ok) {
+      args.onMaterializeStage?.({ stage: "pdf_validation", ok: false });
       return { ok: false, safeReasonCode: "invalid_pdf_rejected" };
     }
+    args.onMaterializeStage?.({ stage: "pdf_validation", ok: true });
+    args.onMaterializeStage?.({ stage: "rename_final", ok: true });
     return finalized;
   } catch {
     await deleteUriIdempotent(paths.partialUri);
     await deleteUriIdempotent(paths.finalUri);
+    args.onMaterializeStage?.({ stage: "partial_write", ok: false });
     return { ok: false, safeReasonCode: "materialize_write_failed" };
   }
 }

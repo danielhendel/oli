@@ -62,7 +62,10 @@ function checkFetchOnlyInHttp() {
   ].filter((d) => fs.existsSync(d));
 
   const files = clientDirs.flatMap((d) =>
-    walk(d, { includeExts: [".ts", ".tsx"], ignoreDirs: ["__tests__", "dist", "node_modules"] }),
+    walk(d, {
+      includeExts: [".ts", ".tsx"],
+      ignoreDirs: ["__tests__", "dist", "dist-types", "node_modules"],
+    }),
   );
 
   const fetchRx = /(?:^|[^\w])fetch\s*\(/;
@@ -95,7 +98,8 @@ function checkFetchOnlyInHttp() {
   const requiredPolicyTokens = [
     'protocol !== "https:"',
     "SIGNED_URL_DOWNLOAD_ALLOWED_HOSTS",
-    'redirect: "manual"',
+    // Expo native fetch has no redirect mode — final host must be re-validated.
+    "evaluateSignedUrlFinalResponse",
     'credentials: "omit"',
     "DOCUMENT_MAX_BYTE_SIZE",
     "AbortController",
@@ -135,7 +139,10 @@ function checkApiGetJsonAuthedOnlyInValidate() {
   ].filter((d) => fs.existsSync(d));
 
   const files = clientDirs.flatMap((d) =>
-    walk(d, { includeExts: [".ts", ".tsx"], ignoreDirs: ["__tests__", "dist", "node_modules"] }),
+    walk(d, {
+      includeExts: [".ts", ".tsx"],
+      ignoreDirs: ["__tests__", "dist", "dist-types", "node_modules"],
+    }),
   );
 
   const rx = /\bapiGetJsonAuthed\s*\(/;
@@ -173,7 +180,7 @@ function checkPhase1ScreensNoRawHttpImport() {
   ].filter((d) => fs.existsSync(d));
 
   const files = phase1Dirs.flatMap((d) =>
-    walk(d, { includeExts: [".ts", ".tsx"], ignoreDirs: ["__tests__", "dist"] }),
+    walk(d, { includeExts: [".ts", ".tsx"], ignoreDirs: ["__tests__", "dist", "dist-types"] }),
   );
 
   const httpImportRx = /from\s+["'](?:@\/lib\/api\/http|\.\.\/.*lib\/api\/http)["']/;
