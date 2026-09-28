@@ -10,7 +10,7 @@ const mockWriteAsStringAsync = jest.fn(async () => undefined);
 const mockMoveAsync = jest.fn(async () => undefined);
 const mockGetInfoAsync = jest.fn(async () => ({ exists: false, size: 0 }));
 const mockReadDirectoryAsync = jest.fn(async () => [] as string[]);
-const mockReadAsStringAsync = jest.fn(async () => "%PDF-");
+const mockReadAsStringAsync = jest.fn(async () => "JVBERg==");
 
 const mockPresentSecurePdfPreview = jest.fn(async () => ({
   ok: true as const,
@@ -76,7 +76,7 @@ describe("bodyScanCacheLifecycleHarness", () => {
     (globalThis as { __DEV__?: boolean }).__DEV__ = true;
     mockGetInfoAsync.mockResolvedValue({ exists: false, size: 0 });
     mockReadDirectoryAsync.mockResolvedValue([]);
-    mockReadAsStringAsync.mockResolvedValue("%PDF-");
+    mockReadAsStringAsync.mockResolvedValue("JVBERg==");
     mockIsAvailable.mockReturnValue(true);
     mockPresentSecurePdfPreview.mockResolvedValue({
       ok: true,

@@ -10,7 +10,7 @@ const mockMakeDirectoryAsync = jest.fn(async () => undefined);
 const mockWriteAsStringAsync = jest.fn(async () => undefined);
 const mockMoveAsync = jest.fn(async () => undefined);
 const mockGetInfoAsync = jest.fn(async () => ({ exists: true, size: 128, modificationTime: Date.now() / 1000 }));
-const mockReadAsStringAsync = jest.fn(async () => "%PDF-");
+const mockReadAsStringAsync = jest.fn(async () => "JVBERg=="); // base64 of %PDF
 const mockReadDirectoryAsync = jest.fn(async () => [] as string[]);
 const mockDownloadSignedUrlArrayBuffer = jest.fn(async () => ({
   ok: true as const,
@@ -123,7 +123,7 @@ describe("bodyScanOriginalCache download and cleanup", () => {
       size: 128,
       modificationTime: Date.now() / 1000,
     }));
-    mockReadAsStringAsync.mockResolvedValue("%PDF-");
+    mockReadAsStringAsync.mockResolvedValue("JVBERg==");
     mockDownloadSignedUrlArrayBuffer.mockResolvedValue({
       ok: true,
       bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]).buffer,
@@ -205,7 +205,8 @@ describe("bodyScanOriginalCache download and cleanup", () => {
   });
 
   it("rejects a non-PDF and deletes the candidate", async () => {
-    mockReadAsStringAsync.mockResolvedValueOnce("notpdf");
+    // Base64 of "notpdf" — not %PDF magic.
+    mockReadAsStringAsync.mockResolvedValueOnce("bm90cGRm");
     const result = await downloadBodyScanOriginalToProtectedCache({
       userId: "uid_a",
       documentId: "doc1",
@@ -214,6 +215,40 @@ describe("bodyScanOriginalCache download and cleanup", () => {
     });
     expect(result).toEqual({ ok: false, safeReasonCode: "invalid_pdf_rejected" });
     expect(mockDeleteAsync).toHaveBeenCalled();
+  });
+
+  it("rejects when in-memory bytes lack %PDF magic before writing", async () => {
+    const html = new TextEncoder().encode("<html>not a pdf</html>");
+    mockDownloadSignedUrlArrayBuffer.mockResolvedValueOnce({
+      ok: true,
+      bytes: html.buffer.slice(html.byteOffset, html.byteOffset + html.byteLength),
+    });
+    const result = await downloadBodyScanOriginalToProtectedCache({
+      userId: "uid_a",
+      documentId: "doc1",
+      url: "https://storage.googleapis.com/bucket/obj",
+      previewNonce: "pinmem",
+    });
+    expect(result).toEqual({ ok: false, safeReasonCode: "invalid_pdf_rejected" });
+    expect(mockWriteAsStringAsync).not.toHaveBeenCalled();
+  });
+
+  it("reads PDF magic via Base64 encoding (not UTF-8) with length 4", async () => {
+    await downloadBodyScanOriginalToProtectedCache({
+      userId: "uid_a",
+      documentId: "doc1",
+      url: "https://storage.googleapis.com/bucket/obj",
+      previewNonce: "pmagic",
+    });
+    expect(mockReadAsStringAsync).toHaveBeenCalled();
+    const opts = mockReadAsStringAsync.mock.calls[0]![1] as {
+      encoding: string;
+      length: number;
+      position: number;
+    };
+    expect(opts.encoding).toBe("base64");
+    expect(opts.length).toBe(4);
+    expect(opts.position).toBe(0);
   });
 
   it("deletes a cached original idempotently", async () => {

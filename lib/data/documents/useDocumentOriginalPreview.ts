@@ -220,7 +220,9 @@ export function useDocumentOriginalPreview(documentId: string | null) {
                 ? {}
                 : {
                     safeReasonCode:
-                      event.stage === "pdf_validation"
+                      event.stage === "pdf_validation" ||
+                      event.stage === "in_memory_pdf_magic" ||
+                      event.stage === "after_write_pdf_magic"
                         ? "invalid_pdf_rejected"
                         : "materialize_write_failed",
                   }),

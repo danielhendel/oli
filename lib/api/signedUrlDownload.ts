@@ -18,7 +18,17 @@
  * - fail closed if a redirect lands off-allowlist or final URL is missing after redirect.
  */
 
+import {
+  classifyBodyPrefix,
+  compareContentLengthToByteLength,
+  contentTypeToBucket,
+  type BodyPrefixClassification,
+  type ContentLengthMatch,
+  type ContentTypeBucket,
+} from "@/lib/api/binaryBase64";
 import { DOCUMENT_MAX_BYTE_SIZE } from "@/lib/data/documents/documentValidation";
+
+export type { BodyPrefixClassification, ContentLengthMatch, ContentTypeBucket };
 
 /** Exact hosts emitted by current view-original signed URL minting. */
 export const SIGNED_URL_DOWNLOAD_ALLOWED_HOSTS = ["storage.googleapis.com"] as const;
@@ -58,6 +68,12 @@ export type SignedUrlDownloadStageEvent = {
   httpStatus?: number;
   byteLength?: number;
   redirected?: boolean;
+  /** Safe MIME bucket only — never the raw Content-Type header. */
+  contentTypeBucket?: ContentTypeBucket;
+  /** Content-Length header vs arrayBuffer.byteLength — no numbers. */
+  contentLengthMatch?: ContentLengthMatch;
+  /** Byte-signature body classification — no content printed. */
+  bodyPrefix?: BodyPrefixClassification;
 };
 
 /**
@@ -240,12 +256,20 @@ export async function downloadSignedUrlArrayBuffer(
     }
 
     const bytes = await readResponseArrayBuffer(response);
+    const contentTypeBucket = contentTypeToBucket(response.headers.get("content-type"));
+    const contentLengthMatch = compareContentLengthToByteLength(
+      response.headers.get("content-length"),
+      bytes?.byteLength ?? 0,
+    );
     if (!bytes || bytes.byteLength < MIN_PDF_CANDIDATE_BYTES) {
       emit?.({
         stage: "bytes_validated",
         ok: false,
         reason: "empty_response",
         byteLength: bytes?.byteLength ?? 0,
+        contentTypeBucket,
+        contentLengthMatch,
+        bodyPrefix: bytes ? classifyBodyPrefix(bytes) : "unknown_binary",
       });
       return { ok: false, reason: "empty_response" };
     }
@@ -255,11 +279,21 @@ export async function downloadSignedUrlArrayBuffer(
         ok: false,
         reason: "content_too_large",
         byteLength: bytes.byteLength,
+        contentTypeBucket,
+        contentLengthMatch,
+        bodyPrefix: classifyBodyPrefix(bytes),
       });
       return { ok: false, reason: "content_too_large" };
     }
 
-    emit?.({ stage: "bytes_validated", ok: true, byteLength: bytes.byteLength });
+    emit?.({
+      stage: "bytes_validated",
+      ok: true,
+      byteLength: bytes.byteLength,
+      contentTypeBucket,
+      contentLengthMatch,
+      bodyPrefix: classifyBodyPrefix(bytes),
+    });
     return { ok: true, bytes };
   } catch (err) {
     if (isAbortError(err)) {

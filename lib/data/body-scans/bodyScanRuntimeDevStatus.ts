@@ -11,7 +11,7 @@ export const BODY_SCAN_RUNTIME_DEV_EVENT_PREFIX = "[BODY_SCAN_RUNTIME_DEV]" as c
  * Short feature-token shown in DEV so physical testers can prove the loaded JS bundle.
  * Bump with each runtime-diag commit short SHA (never a user/health identifier).
  */
-export const BODY_SCAN_RUNTIME_JS_TOKEN = "737e2c93" as const;
+export const BODY_SCAN_RUNTIME_JS_TOKEN = "pdfmag01" as const;
 
 export type BodyScanRuntimeDevOperation = "reprocess" | "original_report" | "js_identity";
 
@@ -32,7 +32,9 @@ export type BodyScanRuntimeDevStage =
   | "fetch_start"
   | "fetch_response"
   | "bytes_validated"
+  | "in_memory_pdf_magic"
   | "partial_write"
+  | "after_write_pdf_magic"
   | "pdf_validation"
   | "rename_final"
   | "native_open"
@@ -113,7 +115,9 @@ const ALLOWED_STAGES = new Set<string>([
   "fetch_start",
   "fetch_response",
   "bytes_validated",
+  "in_memory_pdf_magic",
   "partial_write",
+  "after_write_pdf_magic",
   "pdf_validation",
   "rename_final",
   "native_open",

@@ -18,6 +18,11 @@
 import * as FileSystem from "expo-file-system";
 
 import {
+  arrayBufferToBase64,
+  isPdfMagicBase64Head,
+  isPdfMagicBytes,
+} from "@/lib/api/binaryBase64";
+import {
   downloadSignedUrlArrayBuffer,
   type SignedUrlDownloadFailureReason,
   type SignedUrlDownloadStageEvent,
@@ -210,7 +215,9 @@ function mapSignedUrlDownloadFailure(
 }
 
 export type BodyScanOriginalMaterializeStage =
+  | "in_memory_pdf_magic"
   | "partial_write"
+  | "after_write_pdf_magic"
   | "pdf_validation"
   | "rename_final";
 
@@ -234,20 +241,43 @@ export async function downloadBodyScanOriginalToProtectedCache(args: {
 
   try {
     const downloaded = await downloadSignedUrlArrayBuffer(
-    args.url,
-    args.onDownloadStage ? { onStage: args.onDownloadStage } : {},
-  );
+      args.url,
+      args.onDownloadStage ? { onStage: args.onDownloadStage } : {},
+    );
     if (!downloaded.ok) {
       await deleteUriIdempotent(paths.partialUri);
       await deleteUriIdempotent(paths.finalUri);
       return { ok: false, safeReasonCode: mapSignedUrlDownloadFailure(downloaded.reason) };
     }
+
+    // Three-way split: in-memory magic vs after-write magic vs validator.
+    const inMemoryPdfMagicValid = isPdfMagicBytes(downloaded.bytes);
+    args.onMaterializeStage?.({
+      stage: "in_memory_pdf_magic",
+      ok: inMemoryPdfMagicValid,
+    });
+    if (!inMemoryPdfMagicValid) {
+      await deleteUriIdempotent(paths.partialUri);
+      await deleteUriIdempotent(paths.finalUri);
+      return { ok: false, safeReasonCode: "invalid_pdf_rejected" };
+    }
+
     // Oversized buffers are rejected by the helper before this point — never base64 them.
     const base64 = arrayBufferToBase64(downloaded.bytes);
     await FileSystem.writeAsStringAsync(paths.partialUri, base64, {
       encoding: FileSystem.EncodingType.Base64,
     });
     args.onMaterializeStage?.({ stage: "partial_write", ok: true });
+
+    const afterWriteOk = await verifyLocalPdfCandidate(paths.partialUri);
+    args.onMaterializeStage?.({ stage: "after_write_pdf_magic", ok: afterWriteOk });
+    if (!afterWriteOk) {
+      await deleteUriIdempotent(paths.partialUri);
+      await deleteUriIdempotent(paths.finalUri);
+      args.onMaterializeStage?.({ stage: "pdf_validation", ok: false });
+      return { ok: false, safeReasonCode: "invalid_pdf_rejected" };
+    }
+
     const finalized = await finalizeBodyScanOriginalFromPartial(paths);
     if (!finalized.ok) {
       args.onMaterializeStage?.({ stage: "pdf_validation", ok: false });
@@ -262,22 +292,6 @@ export async function downloadBodyScanOriginalToProtectedCache(args: {
     args.onMaterializeStage?.({ stage: "partial_write", ok: false });
     return { ok: false, safeReasonCode: "materialize_write_failed" };
   }
-}
-
-/** Encode PDF bytes for FileSystem without pulling in Node Buffer. */
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-  if (typeof globalThis.btoa === "function") {
-    return globalThis.btoa(binary);
-  }
-  // Jest / Node fallback when btoa is absent.
-  return Buffer.from(bytes).toString("base64");
 }
 
 /**
@@ -354,19 +368,26 @@ export async function finalizeBodyScanOriginalFromPartial(
   }
 }
 
-/** Confirm the downloaded bytes look like a PDF before handing them to the OS. */
+/**
+ * Confirm the downloaded bytes look like a PDF before handing them to the OS.
+ *
+ * Must inspect actual file bytes. On Expo iOS, UTF-8 `readAsStringAsync` ignores
+ * `length`/`position` and decodes the entire file — binary PDFs throw, so a UTF-8
+ * head check falsely rejects valid PDFs. Base64 encoding honors byte length.
+ */
 export async function verifyLocalPdfCandidate(localUri: string): Promise<boolean> {
   try {
     assertUriInsideBodyScanRoot(localUri);
     const info = await FileSystem.getInfoAsync(localUri);
     if (!info.exists) return false;
     if ("size" in info && typeof info.size === "number" && info.size < 5) return false;
-    const head = await FileSystem.readAsStringAsync(localUri, {
-      encoding: FileSystem.EncodingType.UTF8,
-      length: 5,
+    // Read exactly the first 4 bytes as base64 (native path), then check %PDF magic.
+    const headB64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64,
+      length: 4,
       position: 0,
     });
-    return head.startsWith("%PDF");
+    return isPdfMagicBase64Head(headB64);
   } catch {
     return false;
   }
