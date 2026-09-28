@@ -11,7 +11,7 @@ export const BODY_SCAN_RUNTIME_DEV_EVENT_PREFIX = "[BODY_SCAN_RUNTIME_DEV]" as c
  * Short feature-token shown in DEV so physical testers can prove the loaded JS bundle.
  * Bump with each runtime-diag commit short SHA (never a user/health identifier).
  */
-export const BODY_SCAN_RUNTIME_JS_TOKEN = "runtime-diag-1" as const;
+export const BODY_SCAN_RUNTIME_JS_TOKEN = "737e2c93" as const;
 
 export type BodyScanRuntimeDevOperation = "reprocess" | "original_report" | "js_identity";
 
