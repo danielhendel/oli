@@ -41,10 +41,12 @@ export const bodyScanMetricIdSchema = z.enum([
   "fat_percent",
   "fat_mass",
   "lean_mass",
+  "fat_free_mass",
   "total_mass",
   "bone_mineral_content",
   "bone_mineral_density",
   "visceral_fat_mass",
+  "visceral_fat_volume",
   "android_gynoid_ratio",
 ]);
 
@@ -62,7 +64,15 @@ export const bodyScanRegionSchema = z.enum([
   "right_leg",
 ]);
 
-export const bodyScanUnitSchema = z.enum(["percent", "kg", "lb", "g", "g_per_cm2", "ratio"]);
+export const bodyScanUnitSchema = z.enum([
+  "percent",
+  "kg",
+  "lb",
+  "g",
+  "g_per_cm2",
+  "cm3",
+  "ratio",
+]);
 
 /** Designed detail sections. `source` is provenance, not a metric section. */
 export const bodyScanSectionIdSchema = z.enum([

@@ -6,6 +6,7 @@ import type { BodyScanReviewFieldDto, BodyScanReviewResponseDto } from "@/lib/co
 import { bodyScanUnitSuffix } from "@/lib/data/body-scans/bodyScanMetricCatalog";
 import {
   buildReviewSubmission,
+  formatReviewReportShows,
   initialReviewInputState,
   parseReviewFieldValue,
   reviewFieldErrorMessage,
@@ -54,7 +55,7 @@ function ReviewField({
     <View style={styles.field} testID={`body-scan-review-field-${field.fieldId}`}>
       <View style={styles.fieldHeader}>
         <Text style={styles.fieldLabel}>{field.label}</Text>
-        <Text style={styles.fieldRaw}>Report shows: {field.rawValue}</Text>
+        <Text style={styles.fieldRaw}>Report shows: {formatReviewReportShows(field)}</Text>
       </View>
 
       <View style={styles.inputRow}>

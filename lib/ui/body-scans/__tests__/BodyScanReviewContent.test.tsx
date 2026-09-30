@@ -48,6 +48,61 @@ function review(overrides: Partial<BodyScanReviewResponseDto> = {}): BodyScanRev
         requiresReview: false,
       },
       {
+        fieldId: "total:visceral_fat_mass",
+        metricId: "visceral_fat_mass",
+        region: "total",
+        label: "Visceral Fat Mass",
+        rawValue: "688 g",
+        normalizedValue: 0.688,
+        unit: "kg",
+        confidence: 0.95,
+        requiresReview: false,
+      },
+      {
+        fieldId: "total:visceral_fat_volume",
+        metricId: "visceral_fat_volume",
+        region: "total",
+        label: "Visceral Fat Volume",
+        rawValue: "912 cm³",
+        normalizedValue: 912,
+        unit: "cm3",
+        confidence: 0.95,
+        requiresReview: false,
+      },
+      {
+        fieldId: "total:fat_free_mass",
+        metricId: "fat_free_mass",
+        region: "total",
+        label: "Fat-Free Mass",
+        rawValue: "128.5 lb",
+        normalizedValue: 58.2862,
+        unit: "kg",
+        confidence: 0.95,
+        requiresReview: false,
+      },
+      {
+        fieldId: "total:android_gynoid_ratio",
+        metricId: "android_gynoid_ratio",
+        region: "total",
+        label: "Android / Gynoid Ratio",
+        rawValue: "1.15",
+        normalizedValue: 1.15,
+        unit: "ratio",
+        confidence: 0.95,
+        requiresReview: false,
+      },
+      {
+        fieldId: "total:bone_mineral_density",
+        metricId: "bone_mineral_density",
+        region: "total",
+        label: "Bone Mineral Density",
+        rawValue: "1.186 g/cm²",
+        normalizedValue: 1.186,
+        unit: "g_per_cm2",
+        confidence: 0.95,
+        requiresReview: false,
+      },
+      {
         fieldId: "total:lean_mass",
         metricId: "lean_mass",
         region: "total",
@@ -104,8 +159,33 @@ describe("BodyScanReviewContent", () => {
     });
     expect(onConfirm).toHaveBeenCalledWith({
       corrections: [],
-      acknowledgedFieldIds: ["total:fat_percent", "total:lean_mass"],
+      acknowledgedFieldIds: [
+        "total:fat_percent",
+        "total:visceral_fat_mass",
+        "total:visceral_fat_volume",
+        "total:fat_free_mass",
+        "total:android_gynoid_ratio",
+        "total:bone_mineral_density",
+        "total:lean_mass",
+      ],
     });
+  });
+
+  it("renders VAT, FFM, A/G precision, and BMD candidates", () => {
+    const test = render(
+      <BodyScanReviewContent status="ready" review={review()} onConfirm={jest.fn()} />,
+    );
+    expect(test.root.findByProps({ testID: "body-scan-review-field-total:visceral_fat_mass" })).toBeTruthy();
+    expect(test.root.findByProps({ testID: "body-scan-review-field-total:visceral_fat_volume" })).toBeTruthy();
+    expect(test.root.findByProps({ testID: "body-scan-review-field-total:fat_free_mass" })).toBeTruthy();
+    expect(test.root.findByProps({ testID: "body-scan-review-field-total:android_gynoid_ratio" })).toBeTruthy();
+    expect(test.root.findByProps({ testID: "body-scan-review-field-total:bone_mineral_density" })).toBeTruthy();
+    expect(
+      test.root.findByProps({ testID: "body-scan-review-input-total:android_gynoid_ratio" }).props.value,
+    ).toBe("1.15");
+    expect(
+      test.root.findByProps({ testID: "body-scan-review-input-total:fat_free_mass" }).props.value,
+    ).toBe("58.3");
   });
 
   it("sends a cleared value as missing rather than zero", () => {
@@ -126,7 +206,15 @@ describe("BodyScanReviewContent", () => {
     });
     expect(onConfirm).toHaveBeenCalledWith({
       corrections: [{ fieldId: "total:lean_mass", value: null }],
-      acknowledgedFieldIds: ["total:fat_percent", "total:lean_mass"],
+      acknowledgedFieldIds: [
+        "total:fat_percent",
+        "total:visceral_fat_mass",
+        "total:visceral_fat_volume",
+        "total:fat_free_mass",
+        "total:android_gynoid_ratio",
+        "total:bone_mineral_density",
+        "total:lean_mass",
+      ],
     });
   });
 

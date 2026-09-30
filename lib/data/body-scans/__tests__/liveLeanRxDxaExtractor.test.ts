@@ -120,7 +120,7 @@ describe("parseCompositionHeaderLine", () => {
       "fat_mass",
       "lean_mass",
       "bone_mineral_content",
-      "ignore",
+      "fat_free_mass",
     ]);
   });
 });
@@ -144,9 +144,16 @@ describe("extractLiveLeanRxDxa", () => {
     expect(fieldFor(result.fields, "total:total_mass")?.normalizedValue).toBe(
       SYNTHETIC_DXA_EXPECTATIONS.totalMassKg,
     );
+    expect(fieldFor(result.fields, "total:fat_free_mass")?.normalizedValue).toBe(
+      SYNTHETIC_DXA_EXPECTATIONS.totalFatFreeMassKg,
+    );
     expect(fieldFor(result.fields, "total:visceral_fat_mass")?.normalizedValue).toBe(
       SYNTHETIC_DXA_EXPECTATIONS.visceralFatMassKg,
     );
+    expect(fieldFor(result.fields, "total:visceral_fat_volume")?.normalizedValue).toBe(
+      SYNTHETIC_DXA_EXPECTATIONS.visceralFatVolumeCm3,
+    );
+    expect(fieldFor(result.fields, "total:visceral_fat_volume")?.unit).toBe("cm3");
     expect(fieldFor(result.fields, "total:android_gynoid_ratio")?.normalizedValue).toBe(
       SYNTHETIC_DXA_EXPECTATIONS.androidGynoidRatio,
     );
@@ -220,6 +227,12 @@ describe("extractLiveLeanRxDxa", () => {
     expect(fieldFor(lbs.fields, "total:visceral_fat_mass")?.normalizedValue).toBe(
       SYNTHETIC_DXA_LBS_EXPECTATIONS.visceralFatMassKg,
     );
+    expect(fieldFor(lbs.fields, "total:visceral_fat_volume")?.normalizedValue).toBe(
+      SYNTHETIC_DXA_LBS_EXPECTATIONS.visceralFatVolumeCm3,
+    );
+    expect(fieldFor(lbs.fields, "total:fat_free_mass")?.normalizedValue).toBe(
+      SYNTHETIC_DXA_LBS_EXPECTATIONS.totalFatFreeMassKg,
+    );
     expect(fieldFor(lbs.fields, "total:android_gynoid_ratio")?.normalizedValue).toBe(
       SYNTHETIC_DXA_LBS_EXPECTATIONS.androidGynoidRatio,
     );
@@ -260,6 +273,137 @@ describe("extractLiveLeanRxDxa", () => {
       }),
     );
     expect(fieldFor(volumeOnly.fields, "total:visceral_fat_mass")).toBeUndefined();
+    expect(fieldFor(volumeOnly.fields, "total:visceral_fat_volume")?.normalizedValue).toBe(912);
+  });
+
+  it("does not invent VAT volume when only mass is printed", () => {
+    const massOnly = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Healthcare Lunar Prodigy",
+              "DXA",
+              "VAT Mass: 688 g",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(massOnly.fields, "total:visceral_fat_mass")?.normalizedValue).toBe(0.688);
+    expect(fieldFor(massOnly.fields, "total:visceral_fat_volume")).toBeUndefined();
+  });
+
+  it("emits both VAT mass and volume when both are source-reported", () => {
+    const both = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Healthcare Lunar iDXA",
+              "VAT 688 g 912 cm3",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(both.fields, "total:visceral_fat_mass")?.normalizedValue).toBe(0.688);
+    expect(fieldFor(both.fields, "total:visceral_fat_volume")?.normalizedValue).toBe(912);
+  });
+
+  it("converts VAT volume from in³ to cm³ without inventing mass", () => {
+    const inches = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: ["GE Lunar DXA", "VAT Volume: 10 in3"].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(inches.fields, "total:visceral_fat_volume")?.normalizedValue).toBe(
+      Number((10 * 2.54 ** 3).toFixed(4)),
+    );
+    expect(fieldFor(inches.fields, "total:visceral_fat_mass")).toBeUndefined();
+  });
+
+  it("preserves non-integer A/G precision (no integer truncation)", () => {
+    const ag = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Lunar DXA",
+              "A/G Ratio 1.0",
+              "Android/Gynoid Ratio: 1.15",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(ag.fields, "total:android_gynoid_ratio")?.normalizedValue).toBe(1.15);
+    expect(fieldFor(ag.fields, "total:android_gynoid_ratio")?.rawValue).toBe("1.15");
+  });
+
+  it("emits fat-free mass when labelled and keeps it distinct from lean mass", () => {
+    const ffm = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Lunar DXA",
+              "Lean Mass: 55.31 kg",
+              "Fat-Free Mass: 58.29 kg",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(ffm.fields, "total:fat_free_mass")?.normalizedValue).toBe(58.29);
+    expect(fieldFor(ffm.fields, "total:lean_mass")).toBeUndefined();
+  });
+
+  it("does not emit fat-free mass when the source omits it", () => {
+    const noFfm = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Lunar DXA",
+              "Region Total Fat % Total Mass (kg) Fat Mass (kg) Lean Mass (kg) BMC (g)",
+              "Total 24.8 77.5 19.2 55.3 2980",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(noFfm.fields, "total:fat_free_mass")).toBeUndefined();
+  });
+
+  it("does not emit T-score or Z-score (Stage 3E deferred)", () => {
+    const bone = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Lunar DXA",
+              "Total Body BMD: 1.186 g/cm2",
+              "T-score: -0.4",
+              "Z-score: 0.2",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(bone.fields, "total:bone_mineral_density")?.normalizedValue).toBe(1.186);
+    expect(bone.fields.every((f) => !/t_score|z_score/i.test(f.metricId))).toBe(true);
   });
 });
 

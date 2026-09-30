@@ -19,10 +19,12 @@ export const BODY_SCAN_METRIC_LABELS: Record<BodyScanMetricId, string> = {
   fat_percent: "Fat",
   fat_mass: "Fat Mass",
   lean_mass: "Lean Mass",
+  fat_free_mass: "Fat-Free Mass",
   total_mass: "Total Mass",
   bone_mineral_content: "Bone Mineral Content",
   bone_mineral_density: "Bone Mineral Density",
   visceral_fat_mass: "Visceral Fat Mass",
+  visceral_fat_volume: "Visceral Fat Volume",
   android_gynoid_ratio: "Android / Gynoid Ratio",
 };
 
@@ -112,6 +114,8 @@ export function bodyScanUnitSuffix(unit: BodyScanUnit): string {
       return " g";
     case "g_per_cm2":
       return " g/cm²";
+    case "cm3":
+      return " cm³";
     case "ratio":
       return "";
     default: {
@@ -134,6 +138,7 @@ export function bodyScanSectionForMetric(args: {
   }
   if (
     args.metricId === "visceral_fat_mass" ||
+    args.metricId === "visceral_fat_volume" ||
     args.metricId === "android_gynoid_ratio" ||
     args.region === "android" ||
     args.region === "gynoid"

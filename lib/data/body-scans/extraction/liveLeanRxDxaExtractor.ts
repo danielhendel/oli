@@ -38,6 +38,8 @@ const CONFIDENCE_POSITIONAL = 0.6;
 
 const LB_TO_KG = 0.45359237;
 const LB_TO_G = 453.59237;
+/** Exact cubic-inch → cubic-centimetre factor (1 in = 2.54 cm). */
+const IN3_TO_CM3 = 2.54 ** 3;
 
 const REGION_ALIASES: readonly (readonly [RegExp, BodyScanRegion])[] = [
   [/^total(\s+body)?$/i, "total"],
@@ -101,6 +103,15 @@ function columnKindForHeader(header: string): ColumnKind {
   }
   if (/^(lean\s*mass|lean)\s*\(\s*lbs\s*\)$/.test(normalized)) {
     return { kind: "metric", metricId: "lean_mass", unit: "kg", scale: LB_TO_KG };
+  }
+  if (/^fat[\s-]*free(\s*mass)?\s*\(\s*g\s*\)$/.test(normalized)) {
+    return { kind: "metric", metricId: "fat_free_mass", unit: "kg", scale: 0.001 };
+  }
+  if (/^fat[\s-]*free(\s*mass)?\s*\(\s*kg\s*\)$/.test(normalized)) {
+    return { kind: "metric", metricId: "fat_free_mass", unit: "kg", scale: 1 };
+  }
+  if (/^fat[\s-]*free(\s*mass)?\s*\(\s*lbs\s*\)$/.test(normalized)) {
+    return { kind: "metric", metricId: "fat_free_mass", unit: "kg", scale: LB_TO_KG };
   }
   if (/^bmc\s*\(\s*g\s*\)$/.test(normalized)) {
     return { kind: "metric", metricId: "bone_mineral_content", unit: "g", scale: 1 };
@@ -244,23 +255,38 @@ export function parseCompositionHeaderTokens(tokens: readonly string[]): ColumnK
       continue;
     }
 
-    // Fat Free / Tissue (%Fat) — ignore (not comparable with region totals).
-    if (two === "fat free" || t0 === "tissue" || (t0 === "fat" && t1 === "free")) {
-      cols.push({ kind: "ignore" });
-      i += 1;
+    // Fat Free Mass is source-backed and distinct from Lean Mass — emit when present.
+    if (two === "fat free" || (t0 === "fat" && t1 === "free")) {
+      const unitTok =
+        /^\(/.test(tokens[i + 2] ?? "")
+          ? tokens[i + 2]
+          : /^\(/.test(tokens[i + 3] ?? "")
+            ? tokens[i + 3]
+            : undefined;
+      cols.push({
+        kind: "metric",
+        metricId: "fat_free_mass",
+        unit: "kg",
+        scale: massScaleForUnitToken(unitTok),
+      });
+      i += 2;
       while (i < tokens.length) {
         const cur = tokens[i] ?? "";
         if (/^\(/.test(cur)) {
           i += 1;
           break;
         }
-        if (/^(fat|lean|bmc|total|region)$/i.test(cur)) break;
+        if (/^(fat|lean|bmc|total|region|mass)$/i.test(cur) && !/^free$/i.test(cur)) break;
+        if (/^mass$/i.test(cur)) {
+          i += 1;
+          continue;
+        }
         i += 1;
       }
       continue;
     }
 
-    // Tissue (%Fat) style — ignore.
+    // Tissue (%Fat) style — ignore (not Fat-Free Mass).
     if (t0 === "tissue" || (two.startsWith("tissue") && /fat/.test(three))) {
       cols.push({ kind: "ignore" });
       while (i < tokens.length && !/fat\)?$/i.test(tokens[i] ?? "")) i += 1;
@@ -281,7 +307,35 @@ type LabelledMetric = {
   unit: BodyScanUnit;
   /** Fixed scale, or derive from a captured unit group (group 2). */
   scale: number | ((unitGroup: string | undefined) => number);
+  /** Optional unit fragment appended to rawValue for "Report shows". */
+  rawUnitFromGroup?: (unitGroup: string | undefined) => string;
 };
+
+function massUnitScale(unit: string | undefined): number {
+  const u = (unit ?? "g").toLowerCase();
+  if (u === "kg") return 1;
+  if (u === "lbs" || u === "lb") return LB_TO_KG;
+  return 0.001; // g default for Lunar VAT mass tables
+}
+
+function massRawUnit(unit: string | undefined): string {
+  const u = (unit ?? "g").toLowerCase();
+  if (u === "kg") return "kg";
+  if (u === "lbs" || u === "lb") return "lb";
+  return "g";
+}
+
+function volumeUnitScale(unit: string | undefined): number {
+  const u = (unit ?? "cm3").toLowerCase().replace(/\s+/g, "");
+  if (u === "in3" || u === "in³") return IN3_TO_CM3;
+  return 1; // cm3 / cm³
+}
+
+function volumeRawUnit(unit: string | undefined): string {
+  const u = (unit ?? "cm3").toLowerCase().replace(/\s+/g, "");
+  if (u === "in3" || u === "in³") return "in³";
+  return "cm³";
+}
 
 const LABELLED_METRICS: readonly LabelledMetric[] = [
   {
@@ -292,37 +346,178 @@ const LABELLED_METRICS: readonly LabelledMetric[] = [
     scale: 1,
   },
   {
-    // Mass only — VAT volume is intentionally not coerced into mass.
+    // Explicit source-reported total Fat-Free Mass (distinct from Lean Mass).
     pattern:
-      /(?:visceral\s+(?:adipose\s+tissue|fat)\s*(?:\(\s*vat\s*\))?|vat)\s*mass\s*[:=]?\s*([\d.,]+)\s*(g|kg|lbs)?\b/i,
+      /(?:total\s+)?(?:body\s+)?fat[\s-]*free\s*mass\s*[:=]?\s*([\d.,]+)\s*(g|kg|lbs|lb)?\b/i,
+    metricId: "fat_free_mass",
+    region: "total",
+    unit: "kg",
+    scale: (unit) => massUnitScale(unit ?? "kg"),
+    rawUnitFromGroup: (unit) => massRawUnit(unit ?? "kg"),
+  },
+  {
+    // Mass only — never coerce volume into mass.
+    pattern:
+      /(?:visceral\s+(?:adipose\s+tissue|fat)\s*(?:\(\s*vat\s*\))?|vat)\s*mass\s*[:=]?\s*([\d.,]+)\s*(g|kg|lbs|lb)?\b/i,
     metricId: "visceral_fat_mass",
     region: "total",
     unit: "kg",
-    scale: (unit) => {
-      const u = (unit ?? "g").toLowerCase();
-      if (u === "kg") return 1;
-      if (u === "lbs") return LB_TO_KG;
-      return 0.001;
-    },
+    scale: (unit) => massUnitScale(unit),
+    rawUnitFromGroup: (unit) => massRawUnit(unit),
   },
   {
-    // Accept Android/Gynoid, Android Gynoid, and A/G ratio labels; allow short
-    // non-digit interstitial tokens (units / age-matched captions) before the value.
+    // Source-reported VAT volume only — never infer from mass.
     pattern:
-      /(?:android\s*[/\u2044]\s*gynoid|android\s+gynoid|\ba\s*\/\s*g\b)(?:\s*ratio)?[^\d\n]{0,48}([\d.,]+)/i,
-    metricId: "android_gynoid_ratio",
+      /(?:visceral\s+(?:adipose\s+tissue|fat)\s*(?:\(\s*vat\s*\))?|vat)\s*volume\s*[:=]?\s*([\d.,]+)\s*(cm\s*3|cm³|in\s*3|in³)?\b/i,
+    metricId: "visceral_fat_volume",
     region: "total",
-    unit: "ratio",
-    scale: 1,
+    unit: "cm3",
+    scale: (unit) => volumeUnitScale(unit),
+    rawUnitFromGroup: (unit) => volumeRawUnit(unit),
   },
   {
-    pattern: /(?:total\s+body\s+)?bmd\s*[:=]?\s*([\d.,]+)\s*g\s*\/\s*cm/i,
+    pattern: /(?:total\s+body\s+)?(?:tb\s*)?bmd\s*[:=]?\s*([\d.,]+)\s*(?:g\s*\/\s*cm(?:2|²)?|g\s*cm\s*-?\s*2)?/i,
     metricId: "bone_mineral_density",
     region: "total",
     unit: "g_per_cm2",
     scale: 1,
+    rawUnitFromGroup: () => "g/cm²",
+  },
+  {
+    pattern: /bone\s+mineral\s+density\s*[:=]?\s*([\d.,]+)\s*(?:g\s*\/\s*cm(?:2|²)?)?/i,
+    metricId: "bone_mineral_density",
+    region: "total",
+    unit: "g_per_cm2",
+    scale: 1,
+    rawUnitFromGroup: () => "g/cm²",
   },
 ];
+
+type AgCandidate = {
+  raw: string;
+  value: number;
+  labelScore: number;
+  decimalPlaces: number;
+  rawLabel: string;
+};
+
+/**
+ * Prefer full "Android/Gynoid" labels and the highest source decimal precision.
+ * Avoids capturing a low-precision bare "A/G 1.0" when "Android/Gynoid Ratio 1.15" exists.
+ */
+export function selectBestAndroidGynoidMatch(text: string): AgCandidate | null {
+  const pattern =
+    /(android\s*[/\u2044]\s*gynoid|android\s+gynoid|\ba\s*\/\s*g\b)(?:\s*ratio)?[^\d\n]{0,48}([\d]+(?:[.,]\d+)?)/gi;
+  const candidates: AgCandidate[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) != null) {
+    const label = match[1] ?? "";
+    const raw = (match[2] ?? "").replace(",", ".");
+    const value = parseNumber(raw);
+    if (value == null) continue;
+    const labelScore = /android/i.test(label) && /gynoid/i.test(label) ? 2 : 1;
+    const decimalPlaces = raw.includes(".") ? (raw.split(".")[1]?.length ?? 0) : 0;
+    candidates.push({
+      raw,
+      value,
+      labelScore,
+      decimalPlaces,
+      rawLabel: match[0].split(/[:=]/)[0]?.trim() || match[0].trim(),
+    });
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => {
+    if (b.labelScore !== a.labelScore) return b.labelScore - a.labelScore;
+    if (b.decimalPlaces !== a.decimalPlaces) return b.decimalPlaces - a.decimalPlaces;
+    return 0;
+  });
+  return candidates[0] ?? null;
+}
+
+/**
+ * Extract source-reported VAT mass and/or volume from Lunar-style blocks/tables.
+ * Never infers mass↔volume. Supports labelled lines and compact "VAT … Mass … Volume …" rows.
+ */
+export function extractVatSourceFields(pageText: string): {
+  mass?: { raw: string; rawDisplay: string; kg: number };
+  volume?: { raw: string; rawDisplay: string; cm3: number };
+} {
+  const out: {
+    mass?: { raw: string; rawDisplay: string; kg: number };
+    volume?: { raw: string; rawDisplay: string; cm3: number };
+  } = {};
+
+  const massPatterns = [
+    /(?:visceral\s+(?:adipose\s+tissue|fat)\s*(?:\(\s*vat\s*\))?|vat)\s*mass\s*[:=]?\s*([\d.,]+)\s*(g|kg|lbs|lb)?\b/i,
+    /\bvat\b[^\n]{0,80}?\bmass\b\s*[:=]?\s*([\d.,]+)\s*(g|kg|lbs|lb)?\b/i,
+    /\bmass\b\s*[:=]?\s*([\d.,]+)\s*(g|kg|lbs|lb)?\b[^\n]{0,40}\bvat\b/i,
+  ];
+  for (const pattern of massPatterns) {
+    const match = pageText.match(pattern);
+    if (!match?.[1]) continue;
+    const parsed = parseNumber(match[1]);
+    if (parsed == null) continue;
+    const unit = match[2];
+    const kg = roundTo(parsed * massUnitScale(unit), 4);
+    out.mass = {
+      raw: match[1],
+      rawDisplay: `${match[1]} ${massRawUnit(unit)}`.trim(),
+      kg,
+    };
+    break;
+  }
+
+  const volumePatterns = [
+    /(?:visceral\s+(?:adipose\s+tissue|fat)\s*(?:\(\s*vat\s*\))?|vat)\s*volume\s*[:=]?\s*([\d.,]+)\s*(cm\s*3|cm³|in\s*3|in³)?\b/i,
+    /\bvat\b[^\n]{0,80}?\bvolume\b\s*[:=]?\s*([\d.,]+)\s*(cm\s*3|cm³|in\s*3|in³)?\b/i,
+    /\bvolume\b\s*[:=]?\s*([\d.,]+)\s*(cm\s*3|cm³|in\s*3|in³)?\b[^\n]{0,40}\bvat\b/i,
+  ];
+  for (const pattern of volumePatterns) {
+    const match = pageText.match(pattern);
+    if (!match?.[1]) continue;
+    const parsed = parseNumber(match[1]);
+    if (parsed == null) continue;
+    const unit = match[2];
+    const cm3 = roundTo(parsed * volumeUnitScale(unit), 4);
+    out.volume = {
+      raw: match[1],
+      rawDisplay: `${match[1]} ${volumeRawUnit(unit)}`.trim(),
+      cm3,
+    };
+    break;
+  }
+
+  // Compact table row: "VAT  688 g  912 cm3" (mass then volume) — only when both unit tokens exist.
+  if (!out.mass || !out.volume) {
+    const row = pageText.match(
+      /\bvat\b\s+([\d.,]+)\s*(g|kg|lbs|lb)\s+([\d.,]+)\s*(cm\s*3|cm³|in\s*3|in³)\b/i,
+    );
+    if (row) {
+      if (!out.mass && row[1] && row[2]) {
+        const parsed = parseNumber(row[1]);
+        if (parsed != null) {
+          out.mass = {
+            raw: row[1],
+            rawDisplay: `${row[1]} ${massRawUnit(row[2])}`.trim(),
+            kg: roundTo(parsed * massUnitScale(row[2]), 4),
+          };
+        }
+      }
+      if (!out.volume && row[3] && row[4]) {
+        const parsed = parseNumber(row[3]);
+        if (parsed != null) {
+          out.volume = {
+            raw: row[3],
+            rawDisplay: `${row[3]} ${volumeRawUnit(row[4])}`.trim(),
+            cm3: roundTo(parsed * volumeUnitScale(row[4]), 4),
+          };
+        }
+      }
+    }
+  }
+
+  return out;
+}
 
 const DEVICE_PATTERNS: readonly (readonly [RegExp, BodyScanDevice])[] = [
   [/\blunar\s+idxa\b/i, { manufacturer: "GE Lunar", model: "iDXA" }],
@@ -540,18 +735,75 @@ export function extractLiveLeanRxDxa(input: BodyScanAdapterInput): BodyScanAdapt
   };
 
   // 1. Explicitly labelled totals are the most reliable signal, so read them first.
+  // VAT: dedicated source-only extractor (mass and volume independent; never inferred).
+  for (const page of input.pages) {
+    const vat = extractVatSourceFields(page.text);
+    if (vat.mass) {
+      pushField({
+        metricId: "visceral_fat_mass",
+        region: "total",
+        rawLabel: "VAT Mass",
+        rawValue: vat.mass.rawDisplay,
+        normalizedValue: vat.mass.kg,
+        unit: "kg",
+        pageNumber: page.pageNumber,
+        confidence: CONFIDENCE_LABELLED,
+      });
+    }
+    if (vat.volume) {
+      pushField({
+        metricId: "visceral_fat_volume",
+        region: "total",
+        rawLabel: "VAT Volume",
+        rawValue: vat.volume.rawDisplay,
+        normalizedValue: vat.volume.cm3,
+        unit: "cm3",
+        pageNumber: page.pageNumber,
+        confidence: CONFIDENCE_LABELLED,
+      });
+    }
+  }
+
+  // A/G: prefer full Android/Gynoid labels and highest source decimal precision.
+  for (const page of input.pages) {
+    const ag = selectBestAndroidGynoidMatch(page.text);
+    if (!ag) continue;
+    pushField({
+      metricId: "android_gynoid_ratio",
+      region: "total",
+      rawLabel: ag.rawLabel,
+      rawValue: ag.raw,
+      normalizedValue: roundTo(ag.value, 4),
+      unit: "ratio",
+      pageNumber: page.pageNumber,
+      confidence: CONFIDENCE_LABELLED,
+    });
+    break;
+  }
+
   for (const labelled of LABELLED_METRICS) {
+    // VAT + A/G handled above with precision/coverage-aware extractors.
+    if (
+      labelled.metricId === "visceral_fat_mass" ||
+      labelled.metricId === "visceral_fat_volume" ||
+      labelled.metricId === "android_gynoid_ratio"
+    ) {
+      continue;
+    }
     for (const page of input.pages) {
       const match = page.text.match(labelled.pattern);
       if (!match?.[1]) continue;
       const parsed = parseNumber(match[1]);
       const scale =
         typeof labelled.scale === "function" ? labelled.scale(match[2]) : labelled.scale;
+      const unitSuffix = labelled.rawUnitFromGroup?.(match[2]);
+      const rawValue =
+        unitSuffix && unitSuffix.length > 0 ? `${match[1]} ${unitSuffix}`.trim() : match[1];
       pushField({
         metricId: labelled.metricId,
         region: labelled.region,
         rawLabel: match[0].split(/[:=]/)[0]?.trim() || match[0].trim(),
-        rawValue: match[1],
+        rawValue,
         normalizedValue: parsed == null ? null : roundTo(parsed * scale, 4),
         unit: labelled.unit,
         pageNumber: page.pageNumber,

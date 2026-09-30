@@ -22,6 +22,10 @@ describe("bodyScanMetricCatalog", () => {
     expect(bodyScanSectionForMetric({ metricId: "visceral_fat_mass", region: "total" })).toBe(
       "fat_distribution",
     );
+    expect(bodyScanSectionForMetric({ metricId: "visceral_fat_volume", region: "total" })).toBe(
+      "fat_distribution",
+    );
+    expect(bodyScanSectionForMetric({ metricId: "fat_free_mass", region: "total" })).toBe("overview");
     expect(bodyScanSectionForMetric({ metricId: "fat_percent", region: "android" })).toBe(
       "fat_distribution",
     );
@@ -76,6 +80,7 @@ describe("bodyScanMetricCatalog", () => {
   it("formats units", () => {
     expect(bodyScanUnitSuffix("percent")).toBe("%");
     expect(bodyScanUnitSuffix("g_per_cm2")).toBe(" g/cm²");
+    expect(bodyScanUnitSuffix("cm3")).toBe(" cm³");
     expect(bodyScanUnitSuffix("ratio")).toBe("");
   });
 

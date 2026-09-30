@@ -20,6 +20,7 @@ import {
   bodyScanSectionForMetric,
   bodyScanUnitSuffix,
 } from "./bodyScanMetricCatalog";
+import { formatBodyScanConsumerDisplayValue } from "./bodyScanDisplayFormat";
 
 export type BodyScanDetailRow = {
   key: string;
@@ -46,8 +47,7 @@ const SECTION_ORDER: readonly BodyScanSectionId[] = [
 ];
 
 function formatMetricValue(metric: BodyScanMetricDto): string {
-  const decimals = metric.unit === "g_per_cm2" ? 3 : metric.unit === "ratio" ? 2 : 1;
-  return `${metric.value.toFixed(decimals)}${bodyScanUnitSuffix(metric.unit)}`;
+  return `${formatBodyScanConsumerDisplayValue(metric.value, metric.unit)}${bodyScanUnitSuffix(metric.unit)}`;
 }
 
 function metricKey(metric: BodyScanMetricDto): string {

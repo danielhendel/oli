@@ -6,6 +6,11 @@
  */
 
 import type { BodyScanFieldCorrectionDto, BodyScanReviewFieldDto } from "@oli/contracts";
+import {
+  bodyScanDisplayValuesEquivalent,
+  formatBodyScanConsumerDisplayValue,
+  formatBodyScanReportShowsText,
+} from "./bodyScanDisplayFormat";
 
 export type BodyScanReviewFieldInput = {
   /** Raw text as typed. Empty string means the user marked the value as missing. */
@@ -19,9 +24,15 @@ export type ParsedReviewValue =
   | { ok: true; value: number | null }
   | { ok: false; reason: "not_a_number" | "negative" };
 
+/** Editable canonical value — consumer display precision, not full float noise. */
 export function formatReviewFieldValue(field: BodyScanReviewFieldDto): string {
   if (field.normalizedValue == null) return "";
-  return String(field.normalizedValue);
+  return formatBodyScanConsumerDisplayValue(field.normalizedValue, field.unit);
+}
+
+/** Source-reported copy for the "Report shows" line (never the canonical unit alone). */
+export function formatReviewReportShows(field: BodyScanReviewFieldDto): string {
+  return formatBodyScanReportShowsText(field.rawValue);
 }
 
 export function initialReviewInputState(
@@ -86,8 +97,15 @@ export function buildReviewSubmission(
       invalidFieldIds.push(field.fieldId);
       continue;
     }
+    // Display-rounded edits that match the shown value are not corrections — keep canonical.
     if (parsed.value !== field.normalizedValue) {
-      corrections.push({ fieldId: field.fieldId, value: parsed.value });
+      const displayOnly =
+        parsed.value != null &&
+        field.normalizedValue != null &&
+        bodyScanDisplayValuesEquivalent(parsed.value, field.normalizedValue, field.unit);
+      if (!displayOnly) {
+        corrections.push({ fieldId: field.fieldId, value: parsed.value });
+      }
     }
   }
 
