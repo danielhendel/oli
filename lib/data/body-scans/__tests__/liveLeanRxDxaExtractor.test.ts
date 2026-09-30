@@ -405,6 +405,237 @@ describe("extractLiveLeanRxDxa", () => {
     expect(fieldFor(bone.fields, "total:bone_mineral_density")?.normalizedValue).toBe(1.186);
     expect(bone.fields.every((f) => !/t_score|z_score/i.test(f.metricId))).toBe(true);
   });
+
+  it("extracts VAT volume from pdfjs header-column layout without inventing mass", () => {
+    const headerCol = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Healthcare Lunar iDXA",
+              "Adipose Indices",
+              "VAT",
+              "Mass (g) Volume (in3)",
+              "-- 10.0",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(headerCol.fields, "total:visceral_fat_mass")).toBeUndefined();
+    expect(fieldFor(headerCol.fields, "total:visceral_fat_volume")?.normalizedValue).toBe(
+      Number((10 * 2.54 ** 3).toFixed(4)),
+    );
+    expect(fieldFor(headerCol.fields, "total:visceral_fat_volume")?.unit).toBe("cm3");
+  });
+
+  it("extracts both VAT mass and volume from fragmented header-column rows", () => {
+    const both = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Lunar DXA",
+              "VAT",
+              "Mass",
+              "(g)",
+              "Volume",
+              "(cm3)",
+              "688",
+              "912",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(both.fields, "total:visceral_fat_mass")?.normalizedValue).toBe(0.688);
+    expect(fieldFor(both.fields, "total:visceral_fat_volume")?.normalizedValue).toBe(912);
+  });
+
+  it("extracts both VAT columns when values share one row under Mass/Volume headers", () => {
+    const both = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: ["GE Lunar DXA", "VAT", "Mass (g) Volume (cm3)", "688 912"].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(both.fields, "total:visceral_fat_mass")?.normalizedValue).toBe(0.688);
+    expect(fieldFor(both.fields, "total:visceral_fat_volume")?.normalizedValue).toBe(912);
+  });
+
+  it("extracts VAT volume from Age/Fat Mass/Volume header with leading row label", () => {
+    const lunar = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Lunar iDXA",
+              "VAT (Visceral Adipose Tissue)",
+              "Est. Age Fat Mass (g) Volume (in3)",
+              "Android 44.0 -- 11.5",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(lunar.fields, "total:visceral_fat_mass")).toBeUndefined();
+    expect(fieldFor(lunar.fields, "total:visceral_fat_volume")?.normalizedValue).toBe(
+      Number((11.5 * 2.54 ** 3).toFixed(4)),
+    );
+  });
+
+  it("does not emit VAT mass from Fat Mass column (volume only) under Est. Age headers", () => {
+    const volOnly = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Lunar iDXA",
+              "Visceral Adipose Tissue (VAT)",
+              "Est. Age Fat Mass (lbs) Volume (in3)",
+              "01/15/2024 44.0 2.5 11.5",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(volOnly.fields, "total:visceral_fat_mass")).toBeUndefined();
+    expect(fieldFor(volOnly.fields, "total:visceral_fat_volume")?.normalizedValue).toBe(
+      Number((11.5 * 2.54 ** 3).toFixed(4)),
+    );
+  });
+
+  it("rejects VAT false positives from unrelated mass/volume prose", () => {
+    const neg = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Lunar DXA",
+              "The sample volume was calibrated.",
+              "Total Mass (kg) is listed below.",
+              "Region Total Fat % Total Mass (kg) Fat Mass (kg) Lean Mass (kg) BMC (g)",
+              "Total 24.8 77.5 19.2 55.3 2980",
+              "Mass Volume",
+              "12 34",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(neg.fields, "total:visceral_fat_volume")).toBeUndefined();
+    expect(fieldFor(neg.fields, "total:visceral_fat_mass")).toBeUndefined();
+  });
+
+  it("extracts Total Body BMD from Region|BMD|T|Z header-column layout without T/Z", () => {
+    const table = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Lunar DXA",
+              "Bone Summary",
+              "Region BMD (g/cm2) Young Adult Age Matched",
+              "Total 1.142 -0.3 0.4",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(table.fields, "total:bone_mineral_density")?.normalizedValue).toBe(1.142);
+    expect(fieldFor(table.fields, "total:bone_mineral_density")?.unit).toBe("g_per_cm2");
+    expect(table.fields.every((f) => !/t_score|z_score/i.test(f.metricId))).toBe(true);
+    // Ensure T/Z numerics were not stored as BMD.
+    expect(fieldFor(table.fields, "total:bone_mineral_density")?.normalizedValue).not.toBe(-0.3);
+    expect(fieldFor(table.fields, "total:bone_mineral_density")?.normalizedValue).not.toBe(0.4);
+  });
+
+  it("extracts BMD from fragmented pdfjs Region/BMD headers + values row", () => {
+    const frag = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Lunar DXA",
+              "Region",
+              "BMD",
+              "(g/cm2)",
+              "Young Adult",
+              "Age Matched",
+              "Total",
+              "1.205",
+              "-0.1",
+              "0.2",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(frag.fields, "total:bone_mineral_density")?.normalizedValue).toBe(1.205);
+  });
+
+  it("extracts Total Body BMD from fully fragmented Region/BMD/T/Z with regional rows", () => {
+    const frag = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Lunar DXA",
+              "Bone Summary",
+              "Region",
+              "BMD",
+              "(g/cm²)",
+              "Young",
+              "Adult",
+              "Age",
+              "Matched",
+              "Head 1.234 -- --",
+              "Arms 1.101 -- --",
+              "Legs 1.250 -- --",
+              "Total 1.178 -0.2 0.5",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(frag.fields, "total:bone_mineral_density")?.normalizedValue).toBe(1.178);
+    expect(frag.fields.every((f) => !/t_score|z_score/i.test(f.metricId))).toBe(true);
+    expect(fieldFor(frag.fields, "total:bone_mineral_density")?.normalizedValue).not.toBe(1.234);
+    expect(fieldFor(frag.fields, "total:bone_mineral_density")?.normalizedValue).not.toBe(-0.2);
+  });
+
+  it("rejects BMD false positives from BMC and prose", () => {
+    const neg = extractLiveLeanRxDxa(
+      syntheticDxaAdapterInput({
+        pages: [
+          {
+            pageNumber: 1,
+            text: [
+              "GE Lunar DXA",
+              "Region Total Fat % Fat (g) Lean (g) BMC (g) Total Mass (kg)",
+              "Total 24.8 19204 55310 2980 77.5",
+              "Bone mineral density is discussed in the narrative without a table.",
+              "T-score -0.4",
+              "Z-score 0.2",
+            ].join("\n"),
+          },
+        ],
+      }),
+    );
+    expect(fieldFor(neg.fields, "total:bone_mineral_density")).toBeUndefined();
+  });
 });
 
 describe("parseDxaScanDate", () => {
