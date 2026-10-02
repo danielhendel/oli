@@ -214,7 +214,7 @@ describe("buildBodyCompositionEvidenceBundle", () => {
     expect(bundle.diagnostics.reasons).toContain("nan_or_infinite");
   });
 
-  it("exposes subject context without ethnicity and optional waist", () => {
+  it("exposes subject context without ethnicity; legacy profile waist is omitted from active context", () => {
     const profile: UserProfileMain = {
       ...defaultUserProfileMain(),
       identity: {
@@ -234,13 +234,13 @@ describe("buildBodyCompositionEvidenceBundle", () => {
     });
     expect(bundle.subjectContext.sexAtBirth).toBe("female");
     expect(bundle.subjectContext.height.valueCm).toBe(165);
-    expect(bundle.subjectContext.waist.valueCm).toBe(72);
+    expect(bundle.subjectContext.waist.valueCm).toBeNull();
     expect((bundle.subjectContext as { ethnicity?: unknown }).ethnicity).toBeUndefined();
-    expect(bundle.observations.some((o) => o.metricKey === "waist_circumference")).toBe(true);
+    expect(bundle.observations.some((o) => o.metricKey === "waist_circumference")).toBe(false);
     expect(bundle.observations.some((o) => o.metricKey === "height")).toBe(true);
   });
 
-  it("does not invent waist without an effective timestamp", () => {
+  it("does not invent dated waist from legacy profile value", () => {
     const profile: UserProfileMain = {
       ...defaultUserProfileMain(),
       bodyInputs: {
@@ -249,7 +249,7 @@ describe("buildBodyCompositionEvidenceBundle", () => {
       },
     };
     const bundle = buildBodyCompositionEvidenceBundle({ profile });
-    expect(bundle.subjectContext.waist.valueCm).toBe(80);
+    expect(bundle.subjectContext.waist.valueCm).toBeNull();
     expect(bundle.observations.some((o) => o.metricKey === "waist_circumference")).toBe(false);
   });
 

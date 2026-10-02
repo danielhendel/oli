@@ -346,7 +346,7 @@ describe("bodyCompositionInterpretation", () => {
     expect(ix.lean.subtitle).toMatch(/weight × \(1 − body fat\)/);
   });
 
-  it("appends waist-to-height note on weight when waist and height exist", () => {
+  it("does not append waist-to-height note from undated profile waist", () => {
     const ix = buildBodyOverviewInterpretations(
       profile({
         body: { heightCm: 180 },
@@ -360,6 +360,7 @@ describe("bodyCompositionInterpretation", () => {
         restingMetabolicRateKcal: null,
       },
     );
-    expect(ix.weight.subtitle).toMatch(/Waist-to-height/i);
+    expect(ix.weight.subtitle).not.toMatch(/Waist-to-height/i);
+    expect(ix.weight.subtitle).not.toMatch(/0\.50/);
   });
 });

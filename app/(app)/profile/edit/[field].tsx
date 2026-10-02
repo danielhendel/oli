@@ -44,10 +44,17 @@ const FIELD_IDS = [
   "athlete_mode",
   "primary_goal",
   "weigh_in_preference",
-  "waist",
+  // "waist" — deprecated: undated profile waist is no longer editable (dated RawEvent truth)
   "hip",
   "neck",
 ] as const;
+
+/** Direct-route aliases that must fail closed (legacy undated waist edit). */
+const DEPRECATED_PROFILE_FIELD_ALIASES = new Set([
+  "waist",
+  "waistCircumferenceCm",
+  "waist_circumference",
+]);
 
 type FieldId = (typeof FIELD_IDS)[number];
 
@@ -65,7 +72,6 @@ const TITLES: Record<FieldId, string> = {
   athlete_mode: "Athlete mode",
   primary_goal: "Primary goal",
   weigh_in_preference: "Usual weigh-in",
-  waist: "Waist circumference",
   hip: "Hip circumference",
   neck: "Neck circumference",
 };
@@ -90,6 +96,30 @@ export default function ProfileFieldEditorScreen() {
   const onDone = useCallback(() => {
     router.back();
   }, [router]);
+
+  if (
+    typeof fieldParam === "string" &&
+    DEPRECATED_PROFILE_FIELD_ALIASES.has(fieldParam)
+  ) {
+    return (
+      <View style={styles.center} testID="profile-edit-waist-deprecated">
+        <Text style={styles.error}>Waist is tracked from Body Composition.</Text>
+        <Text style={styles.muted}>
+          Undated profile waist is no longer editable. Add a dated measurement
+          on the Waist page instead.
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={{ marginTop: 16, minHeight: 44, justifyContent: "center" }}
+          testID="profile-edit-waist-deprecated-back"
+        >
+          <Text style={{ color: "#4F46E5", fontWeight: "600" }}>Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (!field) {
     return (
@@ -303,19 +333,12 @@ export default function ProfileFieldEditorScreen() {
     );
   }
 
-  if (field === "waist" || field === "hip" || field === "neck") {
-    const key =
-      field === "waist"
-        ? "waistCircumferenceCm"
-        : field === "hip"
-          ? "hipCircumferenceCm"
-          : "neckCircumferenceCm";
+  if (field === "hip" || field === "neck") {
+    const key = field === "hip" ? "hipCircumferenceCm" : "neckCircumferenceCm";
     const initial =
-      field === "waist"
-        ? profile.bodyInputs.waistCircumferenceCm
-        : field === "hip"
-          ? profile.bodyInputs.hipCircumferenceCm
-          : profile.bodyInputs.neckCircumferenceCm;
+      field === "hip"
+        ? profile.bodyInputs.hipCircumferenceCm
+        : profile.bodyInputs.neckCircumferenceCm;
     return (
       <CircumferenceEditor
         label={TITLES[field]}

@@ -28,9 +28,11 @@ export function buildBodyCompositionSubjectContext(
       sourceSystem: profile?.body.heightCm != null ? "manual" : null,
     },
     waist: {
-      valueCm: profile?.bodyInputs.waistCircumferenceCm ?? null,
-      effectiveAt: profile?.bodyInputs.waistCircumferenceCm != null ? effectiveAt : null,
-      sourceSystem: profile?.bodyInputs.waistCircumferenceCm != null ? "manual" : null,
+      // Legacy undated profile waist is omitted from active subject context.
+      // Dated RawEvent waist is the measurement authority; profile store/export retain the value.
+      valueCm: null,
+      effectiveAt: null,
+      sourceSystem: null,
       protocolId: null,
     },
   };

@@ -178,21 +178,6 @@ function weightBandClause(weightKg: number, heightCm: number, massUnit: MassDisp
   return ` Your weight is above that band (${range}).`;
 }
 
-function waistToHeightClause(profile: UserProfileMain): string | null {
-  const h = profile.body.heightCm;
-  const w = profile.bodyInputs.waistCircumferenceCm;
-  if (h == null || w == null || h <= 0) return null;
-  const ratio = w / h;
-  const r = ratio.toFixed(2);
-  if (ratio >= 0.52) {
-    return ` Waist-to-height ${r} is above a common 0.50 benchmark (not diagnostic).`;
-  }
-  if (ratio < 0.5) {
-    return ` Waist-to-height ${r} is below a common 0.50 benchmark (not diagnostic).`;
-  }
-  return ` Waist-to-height ${r} is near a common 0.50 benchmark (not diagnostic).`;
-}
-
 function interpretWeight(
   overview: BodyOverviewMetrics,
   profile: UserProfileMain,
@@ -215,9 +200,9 @@ function interpretWeight(
   const pad = Math.max(4, (bandHi - bandLo) * 0.4);
   const dispLo = Math.max(30, bandLo - pad);
   const dispHi = Math.min(220, bandHi + pad);
-  const whClause = waistToHeightClause(profile);
+  // Legacy undated profile waist must not feed WHtR interpretation.
   const range = formatMassRangeForCopy(bandLo, bandHi, massUnit);
-  let subtitle = `For your height, BMI 18.5–24.9 is roughly ${range}.${weightBandClause(w, heightCm, massUnit)}${whClause ?? ""}`;
+  let subtitle = `For your height, BMI 18.5–24.9 is roughly ${range}.${weightBandClause(w, heightCm, massUnit)}`;
   if (profile.bodyInputs.primaryGoal === "maintain") {
     subtitle += " Maintaining often feels easiest near that band.";
   }
