@@ -24,11 +24,30 @@ Category history (newest first)
 Individual scan result
 ```
 
-Landing and hub show a compact grouped category list (stable order). Category rows open type-specific history. Add from the section opens a category chooser; Add from a category page opens upload with `?scanType=` preselected. Invalid `scanType` routes fail closed to the Body Scans hub.
+Landing and hub show a compact grouped category list (stable order). Each category
+row is backed by an **owner-scoped `scanType` + `limit=1` summary query** that proves
+emptiness or returns the true latest item under server sort — never a truncated mixed
+global page. Exact scan counts are omitted in V1 unless an authoritative total exists.
+Category history uses the same list endpoint with `scanType` + cursor pagination so
+every prior scan is reachable. Category rows open type-specific history. Add from the
+section opens a category chooser; Add from a category page opens upload with
+`?scanType=` preselected. Invalid `scanType` routes fail closed to the Body Scans hub.
 
-Product category is separate from scientific method (InBody/Evolt → `bia`; Bod Pod → `air_displacement`). Preferred category at upload is stored on the document and applied when no adapter sets `scanTypeCandidate`.
+Product category is separate from scientific method. `preferredScanType` is an
+untrusted navigation/report-family hint: it may provisionally place a scan in a
+category when no detector candidate exists, but it must **never** alone establish
+scientific `method` (e.g. preferred InBody must not invent `method=bia`). Detector or
+explicit user-confirmed provenance governs method. Preference vs detector conflicts
+emit `body_scan_type_preference_conflict` (category tokens + status only).
 
 Routes: `/(app)/body/scans`, `/(app)/body/scans/type/[scanType]`, `/(app)/body/scans/new`, `/(app)/body/scans/[scanId]`, `/(app)/body/scans/[scanId]/review`, `/(app)/body/scans/[scanId]/report`. The former `/(app)/body/dexa` and `/(app)/scans` placeholders now redirect into this experience.
+
+List contract: `GET /users/me/body-scans?scanType=&limit=&cursor=` returns
+`{ items, nextCursor, hasMore }`. Sort is `createdAt` desc with document-id
+`startAfter` tie-break (UI labels prefer `performedAt` when present). Composite
+Firestore index: `bodyScans` `scanType` ASC + `createdAt` DESC. Default page 25,
+max 50. Gateway OpenAPI documents the query params (Gateway deploy required when this
+branch ships). No Evidence Resolver, Assessment Confidence, or composition scores.
 
 ---
 
