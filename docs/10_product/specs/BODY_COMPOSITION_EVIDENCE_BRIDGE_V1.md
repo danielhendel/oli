@@ -47,9 +47,38 @@ It does **not** answer which evidence is best, and it does **not** produce score
 | Field | Meaning |
 |-------|---------|
 | `sourceSystem` | Transport / repository (`apple_health`, `manual`, `body_scan`, …) |
-| `measurementMethod` | Scientific method (`scale_weight`, `consumer_bia`, `dxa`, …) |
+| `measurementMethod` | Scientific method (`scale_weight`, `consumer_bia`, `dxa`, `unknown`, …) |
 
-Apple Health is a transport. It is not automatically the measurement method.
+Apple Health is a **source/transport**, not a measurement method.
+
+| Case | Method | Evidence type |
+|------|--------|---------------|
+| Apple Health composition, no explicit method | `unknown` | `estimated` |
+| Apple Health composition, explicit governed method | preserved | per method |
+| Withings composition | `consumer_bia` (separate product branch) | `estimated` |
+| Verified DXA | `dxa` | `measured` |
+
+Do **not** encode: Apple Health transport = BIA.
+
+## Completeness (caller-supplied partial)
+
+Every successful evidence bundle includes:
+
+```text
+completeness: {
+  mode: "caller_supplied_partial",
+  profile: "available" | "missing",
+  continuousEvents: "omitted" | "provided_empty" | "provided_nonempty",
+  verifiedScanDetails: "omitted" | "provided_empty" | "provided_nonempty"
+}
+```
+
+- The bridge operates on **caller-supplied** continuous/scan arrays plus governed profile context.
+- It does **not** independently enumerate all account evidence.
+- `omitted` ≠ `provided_empty`.
+- `ready` means the bridge computed from provided inputs — **not** account-complete coverage.
+- There is **no** `account_complete` mode without a governed account-wide proof (not present in V1).
+- `useBodyCompositionEvidence` is not an account-wide evidence-fetching hook.
 
 ## Evidence types
 

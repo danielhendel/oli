@@ -25,33 +25,64 @@ export function resolveBodyCompositionSourceSystem(
 }
 
 /**
- * Infer measurement method from source system + kind hints.
- * Apple Health is a transport — never treat it as the scientific method alone.
+ * Parse an explicit free-form method label into a governed measurement method.
+ * Returns null when no usable explicit method is present.
+ */
+export function parseExplicitMeasurementMethod(
+  explicitMethod: string | null | undefined,
+): BodyCompositionMeasurementMethod | null {
+  if (explicitMethod == null) return null;
+  const explicit = explicitMethod.trim().toLowerCase();
+  if (!explicit) return null;
+  if (explicit === "unknown") return "unknown";
+  if (explicit.includes("dxa") || explicit.includes("dexa")) return "dxa";
+  if (explicit.includes("bia") && explicit.includes("segment")) return "segmental_bia";
+  if (explicit.includes("bia") || explicit === "consumer_bia") return "consumer_bia";
+  if (explicit.includes("air") || explicit.includes("bodpod")) return "air_displacement";
+  if (explicit.includes("scale") || explicit === "scale_weight") return "scale_weight";
+  if (explicit.includes("manual") || explicit.includes("anthropometr")) {
+    return "manual_anthropometry";
+  }
+  if (explicit === "other") return "other";
+  // Unrecognized explicit label — fail closed.
+  return "unknown";
+}
+
+/**
+ * Resolve measurement method from source system + optional explicit method.
+ *
+ * Apple Health is a transport/source system only. Unlabeled Apple Health
+ * composition must NOT be hard-coded as consumer_bia.
+ *
+ * Withings composition may map to consumer_bia as a separate product branch.
  */
 export function resolveContinuousMeasurementMethod(args: {
   sourceSystem: BodyCompositionSourceSystem;
   metric: "body_mass" | "fat_percent" | "lean_mass";
   explicitMethod?: string | null;
 }): BodyCompositionMeasurementMethod {
-  const explicit = args.explicitMethod?.trim().toLowerCase() ?? "";
-  if (explicit.includes("dxa") || explicit.includes("dexa")) return "dxa";
-  if (explicit.includes("bia") && explicit.includes("segment")) return "segmental_bia";
-  if (explicit.includes("bia")) return "consumer_bia";
-  if (explicit.includes("air") || explicit.includes("bodpod")) return "air_displacement";
-  if (explicit.includes("scale") || explicit === "scale_weight") return "scale_weight";
-  if (explicit.includes("manual") || explicit.includes("anthropometr")) {
-    return "manual_anthropometry";
-  }
+  const fromExplicit = parseExplicitMeasurementMethod(args.explicitMethod);
+  if (fromExplicit != null) return fromExplicit;
 
   if (args.sourceSystem === "manual") {
     if (args.metric === "body_mass") return "scale_weight";
     return "unknown";
   }
-  if (args.sourceSystem === "apple_health" || args.sourceSystem === "withings") {
+
+  // Apple Health transport: weight may remain scale_weight; composition stays unknown.
+  if (args.sourceSystem === "apple_health") {
     if (args.metric === "body_mass") return "scale_weight";
-    // Composition from consumer devices is estimated unless a stronger method is labeled.
-    if (args.metric === "fat_percent" || args.metric === "lean_mass") return "consumer_bia";
+    if (args.metric === "fat_percent" || args.metric === "lean_mass") return "unknown";
+    return "unknown";
   }
+
+  // Withings is a separate governed branch — not shared with Apple Health.
+  if (args.sourceSystem === "withings") {
+    if (args.metric === "body_mass") return "scale_weight";
+    if (args.metric === "fat_percent" || args.metric === "lean_mass") return "consumer_bia";
+    return "unknown";
+  }
+
   if (args.sourceSystem === "body_scan") return "dxa";
   return "unknown";
 }
@@ -66,6 +97,6 @@ export function continuousEvidenceTypeForMetric(args: {
   if (args.method === "dxa") return "measured";
   if (args.method === "consumer_bia" || args.method === "segmental_bia") return "estimated";
   if (args.metric === "body_mass") return "measured";
-  // Unlabeled continuous composition — fail closed to estimated, not measured.
+  // Unlabeled / unknown-method continuous composition — fail closed to estimated.
   return "estimated";
 }

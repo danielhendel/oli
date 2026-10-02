@@ -261,12 +261,45 @@ export const bodyCompositionEvidenceDiagnosticsSchema = z
   })
   .strip();
 
+/**
+ * Caller-supplied source coverage — descriptive only.
+ * Never implies account-wide completeness or source ranking.
+ */
+export const bodyCompositionEvidenceSourcePresenceSchema = z.enum([
+  "omitted",
+  "provided_empty",
+  "provided_nonempty",
+]);
+export type BodyCompositionEvidenceSourcePresence = z.infer<
+  typeof bodyCompositionEvidenceSourcePresenceSchema
+>;
+
+export const bodyCompositionEvidenceProfilePresenceSchema = z.enum(["available", "missing"]);
+export type BodyCompositionEvidenceProfilePresence = z.infer<
+  typeof bodyCompositionEvidenceProfilePresenceSchema
+>;
+
+export const bodyCompositionEvidenceCompletenessSchema = z
+  .object({
+    /** V1 bridge never proves account-wide enumeration. */
+    mode: z.literal("caller_supplied_partial"),
+    profile: bodyCompositionEvidenceProfilePresenceSchema,
+    continuousEvents: bodyCompositionEvidenceSourcePresenceSchema,
+    verifiedScanDetails: bodyCompositionEvidenceSourcePresenceSchema,
+  })
+  .strip();
+
+export type BodyCompositionEvidenceCompleteness = z.infer<
+  typeof bodyCompositionEvidenceCompletenessSchema
+>;
+
 export const bodyCompositionEvidenceBundleSchema = z
   .object({
     schemaVersion: z.literal(1),
     subjectContext: bodyCompositionSubjectContextSchema,
     observations: z.array(bodyCompositionEvidenceObservationSchema),
     diagnostics: bodyCompositionEvidenceDiagnosticsSchema,
+    completeness: bodyCompositionEvidenceCompletenessSchema,
   })
   .strip();
 

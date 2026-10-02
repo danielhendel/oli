@@ -1,4 +1,4 @@
-export { buildBodyCompositionEvidenceBundle } from "./buildBodyCompositionEvidenceBundle";
+export { buildBodyCompositionEvidenceBundle, buildEvidenceCompleteness, sourceArrayPresence } from "./buildBodyCompositionEvidenceBundle";
 export type { BuildBodyCompositionEvidenceBundleInput } from "./buildBodyCompositionEvidenceBundle";
 export {
   adaptContinuousBodyEvidenceEvent,

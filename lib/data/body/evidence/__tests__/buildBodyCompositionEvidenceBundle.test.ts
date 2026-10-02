@@ -87,7 +87,7 @@ describe("buildBodyCompositionEvidenceBundle", () => {
     expect(bf.every((o) => o.value === 24 || o.value === 23.5 || o.value === 21.4)).toBe(true);
   });
 
-  it("classifies continuous weight as measured and BIA fat as estimated", () => {
+  it("classifies continuous weight as measured; unlabeled Apple Health composition as unknown+estimated", () => {
     const weight = adaptContinuousBodyEvidenceEvent({
       rawEventId: "w1",
       kind: "weight",
@@ -107,7 +107,7 @@ describe("buildBodyCompositionEvidenceBundle", () => {
     expect(weight.observations[0]?.source.sourceSystem).toBe("apple_health");
     expect(fat.observations[0]?.evidenceType).toBe("estimated");
     expect(fat.observations[0]?.value).toBe(22);
-    expect(fat.observations[0]?.source.measurementMethod).toBe("consumer_bia");
+    expect(fat.observations[0]?.source.measurementMethod).toBe("unknown");
   });
 
   it("keeps lean distinct from FFM and never maps to SMM", () => {

@@ -92,9 +92,11 @@ function pushMetric(
   const comparabilityGroup =
     args.metric === "body_mass"
       ? "continuous_scale_weight"
-      : sourceSystem === "manual"
-        ? "manual_composition"
-        : "consumer_bia_composition";
+      : method === "consumer_bia" || method === "segmental_bia"
+        ? "consumer_bia_composition"
+        : sourceSystem === "manual"
+          ? "manual_composition"
+          : "unknown";
 
   out.observations.push({
     observationId,
