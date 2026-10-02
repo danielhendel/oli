@@ -159,6 +159,10 @@ export const logBodyComposition = async (
   payload: ManualBodyCompositionPayload,
   metric: ManualBodyCompositionMetric,
   idToken: string,
+  opts?: {
+    idempotencyKey?: string;
+    correctionOfRawEventId?: string;
+  },
 ): Promise<ApiResult<IngestAcceptedResponseDto>> => {
   const clean: ManualBodyCompositionPayload = {
     time: payload.time,
@@ -186,12 +190,16 @@ export const logBodyComposition = async (
     sourceId: "manual",
     timeZone: clean.timezone,
     payload: clean,
+    ...(opts?.correctionOfRawEventId
+      ? { correctionOfRawEventId: opts.correctionOfRawEventId }
+      : {}),
   };
 
   return apiPostZodAuthed("/ingest", ingestBody, idToken, ingestAcceptedResponseDtoSchema, {
     timeoutMs: 15000,
     noStore: true,
-    idempotencyKey: manualBodyCompositionIdempotencyKey(clean, metric),
+    idempotencyKey:
+      opts?.idempotencyKey ?? manualBodyCompositionIdempotencyKey(clean, metric),
   });
 };
 
@@ -199,8 +207,12 @@ export const logBodyComposition = async (
 export const logWaist = async (
   payload: ManualBodyCompositionPayload,
   idToken: string,
+  opts?: {
+    idempotencyKey?: string;
+    correctionOfRawEventId?: string;
+  },
 ): Promise<ApiResult<IngestAcceptedResponseDto>> =>
-  logBodyComposition(payload, "waistCircumferenceCm", idToken);
+  logBodyComposition(payload, "waistCircumferenceCm", idToken, opts);
 
 export const logStrengthWorkout = async (
   payload: ManualStrengthWorkoutPayload,

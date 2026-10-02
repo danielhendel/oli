@@ -89,3 +89,20 @@ export function manualBodyCompositionIdempotencyKey(
     "_",
   );
 }
+
+/**
+ * Stable correction idempotency — includes prior event id so retries of the same
+ * intended correction reuse one replacement without depending on call timing.
+ */
+export function manualWaistCorrectionIdempotencyKey(args: {
+  priorRawEventId: string;
+  time: string;
+  timezone: string;
+  waistCircumferenceCm: number;
+}): string {
+  const rounded = roundWaistCm(args.waistCircumferenceCm);
+  return `mbc_waist_corr_${args.priorRawEventId}_${args.time}_${args.timezone}_${rounded}`.replace(
+    /[^\w.-]/g,
+    "_",
+  );
+}

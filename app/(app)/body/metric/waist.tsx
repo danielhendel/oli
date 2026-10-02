@@ -267,9 +267,31 @@ export default function WaistDetailScreen() {
             History
           </Text>
           {mutations.errorMessage ? (
-            <Text style={styles.banner} accessibilityRole="alert" accessibilityLiveRegion="polite">
-              {mutations.errorMessage}
-            </Text>
+            <View style={styles.bannerBlock}>
+              <Text
+                style={styles.banner}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+              >
+                {mutations.errorMessage}
+              </Text>
+              {mutations.cleanupPending ? (
+                <Pressable
+                  onPress={() => {
+                    void (async () => {
+                      const res = await mutations.retryCleanup();
+                      if (res.ok) refresh();
+                    })();
+                  }}
+                  style={styles.retryCleanupBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry cleanup"
+                  testID="waist-detail-retry-cleanup"
+                >
+                  <Text style={styles.retryCleanupText}>Retry cleanup</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : null}
           {listPoints.length === 0 && history.status === "ready" ? (
             <Text style={styles.emptyHistory} testID="waist-detail-history-empty">
@@ -366,6 +388,22 @@ const styles = StyleSheet.create({
     color: "#FF8A80",
     fontSize: 13,
     fontWeight: "600",
+  },
+  bannerBlock: {
+    gap: 8,
     marginBottom: 8,
+  },
+  retryCleanupBtn: {
+    minHeight: 44,
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: "rgba(79,70,229,0.18)",
+  },
+  retryCleanupText: {
+    color: BODY_INDIGO,
+    fontSize: 14,
+    fontWeight: "700",
   },
 });
