@@ -3,11 +3,24 @@
  *
  * Callers must supply explicit compatible input observations.
  * The evidence bridge never auto-selects cross-source inputs.
+ * Building an evidence bundle never emits these indices automatically.
+ *
+ * Precision policy:
+ * - Inputs are used as supplied (no rounding of source observations).
+ * - Results are IEEE-754 double division; callers may format for display separately.
+ * - Reproducibility requires formulaVersion + inputObservationRefs + canonical values.
  */
 
 import type { BodyCompositionEvidenceObservation } from "@oli/contracts";
 
+/** @deprecated Prefer per-index versions below. Kept for test/back-compat aliases. */
 export const BODY_COMPOSITION_FORMULA_VERSION = "bc_indices_v1" as const;
+
+export const BMI_FORMULA_VERSION = "bmi_v1" as const;
+export const WHTR_FORMULA_VERSION = "whtr_v1" as const;
+export const FMI_FORMULA_VERSION = "fmi_v1" as const;
+export const FFMI_FORMULA_VERSION = "ffmi_v1" as const;
+export const ALMI_FORMULA_VERSION = "almi_v1" as const;
 
 export type FormulaHelperResult =
   | {
@@ -27,6 +40,7 @@ function calculatedBase(args: {
   unit: BodyCompositionEvidenceObservation["canonicalUnit"];
   measuredAt: string;
   inputRefs: readonly string[];
+  formulaVersion: string;
   constructEligibility: BodyCompositionEvidenceObservation["constructEligibility"];
   redundancyGroup: BodyCompositionEvidenceObservation["redundancyGroup"];
   recencyClass: BodyCompositionEvidenceObservation["recencyClass"];
@@ -55,9 +69,11 @@ function calculatedBase(args: {
       sourcePage: null,
       adapterId: null,
       adapterVersion: null,
-      formulaVersion: BODY_COMPOSITION_FORMULA_VERSION,
+      formulaVersion: args.formulaVersion,
       inputObservationRefs: [...args.inputRefs],
       corrected: null,
+      protocolId: null,
+      protocolVersion: null,
     },
     continuousTrendEligible: false,
     comparabilityGroup: args.comparabilityGroup,
@@ -67,7 +83,7 @@ function calculatedBase(args: {
   };
 }
 
-/** BMI = bodyMassKg / heightM² */
+/** BMI = bodyMassKg / heightM² — effectiveAt = body-mass observation date. */
 export function calculateBmiObservation(args: {
   bodyMassKg: number;
   heightCm: number;
@@ -78,6 +94,8 @@ export function calculateBmiObservation(args: {
   if (!requirePositiveFinite(args.bodyMassKg) || !requirePositiveFinite(args.heightCm)) {
     return { ok: false, reason: "invalid_input" };
   }
+  if (!args.measuredAt?.trim()) return { ok: false, reason: "invalid_input" };
+  if (!args.inputObservationRefs.length) return { ok: false, reason: "invalid_input" };
   const heightM = args.heightCm / 100;
   if (heightM <= 0) return { ok: false, reason: "invalid_height" };
   const value = args.bodyMassKg / (heightM * heightM);
@@ -91,6 +109,7 @@ export function calculateBmiObservation(args: {
       unit: "kg_per_m2",
       measuredAt: args.measuredAt,
       inputRefs: args.inputObservationRefs,
+      formulaVersion: BMI_FORMULA_VERSION,
       constructEligibility: [],
       redundancyGroup: "none",
       recencyClass: "fast",
@@ -99,7 +118,7 @@ export function calculateBmiObservation(args: {
   };
 }
 
-/** WHtR = waistCm / heightCm (compatible length units). */
+/** WHtR = waistCm / heightCm — effectiveAt = Waist observation date. */
 export function calculateWhtrObservation(args: {
   waistCm: number;
   heightCm: number;
@@ -110,6 +129,8 @@ export function calculateWhtrObservation(args: {
   if (!requirePositiveFinite(args.waistCm) || !requirePositiveFinite(args.heightCm)) {
     return { ok: false, reason: "invalid_input" };
   }
+  if (!args.measuredAt?.trim()) return { ok: false, reason: "invalid_input" };
+  if (!args.inputObservationRefs.length) return { ok: false, reason: "invalid_input" };
   const value = args.waistCm / args.heightCm;
   if (!Number.isFinite(value)) return { ok: false, reason: "invalid_input" };
   return {
@@ -121,6 +142,7 @@ export function calculateWhtrObservation(args: {
       unit: "ratio",
       measuredAt: args.measuredAt,
       inputRefs: args.inputObservationRefs,
+      formulaVersion: WHTR_FORMULA_VERSION,
       constructEligibility: ["H1"],
       redundancyGroup: "waist_whtr",
       recencyClass: "moderate",
@@ -129,7 +151,7 @@ export function calculateWhtrObservation(args: {
   };
 }
 
-/** FMI = fatMassKg / heightM² */
+/** FMI = fatMassKg / heightM² — do not derive fat mass from Weight × BF% here. */
 export function calculateFmiObservation(args: {
   fatMassKg: number;
   heightCm: number;
@@ -140,9 +162,12 @@ export function calculateFmiObservation(args: {
   if (!requirePositiveFinite(args.heightCm) || !Number.isFinite(args.fatMassKg) || args.fatMassKg < 0) {
     return { ok: false, reason: "invalid_input" };
   }
+  if (!args.measuredAt?.trim()) return { ok: false, reason: "invalid_input" };
+  if (!args.inputObservationRefs.length) return { ok: false, reason: "invalid_input" };
   const heightM = args.heightCm / 100;
   if (heightM <= 0) return { ok: false, reason: "invalid_height" };
   const value = args.fatMassKg / (heightM * heightM);
+  if (!Number.isFinite(value)) return { ok: false, reason: "invalid_input" };
   return {
     ok: true,
     observation: calculatedBase({
@@ -152,6 +177,7 @@ export function calculateFmiObservation(args: {
       unit: "kg_per_m2",
       measuredAt: args.measuredAt,
       inputRefs: args.inputObservationRefs,
+      formulaVersion: FMI_FORMULA_VERSION,
       constructEligibility: ["H2"],
       redundancyGroup: "bf_fat_mass_fmi",
       recencyClass: "moderate",
@@ -160,7 +186,7 @@ export function calculateFmiObservation(args: {
   };
 }
 
-/** FFMI = fatFreeMassKg / heightM² — never substitute lean_mass silently. */
+/** FFMI = fatFreeMassKg / heightM² — never substitute lean_mass for FFM. */
 export function calculateFfmiObservation(args: {
   fatFreeMassKg: number;
   heightCm: number;
@@ -171,9 +197,12 @@ export function calculateFfmiObservation(args: {
   if (!requirePositiveFinite(args.heightCm) || !Number.isFinite(args.fatFreeMassKg) || args.fatFreeMassKg < 0) {
     return { ok: false, reason: "invalid_input" };
   }
+  if (!args.measuredAt?.trim()) return { ok: false, reason: "invalid_input" };
+  if (!args.inputObservationRefs.length) return { ok: false, reason: "invalid_input" };
   const heightM = args.heightCm / 100;
   if (heightM <= 0) return { ok: false, reason: "invalid_height" };
   const value = args.fatFreeMassKg / (heightM * heightM);
+  if (!Number.isFinite(value)) return { ok: false, reason: "invalid_input" };
   return {
     ok: true,
     observation: calculatedBase({
@@ -183,6 +212,7 @@ export function calculateFfmiObservation(args: {
       unit: "kg_per_m2",
       measuredAt: args.measuredAt,
       inputRefs: args.inputObservationRefs,
+      formulaVersion: FFMI_FORMULA_VERSION,
       constructEligibility: ["H3", "P1"],
       redundancyGroup: "lean_ffm_ffmi",
       recencyClass: "moderate",
@@ -210,9 +240,12 @@ export function calculateAlmiObservation(args: {
   ) {
     return { ok: false, reason: "invalid_input" };
   }
+  if (!args.measuredAt?.trim()) return { ok: false, reason: "invalid_input" };
+  if (!args.inputObservationRefs.length) return { ok: false, reason: "invalid_input" };
   const heightM = args.heightCm / 100;
   if (heightM <= 0) return { ok: false, reason: "invalid_height" };
   const value = args.appendicularLeanMassKg / (heightM * heightM);
+  if (!Number.isFinite(value)) return { ok: false, reason: "invalid_input" };
   return {
     ok: true,
     observation: calculatedBase({
@@ -222,6 +255,7 @@ export function calculateAlmiObservation(args: {
       unit: "kg_per_m2",
       measuredAt: args.measuredAt,
       inputRefs: args.inputObservationRefs,
+      formulaVersion: ALMI_FORMULA_VERSION,
       constructEligibility: ["P2"],
       redundancyGroup: "appendicular_lean_almi",
       recencyClass: "slow",

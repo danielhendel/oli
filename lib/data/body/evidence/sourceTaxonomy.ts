@@ -58,11 +58,16 @@ export function parseExplicitMeasurementMethod(
  */
 export function resolveContinuousMeasurementMethod(args: {
   sourceSystem: BodyCompositionSourceSystem;
-  metric: "body_mass" | "fat_percent" | "lean_mass";
+  metric: "body_mass" | "fat_percent" | "lean_mass" | "waist_circumference";
   explicitMethod?: string | null;
 }): BodyCompositionMeasurementMethod {
   const fromExplicit = parseExplicitMeasurementMethod(args.explicitMethod);
   if (fromExplicit != null) return fromExplicit;
+
+  if (args.metric === "waist_circumference") {
+    if (args.sourceSystem === "manual") return "manual_anthropometry";
+    return "unknown";
+  }
 
   if (args.sourceSystem === "manual") {
     if (args.metric === "body_mass") return "scale_weight";
@@ -88,9 +93,12 @@ export function resolveContinuousMeasurementMethod(args: {
 }
 
 export function continuousEvidenceTypeForMetric(args: {
-  metric: "body_mass" | "fat_percent" | "lean_mass";
+  metric: "body_mass" | "fat_percent" | "lean_mass" | "waist_circumference";
   method: BodyCompositionMeasurementMethod;
 }): "measured" | "estimated" {
+  if (args.metric === "waist_circumference") {
+    return args.method === "manual_anthropometry" ? "measured" : "estimated";
+  }
   if (args.metric === "body_mass" && (args.method === "scale_weight" || args.method === "dxa")) {
     return "measured";
   }

@@ -8,14 +8,17 @@
 
 ```text
 SOURCE FACTS (authoritative)
-  continuous RawEvents (weight / body_composition)
-  profile anthropometry (height / waist)
+  continuous RawEvents (weight / body_composition incl. dated waist)
+  profile anthropometry (height / undated waist context)
   verified Body Scan facts (via detail DTO)
         ↓
 SOURCE ADAPTERS (pure)
         ↓
 CANONICAL EVIDENCE OBSERVATIONS
   BodyCompositionEvidenceBundle
+        ↓
+EXPLICIT DETERMINISTIC INDEX HELPERS (BMI / WHtR / FMI / FFMI / ALMI)
+  — never auto-emitted by the bridge
         ↓
 FUTURE Evidence Resolver
         ↓

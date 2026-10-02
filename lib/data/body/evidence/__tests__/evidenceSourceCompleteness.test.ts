@@ -141,6 +141,32 @@ describe("adaptContinuousBodyEvidenceEvent — AH unlabeled composition", () => 
   });
 });
 
+describe("adaptContinuousBodyEvidenceEvent — waist", () => {
+  it("maps dated manual waist with WHO protocol provenance", () => {
+    const result = adaptContinuousBodyEvidenceEvent({
+      rawEventId: "waist_1",
+      kind: "body_composition",
+      provider: "manual",
+      sourceId: "manual",
+      measuredAt: "2026-03-04T08:00:00.000Z",
+      payload: {
+        waistCircumferenceCm: 82.5,
+        protocolId: "who_midpoint_v1",
+        protocolVersion: 1,
+      },
+    });
+    expect(result.observations).toHaveLength(1);
+    const obs = result.observations[0]!;
+    expect(obs.metricKey).toBe("waist_circumference");
+    expect(obs.value).toBe(82.5);
+    expect(obs.canonicalUnit).toBe("cm");
+    expect(obs.source.measurementMethod).toBe("manual_anthropometry");
+    expect(obs.provenance.protocolId).toBe("who_midpoint_v1");
+    expect(obs.provenance.protocolVersion).toBe(1);
+    expect(obs.continuousTrendEligible).toBe(true);
+  });
+});
+
 describe("evidence completeness contract", () => {
   it("distinguishes omitted vs empty vs nonempty", () => {
     expect(sourceArrayPresence(undefined)).toBe("omitted");

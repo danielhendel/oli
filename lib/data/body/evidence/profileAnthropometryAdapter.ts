@@ -31,6 +31,8 @@ function emptyProv() {
     formulaVersion: null,
     inputObservationRefs: null,
     corrected: null,
+    protocolId: null,
+    protocolVersion: null,
   };
 }
 

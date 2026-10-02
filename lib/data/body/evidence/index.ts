@@ -16,6 +16,11 @@ export {
   calculateFmiObservation,
   calculateWhtrObservation,
   BODY_COMPOSITION_FORMULA_VERSION,
+  BMI_FORMULA_VERSION,
+  WHTR_FORMULA_VERSION,
+  FMI_FORMULA_VERSION,
+  FFMI_FORMULA_VERSION,
+  ALMI_FORMULA_VERSION,
 } from "./formulas";
 export { buildBodyCompositionSubjectContext } from "./subjectContext";
 export { BODY_COMPOSITION_EVIDENCE_METRIC_REGISTRY } from "./metricRegistry";

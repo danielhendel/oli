@@ -14,7 +14,11 @@ import {
   calculateFfmiObservation,
   calculateFmiObservation,
   calculateWhtrObservation,
-  BODY_COMPOSITION_FORMULA_VERSION,
+  BMI_FORMULA_VERSION,
+  WHTR_FORMULA_VERSION,
+  FMI_FORMULA_VERSION,
+  FFMI_FORMULA_VERSION,
+  ALMI_FORMULA_VERSION,
 } from "../formulas";
 import { normalizeEvidenceBodyFatPercent } from "../validateEvidence";
 import { bodyScanMayContributeToContinuousTrend } from "@/lib/data/body-scans/bodyScanTrendIsolation";
@@ -282,7 +286,7 @@ describe("evidence percent normalization", () => {
 });
 
 describe("formula helpers", () => {
-  it("computes BMI/WHtR/FMI/FFMI/ALMI with formula version and input refs", () => {
+  it("computes BMI/WHtR/FMI/FFMI/ALMI with per-index formula versions and input refs", () => {
     const bmi = calculateBmiObservation({
       bodyMassKg: 70,
       heightCm: 175,
@@ -292,42 +296,45 @@ describe("formula helpers", () => {
     expect(bmi.ok).toBe(true);
     if (bmi.ok) {
       expect(bmi.observation.evidenceType).toBe("calculated");
-      expect(bmi.observation.provenance.formulaVersion).toBe(BODY_COMPOSITION_FORMULA_VERSION);
+      expect(bmi.observation.provenance.formulaVersion).toBe(BMI_FORMULA_VERSION);
       expect(bmi.observation.provenance.inputObservationRefs).toHaveLength(2);
       expect(bmi.observation.value).toBeCloseTo(22.857, 2);
     }
-    expect(
-      calculateWhtrObservation({
-        waistCm: 70,
-        heightCm: 175,
-        measuredAt: "2026-01-01T00:00:00.000Z",
-        inputObservationRefs: ["w", "h"],
-      }).ok,
-    ).toBe(true);
-    expect(
-      calculateFmiObservation({
-        fatMassKg: 15,
-        heightCm: 175,
-        measuredAt: "2026-01-01T00:00:00.000Z",
-        inputObservationRefs: ["fm", "h"],
-      }).ok,
-    ).toBe(true);
-    expect(
-      calculateFfmiObservation({
-        fatFreeMassKg: 55,
-        heightCm: 175,
-        measuredAt: "2026-01-01T00:00:00.000Z",
-        inputObservationRefs: ["ffm", "h"],
-      }).ok,
-    ).toBe(true);
-    expect(
-      calculateAlmiObservation({
-        appendicularLeanMassKg: 20,
-        heightCm: 175,
-        measuredAt: "2026-01-01T00:00:00.000Z",
-        inputObservationRefs: ["ra", "la", "rl", "ll", "h"],
-      }).ok,
-    ).toBe(true);
+    const whtr = calculateWhtrObservation({
+      waistCm: 70,
+      heightCm: 175,
+      measuredAt: "2026-01-01T00:00:00.000Z",
+      inputObservationRefs: ["w", "h"],
+    });
+    expect(whtr.ok).toBe(true);
+    if (whtr.ok) {
+      expect(whtr.observation.provenance.formulaVersion).toBe(WHTR_FORMULA_VERSION);
+      expect(whtr.observation.value).toBeCloseTo(0.4, 5);
+    }
+    const fmi = calculateFmiObservation({
+      fatMassKg: 15,
+      heightCm: 175,
+      measuredAt: "2026-01-01T00:00:00.000Z",
+      inputObservationRefs: ["fm", "h"],
+    });
+    expect(fmi.ok).toBe(true);
+    if (fmi.ok) expect(fmi.observation.provenance.formulaVersion).toBe(FMI_FORMULA_VERSION);
+    const ffmi = calculateFfmiObservation({
+      fatFreeMassKg: 55,
+      heightCm: 175,
+      measuredAt: "2026-01-01T00:00:00.000Z",
+      inputObservationRefs: ["ffm", "h"],
+    });
+    expect(ffmi.ok).toBe(true);
+    if (ffmi.ok) expect(ffmi.observation.provenance.formulaVersion).toBe(FFMI_FORMULA_VERSION);
+    const almi = calculateAlmiObservation({
+      appendicularLeanMassKg: 20,
+      heightCm: 175,
+      measuredAt: "2026-01-01T00:00:00.000Z",
+      inputObservationRefs: ["ra", "la", "rl", "ll", "h"],
+    });
+    expect(almi.ok).toBe(true);
+    if (almi.ok) expect(almi.observation.provenance.formulaVersion).toBe(ALMI_FORMULA_VERSION);
     expect(
       calculateBmiObservation({
         bodyMassKg: 70,
@@ -336,5 +343,86 @@ describe("formula helpers", () => {
         inputObservationRefs: ["a", "b"],
       }).ok,
     ).toBe(false);
+  });
+
+  it("rejects missing input refs and does not auto-select sources", () => {
+    expect(
+      calculateWhtrObservation({
+        waistCm: 70,
+        heightCm: 175,
+        measuredAt: "2026-01-01T00:00:00.000Z",
+        inputObservationRefs: [],
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("does not emit indices from the evidence bundle builder", () => {
+    const bundle = buildBodyCompositionEvidenceBundle({
+      continuousEvents: [
+        {
+          rawEventId: "w1",
+          kind: "body_composition",
+          provider: "manual",
+          measuredAt: "2026-03-04T10:00:00.000Z",
+          payload: {
+            waistCircumferenceCm: 80,
+            protocolId: "who_midpoint_v1",
+            protocolVersion: 1,
+          },
+        },
+      ],
+      profile: {
+        ...defaultUserProfileMain(),
+        body: { heightCm: 175 },
+      },
+      profileEffectiveAt: "2026-01-01T00:00:00.000Z",
+    });
+    expect(bundle.observations.some((o) => o.metricKey === "waist_circumference")).toBe(true);
+    expect(bundle.observations.some((o) => o.metricKey === "whtr")).toBe(false);
+    expect(bundle.observations.some((o) => o.metricKey === "bmi")).toBe(false);
+    expect(bundle.observations.some((o) => o.metricKey === "fmi")).toBe(false);
+    expect(bundle.observations.some((o) => o.metricKey === "ffmi")).toBe(false);
+    expect(bundle.observations.some((o) => o.metricKey === "almi")).toBe(false);
+  });
+
+  it("maps dated waist events with WHO protocol and preserves multiples", () => {
+    const bundle = buildBodyCompositionEvidenceBundle({
+      continuousEvents: [
+        {
+          rawEventId: "waist_am",
+          kind: "body_composition",
+          provider: "manual",
+          sourceId: "manual",
+          measuredAt: "2026-03-04T08:00:00.000Z",
+          payload: {
+            waistCircumferenceCm: 80,
+            protocolId: "who_midpoint_v1",
+            protocolVersion: 1,
+          },
+        },
+        {
+          rawEventId: "waist_pm",
+          kind: "body_composition",
+          provider: "manual",
+          sourceId: "manual",
+          measuredAt: "2026-03-04T18:00:00.000Z",
+          payload: {
+            waistCircumferenceCm: 81.5,
+            protocolId: "who_midpoint_v1",
+            protocolVersion: 1,
+          },
+        },
+      ],
+    });
+    const waists = bundle.observations.filter((o) => o.metricKey === "waist_circumference");
+    expect(waists).toHaveLength(2);
+    expect(waists.every((o) => o.evidenceType === "measured")).toBe(true);
+    expect(waists.every((o) => o.source.measurementMethod === "manual_anthropometry")).toBe(true);
+    expect(waists.every((o) => o.source.sourceSystem === "manual")).toBe(true);
+    expect(waists.every((o) => o.provenance.protocolId === "who_midpoint_v1")).toBe(true);
+    expect(waists.every((o) => o.provenance.protocolVersion === 1)).toBe(true);
+    expect(waists.every((o) => o.continuousTrendEligible)).toBe(true);
+    expect(bundle.completeness.mode).toBe("caller_supplied_partial");
+    expect(bundle.completeness.continuousEvents).toBe("provided_nonempty");
   });
 });

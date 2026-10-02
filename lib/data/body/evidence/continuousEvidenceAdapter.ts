@@ -1,12 +1,14 @@
 /**
- * Continuous Weight / Body Fat / Lean Mass → evidence observations (pure).
+ * Continuous Weight / Body Fat / Lean Mass / Waist → evidence observations (pure).
  *
  * Input is a governed RawEvent-shaped record. No Firebase. No source winner.
+ * Dated waist events are distinct from undated profile waist context.
  */
 
 import type {
   BodyCompositionEvidenceInvalidReason,
   BodyCompositionEvidenceObservation,
+  BodyCompositionWaistProtocolId,
 } from "@oli/contracts";
 
 import { bodyCompositionEvidenceMetricDefinition } from "./metricRegistry";
@@ -29,11 +31,16 @@ export type ContinuousBodyEvidenceEventInput = {
     weightKg?: number | null;
     bodyFatPercent?: number | null;
     leanBodyMassKg?: number | null;
+    waistCircumferenceCm?: number | null;
+    protocolId?: BodyCompositionWaistProtocolId | null;
+    protocolVersion?: number | null;
   };
   deviceFamily?: string | null;
   deviceModel?: string | null;
   /** Optional free-form method label from device metadata. */
   measurementMethodLabel?: string | null;
+  /** Correction provenance when the source event is a correction. */
+  corrected?: boolean | null;
 };
 
 export type ContinuousAdapterResult = {
@@ -41,7 +48,14 @@ export type ContinuousAdapterResult = {
   invalidReasons: BodyCompositionEvidenceInvalidReason[];
 };
 
-function emptyProvenance(eventRef: string) {
+function emptyProvenance(
+  eventRef: string,
+  extras?: {
+    protocolId?: BodyCompositionWaistProtocolId | null;
+    protocolVersion?: number | null;
+    corrected?: boolean | null;
+  },
+) {
   return {
     sourceFactRef: null,
     sourceEventRef: eventRef,
@@ -52,7 +66,9 @@ function emptyProvenance(eventRef: string) {
     adapterVersion: null,
     formulaVersion: null,
     inputObservationRefs: null,
-    corrected: null,
+    corrected: extras?.corrected ?? null,
+    protocolId: extras?.protocolId ?? null,
+    protocolVersion: extras?.protocolVersion ?? null,
   };
 }
 
@@ -60,9 +76,9 @@ function pushMetric(
   out: ContinuousAdapterResult,
   args: {
     event: ContinuousBodyEvidenceEventInput;
-    metric: "body_mass" | "fat_percent" | "lean_mass";
+    metric: "body_mass" | "fat_percent" | "lean_mass" | "waist_circumference";
     value: number;
-    unit: "kg" | "percent";
+    unit: "kg" | "percent" | "cm";
   },
 ): void {
   const sourceSystem = resolveBodyCompositionSourceSystem(
@@ -76,7 +92,9 @@ function pushMetric(
       : {}),
   });
   const evidenceType = continuousEvidenceTypeForMetric({ metric: args.metric, method });
-  const def = bodyCompositionEvidenceMetricDefinition(args.metric === "body_mass" ? "body_mass" : args.metric);
+  const def = bodyCompositionEvidenceMetricDefinition(
+    args.metric === "body_mass" ? "body_mass" : args.metric,
+  );
 
   const invalid = validateEvidenceValue({
     value: args.value,
@@ -90,18 +108,40 @@ function pushMetric(
 
   const observationId = `cont:${args.event.rawEventId}:${args.metric}:total`;
   const comparabilityGroup =
-    args.metric === "body_mass"
-      ? "continuous_scale_weight"
-      : method === "consumer_bia" || method === "segmental_bia"
-        ? "consumer_bia_composition"
+    args.metric === "waist_circumference"
+      ? "manual_anthropometry"
+      : args.metric === "body_mass"
+        ? "continuous_scale_weight"
+        : method === "consumer_bia" || method === "segmental_bia"
+          ? "consumer_bia_composition"
+          : sourceSystem === "manual"
+            ? "manual_composition"
+            : "unknown";
+
+  const protocolId =
+    args.metric === "waist_circumference"
+      ? args.event.payload.protocolId === "who_midpoint_v1" ||
+        args.event.payload.protocolId === "unknown"
+        ? args.event.payload.protocolId
         : sourceSystem === "manual"
-          ? "manual_composition"
-          : "unknown";
+          ? ("who_midpoint_v1" as const)
+          : ("unknown" as const)
+      : null;
+  const protocolVersion =
+    args.metric === "waist_circumference"
+      ? typeof args.event.payload.protocolVersion === "number" &&
+        Number.isFinite(args.event.payload.protocolVersion) &&
+        args.event.payload.protocolVersion > 0
+        ? Math.trunc(args.event.payload.protocolVersion)
+        : protocolId === "who_midpoint_v1"
+          ? 1
+          : null
+      : null;
 
   out.observations.push({
     observationId,
     metricKey: args.metric === "body_mass" ? "body_mass" : args.metric,
-    region: "total",
+    region: args.metric === "waist_circumference" ? null : "total",
     value: args.value,
     canonicalUnit: args.unit,
     measuredAt: args.event.measuredAt,
@@ -113,8 +153,13 @@ function pushMetric(
       deviceFamily: args.event.deviceFamily ?? null,
       deviceModel: args.event.deviceModel ?? null,
     },
-    provenance: emptyProvenance(args.event.rawEventId),
-    continuousTrendEligible: def.continuousTrendEligibleDefault,
+    provenance: emptyProvenance(args.event.rawEventId, {
+      protocolId,
+      protocolVersion,
+      corrected: args.event.corrected ?? null,
+    }),
+    continuousTrendEligible:
+      args.metric === "waist_circumference" ? true : def.continuousTrendEligibleDefault,
     comparabilityGroup,
     recencyClass: def.recencyClass,
     constructEligibility: [...def.constructEligibility],
@@ -125,6 +170,7 @@ function pushMetric(
 /**
  * Adapt one continuous body RawEvent into zero or more evidence observations.
  * Never maps leanBodyMassKg to fat_free_mass or skeletal_muscle_mass.
+ * Never fabricates measuredAt for missing waist timestamps.
  */
 export function adaptContinuousBodyEvidenceEvent(
   event: ContinuousBodyEvidenceEventInput,
@@ -164,6 +210,14 @@ export function adaptContinuousBodyEvidenceEvent(
       metric: "lean_mass",
       value: payload.leanBodyMassKg,
       unit: "kg",
+    });
+  }
+  if (payload.waistCircumferenceCm != null) {
+    pushMetric(out, {
+      event,
+      metric: "waist_circumference",
+      value: payload.waistCircumferenceCm,
+      unit: "cm",
     });
   }
   return out;
