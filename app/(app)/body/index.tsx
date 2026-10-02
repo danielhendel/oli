@@ -12,12 +12,14 @@ import {
   BodyAppleHealthConnectSheet,
 } from "@/lib/ui/body/BodyAppleHealthConnectSheet";
 import { BodyCompositionSummaryScreen } from "@/lib/ui/body/BodyCompositionSummaryScreen";
+import { BodyMeasurementsLandingSection } from "@/lib/ui/body/WaistLandingCard";
 import { BodyScansLandingSection } from "@/lib/ui/body-scans/BodyScansLandingSection";
 import { isBodyScansV1Enabled } from "@/lib/data/body-scans/bodyScansFlag";
 import { useBodyScans } from "@/lib/data/body-scans/useBodyScans";
 import { BodyMetricManualEntrySheet } from "@/lib/ui/body/BodyMetricManualEntrySheet";
 import type { BodyMetricManualEntryMetric } from "@/lib/body/presentation/bodyMetricManualEntryValidation";
 import { useBodyOverviewData } from "@/lib/data/body/useBodyOverviewData";
+import { useWaistMetricHistory } from "@/lib/data/body/useWaistMetricHistory";
 import { useAppleHealthBodyAccessState } from "@/lib/data/body/useAppleHealthBodyAccessState";
 import { useAppleHealthBodyBackfill } from "@/lib/data/body/useAppleHealthBodyBackfill";
 import { useAppleHealthBodyConnectSheet } from "@/lib/data/body/useAppleHealthBodyConnectSheet";
@@ -238,6 +240,27 @@ export default function BodyOverviewScreen() {
     pairingEvidence,
   ]);
 
+  const lengthUnit = useMemo(() => {
+    return profileMain.app?.preferredUnits?.length === "in" ? ("in" as const) : ("cm" as const);
+  }, [profileMain]);
+
+  const waistHistory = useWaistMetricHistory("All");
+  const bodyMeasurementsSlot = (
+    <BodyMeasurementsLandingSection
+      latest={waistHistory.status === "ready" ? waistHistory.latest : null}
+      lengthUnit={lengthUnit}
+      status={
+        waistHistory.status === "error"
+          ? "error"
+          : waistHistory.status === "ready"
+            ? "ready"
+            : "partial"
+      }
+      onPressCard={() => router.push(BODY_COMPOSITION_METRIC_DETAIL_ROUTES.waist as never)}
+      onPressAdd={() => setManualEntryMetric("waist")}
+    />
+  );
+
   const bodyScansEnabled = isBodyScansV1Enabled();
   const bodyScans = useBodyScans({ enabled: bodyScansEnabled, limit: 3 });
   const bodyScansSlot = bodyScansEnabled ? (
@@ -288,6 +311,7 @@ export default function BodyOverviewScreen() {
             refreshing={body.isPullRefreshing}
             onRefresh={() => {
               void body.onPullToRefresh();
+              void waistHistory.refetch({ cacheBust: `waistPull:${Date.now()}` });
             }}
             tintColor={BODY_INDIGO}
             accessibilityLabel="Refresh Body measurements"
@@ -315,6 +339,7 @@ export default function BodyOverviewScreen() {
             leanMassPrimaryView={leanMassPrimaryView}
             onChangeLeanMassPrimaryView={setLeanMassPrimaryView}
             measurementErrorSlot={measurementErrorSlot}
+            bodyMeasurementsSlot={bodyMeasurementsSlot}
             bodyScansSlot={bodyScansSlot}
           />
         </View>
@@ -342,6 +367,7 @@ export default function BodyOverviewScreen() {
       <BodyMetricManualEntrySheet
         visible={manualEntryMetric != null}
         metric={manualEntryMetric}
+        lengthUnitDefault={lengthUnit}
         onClose={() => setManualEntryMetric(null)}
         onSaved={() => {
           const bust = `manualBody:${Date.now()}`;
@@ -350,6 +376,7 @@ export default function BodyOverviewScreen() {
           void body.peek.refetch({ cacheBust: `${bust}:peek` });
           void body.snapshotDayPeek.refetch({ cacheBust: `${bust}:snapshot` });
           void body.dayFacts.refetch({ cacheBust: bust });
+          void waistHistory.refetch({ cacheBust: `${bust}:waist` });
         }}
       />
     </View>

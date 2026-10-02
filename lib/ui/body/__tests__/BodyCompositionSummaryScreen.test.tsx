@@ -112,6 +112,29 @@ describe("BodyCompositionSummaryScreen — visual cards", () => {
     expect(text.indexOf("Body Fat")).toBeLessThan(text.indexOf("Lean Mass"));
   });
 
+  it("places Body Measurements between Components and Body Scans", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        React.createElement(BodyCompositionSummaryScreen, {
+          ...baseScreenProps,
+          cards,
+          bodyMeasurementsSlot: React.createElement(
+            "Text",
+            { testID: "body-measurements-slot" },
+            "Body Measurements",
+          ),
+          bodyScansSlot: React.createElement("Text", { testID: "body-scans-slot" }, "Body Scans"),
+        }),
+      );
+    });
+    const text = collectText(tree);
+    expect(tree.root.findByProps({ testID: "body-measurements-slot" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-scans-slot" })).toBeDefined();
+    expect(text.indexOf("Lean Mass")).toBeLessThan(text.indexOf("Body Measurements"));
+    expect(text.indexOf("Body Measurements")).toBeLessThan(text.indexOf("Body Scans"));
+  });
+
   it("places Body Scans after Components and keeps it out of the metric cards", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {

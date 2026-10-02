@@ -82,6 +82,11 @@ export type BodyMetricTrendDetailViewProps = {
   } | null;
   /** Content key that changes when display mode changes — clears inspection. */
   displayModeKey?: string;
+  /**
+   * Optional custom period selector (e.g. Waist 1M/3M/6M/1Y/All).
+   * Defaults to {@link WeightRangeSelector}.
+   */
+  rangeSelector?: React.ReactNode;
 };
 
 /**
@@ -248,7 +253,9 @@ export function BodyMetricTrendDetailView(props: BodyMetricTrendDetailViewProps)
         inspecting && inspection.status === "active" ? inspection.accessibilityLabel : a11y
       }
     >
-      <WeightRangeSelector value={props.range} onChange={handleChangeRange} />
+      {props.rangeSelector ?? (
+        <WeightRangeSelector value={props.range} onChange={handleChangeRange} />
+      )}
 
       {props.model.status === "partial" && displayModel === props.model ? (
         <LoadingState message="Loading chart…" />

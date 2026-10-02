@@ -10,4 +10,5 @@ export const BODY_COMPOSITION_METRIC_DETAIL_ROUTES = {
   bmi: "/(app)/body/metric/bmi",
   leanMass: "/(app)/body/metric/lean-mass",
   rmr: "/(app)/body/metric/rmr",
+  waist: "/(app)/body/metric/waist",
 } as const;

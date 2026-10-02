@@ -3,7 +3,9 @@
  * Mirrors existing domain contracts — no invented physiological constraints.
  */
 
-export type BodyMetricManualEntryMetric = "weight" | "bodyFat" | "leanMass";
+export type BodyMetricManualEntryMetric = "weight" | "bodyFat" | "leanMass" | "waist";
+
+export type WaistLengthDisplayUnit = "in" | "cm";
 
 export function parseManualEntryDecimal(text: string): number | null {
   const trimmed = text.trim();
@@ -31,6 +33,22 @@ export function isValidManualLeanMassValue(value: number): boolean {
   return Number.isFinite(value) && value > 0;
 }
 
+/** Waist: finite and strictly positive (canonical store is cm). */
+export function isValidManualWaistValue(value: number): boolean {
+  return Number.isFinite(value) && value > 0;
+}
+
+export function isValidWaistLengthUnit(unit: string): unit is WaistLengthDisplayUnit {
+  return unit === "in" || unit === "cm";
+}
+
+/** Measured-at must be a parseable instant (not fake / NaN). */
+export function isValidManualMeasuredAtIso(iso: string): boolean {
+  if (typeof iso !== "string" || iso.trim().length === 0) return false;
+  const t = Date.parse(iso);
+  return !Number.isNaN(t);
+}
+
 export function manualEntryValidationMessage(
   metric: BodyMetricManualEntryMetric,
 ): string {
@@ -41,6 +59,8 @@ export function manualEntryValidationMessage(
       return "Enter a valid Body Fat percentage.";
     case "leanMass":
       return "Enter a valid Lean Mass.";
+    case "waist":
+      return "Enter a valid waist measurement.";
   }
 }
 

@@ -3,6 +3,7 @@ import renderer, { act } from "react-test-renderer";
 
 const mockLogWeight = jest.fn();
 const mockLogBodyComposition = jest.fn();
+const mockLogWaist = jest.fn();
 const mockGetIdToken = jest.fn().mockResolvedValue("token");
 
 jest.mock("@/lib/auth/AuthProvider", () => ({
@@ -19,9 +20,26 @@ jest.mock("@/lib/preferences/PreferencesProvider", () => ({
   }),
 }));
 
+jest.mock("@/lib/data/profile/useUserProfileMain", () => ({
+  useUserProfileMain: () => ({
+    state: { status: "ready", profile: null },
+  }),
+}));
+
+jest.mock("@/lib/data/body/useBodyCompositionInterpretation", () => ({
+  resolveUserProfileMainForInterpretation: () => ({
+    app: { preferredUnits: { length: "in" } },
+  }),
+}));
+
 jest.mock("@/lib/api/usersMe", () => ({
   logWeight: (...args: unknown[]) => mockLogWeight(...args),
   logBodyComposition: (...args: unknown[]) => mockLogBodyComposition(...args),
+  logWaist: (...args: unknown[]) => mockLogWaist(...args),
+}));
+
+jest.mock("@/lib/api/ingest", () => ({
+  deleteIngestedRawEventAuthed: jest.fn().mockResolvedValue({ ok: true }),
 }));
 
 jest.mock("@/lib/navigation/refreshBus", () => ({
@@ -35,6 +53,14 @@ jest.mock("react-native-safe-area-context", () => ({
 jest.mock("@/lib/hooks/useBodyMetricEntryKeyboard", () => ({
   useBodyMetricEntryKeyboard: () => ({ keyboardHeight: 0, keyboardVisible: false }),
 }));
+
+jest.mock("@/lib/ui/nutrition/NutritionTimeWheelPicker", () => {
+  const ReactLocal = require("react");
+  return {
+    NutritionTimeWheelPicker: () =>
+      ReactLocal.createElement("View", { testID: "nutrition-time-wheel" }),
+  };
+});
 
 import { BodyMetricManualEntrySheet } from "@/lib/ui/body/BodyMetricManualEntrySheet";
 
@@ -50,6 +76,7 @@ describe("BodyMetricManualEntrySheet — metric ownership", () => {
     jest.clearAllMocks();
     mockLogWeight.mockResolvedValue({ ok: true });
     mockLogBodyComposition.mockResolvedValue({ ok: true });
+    mockLogWaist.mockResolvedValue({ ok: true });
   });
 
   it("Weight sheet has Weight only — no Body Fat or Lean Mass fields", async () => {
@@ -148,6 +175,7 @@ describe("BodyMetricManualEntrySheet — validation and save", () => {
     jest.clearAllMocks();
     mockLogWeight.mockResolvedValue({ ok: true });
     mockLogBodyComposition.mockResolvedValue({ ok: true });
+    mockLogWaist.mockResolvedValue({ ok: true });
   });
 
   it("Weight: save disabled when empty or <=0; valid lb calls logWeight without bodyFat", async () => {
@@ -295,6 +323,54 @@ describe("BodyMetricManualEntrySheet — validation and save", () => {
     const err = tree.root.findByProps({ testID: "body-metric-entry-sheet-error" });
     expect(String(err.props.children)).toMatch(/Couldn't save measurement/);
     expect(String(err.props.children)).not.toMatch(/network boom|Firestore/i);
+  });
+
+  it("Waist: rejects <=0; converts inches to cm and calls logWaist with WHO protocol", async () => {
+    const onSaved = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <BodyMetricManualEntrySheet
+          visible
+          metric="waist"
+          onClose={jest.fn()}
+          onSaved={onSaved}
+        />,
+      );
+      await Promise.resolve();
+    });
+    expect(tree.root.findByProps({ testID: "body-metric-entry-sheet-title" }).props.children).toBe(
+      "Log Waist",
+    );
+    expect(
+      tree.root.findByProps({ testID: "body-metric-manual-entry-how-to-measure" }),
+    ).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-manual-entry-measured-at" })).toBeDefined();
+    expect(tree.root.findByProps({ testID: "body-metric-manual-entry-unit-in-waist" })).toBeDefined();
+
+    const save = () => tree.root.findByProps({ testID: "body-metric-entry-sheet-save" });
+    await act(async () => {
+      findInput(tree, "waist").props.onChangeText("0");
+    });
+    expect(save().props.disabled).toBe(true);
+
+    await act(async () => {
+      findInput(tree, "waist").props.onChangeText("32.5");
+    });
+    expect(save().props.disabled).toBe(false);
+
+    await act(async () => {
+      save().props.onPress();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockLogWaist).toHaveBeenCalledTimes(1);
+    const payload = mockLogWaist.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload.waistCircumferenceCm).toBeCloseTo(32.5 * 2.54, 3);
+    expect(payload.protocolId).toBe("who_midpoint_v1");
+    expect(typeof payload.time).toBe("string");
+    expect(mockLogWeight).not.toHaveBeenCalled();
+    expect(onSaved).toHaveBeenCalledWith("waist");
   });
 
   it("shared shell exposes 44pt primary and cancel targets", async () => {

@@ -42,7 +42,11 @@ export type BodyCompositionSummaryScreenProps = {
   leanMassPrimaryView: LeanMassPrimaryView;
   onChangeLeanMassPrimaryView: (view: LeanMassPrimaryView) => void;
   measurementErrorSlot?: React.ReactNode;
-  /** Body Scans section, rendered after Components. Scans never feed the metric cards. */
+  /**
+   * Body Measurements section (e.g. Waist), rendered AFTER Components and BEFORE bodyScansSlot.
+   */
+  bodyMeasurementsSlot?: React.ReactNode;
+  /** Body Scans section, rendered after Components / Body Measurements. Scans never feed the metric cards. */
   bodyScansSlot?: React.ReactNode;
   /** Bottom scroll clearance above floating navigation. */
   bottomClearance?: number;
@@ -125,6 +129,8 @@ export function BodyCompositionSummaryScreen(props: BodyCompositionSummaryScreen
           {bodyFat != null ? renderCard(bodyFat, props) : null}
           {leanTissue != null ? renderCard(leanTissue, props) : null}
         </View>
+
+        {props.bodyMeasurementsSlot}
 
         {props.bodyScansSlot}
       </View>

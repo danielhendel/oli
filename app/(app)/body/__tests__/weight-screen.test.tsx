@@ -64,6 +64,16 @@ jest.mock("@/lib/data/body-scans/useBodyScans", () => ({
   }),
 }));
 
+jest.mock("@/lib/data/body/useWaistMetricHistory", () => ({
+  useWaistMetricHistory: () => ({
+    status: "ready",
+    points: [],
+    stats: { low: null, high: null, change: null },
+    latest: null,
+    refetch: jest.fn(),
+  }),
+}));
+
 const mockAccess = jest.fn();
 jest.mock("@/lib/data/body/useAppleHealthBodyAccessState", () => ({
   useAppleHealthBodyAccessState: () => mockAccess(),
