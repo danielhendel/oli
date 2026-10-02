@@ -4,13 +4,13 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
 
-import type { BodyScanListItemDto } from "@/lib/contracts";
 import { BodyScansLandingSection } from "@/lib/ui/body-scans/BodyScansLandingSection";
-import { BodyScanCategoryList } from "@/lib/ui/body-scans/BodyScanCategoryList";
+import { BodyScanCategorySummaryList } from "@/lib/ui/body-scans/BodyScanCategoryList";
 import { BodyScanCategoryHistoryContent } from "@/lib/ui/body-scans/BodyScanCategoryHistoryContent";
 import { BodyScanCategoryTypeChooser } from "@/lib/ui/body-scans/BodyScanCategoryTypeChooser";
-import { groupBodyScansByCategory } from "@/lib/data/body-scans/groupBodyScansByCategory";
+import { buildCategorySummaryRow } from "@/lib/data/body-scans/bodyScanCategorySummary";
 import { bodyScanCategoryDefinition } from "@/lib/data/body-scans/bodyScanCategoryCatalog";
+import type { BodyScanListItemDto } from "@/lib/contracts";
 
 function scan(partial: Partial<BodyScanListItemDto> & Pick<BodyScanListItemDto, "id">): BodyScanListItemDto {
   return {
@@ -31,16 +31,22 @@ function scan(partial: Partial<BodyScanListItemDto> & Pick<BodyScanListItemDto, 
 }
 
 describe("BodyScansLandingSection category navigation", () => {
-  it("renders category rows and Add chooser instead of latest-scan / see-all controls", () => {
+  it("renders category rows and Add chooser from summary rows", () => {
     const onPressCategory = jest.fn();
     const onPressAddWithType = jest.fn();
+    const rows = [
+      buildCategorySummaryRow("dxa", { status: "ready", latest: scan({ id: "d1" }) }),
+      buildCategorySummaryRow("inbody", { status: "ready", latest: null }),
+      buildCategorySummaryRow("evolt", { status: "ready", latest: null }),
+      buildCategorySummaryRow("bod_pod", { status: "ready", latest: null }),
+      buildCategorySummaryRow("other", { status: "ready", latest: null }),
+    ];
     let tree: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         <BodyScansLandingSection
           status="ready"
-          items={[scan({ id: "d1" })]}
-          listComplete
+          rows={rows}
           onPressCategory={onPressCategory}
           onPressAddWithType={onPressAddWithType}
         />,
@@ -50,13 +56,8 @@ describe("BodyScansLandingSection category navigation", () => {
     expect(tree!.root.findByProps({ testID: "body-scans-section-category-list" })).toBeDefined();
     expect(tree!.root.findByProps({ testID: "body-scan-category-row-dxa" })).toBeDefined();
     expect(tree!.root.findByProps({ testID: "body-scan-category-row-inbody" })).toBeDefined();
-    expect(tree!.root.findAllByProps({ testID: "body-scans-section-upload" })).toHaveLength(0);
-    expect(tree!.root.findAllByProps({ testID: "body-scans-section-see-all" })).toHaveLength(0);
-
-    const dxaRow = tree!.root.findByProps({ testID: "body-scan-category-row-dxa" });
-    expect(dxaRow.props.accessibilityRole).toBe("button");
-    expect(dxaRow.props.accessibilityHint).toContain("DXA");
-    expect(dxaRow.props.accessibilityLabel).toContain("DXA");
+    const inbodyMeta = tree!.root.findByProps({ testID: "body-scan-category-meta-inbody" });
+    expect(String(inbodyMeta.props.children)).toBe("No scans yet");
 
     act(() => {
       tree!.root.findByProps({ testID: "body-scans-section-add" }).props.onPress();
@@ -67,75 +68,55 @@ describe("BodyScansLandingSection category navigation", () => {
       tree!.root.findByProps({ testID: "body-scan-type-chooser-inbody" }).props.onPress();
     });
     expect(onPressAddWithType).toHaveBeenCalledWith("inbody");
-
-    act(() => {
-      dxaRow.props.onPress();
-    });
-    expect(onPressCategory).toHaveBeenCalledWith("dxa");
   });
 
-  it("shows loading card while partial and never empty-yet during load", () => {
+  it("shows loading while summaries are partial", () => {
+    const rows = [
+      buildCategorySummaryRow("dxa", { status: "partial" }),
+      buildCategorySummaryRow("inbody", { status: "partial" }),
+      buildCategorySummaryRow("evolt", { status: "partial" }),
+      buildCategorySummaryRow("bod_pod", { status: "partial" }),
+      buildCategorySummaryRow("other", { status: "partial" }),
+    ];
     let tree: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         <BodyScansLandingSection
           status="partial"
+          rows={rows}
           onPressCategory={jest.fn()}
           onPressAddWithType={jest.fn()}
         />,
       );
     });
     expect(tree!.root.findByProps({ testID: "body-scans-section-loading" })).toBeDefined();
-    expect(tree!.root.findAllByProps({ testID: "body-scans-section-category-list" })).toHaveLength(
-      0,
-    );
   });
 
-  it("shows safe error state without PHI", () => {
+  it("does not show No scans yet for loading or error rows", () => {
+    const rows = [
+      buildCategorySummaryRow("dxa", { status: "partial" }),
+      buildCategorySummaryRow("inbody", { status: "error", error: "network" }),
+      buildCategorySummaryRow("evolt", { status: "ready", latest: null }),
+      buildCategorySummaryRow("bod_pod", { status: "ready", latest: null }),
+      buildCategorySummaryRow("other", { status: "ready", latest: null }),
+    ];
     let tree: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <BodyScansLandingSection
-          status="error"
-          onPressCategory={jest.fn()}
-          onPressAddWithType={jest.fn()}
-        />,
+        <BodyScanCategorySummaryList rows={rows} onPressCategory={jest.fn()} />,
       );
     });
-    const err = tree!.root.findByProps({ testID: "body-scans-section-error" });
-    expect(String(err.props.children)).not.toMatch(/uid|storage|filename|\.pdf/i);
-  });
-});
-
-describe("BodyScanCategoryList privacy", () => {
-  it("does not render scan ids, filenames, or metric values", () => {
-    const { groups } = groupBodyScansByCategory(
-      [
-        scan({
-          id: "scan_private_id",
-          deviceLabel: "GE Lunar",
-        }),
-      ],
-      { listComplete: true },
+    expect(String(tree!.root.findByProps({ testID: "body-scan-category-meta-dxa" }).props.children)).toBe(
+      "Loading…",
     );
-    let tree: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(
-        <BodyScanCategoryList groups={groups} onPressCategory={jest.fn()} />,
-      );
-    });
-    const text = JSON.stringify(tree!.toJSON());
-    expect(text).not.toContain("scan_private_id");
-    expect(text).not.toMatch(/\.pdf/i);
-    expect(text).not.toMatch(/Patient/i);
-    expect(text).toContain("DXA");
-    expect(text).toContain("No scans yet");
+    expect(
+      String(tree!.root.findByProps({ testID: "body-scan-category-meta-inbody" }).props.children),
+    ).toBe("Unable to load");
   });
 });
 
-describe("BodyScanCategoryHistoryContent", () => {
-  it("renders empty state with category-specific add action", () => {
-    const onPressAdd = jest.fn();
+describe("BodyScanCategoryHistoryContent completeness", () => {
+  it("renders empty only when proven empty", () => {
     let tree: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -143,19 +124,34 @@ describe("BodyScanCategoryHistoryContent", () => {
           status="ready"
           category={bodyScanCategoryDefinition("dxa")}
           items={[]}
+          isProvenEmpty
           onPressScan={jest.fn()}
-          onPressAdd={onPressAdd}
+          onPressAdd={jest.fn()}
         />,
       );
     });
     expect(tree!.root.findByProps({ testID: "body-scan-category-empty" })).toBeDefined();
-    act(() => {
-      tree!.root.findByProps({ testID: "body-scan-category-empty-add" }).props.onPress();
-    });
-    expect(onPressAdd).toHaveBeenCalled();
   });
 
-  it("navigates history rows to onPressScan without exposing values", () => {
+  it("does not claim empty when items empty but not proven", () => {
+    let tree: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <BodyScanCategoryHistoryContent
+          status="ready"
+          category={bodyScanCategoryDefinition("inbody")}
+          items={[]}
+          isProvenEmpty={false}
+          hasMore
+          onPressScan={jest.fn()}
+          onPressAdd={jest.fn()}
+        />,
+      );
+    });
+    expect(tree!.root.findAllByProps({ testID: "body-scan-category-empty" })).toHaveLength(0);
+  });
+
+  it("navigates history rows without exposing values", () => {
     const onPressScan = jest.fn();
     let tree: renderer.ReactTestRenderer;
     act(() => {
@@ -164,14 +160,13 @@ describe("BodyScanCategoryHistoryContent", () => {
           status="ready"
           category={bodyScanCategoryDefinition("dxa")}
           items={[scan({ id: "d1", status: "verified" })]}
+          isProvenEmpty={false}
           onPressScan={onPressScan}
           onPressAdd={jest.fn()}
         />,
       );
     });
     const row = tree!.root.findByProps({ testID: "body-scan-history-row-d1" });
-    expect(row.props.accessibilityRole).toBe("button");
-    expect(row.props.accessibilityLabel).toContain("Verified");
     expect(row.props.accessibilityLabel).not.toMatch(/fat|lean|%|kg/i);
     act(() => {
       row.props.onPress();

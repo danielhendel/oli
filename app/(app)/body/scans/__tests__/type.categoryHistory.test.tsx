@@ -10,6 +10,8 @@ const mockReplace = jest.fn();
 const mockPush = jest.fn();
 const mockSetOptions = jest.fn();
 let mockParams: Record<string, string | string[] | undefined> = { scanType: "dxa" };
+const mockLoadMore = jest.fn();
+const mockRefetch = jest.fn();
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace, back: jest.fn() }),
@@ -21,31 +23,33 @@ jest.mock("@/lib/data/body-scans/bodyScansFlag", () => ({
   isBodyScansV1Enabled: () => true,
 }));
 
-jest.mock("@/lib/data/body-scans/useBodyScans", () => ({
-  useBodyScans: () => ({
+jest.mock("@/lib/data/body-scans/useBodyScanCategoryHistory", () => ({
+  useBodyScanCategoryHistory: () => ({
     status: "ready",
-    data: {
-      ok: true,
-      items: [
-        {
-          id: "d1",
-          scanType: "dxa",
-          method: "dxa",
-          status: "needs_review",
-          performedAt: "2026-09-27T12:00:00.000Z",
-          uploadedAt: "2026-09-28T12:00:00.000Z",
-          deviceLabel: "GE Lunar",
-          statusLabel: "Review the extracted results before saving.",
-          metricCount: 2,
-          canReview: true,
-          canRetry: false,
-          canDelete: true,
-          canViewOriginal: true,
-        },
-      ],
-      nextCursor: null,
-    },
-    refetch: jest.fn(),
+    items: [
+      {
+        id: "d1",
+        scanType: "dxa",
+        method: "dxa",
+        status: "needs_review",
+        performedAt: "2026-09-27T12:00:00.000Z",
+        uploadedAt: "2026-09-28T12:00:00.000Z",
+        deviceLabel: "GE Lunar",
+        statusLabel: "Review the extracted results before saving.",
+        metricCount: 2,
+        canReview: true,
+        canRetry: false,
+        canDelete: true,
+        canViewOriginal: true,
+      },
+    ],
+    nextCursor: null,
+    hasMore: false,
+    refetch: mockRefetch,
+    loadMore: mockLoadMore,
+    loadingMore: false,
+    loadMoreError: null,
+    isProvenEmpty: false,
   }),
 }));
 
