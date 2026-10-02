@@ -9,16 +9,18 @@
 ```text
 SOURCE FACTS (authoritative)
   continuous RawEvents (weight / body_composition incl. dated waist)
-  profile anthropometry (height / undated waist context)
+  profile anthropometry (height; legacy undated waist retained in store/export only — omitted from active subject context)
   verified Body Scan facts (via detail DTO)
         ↓
 SOURCE ADAPTERS (pure)
+  — Waist protocol preserved only when explicitly reported; missing ≠ who_midpoint_v1
         ↓
 CANONICAL EVIDENCE OBSERVATIONS
   BodyCompositionEvidenceBundle
         ↓
 EXPLICIT DETERMINISTIC INDEX HELPERS (BMI / WHtR / FMI / FFMI / ALMI)
   — never auto-emitted by the bridge
+  — legacy profile waist is not an automatic WHtR input
         ↓
 FUTURE Evidence Resolver
         ↓

@@ -47,7 +47,9 @@ Consumer instructions:
 
 Conditions: standing; abdomen relaxed; midpoint lowest palpable rib → iliac crest; tape horizontal; snug not compressing; end of normal expiration.
 
-- New Oli manual entry **must** use `who_midpoint_v1`.
+- New Oli manual entry **must explicitly write** `who_midpoint_v1` + version `1` on the source payload.
+- The Evidence Bridge **preserves only explicitly reported protocol**. Missing protocol stays `null` / unknown.
+- `manual_anthropometry` method does **not** prove WHO protocol.
 - Future imports without known site/method may use `protocolId: unknown`.
 
 ## measuredAt
@@ -55,6 +57,24 @@ Conditions: standing; abdomen relaxed; midpoint lowest palpable rib → iliac cr
 - Required on every dated Waist observation.
 - UI may default to “now” but user must select actual date/time for prior measurements.
 - Do **not** use `recordedAt`, upload time, or profile `updatedAt` as `measuredAt`.
+- **Manual Waist measuredAt cannot be in the future** (client + server reject; injected clock in tests).
+
+## Legacy profile Waist
+
+- Schema/export may retain `bodyInputs.waistCircumferenceCm` for backward compatibility.
+- It is **not** an editable Body Composition measurement (profile edit route fails closed).
+- It does **not** feed WHtR interpretation, landing card, history, graph, or dated evidence.
+- Active subject context omits legacy undated waist; dated RawEvents are authority.
+
+## Correction / delete
+
+Create durable replacement **before** deleting the prior event:
+
+1. Ingest replacement with stable correction idempotency key (`mbc_waist_corr_{priorId}_{time}_{tz}_{value}`) and `correctionOfRawEventId`.
+2. Confirm replacement succeeded (or idempotent replay).
+3. Delete prior event.
+
+If delete fails after create: explicit `replacement_saved_cleanup_pending` with **Retry cleanup**. Retries reuse the same replacement identity and converge to one active corrected event.
 
 ## Units
 
@@ -70,15 +90,6 @@ Validation: finite, positive, supported unit. No clinical cutoffs that reject un
 ## Same-day measurements
 
 Multiple Waist events on the same calendar day are preserved when timestamps/source events differ. Idempotency deduplicates only the same submission key — never by date+value alone.
-
-## Correction / delete
-
-Reuse governed ingest + `DELETE /ingest/:rawEventId`:
-
-- Prefer immutable source event + correction provenance when product path supports it.
-- Product Weight today: create corrected event then delete prior — Waist may follow the same pattern.
-- Delete removes the observation from active history and future evidence bundles.
-- Account-scoped; idempotent.
 
 ## Export / account delete
 
