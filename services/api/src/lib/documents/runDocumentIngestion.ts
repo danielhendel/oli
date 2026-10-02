@@ -297,6 +297,19 @@ async function persistBodyScanForDocument(args: {
     now: args.now,
   });
 
+  const preferred = args.document.preferredScanType ?? null;
+  const detected = args.draft?.scanTypeCandidate ?? null;
+  if (preferred && detected && preferred !== detected) {
+    logBodyScanEvent("body_scan_type_preference_conflict", {
+      scanToken: redactedBodyScanToken(record.id),
+      preferredScanType: preferred,
+      detectedScanType: detected,
+      scanType: record.scanType,
+      method: record.method,
+      status: record.status,
+    });
+  }
+
   if (created) {
     logBodyScanEvent("body_scan_created", {
       scanToken: redactedBodyScanToken(record.id),

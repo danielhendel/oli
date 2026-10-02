@@ -18,7 +18,8 @@ export type BodyScanAuditEvent =
   | "body_scan_extraction_completed"
   | "body_scan_confirmed"
   | "body_scan_reprocess_requested"
-  | "body_scan_deleted";
+  | "body_scan_deleted"
+  | "body_scan_type_preference_conflict";
 
 export function logBodyScanEvent(
   event: BodyScanAuditEvent,
@@ -40,6 +41,9 @@ export function logBodyScanEvent(
     errorCode?: string | null;
     requestId?: string | null;
     idempotent?: boolean;
+    /** Safe category tokens only — never IDs/filenames/values. */
+    preferredScanType?: string | null;
+    detectedScanType?: string | null;
   },
 ): void {
   logger.info({
@@ -48,6 +52,8 @@ export function logBodyScanEvent(
     ...(fields.scanType != null ? { scanType: fields.scanType } : {}),
     ...(fields.method != null ? { method: fields.method } : {}),
     ...(fields.adapterId != null ? { adapterId: fields.adapterId } : {}),
+    ...(fields.preferredScanType != null ? { preferredScanType: fields.preferredScanType } : {}),
+    ...(fields.detectedScanType != null ? { detectedScanType: fields.detectedScanType } : {}),
     ...(fields.adapterVersion != null ? { adapterVersion: fields.adapterVersion } : {}),
     ...(fields.status != null ? { status: fields.status } : {}),
     ...(fields.fieldCount != null ? { fieldCount: fields.fieldCount } : {}),

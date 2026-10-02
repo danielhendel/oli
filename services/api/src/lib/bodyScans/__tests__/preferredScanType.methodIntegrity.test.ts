@@ -1,3 +1,9 @@
+/**
+ * Reproduce Defect 4: preferred category must not invent scientific method.
+ *
+ * preferredScanType = inbody + no detector → method must remain other/unknown,
+ * not bia.
+ */
 import type { BodyScanExtractionDraft, UserDocumentRecord } from "@oli/contracts";
 
 import { buildBodyScanRecord } from "../persistBodyScan";
@@ -23,8 +29,8 @@ const baseDocument = (preferred?: UserDocumentRecord["preferredScanType"]): User
   ...(preferred ? { preferredScanType: preferred } : {}),
 });
 
-describe("buildBodyScanRecord preferredScanType (navigation vs method)", () => {
-  it("applies preferred category provisionally without inventing method", () => {
+describe("Defect 4 — preferred category must not invent scientific method", () => {
+  it("preferred InBody + no detector → provisional InBody category, method other", () => {
     const record = buildBodyScanRecord({
       uid: "user_1",
       document: baseDocument("inbody"),
@@ -34,9 +40,46 @@ describe("buildBodyScanRecord preferredScanType (navigation vs method)", () => {
     });
     expect(record.scanType).toBe("inbody");
     expect(record.method).toBe("other");
+    expect(record.method).not.toBe("bia");
   });
 
-  it("prefers adapter draft candidates over preferredScanType", () => {
+  it("preferred Evolt + no detector → method other (not bia)", () => {
+    const record = buildBodyScanRecord({
+      uid: "user_1",
+      document: baseDocument("evolt"),
+      draft: null,
+      previous: null,
+      now: "2026-09-28T13:00:00.000Z",
+    });
+    expect(record.scanType).toBe("evolt");
+    expect(record.method).toBe("other");
+  });
+
+  it("preferred Bod Pod + no detector → method other (not air_displacement)", () => {
+    const record = buildBodyScanRecord({
+      uid: "user_1",
+      document: baseDocument("bod_pod"),
+      draft: null,
+      previous: null,
+      now: "2026-09-28T13:00:00.000Z",
+    });
+    expect(record.scanType).toBe("bod_pod");
+    expect(record.method).toBe("other");
+  });
+
+  it("preferred DXA + no detector → method other (not dxa)", () => {
+    const record = buildBodyScanRecord({
+      uid: "user_1",
+      document: baseDocument("dxa"),
+      draft: null,
+      previous: null,
+      now: "2026-09-28T13:00:00.000Z",
+    });
+    expect(record.scanType).toBe("dxa");
+    expect(record.method).toBe("other");
+  });
+
+  it("preferred InBody + detected DXA → detector wins category and method", () => {
     const draft = {
       schemaVersion: "1.0.0",
       id: "draft_1",
@@ -70,26 +113,5 @@ describe("buildBodyScanRecord preferredScanType (navigation vs method)", () => {
     });
     expect(record.scanType).toBe("dxa");
     expect(record.method).toBe("dxa");
-  });
-
-  it("keeps evolt/bod_pod preference as category only when no detector", () => {
-    expect(
-      buildBodyScanRecord({
-        uid: "user_1",
-        document: baseDocument("evolt"),
-        draft: null,
-        previous: null,
-        now: "2026-09-28T13:00:00.000Z",
-      }),
-    ).toMatchObject({ scanType: "evolt", method: "other" });
-    expect(
-      buildBodyScanRecord({
-        uid: "user_1",
-        document: baseDocument("bod_pod"),
-        draft: null,
-        previous: null,
-        now: "2026-09-28T13:00:00.000Z",
-      }),
-    ).toMatchObject({ scanType: "bod_pod", method: "other" });
   });
 });

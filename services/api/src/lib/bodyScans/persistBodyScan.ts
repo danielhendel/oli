@@ -13,10 +13,10 @@ import type {
   BodyScanFact,
   BodyScanMetric,
   BodyScanRecord,
+  BodyScanType,
   UserDocumentRecord,
 } from "@oli/contracts";
 import { BODY_SCAN_SCHEMA_VERSION } from "@oli/contracts";
-import { bodyScanCategoryAssociatedMethod } from "../../../../../lib/data/body-scans/bodyScanCategoryCatalog";
 import { assertBodyScanWriteTargetAllowed } from "../../../../../lib/data/body-scans/bodyScanTrendIsolation";
 import { bodyScanStatusFromDraftStatus } from "../../../../../lib/data/body-scans/bodyScanStatusMachine";
 
@@ -57,9 +57,11 @@ export function bodyScanDraftId(scanId: string, adapterId: string): string {
  * Build the durable scan record for a freshly ingested (or reprocessed) document.
  * A draft never yields `verified` — confirmation is a separate, explicit user action.
  *
- * Category vs method: adapter candidates win when present. Otherwise a user-selected
- * `preferredScanType` on the source document supplies the product category and its
- * associated scientific method — without inventing extracted measurements.
+ * Category vs method:
+ * - `preferredScanType` is an untrusted navigation/report-family hint only.
+ * - It may provisionally set `scanType` when no detector candidate exists.
+ * - It must NEVER establish scientific `method` (no preferred → bia/dxa/air_displacement).
+ * - Detector/source candidates win over preference for both type and method.
  */
 export function buildBodyScanRecord(args: {
   uid: string;
@@ -72,17 +74,21 @@ export function buildBodyScanRecord(args: {
   const draft = args.draft;
   const status = draft ? bodyScanStatusFromDraftStatus(draft.status) : "needs_review";
   const preferredType = args.document.preferredScanType ?? null;
-  const preferredMethod = preferredType
-    ? bodyScanCategoryAssociatedMethod(preferredType)
-    : null;
+
+  // Detector wins. Preference is provisional navigation only when no detector type exists.
+  const scanType =
+    draft?.scanTypeCandidate ?? preferredType ?? args.previous?.scanType ?? "other";
+
+  // Scientific method: detector → previous → other. Never derive from preferredScanType alone.
+  const method = draft?.methodCandidate ?? args.previous?.method ?? "other";
 
   return {
     schemaVersion: BODY_SCAN_SCHEMA_VERSION,
     id: scanId,
     userId: args.uid,
     documentId: args.document.id,
-    scanType: draft?.scanTypeCandidate ?? preferredType ?? args.previous?.scanType ?? "other",
-    method: draft?.methodCandidate ?? preferredMethod ?? args.previous?.method ?? "other",
+    scanType,
+    method,
     device: draft?.device ?? args.previous?.device ?? { manufacturer: null, model: null },
     performedAt: draft?.performedAtCandidate ?? args.previous?.performedAt ?? null,
     status,
@@ -97,6 +103,15 @@ export function buildBodyScanRecord(args: {
     createdAt: args.previous?.createdAt ?? args.document.uploadedAt ?? args.now,
     updatedAt: args.now,
   };
+}
+
+/** True when user preference conflicts with a governed detector candidate. */
+export function bodyScanPreferredTypeConflicts(args: {
+  preferredScanType: UserDocumentRecord["preferredScanType"] | null | undefined;
+  detectedScanType: BodyScanType | null | undefined;
+}): boolean {
+  if (!args.preferredScanType || !args.detectedScanType) return false;
+  return args.preferredScanType !== args.detectedScanType;
 }
 
 export function buildBodyScanFact(args: {
