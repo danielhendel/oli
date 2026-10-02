@@ -43,11 +43,43 @@ export function isValidWaistLengthUnit(unit: string): unit is WaistLengthDisplay
 }
 
 /** Measured-at must be a parseable instant (not fake / NaN). */
-export function isValidManualMeasuredAtIso(iso: string): boolean {
+export function isParseableMeasuredAtIso(iso: string): boolean {
   if (typeof iso !== "string" || iso.trim().length === 0) return false;
   const t = Date.parse(iso);
   return !Number.isNaN(t);
 }
+
+/**
+ * Manual Waist measuredAt policy: parseable and not after the injected clock.
+ * Pure — callers must supply nowMs (no Date.now() inside).
+ */
+export function isValidManualWaistMeasuredAtIso(
+  iso: string,
+  nowMs: number,
+): boolean {
+  if (!Number.isFinite(nowMs)) return false;
+  if (!isParseableMeasuredAtIso(iso)) return false;
+  const t = Date.parse(iso);
+  return t <= nowMs;
+}
+
+/**
+ * @deprecated Prefer {@link isValidManualWaistMeasuredAtIso} with an injected clock for waist.
+ * Parseability-only check retained for non-waist callers.
+ */
+export function isValidManualMeasuredAtIso(
+  iso: string,
+  clock?: { nowMs: number },
+): boolean {
+  if (!isParseableMeasuredAtIso(iso)) return false;
+  if (clock != null) {
+    return Date.parse(iso) <= clock.nowMs;
+  }
+  return true;
+}
+
+export const MANUAL_WAIST_FUTURE_DATE_MESSAGE =
+  "Measurement time can’t be in the future.";
 
 export function manualEntryValidationMessage(
   metric: BodyMetricManualEntryMetric,

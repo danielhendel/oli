@@ -330,6 +330,44 @@ router.post("/", async (req: AuthedRequest, res: Response) => {
       ? occurredAtRaw
       : occurredAtRaw.start;
 
+  // Manual Waist measuredAt must not be in the future (server-governed clock).
+  if (
+    body.kind === "body_composition" &&
+    body.provider === "manual" &&
+    body.payload != null &&
+    typeof body.payload === "object" &&
+    !Array.isArray(body.payload) &&
+    "waistCircumferenceCm" in (body.payload as Record<string, unknown>) &&
+    (body.payload as { waistCircumferenceCm?: unknown }).waistCircumferenceCm != null
+  ) {
+    const measuredMs = Date.parse(observedAt);
+    const nowMs = Date.now();
+    if (!Number.isFinite(measuredMs) || measuredMs > nowMs) {
+      try {
+        await writeFailure({
+          userId: uid,
+          source: "ingestion",
+          stage: "ingest",
+          reasonCode: "WAIST_MEASURED_AT_IN_FUTURE",
+          message: "Waist measuredAt cannot be in the future",
+          day: dayUtcNow(),
+          requestId,
+          details: {},
+        });
+      } catch {
+        // do not throw
+      }
+      return res.status(400).json({
+        ok: false as const,
+        error: {
+          code: "WAIST_MEASURED_AT_IN_FUTURE" as const,
+          message: "Waist measurement time cannot be in the future",
+        },
+        requestId,
+      });
+    }
+  }
+
   const idempotencyKey = getIdempotencyKey(req);
   if (!idempotencyKey) {
     try {

@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { deleteIngestedRawEventAuthed } from "@/lib/api/ingest";
 import { logBodyComposition, logWaist, logWeight } from "@/lib/api/usersMe";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { inchesToCm } from "@/lib/body/waistProtocol";
 import {
   MANUAL_ENTRY_SAVE_ERROR_MESSAGE,
+  MANUAL_WAIST_FUTURE_DATE_MESSAGE,
   isValidManualBodyFatPercent,
   isValidManualLeanMassValue,
-  isValidManualMeasuredAtIso,
+  isValidManualWaistMeasuredAtIso,
   isValidManualWaistValue,
   isValidManualWeightValue,
   manualEntryValidationMessage,
@@ -23,6 +23,7 @@ import {
   buildManualWaistCircumferencePayload,
 } from "@/lib/events/manualBodyComposition";
 import { buildManualWeightPayload } from "@/lib/events/manualWeight";
+import { useWaistLogMutations } from "@/lib/hooks/useWaistLogMutations";
 import {
   formatTimeOfDay,
   timeFieldsFromIso,
@@ -156,6 +157,7 @@ export function BodyMetricManualEntrySheet(props: BodyMetricManualEntrySheetProp
   const { user, initializing, getIdToken } = useAuth();
   const { state: prefState } = usePreferences();
   const { state: profileState } = useUserProfileMain();
+  const waistMutations = useWaistLogMutations();
   const profileLength = useMemo(() => {
     const profile = resolveUserProfileMainForInterpretation(profileState);
     return profile.app.preferredUnits.length === "in" ? ("in" as const) : ("cm" as const);
@@ -255,7 +257,12 @@ export function BodyMetricManualEntrySheet(props: BodyMetricManualEntrySheetProp
     return { ok: isValidManualLeanMassValue(value), value };
   }, [metric, valueText]);
 
-  const measuredAtOk = metric !== "waist" || isValidManualMeasuredAtIso(measuredAtIso);
+  const measuredAtOk =
+    metric !== "waist" ||
+    isValidManualWaistMeasuredAtIso(measuredAtIso, Date.now());
+
+  const todayDayKey = getTodayDayKey() as DayKey;
+  const canStepNextDay = measuredDayKey < todayDayKey;
 
   const canSave =
     !initializing &&
@@ -301,24 +308,28 @@ export function BodyMetricManualEntrySheet(props: BodyMetricManualEntrySheetProp
         }
         emitRefresh("commandCenter", `${Date.now()}`);
       } else if (metric === "waist") {
+        if (!isValidManualWaistMeasuredAtIso(time, Date.now())) {
+          setStatus({ state: "error", message: MANUAL_WAIST_FUTURE_DATE_MESSAGE });
+          return;
+        }
         const waistCm = lengthUnit === "cm" ? parsed.value : inchesToCm(parsed.value);
-        const payload = buildManualWaistCircumferencePayload({
-          time,
-          timezone,
-          waistCircumferenceCm: waistCm,
-        });
         if (props.editTarget != null) {
-          const created = await logWaist(payload, token);
-          if (!created.ok) {
-            setStatus({ state: "error", message: MANUAL_ENTRY_SAVE_ERROR_MESSAGE });
-            return;
-          }
-          const deleted = await deleteIngestedRawEventAuthed(props.editTarget.rawEventId, token);
-          if (!deleted.ok) {
-            setStatus({ state: "error", message: MANUAL_ENTRY_SAVE_ERROR_MESSAGE });
+          const corrected = await waistMutations.updateEntry({
+            rawEventId: props.editTarget.rawEventId,
+            observedAtIso: time,
+            waistCircumferenceCm: waistCm,
+            timezone,
+          });
+          if (!corrected.ok) {
+            setStatus({ state: "error", message: corrected.message });
             return;
           }
         } else {
+          const payload = buildManualWaistCircumferencePayload({
+            time,
+            timezone,
+            waistCircumferenceCm: waistCm,
+          });
           const res = await logWaist(payload, token);
           if (!res.ok) {
             setStatus({ state: "error", message: MANUAL_ENTRY_SAVE_ERROR_MESSAGE });
@@ -368,7 +379,7 @@ export function BodyMetricManualEntrySheet(props: BodyMetricManualEntrySheetProp
       : valueText.trim().length > 0 && !parsed.ok
         ? manualEntryValidationMessage(metric)
         : metric === "waist" && !measuredAtOk
-          ? "Enter a valid measurement date and time."
+          ? MANUAL_WAIST_FUTURE_DATE_MESSAGE
           : null;
 
   const unitA11y =
@@ -528,15 +539,22 @@ export function BodyMetricManualEntrySheet(props: BodyMetricManualEntrySheetProp
               {formatDayKeyLabel(measuredDayKey)}
             </Text>
             <Pressable
-              onPress={() =>
-                setMeasuredDayKey(addDaysToDayKey(measuredDayKey, 1) as DayKey)
-              }
-              style={styles.dayStepBtn}
+              onPress={() => {
+                if (!canStepNextDay) return;
+                setMeasuredDayKey(addDaysToDayKey(measuredDayKey, 1) as DayKey);
+              }}
+              style={[styles.dayStepBtn, !canStepNextDay && styles.dayStepBtnDisabled]}
               accessibilityRole="button"
               accessibilityLabel="Next day"
+              accessibilityState={{ disabled: !canStepNextDay }}
+              disabled={!canStepNextDay}
               testID="body-metric-manual-entry-day-next"
             >
-              <Text style={styles.dayStepText}>+</Text>
+              <Text
+                style={[styles.dayStepText, !canStepNextDay && styles.dayStepTextDisabled]}
+              >
+                +
+              </Text>
             </Pressable>
           </View>
           <Pressable
@@ -636,10 +654,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
   },
+  dayStepBtnDisabled: {
+    opacity: 0.35,
+  },
   dayStepText: {
     color: UI_TEXT_PRIMARY,
     fontSize: 20,
     fontWeight: "700",
+  },
+  dayStepTextDisabled: {
+    color: UI_TEXT_MUTED,
   },
   dayLabel: {
     flex: 1,

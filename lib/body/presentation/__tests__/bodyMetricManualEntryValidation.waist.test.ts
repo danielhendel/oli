@@ -1,5 +1,6 @@
 import {
   isValidManualMeasuredAtIso,
+  isValidManualWaistMeasuredAtIso,
   isValidManualWaistValue,
   isValidWaistLengthUnit,
   manualEntryValidationMessage,
@@ -19,10 +20,12 @@ describe("waist manual entry validation", () => {
     expect(isValidWaistLengthUnit("mm")).toBe(false);
   });
 
-  it("requires a parseable measuredAt ISO", () => {
+  it("requires a parseable measuredAt ISO that is not in the future", () => {
+    const nowMs = Date.parse("2026-10-02T18:00:00.000Z");
     expect(isValidManualMeasuredAtIso("2026-03-04T12:00:00.000Z")).toBe(true);
     expect(isValidManualMeasuredAtIso("")).toBe(false);
     expect(isValidManualMeasuredAtIso("not-a-date")).toBe(false);
+    expect(isValidManualWaistMeasuredAtIso("2026-10-03T00:00:00.000Z", nowMs)).toBe(false);
   });
 
   it("returns waist-specific validation copy", () => {
