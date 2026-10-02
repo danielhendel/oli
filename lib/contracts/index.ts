@@ -34,6 +34,9 @@ export * from "./documents";
 // Body Scans — periodic body-composition assessments (Stage 3E)
 export * from "./bodyScans";
 
+// Canonical Body Composition Evidence Bridge (derived view; no score/resolver)
+export * from "./bodyCompositionEvidence";
+
 // Labs OS — extraction drafts, review, accepted structured results (Phase 3D-A)
 export * from "./labsOs";
 export * from "./labsVerification";
