@@ -35,6 +35,8 @@ export function formatBodyScanConsumerDisplayValue(
       return trimTrailingZeros(value.toFixed(4));
     case "g_per_cm2":
       return trimTrailingZeros(value.toFixed(3));
+    case "score":
+      return trimTrailingZeros(value.toFixed(1));
     default: {
       const _exhaustive: never = unit;
       return _exhaustive;

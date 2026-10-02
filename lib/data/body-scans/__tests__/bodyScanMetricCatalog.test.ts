@@ -11,10 +11,12 @@ import {
 
 describe("bodyScanMetricCatalog", () => {
   it("keeps Lean Mass labelled as Lean Mass", () => {
-    const labels = Object.values(BODY_SCAN_METRIC_LABELS).join(" ").toLowerCase();
     expect(BODY_SCAN_METRIC_LABELS.lean_mass).toBe("Lean Mass");
-    expect(labels).not.toContain("muscle");
-    expect(labels).not.toContain("smm");
+    expect(BODY_SCAN_METRIC_LABELS.lean_mass.toLowerCase()).not.toContain("muscle");
+    expect(BODY_SCAN_METRIC_LABELS.lean_mass.toLowerCase()).not.toContain("smm");
+    // SMM is a separate future metric — never an alias of lean_mass.
+    expect(BODY_SCAN_METRIC_LABELS.skeletal_muscle_mass).toBe("Skeletal Muscle Mass");
+    expect(BODY_SCAN_METRIC_LABELS.skeletal_muscle_mass).not.toBe(BODY_SCAN_METRIC_LABELS.lean_mass);
   });
 
   it("routes metrics to the designed sections", () => {

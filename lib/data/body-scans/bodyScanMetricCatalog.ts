@@ -15,6 +15,11 @@ import type {
   BodyScanUnit,
 } from "@oli/contracts";
 
+import {
+  bodyScanRegistryGroupForMetric,
+  bodyScanSectionIdForRegistryGroup,
+} from "./bodyScanMetricRegistry";
+
 export const BODY_SCAN_METRIC_LABELS: Record<BodyScanMetricId, string> = {
   fat_percent: "Fat",
   fat_mass: "Fat Mass",
@@ -26,6 +31,9 @@ export const BODY_SCAN_METRIC_LABELS: Record<BodyScanMetricId, string> = {
   visceral_fat_mass: "Visceral Fat Mass",
   visceral_fat_volume: "Visceral Fat Volume",
   android_gynoid_ratio: "Android / Gynoid Ratio",
+  t_score: "Total Body T-score",
+  z_score: "Total Body Z-score",
+  skeletal_muscle_mass: "Skeletal Muscle Mass",
 };
 
 export const BODY_SCAN_REGION_LABELS: Record<BodyScanRegion, string> = {
@@ -60,17 +68,6 @@ export const BODY_SCAN_SECTION_NOTES: Partial<Record<BodyScanSectionId, string>>
   total_body_bone:
     "Total-body bone density is a composition measure. It is not a diagnostic hip or spine osteoporosis exam.",
 };
-
-const MASS_REGIONS: readonly BodyScanRegion[] = [
-  "trunk",
-  "arms",
-  "legs",
-  "left_arm",
-  "right_arm",
-  "left_leg",
-  "right_leg",
-  "head",
-];
 
 const LATERAL_PAIRS: readonly (readonly [BodyScanRegion, BodyScanRegion])[] = [
   ["left_arm", "right_arm"],
@@ -117,6 +114,7 @@ export function bodyScanUnitSuffix(unit: BodyScanUnit): string {
     case "cm3":
       return " cm³";
     case "ratio":
+    case "score":
       return "";
     default: {
       const _exhaustive: never = unit;
@@ -128,29 +126,15 @@ export function bodyScanUnitSuffix(unit: BodyScanUnit): string {
 /**
  * Section a metric belongs to in the designed detail page.
  * `source` is never returned here — it is provenance, not a metric.
+ * Delegates group resolution to the canonical registry; maps group → section id.
  */
 export function bodyScanSectionForMetric(args: {
   metricId: BodyScanMetricId;
   region: BodyScanRegion;
 }): Exclude<BodyScanSectionId, "source"> {
-  if (args.metricId === "bone_mineral_content" || args.metricId === "bone_mineral_density") {
-    return "total_body_bone";
-  }
-  if (
-    args.metricId === "visceral_fat_mass" ||
-    args.metricId === "visceral_fat_volume" ||
-    args.metricId === "android_gynoid_ratio" ||
-    args.region === "android" ||
-    args.region === "gynoid"
-  ) {
-    return "fat_distribution";
-  }
-  if (args.region === "total") return "overview";
-  if (args.metricId === "lean_mass" && isLateralRegion(args.region)) {
-    return "regional_lean_balance";
-  }
-  if (MASS_REGIONS.includes(args.region)) return "regional_composition";
-  return "overview";
+  return bodyScanSectionIdForRegistryGroup(
+    bodyScanRegistryGroupForMetric(args.metricId, args.region),
+  );
 }
 
 export function isLateralRegion(region: BodyScanRegion): boolean {

@@ -34,8 +34,13 @@ export const bodyScanStatusSchema = z.enum([
 ]);
 
 /**
- * Metric kinds. Region is modelled separately so a DXA report can express e.g.
- * `fat_percent` at `android` and at `left_arm` without a combinatorial enum.
+ * Metric kinds (canonical registry keys). Region is modelled separately so a
+ * DXA report can express e.g. `fat_percent` at `android` and at `left_arm`
+ * without combinatorial metric keys.
+ *
+ * Ontology may include deferred/future keys before UI or adapters emit them:
+ * - `t_score` / `z_score`: registry ON, Stage 3E UI deferred, no diagnosis
+ * - `skeletal_muscle_mass`: FUTURE, sourceReportedOnly, never from DXA lean
  */
 export const bodyScanMetricIdSchema = z.enum([
   "fat_percent",
@@ -48,6 +53,9 @@ export const bodyScanMetricIdSchema = z.enum([
   "visceral_fat_mass",
   "visceral_fat_volume",
   "android_gynoid_ratio",
+  "t_score",
+  "z_score",
+  "skeletal_muscle_mass",
 ]);
 
 export const bodyScanRegionSchema = z.enum([
@@ -72,15 +80,65 @@ export const bodyScanUnitSchema = z.enum([
   "g_per_cm2",
   "cm3",
   "ratio",
+  /** T/Z and similar unitless scores (ontology; V1 UI may defer). */
+  "score",
 ]);
 
-/** Designed detail sections. `source` is provenance, not a metric section. */
+/**
+ * Designed detail / Review section ids.
+ * `source` is provenance, not a physiological measurement group.
+ * Registry group `regional_lean` maps to `regional_lean_balance`;
+ * registry group `bone` maps to `total_body_bone` (stable storage ids).
+ */
 export const bodyScanSectionIdSchema = z.enum([
   "overview",
   "fat_distribution",
   "regional_composition",
   "regional_lean_balance",
   "total_body_bone",
+  "source",
+]);
+
+/** Product lifecycle for a registry metric (additive; not persisted on facts). */
+export const bodyScanMetricProductStatusSchema = z.enum([
+  "core_v1",
+  "optional_v1",
+  "advanced_v1",
+  "deferred",
+  "future",
+]);
+
+/** Dual-score construct eligibility tags only — never weights or formulas. */
+export const bodyScanScoringConstructIdSchema = z.enum([
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "P1",
+  "P2",
+  "P3",
+]);
+
+/** Quantity class for registry metadata. */
+export const bodyScanQuantitySchema = z.enum([
+  "mass",
+  "percent",
+  "volume",
+  "density",
+  "ratio",
+  "score",
+]);
+
+/**
+ * Registry-facing group ids (product/science).
+ * Persist/UI section ids remain `bodyScanSectionIdSchema` for compatibility.
+ */
+export const bodyScanMetricGroupIdSchema = z.enum([
+  "overview",
+  "fat_distribution",
+  "regional_composition",
+  "regional_lean",
+  "bone",
   "source",
 ]);
 
@@ -394,6 +452,10 @@ export type BodyScanMetricId = z.infer<typeof bodyScanMetricIdSchema>;
 export type BodyScanRegion = z.infer<typeof bodyScanRegionSchema>;
 export type BodyScanUnit = z.infer<typeof bodyScanUnitSchema>;
 export type BodyScanSectionId = z.infer<typeof bodyScanSectionIdSchema>;
+export type BodyScanMetricProductStatus = z.infer<typeof bodyScanMetricProductStatusSchema>;
+export type BodyScanScoringConstructId = z.infer<typeof bodyScanScoringConstructIdSchema>;
+export type BodyScanQuantity = z.infer<typeof bodyScanQuantitySchema>;
+export type BodyScanMetricGroupId = z.infer<typeof bodyScanMetricGroupIdSchema>;
 export type BodyScanDraftStatus = z.infer<typeof bodyScanDraftStatusSchema>;
 export type BodyScanDevice = z.infer<typeof bodyScanDeviceSchema>;
 export type BodyScanAdapterRef = z.infer<typeof bodyScanAdapterRefSchema>;
