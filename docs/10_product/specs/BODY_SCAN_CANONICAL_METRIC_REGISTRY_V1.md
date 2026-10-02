@@ -97,6 +97,15 @@ Registry is the sole user-facing label source (`Body Fat`, `Total Body BMD`, …
 Shared selector `buildBodyScanPresentationGroups` drives group order, region cards, and UI enablement (`uiEnabled` + productStatus).
 T/Z (deferred) and SMM (future) never render. Source section is metadata-only.
 
+Region-aware lean placement (one fact → one group):
+
+| Measurement | Group |
+|-------------|-------|
+| `lean_mass` @ total | overview |
+| `lean_mass` @ arms/legs/trunk/head/android/gynoid | regional_composition |
+| `lean_mass` @ left_/right_ arm/leg | regional_lean |
+| `fat_percent` / `fat_mass` @ android/gynoid | fat_distribution |
+
 ## Storage
 
 **No migration.** `bodyScans` / `bodyScanDrafts` / `bodyScanFacts` already store `metricId` + `region` + `unit` + provenance.

@@ -249,4 +249,161 @@ describe("buildBodyScanPresentationGroups", () => {
     expect(groups).toHaveLength(1);
     expect(groups[0]?.items[0]?.label).toBe("Body Fat");
   });
+
+  describe("android/gynoid lean regional composition placement", () => {
+    const PLACEMENT_SCAN: BodyScanDetailDto = {
+      ...SCAN,
+      metrics: [
+        metric({ metricId: "lean_mass", region: "total", value: 58.2, unit: "kg" }),
+        metric({ metricId: "lean_mass", region: "android", value: 4.1, unit: "kg" }),
+        metric({ metricId: "lean_mass", region: "gynoid", value: 6.2, unit: "kg" }),
+        metric({ metricId: "lean_mass", region: "right_arm", value: 3.5, unit: "kg" }),
+        metric({ metricId: "lean_mass", region: "left_arm", value: 3.2, unit: "kg" }),
+        metric({ metricId: "lean_mass", region: "trunk", value: 22.0, unit: "kg" }),
+        metric({ metricId: "lean_mass", region: "arms", value: 6.7, unit: "kg" }),
+        metric({ metricId: "total_mass", region: "android", value: 5.5, unit: "kg" }),
+        metric({ metricId: "total_mass", region: "gynoid", value: 8.0, unit: "kg" }),
+        metric({ metricId: "fat_percent", region: "android", value: 24.9, unit: "percent" }),
+        metric({ metricId: "fat_mass", region: "android", value: 1.2, unit: "kg" }),
+        metric({ metricId: "fat_percent", region: "gynoid", value: 30.1, unit: "percent" }),
+        metric({ metricId: "fat_mass", region: "gynoid", value: 2.4, unit: "kg" }),
+        metric({ metricId: "android_gynoid_ratio", region: "total", value: 1.15, unit: "ratio" }),
+        metric({ metricId: "bone_mineral_content", region: "total", value: 2480, unit: "g" }),
+        metric({ metricId: "bone_mineral_density", region: "total", value: 1.186, unit: "g_per_cm2" }),
+      ],
+    };
+
+    function placementIdentity(item: { metricId: string; region: string; key: string }): string {
+      if (item.key.startsWith("lean_balance_delta:") || item.key.startsWith("source_")) {
+        return item.key;
+      }
+      return `${item.metricId}:${item.region}`;
+    }
+
+    function groupsWithoutSource(scan: BodyScanDetailDto = PLACEMENT_SCAN) {
+      return buildBodyScanPresentationGroupsFromDetail(scan).filter((g) => g.group !== "source");
+    }
+
+    function assertOnePlacement(
+      groups: ReturnType<typeof buildBodyScanPresentationGroupsFromDetail>,
+      metricId: string,
+      region: string,
+      expectedGroup: string,
+    ) {
+      const hits = groups.flatMap((g) =>
+        [
+          ...g.items.map((i) => ({ group: g.group, item: i })),
+          ...g.regionBlocks.flatMap((b) => b.items.map((i) => ({ group: g.group, item: i }))),
+        ].filter(
+          ({ item }) =>
+            item.metricId === metricId &&
+            item.region === region &&
+            !item.key.startsWith("lean_balance_delta:"),
+        ),
+      );
+      expect(hits).toHaveLength(1);
+      expect(hits[0]?.group).toBe(expectedGroup);
+    }
+
+    it("places android/gynoid lean in regional_composition exactly once (Detail)", () => {
+      const groups = groupsWithoutSource();
+      assertOnePlacement(groups, "lean_mass", "android", "regional_composition");
+      assertOnePlacement(groups, "lean_mass", "gynoid", "regional_composition");
+      assertOnePlacement(groups, "lean_mass", "total", "overview");
+      assertOnePlacement(groups, "lean_mass", "right_arm", "regional_lean");
+      assertOnePlacement(groups, "lean_mass", "left_arm", "regional_lean");
+      assertOnePlacement(groups, "lean_mass", "trunk", "regional_composition");
+      assertOnePlacement(groups, "lean_mass", "arms", "regional_composition");
+    });
+
+    it("keeps android/gynoid fat in fat_distribution exactly once", () => {
+      const groups = groupsWithoutSource();
+      assertOnePlacement(groups, "fat_percent", "android", "fat_distribution");
+      assertOnePlacement(groups, "fat_mass", "android", "fat_distribution");
+      assertOnePlacement(groups, "fat_percent", "gynoid", "fat_distribution");
+      assertOnePlacement(groups, "fat_mass", "gynoid", "fat_distribution");
+      assertOnePlacement(groups, "android_gynoid_ratio", "total", "fat_distribution");
+
+      const regional = groups.find((g) => g.group === "regional_composition");
+      const regionalFat = regional?.regionBlocks.flatMap((b) =>
+        b.items.filter((i) => i.metricId === "fat_percent" || i.metricId === "fat_mass"),
+      );
+      expect(regionalFat ?? []).toEqual([]);
+    });
+
+    it("puts Lean Mass on Android and Gynoid region cards without fat duplication", () => {
+      const regional = groupsWithoutSource().find((g) => g.group === "regional_composition");
+      const android = regional?.regionBlocks.find((b) => b.region === "android");
+      const gynoid = regional?.regionBlocks.find((b) => b.region === "gynoid");
+      expect(android?.items.map((i) => i.label)).toEqual(["Total Mass", "Lean Mass"]);
+      expect(gynoid?.items.map((i) => i.label)).toEqual(["Total Mass", "Lean Mass"]);
+      for (const item of [...(android?.items ?? []), ...(gynoid?.items ?? [])]) {
+        expect(item.label.toLowerCase()).not.toContain("muscle");
+      }
+    });
+
+    it("keeps BMC and Total Body BMD in bone only", () => {
+      const groups = groupsWithoutSource();
+      assertOnePlacement(groups, "bone_mineral_content", "total", "bone");
+      assertOnePlacement(groups, "bone_mineral_density", "total", "bone");
+      const overview = groups.find((g) => g.group === "overview");
+      expect(overview?.items.some((i) => i.metricId.startsWith("bone_"))).toBe(false);
+    });
+
+    it("places android/gynoid lean correctly for Review candidates", () => {
+      const fields: BodyScanReviewFieldDto[] = [
+        field({ fieldId: "total:lean_mass", metricId: "lean_mass", region: "total", unit: "kg", normalizedValue: 58.2 }),
+        field({ fieldId: "android:lean_mass", metricId: "lean_mass", region: "android", unit: "kg", normalizedValue: 4.1 }),
+        field({ fieldId: "gynoid:lean_mass", metricId: "lean_mass", region: "gynoid", unit: "kg", normalizedValue: 6.2 }),
+        field({ fieldId: "right_arm:lean_mass", metricId: "lean_mass", region: "right_arm", unit: "kg", normalizedValue: 3.5 }),
+        field({ fieldId: "android:fat_percent", metricId: "fat_percent", region: "android", unit: "percent", normalizedValue: 24.9 }),
+        field({ fieldId: "gynoid:fat_mass", metricId: "fat_mass", region: "gynoid", unit: "kg", normalizedValue: 2.4 }),
+      ];
+      const groups = buildBodyScanPresentationGroupsFromReviewFields(fields);
+      assertOnePlacement(groups, "lean_mass", "android", "regional_composition");
+      assertOnePlacement(groups, "lean_mass", "gynoid", "regional_composition");
+      assertOnePlacement(groups, "lean_mass", "total", "overview");
+      assertOnePlacement(groups, "lean_mass", "right_arm", "regional_lean");
+      assertOnePlacement(groups, "fat_percent", "android", "fat_distribution");
+      assertOnePlacement(groups, "fat_mass", "gynoid", "fat_distribution");
+    });
+
+    it("is input-order independent for android/gynoid lean placement", () => {
+      const metrics = [...PLACEMENT_SCAN.metrics];
+      const forward = buildBodyScanPresentationGroupsFromDetail({ ...PLACEMENT_SCAN, metrics });
+      const reversed = buildBodyScanPresentationGroupsFromDetail({
+        ...PLACEMENT_SCAN,
+        metrics: [...metrics].reverse(),
+      });
+      expect(forward.map((g) => g.group)).toEqual(reversed.map((g) => g.group));
+      expect(flattenPresentationGroupItems(forward).map((i) => i.key)).toEqual(
+        flattenPresentationGroupItems(reversed).map((i) => i.key),
+      );
+      const regionalF = forward.find((g) => g.group === "regional_composition");
+      const regionalR = reversed.find((g) => g.group === "regional_composition");
+      expect(regionalF?.regionBlocks.map((b) => b.region)).toEqual(
+        regionalR?.regionBlocks.map((b) => b.region),
+      );
+    });
+
+    it("never renders the same metricId+region in more than one group", () => {
+      const groups = groupsWithoutSource();
+      const seen = new Map<string, string>();
+      for (const g of groups) {
+        for (const item of [
+          ...g.items,
+          ...g.regionBlocks.flatMap((b) => b.items),
+        ]) {
+          if (item.key.startsWith("lean_balance_delta:")) continue;
+          const id = placementIdentity(item);
+          const prior = seen.get(id);
+          expect(prior).toBeUndefined();
+          seen.set(id, g.group);
+        }
+      }
+      expect(seen.get("lean_mass:android")).toBe("regional_composition");
+      expect(seen.get("lean_mass:gynoid")).toBe("regional_composition");
+      expect(seen.get("fat_percent:android")).toBe("fat_distribution");
+    });
+  });
 });

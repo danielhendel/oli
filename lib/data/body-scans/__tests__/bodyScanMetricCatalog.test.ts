@@ -48,6 +48,22 @@ describe("bodyScanMetricCatalog", () => {
     );
   });
 
+  it("places android/gynoid lean in regional composition, not overview", () => {
+    expect(bodyScanSectionForMetric({ metricId: "lean_mass", region: "android" })).toBe(
+      "regional_composition",
+    );
+    expect(bodyScanSectionForMetric({ metricId: "lean_mass", region: "gynoid" })).toBe(
+      "regional_composition",
+    );
+    expect(bodyScanSectionForMetric({ metricId: "lean_mass", region: "total" })).toBe("overview");
+    expect(bodyScanSectionForMetric({ metricId: "fat_percent", region: "gynoid" })).toBe(
+      "fat_distribution",
+    );
+    expect(bodyScanSectionForMetric({ metricId: "fat_mass", region: "android" })).toBe(
+      "fat_distribution",
+    );
+  });
+
   it("labels regional metrics with their region", () => {
     expect(bodyScanMetricDisplayLabel({ metricId: "fat_percent", region: "total" })).toBe(
       "Body Fat",

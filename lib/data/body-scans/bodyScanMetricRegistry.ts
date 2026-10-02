@@ -305,16 +305,37 @@ export function bodyScanMetricRegistryList(): readonly BodyScanMetricDefinition[
   return Object.values(BODY_SCAN_METRIC_REGISTRY);
 }
 
+/** Bilateral limb lean → Regional Lean (presentation override; base group remains overview). */
+const REGIONAL_LEAN_REGIONS: ReadonlySet<BodyScanRegion> = new Set([
+  "left_arm",
+  "right_arm",
+  "left_leg",
+  "right_leg",
+]);
+
+/**
+ * Non-total lean regions that belong in Regional Composition (not Overview).
+ * Includes android/gynoid — fat at those regions stays in Fat Distribution.
+ */
+const REGIONAL_COMPOSITION_LEAN_REGIONS: ReadonlySet<BodyScanRegion> = new Set([
+  "arms",
+  "legs",
+  "trunk",
+  "head",
+  "android",
+  "gynoid",
+]);
+
 export function bodyScanRegistryGroupForMetric(
   metricId: BodyScanMetricId,
   region: BodyScanRegion,
 ): Exclude<BodyScanMetricGroupId, "source"> {
   const base = BODY_SCAN_METRIC_REGISTRY[metricId];
   // Regional lean bilateral → regional_lean group even though lean_mass defaults to overview.
-  if (metricId === "lean_mass" && (region === "left_arm" || region === "right_arm" || region === "left_leg" || region === "right_leg")) {
+  if (metricId === "lean_mass" && REGIONAL_LEAN_REGIONS.has(region)) {
     return "regional_lean";
   }
-  // Android/gynoid composition → fat distribution.
+  // Android/gynoid fat composition → fat distribution (lean at these regions is NOT fat).
   if (
     (metricId === "fat_percent" || metricId === "fat_mass") &&
     (region === "android" || region === "gynoid")
@@ -331,7 +352,7 @@ export function bodyScanRegistryGroupForMetric(
       metricId === "bone_mineral_content") &&
     base.group !== "bone"
   ) {
-    if (metricId === "lean_mass" && (region === "arms" || region === "legs" || region === "trunk" || region === "head")) {
+    if (metricId === "lean_mass" && REGIONAL_COMPOSITION_LEAN_REGIONS.has(region)) {
       return "regional_composition";
     }
     if (metricId !== "lean_mass") return "regional_composition";
