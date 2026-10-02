@@ -1,13 +1,10 @@
 // lib/ui/body-scans/BodyScansLandingSection.tsx
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import type { BodyScanListItemDto, BodyScanType } from "@/lib/contracts";
-import {
-  BODY_SCAN_LIST_PAGE_MAX,
-  groupBodyScansByCategory,
-} from "@/lib/data/body-scans/groupBodyScansByCategory";
-import { BodyScanCategoryList } from "@/lib/ui/body-scans/BodyScanCategoryList";
+import type { BodyScanType } from "@/lib/contracts";
+import type { BodyScanCategorySummaryRow } from "@/lib/data/body-scans/bodyScanCategorySummary";
+import { BodyScanCategorySummaryList } from "@/lib/ui/body-scans/BodyScanCategoryList";
 import { BodyScanCategoryTypeChooser } from "@/lib/ui/body-scans/BodyScanCategoryTypeChooser";
 import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
@@ -18,33 +15,26 @@ import {
 } from "@/lib/ui/theme/uiTokens";
 
 export type BodyScansLandingSectionProps = {
+  /** Overall section status while summaries resolve. */
   status: "partial" | "error" | "ready";
-  items?: readonly BodyScanListItemDto[];
-  /** True when the list page is proven complete (items.length < server max). */
-  listComplete?: boolean;
+  rows: readonly BodyScanCategorySummaryRow[];
   onPressCategory: (scanType: BodyScanType) => void;
   onPressAddWithType: (scanType: BodyScanType) => void;
+  onRetry?: () => void;
 };
 
 /**
  * Body Scans entry point on the Body Composition landing page.
- *
- * Category-first navigator — point-in-time scans stay separate from continuous trends.
+ * Category rows come from category-scoped limit=1 summaries — never a mixed page.
  */
 export function BodyScansLandingSection({
   status,
-  items = [],
-  listComplete,
+  rows,
   onPressCategory,
   onPressAddWithType,
+  onRetry,
 }: BodyScansLandingSectionProps) {
   const [chooserOpen, setChooserOpen] = useState(false);
-
-  const grouped = useMemo(() => {
-    const complete =
-      listComplete ?? (status === "ready" && items.length < BODY_SCAN_LIST_PAGE_MAX);
-    return groupBodyScansByCategory(items, { listComplete: complete });
-  }, [items, listComplete, status]);
 
   return (
     <View style={styles.section} testID="body-composition-body-scans-section">
@@ -69,7 +59,7 @@ export function BodyScansLandingSection({
         </Pressable>
       </View>
 
-      {status === "partial" ? (
+      {status === "partial" && rows.every((r) => r.rowStatus === "partial") ? (
         <View style={styles.card} testID="body-scans-section-loading">
           <Text style={styles.cardBody}>Loading scans…</Text>
         </View>
@@ -80,12 +70,23 @@ export function BodyScansLandingSection({
           <Text style={styles.cardBody} testID="body-scans-section-error">
             Your scans could not be loaded right now.
           </Text>
+          {onRetry ? (
+            <Pressable
+              onPress={onRetry}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading body scans"
+              style={styles.retry}
+              testID="body-scans-section-retry"
+            >
+              <Text style={styles.retryLabel}>Retry</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
-      {status === "ready" ? (
-        <BodyScanCategoryList
-          groups={grouped.groups}
+      {status !== "error" && !(status === "partial" && rows.every((r) => r.rowStatus === "partial")) ? (
+        <BodyScanCategorySummaryList
+          rows={rows}
           onPressCategory={onPressCategory}
           testID="body-scans-section-category-list"
         />
@@ -128,8 +129,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
   },
-  card: { ...elevatedCardSurfaceStyle, paddingHorizontal: 16, paddingVertical: 14 },
+  card: { ...elevatedCardSurfaceStyle, paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
   cardBody: { color: UI_TEXT_SECONDARY, fontSize: 14 },
+  retry: { minHeight: 44, justifyContent: "center" },
+  retryLabel: { color: BODY_INDIGO, fontSize: 15, fontWeight: "700" },
 });
 
 export const BODY_SCANS_LANDING_MUTED = UI_TEXT_MUTED;

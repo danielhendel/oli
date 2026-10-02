@@ -56,10 +56,10 @@ jest.mock("@/lib/data/body/useBodyOverviewData", () => ({
   useBodyOverviewData: (...args: unknown[]) => mockHook(...args),
 }));
 
-jest.mock("@/lib/data/body-scans/useBodyScans", () => ({
-  useBodyScans: () => ({
+jest.mock("@/lib/data/body-scans/useBodyScanCategorySummaries", () => ({
+  useBodyScanCategorySummaries: () => ({
     status: "ready",
-    data: { ok: true, items: [], nextCursor: null },
+    rows: [],
     refetch: jest.fn(),
   }),
 }));

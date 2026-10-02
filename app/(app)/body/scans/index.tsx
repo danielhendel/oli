@@ -1,17 +1,13 @@
-import React, { useLayoutEffect, useMemo, useState } from "react";
+import React, { useLayoutEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
 import { isBodyScansV1Enabled } from "@/lib/data/body-scans/bodyScansFlag";
-import {
-  BODY_SCAN_LIST_PAGE_MAX,
-  groupBodyScansByCategory,
-} from "@/lib/data/body-scans/groupBodyScansByCategory";
-import { useBodyScans } from "@/lib/data/body-scans/useBodyScans";
+import { useBodyScanCategorySummaries } from "@/lib/data/body-scans/useBodyScanCategorySummaries";
 import type { BodyScanType } from "@/lib/contracts";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
-import { BodyScanCategoryList } from "@/lib/ui/body-scans/BodyScanCategoryList";
+import { BodyScanCategorySummaryList } from "@/lib/ui/body-scans/BodyScanCategoryList";
 import { BodyScanCategoryTypeChooser } from "@/lib/ui/body-scans/BodyScanCategoryTypeChooser";
 import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
@@ -21,7 +17,7 @@ export default function BodyScansHubScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const enabled = isBodyScansV1Enabled();
-  const scans = useBodyScans({ enabled });
+  const summaries = useBodyScanCategorySummaries({ enabled });
   const [chooserOpen, setChooserOpen] = useState(false);
 
   useLayoutEffect(() => {
@@ -44,15 +40,6 @@ export default function BodyScansHubScreen() {
     });
   }, [navigation, enabled]);
 
-  const grouped = useMemo(() => {
-    if (scans.status !== "ready") {
-      return groupBodyScansByCategory([], { listComplete: true });
-    }
-    return groupBodyScansByCategory(scans.data.items, {
-      listComplete: scans.data.items.length < BODY_SCAN_LIST_PAGE_MAX,
-    });
-  }, [scans]);
-
   const openCategory = (scanType: BodyScanType) => {
     router.push(`/(app)/body/scans/type/${scanType}`);
   };
@@ -70,17 +57,18 @@ export default function BodyScansHubScreen() {
             description="This section will open once scan support is released."
             testID="body-scans-disabled"
           />
-        ) : scans.status === "partial" ? (
+        ) : summaries.status === "partial" &&
+          summaries.rows.every((r) => r.rowStatus === "partial") ? (
           <LoadingState message="Loading scans…" />
-        ) : scans.status === "error" ? (
+        ) : summaries.status === "error" ? (
           <ErrorState
-            message={scans.error}
-            requestId={scans.requestId}
-            onRetry={() => scans.refetch()}
+            message="Could not load scans"
+            requestId={null}
+            onRetry={() => summaries.refetch()}
           />
         ) : (
-          <BodyScanCategoryList
-            groups={grouped.groups}
+          <BodyScanCategorySummaryList
+            rows={summaries.rows}
             onPressCategory={openCategory}
             testID="body-scans-hub-category-list"
           />

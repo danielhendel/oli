@@ -1,8 +1,9 @@
 /**
- * Pure Body Scan category grouping for landing / hub navigation.
+ * Pure Body Scan category grouping helpers.
  *
- * Deterministic, input-order independent, one scan per category membership,
- * unknown types → Other. Never emits values, filenames, or PHI.
+ * Landing/hub summaries must use category-scoped queries (see bodyScanCategorySummary).
+ * This module retains date/history helpers and a pure grouper for offline/test use.
+ * Exact counts are never derived from loaded pages in V1.
  */
 import type { BodyScanListItemDto, BodyScanType } from "@oli/contracts";
 
@@ -19,27 +20,30 @@ function formatScanNavDate(iso: string): string {
   return formatLabSourceCalendarDate(iso) ?? "—";
 }
 
-/** Server list hard max — counts/history completeness require items.length < this. */
+/** Server list page maximum (not a history cap — use nextCursor/hasMore). */
 export const BODY_SCAN_LIST_PAGE_MAX = 50;
+export const BODY_SCAN_LIST_DEFAULT_LIMIT = 25;
 
 export type BodyScanCategoryGroup = {
   readonly category: BodyScanCategoryDefinition;
   readonly hasScans: boolean;
-  /** Present only when the input list is proven complete. */
-  readonly scanCount: number | null;
+  /** Always null in V1 — counts require an authoritative total. */
+  readonly scanCount: null;
   readonly latest: BodyScanListItemDto | null;
-  /** Secondary row copy — never includes values / filenames / IDs. */
   readonly supportingCopy: string;
   readonly accessibilityLabel: string;
 };
 
 export type GroupBodyScansByCategoryResult = {
   readonly groups: readonly BodyScanCategoryGroup[];
+  /**
+   * True only when the caller proved the input covers all scans.
+   * Incomplete mixed pages must never claim per-category emptiness.
+   */
   readonly listComplete: boolean;
 };
 
 function scanSortKey(item: BodyScanListItemDto): string {
-  // Prefer performedAt; fall back to uploadedAt. Tie-break on id for stability.
   const primary = item.performedAt ?? item.uploadedAt;
   return `${primary}\0${item.id}`;
 }
@@ -57,48 +61,44 @@ function formatLatestDate(item: BodyScanListItemDto): string {
 }
 
 /**
- * Build supporting copy for a category row.
- * Pattern when history exists: `Latest {date} · {status}` (count omitted unless complete).
- * When complete and count known: `{n} scan(s) · Latest {date}`.
+ * Supporting copy for a known-complete nonempty latest item.
+ * Counts are intentionally omitted in V1.
  */
 export function buildBodyScanCategorySupportingCopy(args: {
   latest: BodyScanListItemDto | null;
-  scanCount: number | null;
-  listComplete: boolean;
+  scanCount?: number | null;
+  listComplete?: boolean;
 }): string {
-  if (!args.latest) return "No scans yet";
+  if (!args.latest) {
+    // Callers must only pass null latest when emptiness is proven complete.
+    return "No scans yet";
+  }
   const date = formatLatestDate(args.latest);
   const status = bodyScanNavStatusLabel(args.latest.status);
-  if (args.listComplete && args.scanCount != null && args.scanCount > 0) {
-    const noun = args.scanCount === 1 ? "scan" : "scans";
-    return `${args.scanCount} ${noun} · Latest ${date}`;
-  }
   return `Latest ${date} · ${status}`;
 }
 
 function buildAccessibilityLabel(args: {
   category: BodyScanCategoryDefinition;
   latest: BodyScanListItemDto | null;
-  scanCount: number | null;
-  listComplete: boolean;
 }): string {
   if (!args.latest) return `${args.category.label}. No scans yet.`;
   const date = formatLatestDate(args.latest);
   const status = bodyScanNavStatusLabel(args.latest.status);
-  if (args.listComplete && args.scanCount != null) {
-    const noun = args.scanCount === 1 ? "scan" : "scans";
-    const countWord =
-      args.scanCount === 1 ? "One" : String(args.scanCount);
-    return `${args.category.label}. ${countWord} ${noun}. Latest ${date}. ${status}.`;
-  }
   return `${args.category.label}. Latest ${date}. ${status}.`;
 }
 
+/**
+ * Group a proven-complete item set by category.
+ *
+ * WARNING: Do not pass a truncated mixed global page. Incomplete coverage must not
+ * claim "No scans yet" for missing categories — use bodyScanCategorySummary instead.
+ */
 export function groupBodyScansByCategory(
   items: readonly BodyScanListItemDto[],
   opts?: { listComplete?: boolean },
 ): GroupBodyScansByCategoryResult {
-  const listComplete = opts?.listComplete ?? items.length < BODY_SCAN_LIST_PAGE_MAX;
+  const listComplete = opts?.listComplete ?? false;
 
   const buckets = new Map<BodyScanType, BodyScanListItemDto[]>();
   for (const def of BODY_SCAN_CATEGORY_DEFINITIONS) {
@@ -118,24 +118,27 @@ export function groupBodyScansByCategory(
     const bucket = buckets.get(def.type) ?? [];
     const sorted = [...bucket].sort(compareNewestFirst);
     const latest = sorted[0] ?? null;
-    const scanCount = listComplete ? sorted.length : null;
     const category = bodyScanCategoryDefinition(def.type);
+
+    // Incomplete coverage: never claim empty for categories absent from the page.
+    if (!listComplete && latest == null) {
+      return {
+        category,
+        hasScans: false,
+        scanCount: null,
+        latest: null,
+        supportingCopy: "Unable to load",
+        accessibilityLabel: `${category.label}. Unable to load.`,
+      };
+    }
+
     return {
       category,
       hasScans: latest != null,
-      scanCount,
+      scanCount: null,
       latest,
-      supportingCopy: buildBodyScanCategorySupportingCopy({
-        latest,
-        scanCount,
-        listComplete,
-      }),
-      accessibilityLabel: buildAccessibilityLabel({
-        category,
-        latest,
-        scanCount,
-        listComplete,
-      }),
+      supportingCopy: buildBodyScanCategorySupportingCopy({ latest, listComplete }),
+      accessibilityLabel: buildAccessibilityLabel({ category, latest }),
     };
   });
 
@@ -144,6 +147,7 @@ export function groupBodyScansByCategory(
 
 /**
  * Filter + sort scans for a category history page (newest first).
+ * Prefer server-side scanType filter; this remains for pure unit use.
  */
 export function selectBodyScansForCategory(
   items: readonly BodyScanListItemDto[],
@@ -154,9 +158,22 @@ export function selectBodyScansForCategory(
   return [...filtered].sort(compareNewestFirst);
 }
 
-/**
- * History row primary date label — prefers performedAt; honest upload fallback.
- */
+/** Merge paginated history pages by stable scan id (first-seen wins). */
+export function mergeBodyScanHistoryPages(
+  pages: readonly (readonly BodyScanListItemDto[])[],
+): BodyScanListItemDto[] {
+  const seen = new Set<string>();
+  const out: BodyScanListItemDto[] = [];
+  for (const page of pages) {
+    for (const item of page) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      out.push(item);
+    }
+  }
+  return out;
+}
+
 export function bodyScanHistoryDateLabel(item: BodyScanListItemDto): string {
   if (item.performedAt) return formatScanNavDate(item.performedAt);
   return `Uploaded ${formatScanNavDate(item.uploadedAt)}`;

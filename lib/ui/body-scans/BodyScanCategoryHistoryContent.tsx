@@ -1,6 +1,6 @@
 // lib/ui/body-scans/BodyScanCategoryHistoryContent.tsx
 import React, { memo, useCallback } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyScanListItemDto } from "@/lib/contracts";
 import {
@@ -24,7 +24,14 @@ export type BodyScanCategoryHistoryContentProps = {
   requestId?: string | null;
   category: BodyScanCategoryDefinition;
   items: readonly BodyScanListItemDto[];
+  /** Empty claim only when first category page proves empty (hasMore false). */
+  isProvenEmpty: boolean;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  loadMoreError?: string | null;
+  onLoadMore?: () => void;
   onRetry?: () => void;
+  onRetryLoadMore?: () => void;
   onPressScan: (scanId: string) => void;
   onPressAdd: () => void;
 };
@@ -39,10 +46,9 @@ const ScanHistoryRow = memo(function ScanHistoryRow({
   const handlePress = useCallback(() => onPress(item.id), [item.id, onPress]);
   const dateLabel = bodyScanHistoryDateLabel(item);
   const statusLabel = bodyScanNavStatusLabel(item.status);
-  const secondaryParts = [
-    item.deviceLabel,
-    statusLabel,
-  ].filter((part): part is string => typeof part === "string" && part.length > 0);
+  const secondaryParts = [item.deviceLabel, statusLabel].filter(
+    (part): part is string => typeof part === "string" && part.length > 0,
+  );
 
   return (
     <Pressable
@@ -74,7 +80,13 @@ export function BodyScanCategoryHistoryContent({
   requestId,
   category,
   items,
+  isProvenEmpty,
+  hasMore = false,
+  loadingMore = false,
+  loadMoreError = null,
+  onLoadMore,
   onRetry,
+  onRetryLoadMore,
   onPressScan,
   onPressAdd,
 }: BodyScanCategoryHistoryContentProps) {
@@ -89,7 +101,8 @@ export function BodyScanCategoryHistoryContent({
     );
   }
 
-  if (items.length === 0) {
+  // Never claim empty while hasMore/incomplete — only when proven.
+  if (isProvenEmpty) {
     return (
       <View style={styles.emptyWrap} testID="body-scan-category-empty">
         <EmptyState
@@ -110,12 +123,59 @@ export function BodyScanCategoryHistoryContent({
     );
   }
 
+  if (items.length === 0) {
+    // Ready but not proven empty (should be rare) — show loading-safe state, not empty claim.
+    return <LoadingState message="Loading scans…" />;
+  }
+
   return (
     <FlatList
       data={items as BodyScanListItemDto[]}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
       testID="body-scan-category-history-list"
+      onEndReached={() => {
+        if (hasMore && !loadingMore && onLoadMore) onLoadMore();
+      }}
+      onEndReachedThreshold={0.4}
+      ListFooterComponent={
+        <View style={styles.footer}>
+          {loadingMore ? (
+            <ActivityIndicator
+              color={BODY_INDIGO}
+              accessibilityLabel="Loading more scans"
+              testID="body-scan-category-loading-more"
+            />
+          ) : null}
+          {loadMoreError ? (
+            <Pressable
+              onPress={onRetryLoadMore ?? onLoadMore}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading more scans"
+              style={styles.loadMoreBtn}
+              testID="body-scan-category-load-more-retry"
+            >
+              <Text style={styles.loadMoreLabel}>Retry</Text>
+            </Pressable>
+          ) : null}
+          {!loadingMore && hasMore && !loadMoreError && onLoadMore ? (
+            <Pressable
+              onPress={onLoadMore}
+              accessibilityRole="button"
+              accessibilityLabel="Load more scans"
+              style={styles.loadMoreBtn}
+              testID="body-scan-category-load-more"
+            >
+              <Text style={styles.loadMoreLabel}>Load more</Text>
+            </Pressable>
+          ) : null}
+          {!hasMore && !loadingMore ? (
+            <Text style={styles.endLabel} testID="body-scan-category-end">
+              End of history
+            </Text>
+          ) : null}
+        </View>
+      }
       renderItem={({ item, index }) => (
         <View>
           {index > 0 ? <View style={styles.listGap} /> : null}
@@ -155,4 +215,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
   },
+  footer: { paddingVertical: 16, alignItems: "center", gap: 10 },
+  loadMoreBtn: { minHeight: 44, justifyContent: "center", paddingHorizontal: 12 },
+  loadMoreLabel: { color: BODY_INDIGO, fontSize: 15, fontWeight: "700" },
+  endLabel: { color: UI_TEXT_SECONDARY, fontSize: 12 },
 });

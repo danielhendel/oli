@@ -187,10 +187,10 @@ jest.mock("@/lib/api/usersMe", () => ({
   logWeight: (...args: unknown[]) => mockIngest(...args),
 }));
 
-jest.mock("@/lib/data/body-scans/useBodyScans", () => ({
-  useBodyScans: () => ({
+jest.mock("@/lib/data/body-scans/useBodyScanCategorySummaries", () => ({
+  useBodyScanCategorySummaries: () => ({
     status: "ready",
-    data: { ok: true, items: [], nextCursor: null },
+    rows: [],
     refetch: jest.fn(),
   }),
 }));

@@ -3,7 +3,7 @@ import React, { memo, useCallback } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyScanType } from "@/lib/contracts";
-import type { BodyScanCategoryGroup } from "@/lib/data/body-scans/groupBodyScansByCategory";
+import type { BodyScanCategorySummaryRow } from "@/lib/data/body-scans/bodyScanCategorySummary";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
   UI_TEXT_PRIMARY,
@@ -11,42 +11,42 @@ import {
   UI_TEXT_TERTIARY_LABEL,
 } from "@/lib/ui/theme/uiTokens";
 
-export type BodyScanCategoryListProps = {
-  groups: readonly BodyScanCategoryGroup[];
+export type BodyScanCategorySummaryListProps = {
+  rows: readonly BodyScanCategorySummaryRow[];
   onPressCategory: (scanType: BodyScanType) => void;
   testID?: string;
 };
 
 const CategoryRow = memo(function CategoryRow({
-  group,
+  row,
   onPress,
 }: {
-  group: BodyScanCategoryGroup;
+  row: BodyScanCategorySummaryRow;
   onPress: (scanType: BodyScanType) => void;
 }) {
   const handlePress = useCallback(() => {
-    onPress(group.category.type);
-  }, [group.category.type, onPress]);
+    onPress(row.category.type);
+  }, [row.category.type, onPress]);
 
   return (
     <Pressable
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={group.accessibilityLabel}
-      accessibilityHint={group.category.accessibilityHint}
+      accessibilityLabel={row.accessibilityLabel}
+      accessibilityHint={row.category.accessibilityHint}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-      testID={`body-scan-category-row-${group.category.type}`}
+      testID={`body-scan-category-row-${row.category.type}`}
     >
       <View style={styles.rowMain}>
         <Text style={styles.title} numberOfLines={2}>
-          {group.category.label}
+          {row.category.label}
         </Text>
         <Text
           style={styles.meta}
           numberOfLines={2}
-          testID={`body-scan-category-meta-${group.category.type}`}
+          testID={`body-scan-category-meta-${row.category.type}`}
         >
-          {group.supportingCopy}
+          {row.supportingCopy}
         </Text>
       </View>
       <Text style={styles.chevron} importantForAccessibility="no">
@@ -58,23 +58,27 @@ const CategoryRow = memo(function CategoryRow({
 
 /**
  * Compact grouped category navigator for Body Scans landing and hub.
+ * Rows must come from category-scoped summaries (completeness-safe).
  */
-export function BodyScanCategoryList({
-  groups,
+export function BodyScanCategorySummaryList({
+  rows,
   onPressCategory,
   testID = "body-scan-category-list",
-}: BodyScanCategoryListProps) {
+}: BodyScanCategorySummaryListProps) {
   return (
     <View style={styles.card} testID={testID}>
-      {groups.map((group, index) => (
-        <View key={group.category.type}>
+      {rows.map((row, index) => (
+        <View key={row.category.type}>
           {index > 0 ? <View style={styles.divider} /> : null}
-          <CategoryRow group={group} onPress={onPressCategory} />
+          <CategoryRow row={row} onPress={onPressCategory} />
         </View>
       ))}
     </View>
   );
 }
+
+/** @deprecated Prefer BodyScanCategorySummaryList with category-scoped rows. */
+export const BodyScanCategoryList = BodyScanCategorySummaryList;
 
 const styles = StyleSheet.create({
   card: {

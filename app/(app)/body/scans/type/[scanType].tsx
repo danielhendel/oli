@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo } from "react";
+import React, { useEffect, useLayoutEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 
@@ -8,11 +8,7 @@ import {
   isBodyScanCategoryType,
 } from "@/lib/data/body-scans/bodyScanCategoryCatalog";
 import { isBodyScansV1Enabled } from "@/lib/data/body-scans/bodyScansFlag";
-import {
-  BODY_SCAN_LIST_PAGE_MAX,
-  selectBodyScansForCategory,
-} from "@/lib/data/body-scans/groupBodyScansByCategory";
-import { useBodyScans } from "@/lib/data/body-scans/useBodyScans";
+import { useBodyScanCategoryHistory } from "@/lib/data/body-scans/useBodyScanCategoryHistory";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
 import { BodyScanCategoryHistoryContent } from "@/lib/ui/body-scans/BodyScanCategoryHistoryContent";
@@ -41,7 +37,10 @@ export default function BodyScanCategoryHistoryScreen() {
   }, [scanType, router]);
 
   const category = scanType ? bodyScanCategoryDefinition(scanType) : null;
-  const scans = useBodyScans({ enabled: enabled && scanType != null });
+  const history = useBodyScanCategoryHistory({
+    scanType: scanType ?? "other",
+    enabled: enabled && scanType != null,
+  });
 
   useLayoutEffect(() => {
     if (!category) return;
@@ -66,15 +65,6 @@ export default function BodyScanCategoryHistoryScreen() {
     });
   }, [navigation, category, enabled, router]);
 
-  const items = useMemo(() => {
-    if (!scanType || scans.status !== "ready") return [];
-    return selectBodyScansForCategory(scans.data.items, scanType);
-  }, [scanType, scans]);
-
-  // Surface silent truncation risk when the untyped list page is full.
-  const listMayBeTruncated =
-    scans.status === "ready" && scans.data.items.length >= BODY_SCAN_LIST_PAGE_MAX;
-
   if (scanType == null || category == null) {
     return <View style={styles.root} />;
   }
@@ -89,29 +79,28 @@ export default function BodyScanCategoryHistoryScreen() {
             testID="body-scan-category-disabled"
           />
         ) : (
-          <View style={styles.body}>
-            {listMayBeTruncated ? (
-              <Text style={styles.truncationNote} testID="body-scan-category-truncation-note">
-                Showing recent scans. Older scans may not appear yet.
-              </Text>
-            ) : null}
-            <BodyScanCategoryHistoryContent
-              status={scans.status}
-              {...(scans.status === "error"
-                ? {
-                    error: scans.error,
-                    requestId: scans.requestId,
-                    onRetry: () => scans.refetch(),
-                  }
-                : {})}
-              category={category}
-              items={items}
-              onPressScan={(id) => router.push(`/(app)/body/scans/${id}`)}
-              onPressAdd={() =>
-                router.push(`/(app)/body/scans/new?scanType=${category.type}`)
-              }
-            />
-          </View>
+          <BodyScanCategoryHistoryContent
+            status={history.status}
+            {...(history.status === "error"
+              ? {
+                  error: history.error,
+                  requestId: history.requestId,
+                  onRetry: () => history.refetch(),
+                }
+              : {})}
+            category={category}
+            items={history.status === "ready" ? history.items : []}
+            isProvenEmpty={history.isProvenEmpty}
+            hasMore={history.status === "ready" ? history.hasMore : false}
+            loadingMore={history.loadingMore}
+            loadMoreError={history.loadMoreError}
+            onLoadMore={history.loadMore}
+            onRetryLoadMore={history.loadMore}
+            onPressScan={(id) => router.push(`/(app)/body/scans/${id}`)}
+            onPressAdd={() =>
+              router.push(`/(app)/body/scans/new?scanType=${category.type}`)
+            }
+          />
         )}
       </ModuleScreenShell>
     </View>
@@ -120,7 +109,6 @@ export default function BodyScanCategoryHistoryScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  body: { flex: 1, gap: 10 },
   headerAdd: {
     minHeight: 44,
     minWidth: 44,
@@ -133,10 +121,5 @@ const styles = StyleSheet.create({
     color: BODY_INDIGO,
     fontSize: 15,
     fontWeight: "700",
-  },
-  truncationNote: {
-    color: "rgba(235,235,245,0.55)",
-    fontSize: 12,
-    paddingHorizontal: 2,
   },
 });
