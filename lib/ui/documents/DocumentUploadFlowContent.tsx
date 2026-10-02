@@ -135,8 +135,16 @@ export function DocumentUploadFlowContent({
   importSummary = null,
 }: DocumentUploadFlowContentProps) {
   const busy = phase === "picking" || phase === "uploading" || phase === "processing";
-  const isLabs = domainLabel.toLowerCase() === "labs";
-  const isScans = domainLabel.toLowerCase() === "scans";
+  const domainKey = domainLabel.trim().toLowerCase();
+  const isLabs = domainKey === "labs";
+  // Category-preselected uploads pass DXA / InBody / Evolt / Bod Pod / Other labels.
+  const isScans =
+    domainKey === "scans" ||
+    domainKey === "dxa" ||
+    domainKey === "inbody" ||
+    domainKey === "evolt" ||
+    domainKey === "bod pod" ||
+    domainKey === "other";
   const labsCopy = isLabs ? labsSuccessCopy({ terminalStatus, importSummary }) : null;
   const successLabel = labsCopy
     ? labsCopy.title
@@ -149,18 +157,26 @@ export function DocumentUploadFlowContent({
           : terminalStatus === "failed"
             ? "Processing failed"
             : "Stored securely";
+  const uploadTitle = isScans
+    ? domainKey === "scans"
+      ? "Upload scan"
+      : `Add ${domainLabel} scan`
+    : `Upload ${domainLabel} document`;
+  const uploadBody = isLabs
+    ? "Supported Quest lab PDFs are imported automatically. Oli verifies resolvable exceptions — you do not need to review each row."
+    : isScans
+      ? domainKey === "dxa"
+        ? "PDF DXA reports are stored securely. Supported DXA layouts can be extracted for review."
+        : domainKey === "scans"
+          ? "PDF body scan reports are stored securely. Supported DXA reports can be extracted for review; unsupported reports keep the original so you can review them later."
+          : `PDF ${domainLabel} reports are stored securely. When automatic extraction is unavailable, the original is kept for review.`
+      : "Files are stored securely. Supported formats are extracted when available; unsupported formats keep the original for later processing.";
 
   return (
     <View style={styles.root} testID="document-upload-flow">
       <View style={styles.card}>
-        <Text style={styles.title}>Upload {domainLabel} document</Text>
-        <Text style={styles.body}>
-          {isLabs
-            ? "Supported Quest lab PDFs are imported automatically. Oli verifies resolvable exceptions — you do not need to review each row."
-            : isScans
-              ? "PDF body scan reports are stored securely. Supported DXA reports can be extracted for review; unsupported reports keep the original so you can review them later."
-              : "Files are stored securely. Supported formats are extracted when available; unsupported formats keep the original for later processing."}
-        </Text>
+        <Text style={styles.title}>{uploadTitle}</Text>
+        <Text style={styles.body}>{uploadBody}</Text>
 
         {phase === "idle" ? (
           <Pressable

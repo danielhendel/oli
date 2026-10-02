@@ -16,6 +16,7 @@ import type {
   UserDocumentRecord,
 } from "@oli/contracts";
 import { BODY_SCAN_SCHEMA_VERSION } from "@oli/contracts";
+import { bodyScanCategoryAssociatedMethod } from "../../../../../lib/data/body-scans/bodyScanCategoryCatalog";
 import { assertBodyScanWriteTargetAllowed } from "../../../../../lib/data/body-scans/bodyScanTrendIsolation";
 import { bodyScanStatusFromDraftStatus } from "../../../../../lib/data/body-scans/bodyScanStatusMachine";
 
@@ -55,6 +56,10 @@ export function bodyScanDraftId(scanId: string, adapterId: string): string {
 /**
  * Build the durable scan record for a freshly ingested (or reprocessed) document.
  * A draft never yields `verified` — confirmation is a separate, explicit user action.
+ *
+ * Category vs method: adapter candidates win when present. Otherwise a user-selected
+ * `preferredScanType` on the source document supplies the product category and its
+ * associated scientific method — without inventing extracted measurements.
  */
 export function buildBodyScanRecord(args: {
   uid: string;
@@ -66,14 +71,18 @@ export function buildBodyScanRecord(args: {
   const scanId = bodyScanIdForDocument(args.document.id);
   const draft = args.draft;
   const status = draft ? bodyScanStatusFromDraftStatus(draft.status) : "needs_review";
+  const preferredType = args.document.preferredScanType ?? null;
+  const preferredMethod = preferredType
+    ? bodyScanCategoryAssociatedMethod(preferredType)
+    : null;
 
   return {
     schemaVersion: BODY_SCAN_SCHEMA_VERSION,
     id: scanId,
     userId: args.uid,
     documentId: args.document.id,
-    scanType: draft?.scanTypeCandidate ?? args.previous?.scanType ?? "other",
-    method: draft?.methodCandidate ?? args.previous?.method ?? "other",
+    scanType: draft?.scanTypeCandidate ?? preferredType ?? args.previous?.scanType ?? "other",
+    method: draft?.methodCandidate ?? preferredMethod ?? args.previous?.method ?? "other",
     device: draft?.device ?? args.previous?.device ?? { manufacturer: null, model: null },
     performedAt: draft?.performedAtCandidate ?? args.previous?.performedAt ?? null,
     status,

@@ -1,30 +1,65 @@
-import React, { useLayoutEffect } from "react";
+import React, { useLayoutEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation, useRouter } from "expo-router";
 
 import { isBodyScansV1Enabled } from "@/lib/data/body-scans/bodyScansFlag";
+import {
+  BODY_SCAN_LIST_PAGE_MAX,
+  groupBodyScansByCategory,
+} from "@/lib/data/body-scans/groupBodyScansByCategory";
 import { useBodyScans } from "@/lib/data/body-scans/useBodyScans";
+import type { BodyScanType } from "@/lib/contracts";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
 import { ModuleScreenShell } from "@/lib/ui/ModuleScreenShell";
-import { BodyScanListContent } from "@/lib/ui/body-scans/BodyScanListContent";
-import { EmptyState } from "@/lib/ui/ScreenStates";
+import { BodyScanCategoryList } from "@/lib/ui/body-scans/BodyScanCategoryList";
+import { BodyScanCategoryTypeChooser } from "@/lib/ui/body-scans/BodyScanCategoryTypeChooser";
+import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHeader";
-import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
-import { UI_TEXT_PRIMARY } from "@/lib/ui/theme/uiTokens";
+import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 
-export default function BodyScansListScreen() {
+export default function BodyScansHubScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const enabled = isBodyScansV1Enabled();
   const scans = useBodyScans({ enabled });
+  const [chooserOpen, setChooserOpen] = useState(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
       title: "Body Scans",
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
+      headerRight: () =>
+        enabled ? (
+          <Pressable
+            onPress={() => setChooserOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Add a body scan"
+            style={styles.headerAdd}
+            testID="body-scans-hub-add"
+          >
+            <Text style={styles.headerAddText}>Add</Text>
+          </Pressable>
+        ) : null,
     });
-  }, [navigation]);
+  }, [navigation, enabled]);
+
+  const grouped = useMemo(() => {
+    if (scans.status !== "ready") {
+      return groupBodyScansByCategory([], { listComplete: true });
+    }
+    return groupBodyScansByCategory(scans.data.items, {
+      listComplete: scans.data.items.length < BODY_SCAN_LIST_PAGE_MAX,
+    });
+  }, [scans]);
+
+  const openCategory = (scanType: BodyScanType) => {
+    router.push(`/(app)/body/scans/type/${scanType}`);
+  };
+
+  const openAdd = (scanType: BodyScanType) => {
+    router.push(`/(app)/body/scans/new?scanType=${scanType}`);
+  };
 
   return (
     <View style={styles.root}>
@@ -35,44 +70,44 @@ export default function BodyScansListScreen() {
             description="This section will open once scan support is released."
             testID="body-scans-disabled"
           />
+        ) : scans.status === "partial" ? (
+          <LoadingState message="Loading scans…" />
+        ) : scans.status === "error" ? (
+          <ErrorState
+            message={scans.error}
+            requestId={scans.requestId}
+            onRetry={() => scans.refetch()}
+          />
         ) : (
-          <View style={styles.body}>
-            <BodyScanListContent
-              status={scans.status}
-              {...(scans.status === "error"
-                ? {
-                    error: scans.error,
-                    requestId: scans.requestId,
-                    onRetry: () => scans.refetch(),
-                  }
-                : {})}
-              {...(scans.status === "ready" ? { items: scans.data.items } : {})}
-              onPressScan={(scanId) => router.push(`/(app)/body/scans/${scanId}`)}
-            />
-            <Pressable
-              onPress={() => router.push("/(app)/body/scans/new")}
-              accessibilityRole="button"
-              accessibilityLabel="Upload a scan report"
-              style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
-              testID="body-scans-upload"
-            >
-              <Text style={styles.actionLabel}>Upload a scan</Text>
-            </Pressable>
-          </View>
+          <BodyScanCategoryList
+            groups={grouped.groups}
+            onPressCategory={openCategory}
+            testID="body-scans-hub-category-list"
+          />
         )}
       </ModuleScreenShell>
+      <BodyScanCategoryTypeChooser
+        visible={chooserOpen}
+        onClose={() => setChooserOpen(false)}
+        onSelect={openAdd}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  body: { gap: 12 },
-  action: {
-    ...elevatedCardSurfaceStyle,
-    paddingVertical: 14,
+  headerAdd: {
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: 10,
     alignItems: "center",
+    justifyContent: "center",
+    marginRight: 4,
   },
-  actionPressed: { opacity: 0.85 },
-  actionLabel: { color: UI_TEXT_PRIMARY, fontSize: 15, fontWeight: "600" },
+  headerAddText: {
+    color: BODY_INDIGO,
+    fontSize: 15,
+    fontWeight: "700",
+  },
 });

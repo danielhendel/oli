@@ -145,7 +145,11 @@ function mediaTypeFromPicker(mimeType: string | undefined, name: string | undefi
   return null;
 }
 
-export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
+export function useDocumentUploadFlow(args: {
+  domain: DocumentDomain;
+  /** Scans domain: product category preference applied when no adapter sets type. */
+  preferredScanType?: "dxa" | "inbody" | "evolt" | "bod_pod" | "other";
+}) {
   const { getIdToken } = useAuth();
   const [state, setState] = useState<DocumentUploadFlowState>(INITIAL);
   const cancelledRef = useRef(false);
@@ -272,6 +276,9 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
       originalFilename,
       mediaType,
       byteSize: Math.max(byteSize, 32),
+      ...(args.domain === "scans" && args.preferredScanType
+        ? { preferredScanType: args.preferredScanType }
+        : {}),
     });
 
     if (cancelledRef.current) return;
@@ -370,7 +377,7 @@ export function useDocumentUploadFlow(args: { domain: DocumentDomain }) {
       reprocessAvailable: false,
       importSummary,
     });
-  }, [args.domain, getIdToken]);
+  }, [args.domain, args.preferredScanType, getIdToken]);
 
   return { ...state, startUpload, reset, cancel };
 }

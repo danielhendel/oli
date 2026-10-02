@@ -1,11 +1,18 @@
 // lib/ui/body-scans/BodyScansLandingSection.tsx
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import type { BodyScanListItemDto } from "@/lib/contracts";
-import { BodyScanRow } from "@/lib/ui/body-scans/BodyScanListContent";
+import type { BodyScanListItemDto, BodyScanType } from "@/lib/contracts";
+import {
+  BODY_SCAN_LIST_PAGE_MAX,
+  groupBodyScansByCategory,
+} from "@/lib/data/body-scans/groupBodyScansByCategory";
+import { BodyScanCategoryList } from "@/lib/ui/body-scans/BodyScanCategoryList";
+import { BodyScanCategoryTypeChooser } from "@/lib/ui/body-scans/BodyScanCategoryTypeChooser";
+import { BODY_INDIGO } from "@/lib/ui/body/BodyDayRing";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
+  UI_TEXT_MUTED,
   UI_TEXT_PRIMARY,
   UI_TEXT_SECONDARY,
 } from "@/lib/ui/theme/uiTokens";
@@ -13,40 +20,60 @@ import {
 export type BodyScansLandingSectionProps = {
   status: "partial" | "error" | "ready";
   items?: readonly BodyScanListItemDto[];
-  maxItems?: number;
-  onPressScan: (scanId: string) => void;
-  onPressSeeAll: () => void;
-  onPressUpload: () => void;
+  /** True when the list page is proven complete (items.length < server max). */
+  listComplete?: boolean;
+  onPressCategory: (scanType: BodyScanType) => void;
+  onPressAddWithType: (scanType: BodyScanType) => void;
 };
 
 /**
  * Body Scans entry point on the Body Composition landing page.
  *
- * Scans sit in their own section on purpose: a point-in-time scan is not a reading on the
- * Weight, Body Fat, or Lean Mass trends, and is never merged into them.
+ * Category-first navigator — point-in-time scans stay separate from continuous trends.
  */
 export function BodyScansLandingSection({
   status,
   items = [],
-  maxItems = 2,
-  onPressScan,
-  onPressSeeAll,
-  onPressUpload,
+  listComplete,
+  onPressCategory,
+  onPressAddWithType,
 }: BodyScansLandingSectionProps) {
-  const visible = items.slice(0, maxItems);
+  const [chooserOpen, setChooserOpen] = useState(false);
+
+  const grouped = useMemo(() => {
+    const complete =
+      listComplete ?? (status === "ready" && items.length < BODY_SCAN_LIST_PAGE_MAX);
+    return groupBodyScansByCategory(items, { listComplete: complete });
+  }, [items, listComplete, status]);
 
   return (
     <View style={styles.section} testID="body-composition-body-scans-section">
-      <Text
-        accessibilityRole="header"
-        style={styles.sectionHeading}
-        testID="body-composition-heading-body-scans"
-      >
-        Body Scans
-      </Text>
-      <Text style={styles.note}>
-        Scan measurements are kept with the scan, separate from your day-to-day trends.
-      </Text>
+      <View style={styles.headerRow}>
+        <Text
+          accessibilityRole="header"
+          style={styles.sectionHeading}
+          testID="body-composition-heading-body-scans"
+        >
+          Body Scans
+        </Text>
+        <Pressable
+          onPress={() => setChooserOpen(true)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Add a body scan"
+          accessibilityHint="Choose a scan category to upload"
+          style={styles.addBtn}
+          testID="body-scans-section-add"
+        >
+          <Text style={styles.addLabel}>Add</Text>
+        </Pressable>
+      </View>
+
+      {status === "partial" ? (
+        <View style={styles.card} testID="body-scans-section-loading">
+          <Text style={styles.cardBody}>Loading scans…</Text>
+        </View>
+      ) : null}
 
       {status === "error" ? (
         <View style={styles.card}>
@@ -56,64 +83,53 @@ export function BodyScansLandingSection({
         </View>
       ) : null}
 
-      {status === "ready" && visible.length === 0 ? (
-        <View style={styles.card}>
-          <Text style={styles.cardBody} testID="body-scans-section-empty">
-            No scans yet. Upload a DXA report to see its measurements here.
-          </Text>
-        </View>
+      {status === "ready" ? (
+        <BodyScanCategoryList
+          groups={grouped.groups}
+          onPressCategory={onPressCategory}
+          testID="body-scans-section-category-list"
+        />
       ) : null}
 
-      {visible.map((item) => (
-        <BodyScanRow key={item.id} item={item} onPress={() => onPressScan(item.id)} />
-      ))}
-
-      <View style={styles.actions}>
-        <Pressable
-          onPress={onPressUpload}
-          accessibilityRole="button"
-          accessibilityLabel="Upload a scan report"
-          style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
-          testID="body-scans-section-upload"
-        >
-          <Text style={styles.actionLabel}>Upload a scan</Text>
-        </Pressable>
-        {items.length > 0 ? (
-          <Pressable
-            onPress={onPressSeeAll}
-            accessibilityRole="button"
-            accessibilityLabel="See all scans"
-            style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
-            testID="body-scans-section-see-all"
-          >
-            <Text style={styles.actionLabel}>See all scans</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      <BodyScanCategoryTypeChooser
+        visible={chooserOpen}
+        onClose={() => setChooserOpen(false)}
+        onSelect={onPressAddWithType}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   section: { gap: 10 },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingHorizontal: 2,
+  },
   sectionHeading: {
     color: UI_TEXT_PRIMARY,
     fontSize: 20,
     fontWeight: "700",
     letterSpacing: -0.2,
-    paddingHorizontal: 2,
+    flexShrink: 1,
   },
-  note: { color: UI_TEXT_SECONDARY, fontSize: 13, paddingHorizontal: 2 },
+  addBtn: {
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addLabel: {
+    color: BODY_INDIGO,
+    fontSize: 15,
+    fontWeight: "700",
+  },
   card: { ...elevatedCardSurfaceStyle, paddingHorizontal: 16, paddingVertical: 14 },
   cardBody: { color: UI_TEXT_SECONDARY, fontSize: 14 },
-  actions: { flexDirection: "row", gap: 10 },
-  action: {
-    ...elevatedCardSurfaceStyle,
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    alignItems: "center",
-  },
-  actionPressed: { opacity: 0.85 },
-  actionLabel: { color: UI_TEXT_PRIMARY, fontSize: 14, fontWeight: "600" },
 });
+
+export const BODY_SCANS_LANDING_MUTED = UI_TEXT_MUTED;

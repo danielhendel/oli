@@ -110,6 +110,11 @@ export const userDocumentRecordSchema = z
       .optional(),
     retentionStatus: z.enum(["active", "pending_delete", "deleted"]),
     legacyLabUploadId: z.string().min(1).optional(),
+    /**
+     * Scans-domain only: user-selected product category at upload time.
+     * Applied when extraction does not supply scanTypeCandidate.
+     */
+    preferredScanType: z.enum(["dxa", "inbody", "evolt", "bod_pod", "other"]).optional(),
     createdAt: isoDatetimeString,
     updatedAt: isoDatetimeString,
   })
@@ -321,6 +326,12 @@ export const documentUploadIntentRequestDtoSchema = z
     mediaType: documentMediaTypeSchema,
     byteSize: z.number().int().positive(),
     checksumSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    /**
+     * Optional Body Scan product category preference (scans domain only).
+     * Used when no adapter sets scanTypeCandidate — does not invent extraction.
+     * Values mirror `bodyScanTypeSchema` without importing bodyScans (avoid cycle).
+     */
+    preferredScanType: z.enum(["dxa", "inbody", "evolt", "bod_pod", "other"]).optional(),
   })
   .strip();
 

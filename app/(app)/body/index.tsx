@@ -15,6 +15,7 @@ import { BodyCompositionSummaryScreen } from "@/lib/ui/body/BodyCompositionSumma
 import { BodyMeasurementsLandingSection } from "@/lib/ui/body/WaistLandingCard";
 import { BodyScansLandingSection } from "@/lib/ui/body-scans/BodyScansLandingSection";
 import { isBodyScansV1Enabled } from "@/lib/data/body-scans/bodyScansFlag";
+import { BODY_SCAN_LIST_PAGE_MAX } from "@/lib/data/body-scans/groupBodyScansByCategory";
 import { useBodyScans } from "@/lib/data/body-scans/useBodyScans";
 import { BodyMetricManualEntrySheet } from "@/lib/ui/body/BodyMetricManualEntrySheet";
 import type { BodyMetricManualEntryMetric } from "@/lib/body/presentation/bodyMetricManualEntryValidation";
@@ -262,14 +263,23 @@ export default function BodyOverviewScreen() {
   );
 
   const bodyScansEnabled = isBodyScansV1Enabled();
-  const bodyScans = useBodyScans({ enabled: bodyScansEnabled, limit: 3 });
+  // Fetch the full list page so category grouping is not derived from a 3-item preview.
+  const bodyScans = useBodyScans({ enabled: bodyScansEnabled });
   const bodyScansSlot = bodyScansEnabled ? (
     <BodyScansLandingSection
       status={bodyScans.status}
-      {...(bodyScans.status === "ready" ? { items: bodyScans.data.items } : {})}
-      onPressScan={(scanId) => router.push(`/(app)/body/scans/${scanId}`)}
-      onPressSeeAll={() => router.push("/(app)/body/scans")}
-      onPressUpload={() => router.push("/(app)/body/scans/new")}
+      {...(bodyScans.status === "ready"
+        ? {
+            items: bodyScans.data.items,
+            listComplete: bodyScans.data.items.length < BODY_SCAN_LIST_PAGE_MAX,
+          }
+        : {})}
+      onPressCategory={(scanType) =>
+        router.push(`/(app)/body/scans/type/${scanType}`)
+      }
+      onPressAddWithType={(scanType) =>
+        router.push(`/(app)/body/scans/new?scanType=${scanType}`)
+      }
     />
   ) : null;
 

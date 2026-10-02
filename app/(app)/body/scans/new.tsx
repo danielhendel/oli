@@ -1,7 +1,12 @@
-import React, { useLayoutEffect } from "react";
+import React, { useLayoutEffect, useMemo } from "react";
 import { StyleSheet, View } from "react-native";
-import { useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 
+import type { BodyScanType } from "@/lib/contracts";
+import {
+  bodyScanCategoryDefinition,
+  isBodyScanCategoryType,
+} from "@/lib/data/body-scans/bodyScanCategoryCatalog";
 import { isBodyScansV1Enabled } from "@/lib/data/body-scans/bodyScansFlag";
 import { useDocumentUploadFlow } from "@/lib/data/documents/useDocumentUploadFlow";
 import { HeaderBackButton } from "@/lib/ui/HeaderBackButton";
@@ -13,24 +18,44 @@ import { workoutsStackNavigationOptions } from "@/lib/ui/headers/workoutsStackHe
 /**
  * Scan upload rides the shared Document Ingestion OS flow — same private storage, size
  * limit, and duplicate handling as every other document domain.
+ *
+ * Optional `scanType` query prefills the product category (and associated method on ingest).
  */
 export default function BodyScanUploadScreen() {
   const navigation = useNavigation();
   const router = useRouter();
+  const params = useLocalSearchParams<{ scanType?: string | string[] }>();
   const enabled = isBodyScansV1Enabled();
-  const flow = useDocumentUploadFlow({ domain: "scans" });
+
+  const preferredScanType = useMemo((): BodyScanType | undefined => {
+    const raw = Array.isArray(params.scanType) ? params.scanType[0] : params.scanType;
+    if (typeof raw !== "string" || !isBodyScanCategoryType(raw)) return undefined;
+    return raw;
+  }, [params.scanType]);
+
+  const category = preferredScanType
+    ? bodyScanCategoryDefinition(preferredScanType)
+    : null;
+
+  const flow = useDocumentUploadFlow({
+    domain: "scans",
+    ...(preferredScanType ? { preferredScanType } : {}),
+  });
+
+  const title = category ? category.addLabel : "Upload scan";
+  const domainLabel = category ? category.label : "Scans";
 
   useLayoutEffect(() => {
     navigation.setOptions({
       ...workoutsStackNavigationOptions("detail"),
-      title: "Upload scan",
+      title,
       headerLeft: () => <HeaderBackButton onPress={() => navigation.goBack()} />,
     });
-  }, [navigation]);
+  }, [navigation, title]);
 
   return (
     <View style={styles.root}>
-      <ModuleScreenShell title="Upload scan" hideTitleChrome>
+      <ModuleScreenShell title={title} hideTitleChrome>
         {!enabled ? (
           <EmptyState
             title="Body Scans are not available yet"
@@ -41,7 +66,7 @@ export default function BodyScanUploadScreen() {
           <DocumentUploadFlowContent
             phase={flow.phase}
             errorMessage={flow.errorMessage}
-            domainLabel="Scans"
+            domainLabel={domainLabel}
             onStart={() => void flow.startUpload()}
             onCancel={flow.cancel}
             onReset={flow.reset}

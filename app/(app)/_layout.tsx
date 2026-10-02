@@ -168,6 +168,10 @@ export default function AppLayout() {
             options={{ title: "Body Scans", ...workoutsStackNavigationOptions("detail") }}
           />
           <Stack.Screen
+            name="body/scans/type/[scanType]"
+            options={{ title: "Scans", ...workoutsStackNavigationOptions("detail") }}
+          />
+          <Stack.Screen
             name="body/scans/new"
             options={{ title: "Upload scan", ...workoutsStackNavigationOptions("detail") }}
           />

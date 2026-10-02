@@ -3,6 +3,8 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyScanListItemDto } from "@/lib/contracts";
+import { bodyScanCategoryLabel } from "@/lib/data/body-scans/bodyScanCategoryCatalog";
+import { bodyScanNavStatusLabel } from "@/lib/data/body-scans/bodyScanNavStatusLabel";
 import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
@@ -21,14 +23,6 @@ export type BodyScanListContentProps = {
   onPressScan: (scanId: string) => void;
 };
 
-const SCAN_TYPE_LABELS: Record<BodyScanListItemDto["scanType"], string> = {
-  dxa: "DXA",
-  inbody: "InBody",
-  evolt: "Evolt",
-  bod_pod: "Bod Pod",
-  other: "Scan",
-};
-
 export function BodyScanRow({
   item,
   onPress,
@@ -36,15 +30,16 @@ export function BodyScanRow({
   item: BodyScanListItemDto;
   onPress: () => void;
 }) {
-  const typeLabel = SCAN_TYPE_LABELS[item.scanType];
+  const typeLabel = bodyScanCategoryLabel(item.scanType);
   const dateLabel = item.performedAt
     ? `Scanned ${formatLabUploadDate(item.performedAt)}`
     : `Uploaded ${formatLabUploadDate(item.uploadedAt)}`;
+  const statusLabel = bodyScanNavStatusLabel(item.status);
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${typeLabel} scan, ${dateLabel}, ${item.statusLabel}`}
+      accessibilityLabel={`${typeLabel} scan, ${dateLabel}, ${statusLabel}`}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       testID={`body-scan-row-${item.id}`}
     >
@@ -55,7 +50,7 @@ export function BodyScanRow({
         </Text>
         <Text style={styles.meta}>{dateLabel}</Text>
         <Text style={styles.meta} testID={`body-scan-status-${item.id}`}>
-          {item.statusLabel}
+          {statusLabel}
         </Text>
       </View>
       <Text style={styles.chevron}>{"\u203A"}</Text>

@@ -265,6 +265,9 @@ router.post(
       retentionStatus: "active",
       createdAt: now,
       updatedAt: now,
+      ...(body.domain === "scans" && body.preferredScanType
+        ? { preferredScanType: body.preferredScanType }
+        : {}),
     };
 
     await docRef.create(placeholder);
