@@ -118,25 +118,10 @@ function pushMetric(
             ? "manual_composition"
             : "unknown";
 
-  const protocolId =
+  const protocolProvenance =
     args.metric === "waist_circumference"
-      ? args.event.payload.protocolId === "who_midpoint_v1" ||
-        args.event.payload.protocolId === "unknown"
-        ? args.event.payload.protocolId
-        : sourceSystem === "manual"
-          ? ("who_midpoint_v1" as const)
-          : ("unknown" as const)
-      : null;
-  const protocolVersion =
-    args.metric === "waist_circumference"
-      ? typeof args.event.payload.protocolVersion === "number" &&
-        Number.isFinite(args.event.payload.protocolVersion) &&
-        args.event.payload.protocolVersion > 0
-        ? Math.trunc(args.event.payload.protocolVersion)
-        : protocolId === "who_midpoint_v1"
-          ? 1
-          : null
-      : null;
+      ? resolveWaistProtocolProvenance(args.event.payload)
+      : { protocolId: null, protocolVersion: null };
 
   out.observations.push({
     observationId,
@@ -154,8 +139,8 @@ function pushMetric(
       deviceModel: args.event.deviceModel ?? null,
     },
     provenance: emptyProvenance(args.event.rawEventId, {
-      protocolId,
-      protocolVersion,
+      protocolId: protocolProvenance.protocolId,
+      protocolVersion: protocolProvenance.protocolVersion,
       corrected: args.event.corrected ?? null,
     }),
     continuousTrendEligible:
@@ -165,6 +150,33 @@ function pushMetric(
     constructEligibility: [...def.constructEligibility],
     redundancyGroup: def.redundancyGroup,
   });
+}
+
+/**
+ * Preserve only explicitly reported waist protocol.
+ * Never infer who_midpoint_v1 from provider=manual or method=manual_anthropometry.
+ */
+export function resolveWaistProtocolProvenance(payload: {
+  protocolId?: BodyCompositionWaistProtocolId | null;
+  protocolVersion?: number | null;
+}): {
+  protocolId: BodyCompositionWaistProtocolId | null;
+  protocolVersion: number | null;
+} {
+  const id = payload.protocolId;
+  const ver = payload.protocolVersion;
+  if (id === "who_midpoint_v1") {
+    if (typeof ver === "number" && Number.isFinite(ver) && Math.trunc(ver) === 1) {
+      return { protocolId: "who_midpoint_v1", protocolVersion: 1 };
+    }
+    // WHO without compatible version — fail closed (do not invent version 1).
+    return { protocolId: null, protocolVersion: null };
+  }
+  if (id === "unknown") {
+    return { protocolId: "unknown", protocolVersion: null };
+  }
+  // Missing or unsupported — unknown/null. Never upgrade to WHO.
+  return { protocolId: null, protocolVersion: null };
 }
 
 /**
