@@ -27,6 +27,7 @@ import {
   type BodyScanAdapterInput,
   type BodyScanAdapterResult,
 } from "../bodyScanAdapter";
+import { filterExtractedFieldsToRegistry } from "../validateBodyScanAgainstRegistry";
 
 export const LIVE_LEAN_RX_DXA_ADAPTER_ID = "live_lean_rx_dxa";
 export const LIVE_LEAN_RX_DXA_ADAPTER_VERSION = "1.0.0";
@@ -1424,8 +1425,27 @@ export function extractLiveLeanRxDxa(input: BodyScanAdapterInput): BodyScanAdapt
     }
   }
 
-  const lowConfidenceFieldCount = fields.filter((f) => f.requiresReview).length;
-  const status = fields.length === 0 ? "unsupported" : lowConfidenceFieldCount > 0 ? "review_needed" : "extracted";
+  // Phase C: every emitted candidate must resolve through the canonical registry.
+  // Fail closed on illegal key/region/unit; do not change extraction semantics otherwise.
+  const gated = filterExtractedFieldsToRegistry({
+    fields,
+    method: "dxa",
+    enforceDxaEmit: true,
+  });
+  if (gated.dropped.length > 0) {
+    warnings.push({
+      code: "registry_unmapped_fields_dropped",
+      message: "Some extracted fields were outside the canonical Body Scan metric registry.",
+    });
+  }
+  const registryFields = gated.fields;
+  const registryLow = registryFields.filter((f) => f.requiresReview).length;
+  const status: BodyScanAdapterResult["status"] =
+    registryFields.length === 0
+      ? "unsupported"
+      : registryLow > 0
+        ? "review_needed"
+        : "extracted";
 
   return {
     status,
@@ -1433,7 +1453,7 @@ export function extractLiveLeanRxDxa(input: BodyScanAdapterInput): BodyScanAdapt
     methodCandidate: "dxa",
     device: detectDevice(text),
     performedAtCandidate: parseDxaScanDate(text),
-    fields,
+    fields: registryFields,
     warnings,
   };
 }
