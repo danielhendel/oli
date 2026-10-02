@@ -47,7 +47,20 @@ List contract: `GET /users/me/body-scans?scanType=&limit=&cursor=` returns
 `startAfter` tie-break (UI labels prefer `performedAt` when present). Composite
 Firestore index: `bodyScans` `scanType` ASC + `createdAt` DESC. Default page 25,
 max 50. Gateway OpenAPI documents the query params (Gateway deploy required when this
-branch ships). No Evidence Resolver, Assessment Confidence, or composition scores.
+branch ships).
+
+### Category cache freshness (mutation invalidation)
+
+Mounted category summaries and histories subscribe to a unified client bus
+(`invalidateBodyScanList` / `subscribeBodyScanListInvalidation`). Successful
+upload, confirm, reprocess, and delete publish reason + category tokens only
+(no IDs, UID, filenames, values, cursors, or paths). Same-tick publishes coalesce.
+Category history resets to the first page (`cursor = null`) on invalidation and
+never appends onto stale pages. Body Composition pull-to-refresh includes
+`bodyScanSummaries.refetch`. Body Scans hub and category-history screens also
+refetch on focus. Query completion does not re-publish invalidation.
+
+No Evidence Resolver, Assessment Confidence, or composition scores.
 
 ---
 
