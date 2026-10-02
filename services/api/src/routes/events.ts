@@ -671,8 +671,8 @@ const DELETABLE_NUTRITION_EVENT_PROVIDERS = new Set(["manual"]);
 /** Providers whose weight raw events users may remove from Oli (manual + Apple Health hide-from-Oli). */
 const DELETABLE_WEIGHT_EVENT_PROVIDERS = new Set(["manual", "apple_health"]);
 
-/** Providers whose body_composition raw events users may hide from Oli (Apple Health only). */
-const DELETABLE_BODY_COMPOSITION_EVENT_PROVIDERS = new Set(["apple_health"]);
+/** Providers whose body_composition raw events users may remove from Oli (manual + Apple Health). */
+const DELETABLE_BODY_COMPOSITION_EVENT_PROVIDERS = new Set(["manual", "apple_health"]);
 
 /**
  * DELETE /ingest/:rawEventId
@@ -680,7 +680,7 @@ const DELETABLE_BODY_COMPOSITION_EVENT_PROVIDERS = new Set(["apple_health"]);
  * Removes a user-owned RawEvent document (Admin SDK). Clients cannot delete via Firestore rules.
  * Allowed for kinds `workout` / `strength_workout` (manual + apple_health), `nutrition` (manual
  * tracked-meal logs only), `weight` (manual + apple_health hide-from-Oli), and `body_composition`
- * (apple_health hide-from-Oli). Apple Health resurrection suppression applies to workout and body kinds.
+ * (manual + apple_health hide-from-Oli). Apple Health resurrection suppression applies to workout and body kinds.
  */
 router.delete("/:rawEventId", async (req: AuthedRequest, res: Response) => {
   const requestId = getRid(req);

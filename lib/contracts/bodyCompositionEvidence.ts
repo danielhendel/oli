@@ -141,6 +141,9 @@ export const bodyCompositionEvidenceSourceSchema = z
   })
   .strip();
 
+export const bodyCompositionWaistProtocolIdSchema = z.enum(["who_midpoint_v1", "unknown"]);
+export type BodyCompositionWaistProtocolId = z.infer<typeof bodyCompositionWaistProtocolIdSchema>;
+
 export const bodyCompositionEvidenceProvenanceSchema = z
   .object({
     sourceFactRef: z.string().min(1).max(200).nullable(),
@@ -154,6 +157,9 @@ export const bodyCompositionEvidenceProvenanceSchema = z
     formulaVersion: z.string().min(1).max(40).nullable(),
     inputObservationRefs: z.array(z.string().min(1).max(200)).nullable(),
     corrected: z.boolean().nullable(),
+    /** Waist protocol identity when known (source observations only). */
+    protocolId: bodyCompositionWaistProtocolIdSchema.nullable().optional(),
+    protocolVersion: z.number().int().positive().nullable().optional(),
   })
   .strip();
 
@@ -213,8 +219,12 @@ export const bodyCompositionWaistContextSchema = z
     valueCm: z.number().finite().positive().nullable(),
     effectiveAt: z.string().min(1).nullable(),
     sourceSystem: bodyCompositionSourceSystemSchema.nullable(),
-    /** WHO midpoint protocol when known; null if unspecified. */
-    protocolId: z.literal("who_midpoint_relaxed_end_expiration").nullable(),
+    /**
+     * WHO midpoint protocol when known; null if unspecified.
+     * Legacy undated profile waist remains protocolId null.
+     * Product capture id is who_midpoint_v1 (WHO midpoint, relaxed, end-expiration).
+     */
+    protocolId: bodyCompositionWaistProtocolIdSchema.nullable(),
   })
   .strip();
 

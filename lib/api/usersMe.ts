@@ -152,7 +152,7 @@ export const logWeight = async (
 };
 
 /**
- * Manual Body Fat % or Lean Mass via kind `body_composition` (existing RawEvent contract).
+ * Manual Body Fat % / Lean Mass / Waist via kind `body_composition` (existing RawEvent contract).
  * One metric per call — matches Stage 3C metric-specific landing sheets.
  */
 export const logBodyComposition = async (
@@ -169,6 +169,13 @@ export const logBodyComposition = async (
       : {}),
     ...(payload.leanBodyMassKg !== undefined
       ? { leanBodyMassKg: payload.leanBodyMassKg }
+      : {}),
+    ...(payload.waistCircumferenceCm !== undefined
+      ? { waistCircumferenceCm: payload.waistCircumferenceCm }
+      : {}),
+    ...(payload.protocolId !== undefined ? { protocolId: payload.protocolId } : {}),
+    ...(payload.protocolVersion !== undefined
+      ? { protocolVersion: payload.protocolVersion }
       : {}),
   };
 
@@ -187,6 +194,13 @@ export const logBodyComposition = async (
     idempotencyKey: manualBodyCompositionIdempotencyKey(clean, metric),
   });
 };
+
+/** Thin waist wrapper — same body_composition ingest path with WHO midpoint protocol fields. */
+export const logWaist = async (
+  payload: ManualBodyCompositionPayload,
+  idToken: string,
+): Promise<ApiResult<IngestAcceptedResponseDto>> =>
+  logBodyComposition(payload, "waistCircumferenceCm", idToken);
 
 export const logStrengthWorkout = async (
   payload: ManualStrengthWorkoutPayload,

@@ -67,6 +67,29 @@ describe("RawEvent contract (lib/contracts/rawEvent.ts)", () => {
     expect(parsed.success).toBe(true);
   });
 
+  test("accepts body_composition waist-only with WHO midpoint protocol", () => {
+    const raw = {
+      schemaVersion: 1,
+      id: "abc126",
+      userId: "user_1",
+      sourceId: "manual",
+      provider: "manual",
+      sourceType: "manual",
+      kind: "body_composition",
+      receivedAt: "2025-01-02T00:00:00.000Z",
+      observedAt: "2025-01-02T00:00:00.000Z",
+      payload: {
+        time: "2025-01-02T00:00:00.000Z",
+        timezone: "America/New_York",
+        waistCircumferenceCm: 82.5,
+        protocolId: "who_midpoint_v1",
+        protocolVersion: 1,
+      },
+    };
+    const parsed = rawEventDocSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+  });
+
   test('accepts a valid file RawEvent doc (no parsing)', () => {
     const raw = {
       schemaVersion: 1,

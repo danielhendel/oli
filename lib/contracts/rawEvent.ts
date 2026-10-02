@@ -361,6 +361,11 @@ const manualBodyCompositionPayloadSchema = z
     bmi: z.number().finite().min(0).optional(),
     leanBodyMassKg: z.number().finite().min(0).optional(),
     restingMetabolicRateKcal: z.number().finite().min(0).optional(),
+    /** Standardized waist circumference (cm). Alone satisfies "at least one metric". */
+    waistCircumferenceCm: z.number().finite().positive().optional(),
+    /** Capture protocol for waist (WHO midpoint) or unknown legacy. */
+    protocolId: z.enum(["who_midpoint_v1", "unknown"]).optional(),
+    protocolVersion: z.number().int().positive().optional(),
     appleHealthLeanMassLbMislabeledAsKgRepair: appleHealthLeanMassLbMislabeledAsKgRepairSchema.optional(),
   })
   .strip()
@@ -370,7 +375,8 @@ const manualBodyCompositionPayloadSchema = z
       v.bodyFatPercent !== undefined ||
       v.bmi !== undefined ||
       v.leanBodyMassKg !== undefined ||
-      v.restingMetabolicRateKcal !== undefined,
+      v.restingMetabolicRateKcal !== undefined ||
+      v.waistCircumferenceCm !== undefined,
     { message: "At least one body composition metric is required" },
   );
 
