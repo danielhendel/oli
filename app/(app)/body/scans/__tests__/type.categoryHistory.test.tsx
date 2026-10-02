@@ -19,6 +19,12 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
 }));
 
+jest.mock("@react-navigation/native", () => ({
+  useFocusEffect: (cb: () => void) => {
+    cb();
+  },
+}));
+
 jest.mock("@/lib/data/body-scans/bodyScansFlag", () => ({
   isBodyScansV1Enabled: () => true,
 }));
