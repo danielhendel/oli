@@ -8,7 +8,9 @@
  * Direction lock:
  *   PRODUCT/SCIENCE → REGISTRY → CAPABILITIES → ADAPTERS → CANDIDATES → REVIEW → VERIFIED
  *
- * Not owned here: score math, Evidence Resolver, Review/Detail redesign.
+ * Not owned here: score math, Evidence Resolver.
+ * Phase D/E Review/Detail presentation consumes this registry via
+ * `buildBodyScanPresentationGroups`.
  */
 
 import type {
@@ -150,8 +152,7 @@ export const BODY_SCAN_METRIC_REGISTRY: Record<BodyScanMetricId, BodyScanMetricD
     allowedMethods: ["dxa", "bia", "other"],
     productStatus: "core_v1",
     scoringConstructEligibility: ["H3", "P1", "P2"],
-    description:
-      "Non-fat soft tissue reported by the scan (includes muscle, organs, connective tissue, and water). Not a direct muscle measurement.",
+    description: "Non-fat, non-bone soft tissue reported by the scan.",
     uiEnabled: true,
   }),
   fat_free_mass: def({
@@ -166,8 +167,7 @@ export const BODY_SCAN_METRIC_REGISTRY: Record<BodyScanMetricId, BodyScanMetricD
     allowedMethods: ["dxa", "bia", "air_displacement", "other"],
     productStatus: "optional_v1",
     scoringConstructEligibility: ["H3", "P1"],
-    description:
-      "Everything that is not fat when the report labels Fat-Free Mass separately from Lean Mass.",
+    description: "Your total body mass excluding fat. It includes lean tissue and bone.",
     uiEnabled: true,
   }),
   bone_mineral_content: def({
@@ -188,7 +188,7 @@ export const BODY_SCAN_METRIC_REGISTRY: Record<BodyScanMetricId, BodyScanMetricD
   }),
   bone_mineral_density: def({
     key: "bone_mineral_density",
-    label: "Bone Mineral Density",
+    label: "Total Body BMD",
     group: "bone",
     quantity: "density",
     canonicalUnit: "g_per_cm2",
@@ -199,7 +199,7 @@ export const BODY_SCAN_METRIC_REGISTRY: Record<BodyScanMetricId, BodyScanMetricD
     productStatus: "core_v1",
     scoringConstructEligibility: [],
     description:
-      "Whole-body bone density from this scan. Not the same as a diagnostic hip or spine osteoporosis exam.",
+      "Bone mineral density measured across the total body. This total-body value is not the same as a diagnostic hip or spine bone density exam.",
     uiEnabled: true,
   }),
   visceral_fat_mass: def({
@@ -229,8 +229,7 @@ export const BODY_SCAN_METRIC_REGISTRY: Record<BodyScanMetricId, BodyScanMetricD
     allowedMethods: DXA_ONLY,
     productStatus: "optional_v1",
     scoringConstructEligibility: ["H1"],
-    description:
-      "Visceral fat volume when explicitly reported. Never inferred from visceral fat mass.",
+    description: "An estimate of visceral fat volume reported by the scan.",
     uiEnabled: true,
   }),
   android_gynoid_ratio: def({

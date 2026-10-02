@@ -3,6 +3,10 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 import type { BodyScanReviewFieldDto, BodyScanReviewResponseDto } from "@/lib/contracts";
+import {
+  buildBodyScanPresentationGroupsFromReviewFields,
+  type BodyScanPresentationItem,
+} from "@/lib/data/body-scans/buildBodyScanPresentationGroups";
 import { bodyScanUnitSuffix } from "@/lib/data/body-scans/bodyScanMetricCatalog";
 import {
   buildReviewSubmission,
@@ -40,11 +44,14 @@ const BLOCKED_MESSAGE =
 
 function ReviewField({
   field,
+  label,
   input,
   onChangeText,
   onToggleAcknowledged,
 }: {
   field: BodyScanReviewFieldDto;
+  /** Registry-driven canonical label (not parser raw label). */
+  label: string;
   input: { text: string; acknowledged: boolean };
   onChangeText: (text: string) => void;
   onToggleAcknowledged: (next: boolean) => void;
@@ -54,7 +61,7 @@ function ReviewField({
   return (
     <View style={styles.field} testID={`body-scan-review-field-${field.fieldId}`}>
       <View style={styles.fieldHeader}>
-        <Text style={styles.fieldLabel}>{field.label}</Text>
+        <Text style={styles.fieldLabel}>{label}</Text>
         <Text style={styles.fieldRaw}>Report shows: {formatReviewReportShows(field)}</Text>
       </View>
 
@@ -65,7 +72,7 @@ function ReviewField({
           keyboardType="decimal-pad"
           placeholder="Not in my report"
           placeholderTextColor={UI_TEXT_TERTIARY_LABEL}
-          accessibilityLabel={`${field.label} value`}
+          accessibilityLabel={`${label} value`}
           style={styles.input}
           testID={`body-scan-review-input-${field.fieldId}`}
         />
@@ -86,12 +93,40 @@ function ReviewField({
           <Switch
             value={input.acknowledged}
             onValueChange={onToggleAcknowledged}
-            accessibilityLabel={`I checked ${field.label}`}
+            accessibilityLabel={`I checked ${label}`}
             testID={`body-scan-review-ack-${field.fieldId}`}
           />
           <Text style={styles.ackLabel}>I checked this against my report</Text>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function ReviewItem({
+  item,
+  field,
+  input,
+  divided,
+  onChangeText,
+  onToggleAcknowledged,
+}: {
+  item: BodyScanPresentationItem;
+  field: BodyScanReviewFieldDto;
+  input: { text: string; acknowledged: boolean };
+  divided: boolean;
+  onChangeText: (text: string) => void;
+  onToggleAcknowledged: (next: boolean) => void;
+}) {
+  return (
+    <View style={divided ? styles.fieldDivided : undefined}>
+      <ReviewField
+        field={field}
+        label={item.label}
+        input={input}
+        onChangeText={onChangeText}
+        onToggleAcknowledged={onToggleAcknowledged}
+      />
     </View>
   );
 }
@@ -107,6 +142,17 @@ export function BodyScanReviewContent({
   onConfirm,
 }: BodyScanReviewContentProps) {
   const fields = useMemo(() => review?.fields ?? [], [review]);
+  const fieldById = useMemo(() => {
+    const map = new Map<string, BodyScanReviewFieldDto>();
+    for (const field of fields) map.set(field.fieldId, field);
+    return map;
+  }, [fields]);
+
+  const groups = useMemo(
+    () => buildBodyScanPresentationGroupsFromReviewFields(fields),
+    [fields],
+  );
+
   const [inputs, setInputs] = useState<BodyScanReviewInputState>(() =>
     initialReviewInputState(fields),
   );
@@ -179,31 +225,103 @@ export function BodyScanReviewContent({
         </Text>
       ))}
 
-      <View style={styles.card}>
-        {fields.map((field, index) => (
-          <View key={field.fieldId} style={index > 0 ? styles.fieldDivided : undefined}>
-            <ReviewField
-              field={field}
-              input={inputs[field.fieldId] ?? { text: "", acknowledged: false }}
-              onChangeText={(text) =>
-                setInputs((prev) => ({
-                  ...prev,
-                  [field.fieldId]: {
-                    text,
-                    acknowledged: prev[field.fieldId]?.acknowledged ?? false,
-                  },
-                }))
-              }
-              onToggleAcknowledged={(next) =>
-                setInputs((prev) => ({
-                  ...prev,
-                  [field.fieldId]: { text: prev[field.fieldId]?.text ?? "", acknowledged: next },
-                }))
-              }
-            />
-          </View>
-        ))}
-      </View>
+      {groups.map((group) => (
+        <View
+          key={group.sectionId}
+          style={styles.section}
+          testID={`body-scan-review-section-${group.sectionId}`}
+        >
+          <Text accessibilityRole="header" style={styles.sectionTitle}>
+            {group.title}
+          </Text>
+          {group.note ? <Text style={styles.sectionNote}>{group.note}</Text> : null}
+
+          {group.regionBlocks.map((block) => (
+            <View
+              key={`${group.sectionId}:${block.region}`}
+              style={styles.regionBlock}
+              testID={`body-scan-review-region-${block.region}`}
+            >
+              <Text accessibilityRole="header" style={styles.regionTitle}>
+                {block.title}
+              </Text>
+              <View style={styles.card}>
+                {block.items.map((item, index) => {
+                  const fieldId = item.fieldId;
+                  if (!fieldId) return null;
+                  const field = fieldById.get(fieldId);
+                  if (!field) return null;
+                  return (
+                    <ReviewItem
+                      key={item.key}
+                      item={item}
+                      field={field}
+                      input={inputs[field.fieldId] ?? { text: "", acknowledged: false }}
+                      divided={index > 0}
+                      onChangeText={(text) =>
+                        setInputs((prev) => ({
+                          ...prev,
+                          [field.fieldId]: {
+                            text,
+                            acknowledged: prev[field.fieldId]?.acknowledged ?? false,
+                          },
+                        }))
+                      }
+                      onToggleAcknowledged={(next) =>
+                        setInputs((prev) => ({
+                          ...prev,
+                          [field.fieldId]: {
+                            text: prev[field.fieldId]?.text ?? "",
+                            acknowledged: next,
+                          },
+                        }))
+                      }
+                    />
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+
+          {group.items.length > 0 ? (
+            <View style={styles.card}>
+              {group.items.map((item, index) => {
+                const fieldId = item.fieldId;
+                if (!fieldId) return null;
+                const field = fieldById.get(fieldId);
+                if (!field) return null;
+                return (
+                  <ReviewItem
+                    key={item.key}
+                    item={item}
+                    field={field}
+                    input={inputs[field.fieldId] ?? { text: "", acknowledged: false }}
+                    divided={index > 0}
+                    onChangeText={(text) =>
+                      setInputs((prev) => ({
+                        ...prev,
+                        [field.fieldId]: {
+                          text,
+                          acknowledged: prev[field.fieldId]?.acknowledged ?? false,
+                        },
+                      }))
+                    }
+                    onToggleAcknowledged={(next) =>
+                      setInputs((prev) => ({
+                        ...prev,
+                        [field.fieldId]: {
+                          text: prev[field.fieldId]?.text ?? "",
+                          acknowledged: next,
+                        },
+                      }))
+                    }
+                  />
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
+      ))}
 
       {showBlockers && !submission.ok ? (
         <Text style={styles.blockedMessage} testID="body-scan-review-blocked">
@@ -241,6 +359,11 @@ const styles = StyleSheet.create({
   root: { gap: 16, paddingBottom: 32 },
   intro: { color: UI_TEXT_SECONDARY, fontSize: 14 },
   warning: { color: UI_TEXT_SECONDARY, fontSize: 13 },
+  section: { gap: 8 },
+  sectionTitle: { color: UI_TEXT_PRIMARY, fontSize: 18, fontWeight: "700", letterSpacing: -0.2 },
+  sectionNote: { color: UI_TEXT_SECONDARY, fontSize: 13 },
+  regionBlock: { gap: 6 },
+  regionTitle: { color: UI_TEXT_SECONDARY, fontSize: 14, fontWeight: "600" },
   card: { ...elevatedCardSurfaceStyle, paddingHorizontal: 16 },
   field: { gap: 8, paddingVertical: 14 },
   fieldDivided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: UI_BORDER_HAIRLINE },

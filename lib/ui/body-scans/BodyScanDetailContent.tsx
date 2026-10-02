@@ -3,7 +3,10 @@ import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { BodyScanDetailDto } from "@/lib/contracts";
-import { buildBodyScanDetailSections } from "@/lib/data/body-scans/buildBodyScanDetailSections";
+import {
+  buildBodyScanDetailSections,
+  type BodyScanDetailRow,
+} from "@/lib/data/body-scans/buildBodyScanDetailSections";
 import { EmptyState, ErrorState, LoadingState } from "@/lib/ui/ScreenStates";
 import { elevatedCardSurfaceStyle } from "@/lib/ui/theme/elevatedCardSurface";
 import {
@@ -47,6 +50,34 @@ function DetailAction({ action }: { action: BodyScanDetailAction }) {
     >
       <Text style={styles.actionLabel}>{action.label}</Text>
     </Pressable>
+  );
+}
+
+function DetailRow({
+  row,
+  divided,
+}: {
+  row: BodyScanDetailRow;
+  divided: boolean;
+}) {
+  return (
+    <View
+      style={[styles.row, divided && styles.rowDivided]}
+      accessibilityLabel={row.accessibilityLabel}
+    >
+      <Text style={styles.rowLabel} numberOfLines={2}>
+        {row.label}
+      </Text>
+      <View style={styles.rowValueGroup}>
+        <Text
+          style={row.valueText ? styles.rowValue : styles.rowValueMissing}
+          testID={`body-scan-row-value-${row.key}`}
+        >
+          {row.valueText ?? "Not in this report"}
+        </Text>
+        {row.corrected ? <Text style={styles.correctedTag}>Edited by you</Text> : null}
+      </View>
+    </View>
   );
 }
 
@@ -114,28 +145,33 @@ export function BodyScanDetailContent({
             {section.title}
           </Text>
           {section.note ? <Text style={styles.sectionNote}>{section.note}</Text> : null}
-          <View style={styles.card}>
-            {section.rows.map((row, index) => (
-              <View
-                key={row.key}
-                style={[styles.row, index > 0 && styles.rowDivided]}
-                accessibilityLabel={`${row.label}: ${row.valueText ?? "Not in this report"}`}
-              >
-                <Text style={styles.rowLabel} numberOfLines={2}>
-                  {row.label}
-                </Text>
-                <View style={styles.rowValueGroup}>
-                  <Text
-                    style={row.valueText ? styles.rowValue : styles.rowValueMissing}
-                    testID={`body-scan-row-value-${row.key}`}
-                  >
-                    {row.valueText ?? "Not in this report"}
+
+          {section.regionBlocks.length > 0
+            ? section.regionBlocks.map((block) => (
+                <View
+                  key={`${section.id}:${block.region}`}
+                  style={styles.regionBlock}
+                  testID={`body-scan-region-${block.region}`}
+                >
+                  <Text accessibilityRole="header" style={styles.regionTitle}>
+                    {block.title}
                   </Text>
-                  {row.corrected ? <Text style={styles.correctedTag}>Edited by you</Text> : null}
+                  <View style={styles.card}>
+                    {block.rows.map((row, index) => (
+                      <DetailRow key={row.key} row={row} divided={index > 0} />
+                    ))}
+                  </View>
                 </View>
-              </View>
-            ))}
-          </View>
+              ))
+            : null}
+
+          {section.rows.length > 0 ? (
+            <View style={styles.card}>
+              {section.rows.map((row, index) => (
+                <DetailRow key={row.key} row={row} divided={index > 0} />
+              ))}
+            </View>
+          ) : null}
         </View>
       ))}
 
@@ -159,6 +195,8 @@ const styles = StyleSheet.create({
   section: { gap: 8 },
   sectionTitle: { color: UI_TEXT_PRIMARY, fontSize: 18, fontWeight: "700", letterSpacing: -0.2 },
   sectionNote: { color: UI_TEXT_SECONDARY, fontSize: 13 },
+  regionBlock: { gap: 6 },
+  regionTitle: { color: UI_TEXT_SECONDARY, fontSize: 14, fontWeight: "600" },
   card: { ...elevatedCardSurfaceStyle, paddingHorizontal: 16 },
   row: {
     flexDirection: "row",
