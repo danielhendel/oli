@@ -316,6 +316,9 @@ export default function BodyOverviewScreen() {
             onRefresh={() => {
               void body.onPullToRefresh();
               void waistHistory.refetch({ cacheBust: `waistPull:${Date.now()}` });
+              if (bodyScansEnabled) {
+                void bodyScanSummaries.refetch({ cacheBust: `bodyScanPull:${Date.now()}` });
+              }
             }}
             tintColor={BODY_INDIGO}
             accessibilityLabel="Refresh Body measurements"

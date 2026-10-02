@@ -1,5 +1,6 @@
-import React, { useLayoutEffect, useState } from "react";
+import React, { useCallback, useLayoutEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useNavigation, useRouter } from "expo-router";
 
 import { isBodyScansV1Enabled } from "@/lib/data/body-scans/bodyScansFlag";
@@ -19,6 +20,13 @@ export default function BodyScansHubScreen() {
   const enabled = isBodyScansV1Enabled();
   const summaries = useBodyScanCategorySummaries({ enabled });
   const [chooserOpen, setChooserOpen] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!enabled) return;
+      summaries.refetch({ cacheBust: `hubFocus:${Date.now()}` });
+    }, [enabled, summaries.refetch]),
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({

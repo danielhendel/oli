@@ -21,6 +21,7 @@ import { DOCUMENT_MAX_BYTE_SIZE } from "@/lib/data/documents/documentValidation"
 import { resolveConsumerSafeDocumentDisplayName } from "@/lib/data/documents/consumerSafeDocumentDisplayName";
 import { defaultDocumentTypeForDomain } from "@/lib/data/documents/documentTypes";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
+import { invalidateBodyScanList } from "@/lib/data/body-scans/bodyScanListInvalidate";
 
 const TERMINAL_STATUSES = new Set<DocumentRecordStatus>([
   "review_needed",
@@ -377,6 +378,12 @@ export function useDocumentUploadFlow(args: {
       reprocessAvailable: false,
       importSummary,
     });
+
+    // Body Scans: terminal upload success can change category lists. Prefer all
+    // categories because preferredScanType may conflict with detector truth.
+    if (args.domain === "scans") {
+      invalidateBodyScanList({ reason: "upload_success", categories: "all" });
+    }
   }, [args.domain, args.preferredScanType, getIdToken]);
 
   return { ...state, startUpload, reset, cancel };

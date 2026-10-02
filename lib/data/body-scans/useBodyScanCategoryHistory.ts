@@ -2,6 +2,7 @@
 /**
  * Category history: owner-scoped filtered cursor pagination.
  * Never uses a mixed global page as the authoritative source.
+ * Invalidation resets to first page (cursor null) — never appends onto stale pages.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -13,7 +14,10 @@ import {
   mergeBodyScanHistoryPages,
 } from "@/lib/data/body-scans/groupBodyScansByCategory";
 import { mayClaimCategoryEmpty } from "@/lib/data/body-scans/bodyScanCategorySummary";
-import { subscribeDocumentDeleted } from "@/lib/data/documents/documentListInvalidate";
+import {
+  bodyScanListInvalidationAffects,
+  subscribeBodyScanListInvalidation,
+} from "@/lib/data/body-scans/bodyScanListInvalidate";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import type { GetOptions } from "@/lib/api/http";
 
@@ -33,8 +37,13 @@ export type UseBodyScanCategoryHistoryOptions = {
   limit?: number;
 } & GetOptions;
 
+export type BodyScanCategoryHistoryRefetchOptions = GetOptions & {
+  /** Clear prior pages before the first page load (invalidation / focus). */
+  resetPages?: boolean;
+};
+
 export function useBodyScanCategoryHistory(opts: UseBodyScanCategoryHistoryOptions): HistoryState & {
-  refetch: (opts?: GetOptions) => void;
+  refetch: (opts?: BodyScanCategoryHistoryRefetchOptions) => void;
   loadMore: () => void;
   loadingMore: boolean;
   loadMoreError: string | null;
@@ -45,6 +54,8 @@ export function useBodyScanCategoryHistory(opts: UseBodyScanCategoryHistoryOptio
   const scanType = opts.scanType;
   const limit = opts.limit ?? BODY_SCAN_LIST_DEFAULT_LIMIT;
   const reqSeq = useRef(0);
+  const accountRef = useRef<string | null>(null);
+  accountRef.current = user?.uid ?? null;
   const stateRef = useRef<HistoryState>({ status: "partial" });
   const [state, setState] = useState<HistoryState>({ status: "partial" });
   const [loadingMore, setLoadingMore] = useState(false);
@@ -56,9 +67,11 @@ export function useBodyScanCategoryHistory(opts: UseBodyScanCategoryHistoryOptio
   }, []);
 
   const fetchFirst = useCallback(
-    async (refetchOpts?: GetOptions) => {
+    async (refetchOpts?: BodyScanCategoryHistoryRefetchOptions) => {
       const seq = ++reqSeq.current;
+      const accountAtStart = accountRef.current;
       setLoadMoreError(null);
+      setLoadingMore(false);
       if (!enabled) {
         if (seq === reqSeq.current) {
           setStateSafe({
@@ -77,19 +90,33 @@ export function useBodyScanCategoryHistory(opts: UseBodyScanCategoryHistoryOptio
 
       const token = await getIdToken(false);
       if (seq !== reqSeq.current) return;
+      if (accountRef.current !== accountAtStart) return;
       if (!token) {
         setStateSafe({ status: "error", error: "No auth token", requestId: null });
         return;
       }
 
-      if (stateRef.current.status !== "ready") setStateSafe({ status: "partial" });
+      // Invalidation / explicit reset: clear stale pages so we never append to them,
+      // and never claim empty/end-of-history while refetching.
+      if (refetchOpts?.resetPages || stateRef.current.status !== "ready") {
+        setStateSafe({ status: "partial" });
+      }
 
+      const getOpts = refetchOpts
+        ? {
+            ...(refetchOpts.cacheBust != null ? { cacheBust: refetchOpts.cacheBust } : {}),
+            ...(refetchOpts.noStore != null ? { noStore: refetchOpts.noStore } : {}),
+            ...(refetchOpts.timeoutMs != null ? { timeoutMs: refetchOpts.timeoutMs } : {}),
+          }
+        : {};
       const res = await getBodyScans(token, {
         scanType,
         limit,
-        ...refetchOpts,
+        // First page only — never reuse a stale cursor after invalidation.
+        ...getOpts,
       });
       if (seq !== reqSeq.current) return;
+      if (accountRef.current !== accountAtStart) return;
 
       const outcome = truthOutcomeFromApiResult(res);
       if (outcome.status === "ready") {
@@ -112,7 +139,7 @@ export function useBodyScanCategoryHistory(opts: UseBodyScanCategoryHistoryOptio
       }
       setStateSafe({ status: "error", error: outcome.error, requestId: outcome.requestId });
     },
-    [enabled, getIdToken, initializing, limit, scanType, setStateSafe, user],
+    [enabled, getIdToken, initializing, limit, scanType, setStateSafe, user?.uid],
   );
 
   const loadMore = useCallback(() => {
@@ -153,17 +180,21 @@ export function useBodyScanCategoryHistory(opts: UseBodyScanCategoryHistoryOptio
         hasMore: outcome.data.hasMore,
       });
     })();
-  }, [getIdToken, initializing, limit, loadingMore, scanType, setStateSafe, user]);
+  }, [getIdToken, initializing, limit, loadingMore, scanType, setStateSafe, user?.uid]);
 
   useEffect(() => {
     void fetchFirst();
   }, [fetchFirst, user?.uid, enabled, scanType]);
 
   useEffect(() => {
-    return subscribeDocumentDeleted(({ documentId }) => {
-      void fetchFirst({ cacheBust: `deleted-${documentId}-${Date.now()}` });
+    return subscribeBodyScanListInvalidation((event) => {
+      if (!bodyScanListInvalidationAffects(event, scanType)) return;
+      void fetchFirst({
+        resetPages: true,
+        cacheBust: `invalidate:${event.reason}:${Date.now()}`,
+      });
     });
-  }, [fetchFirst]);
+  }, [fetchFirst, scanType]);
 
   const isProvenEmpty = useMemo(() => {
     if (state.status !== "ready") return false;

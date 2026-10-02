@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getBodyScans, type GetBodyScansOptions } from "@/lib/api/bodyScans";
 import type { BodyScanType, BodyScansListResponseDto } from "@/lib/contracts";
-import { subscribeDocumentDeleted } from "@/lib/data/documents/documentListInvalidate";
+import {
+  bodyScanListInvalidationAffects,
+  subscribeBodyScanListInvalidation,
+} from "@/lib/data/body-scans/bodyScanListInvalidate";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import type { GetOptions } from "@/lib/api/http";
 import { BODY_SCAN_LIST_DEFAULT_LIMIT } from "@/lib/data/body-scans/groupBodyScansByCategory";
@@ -91,7 +94,7 @@ export function useBodyScans(opts?: UseBodyScansOptions): State & {
       }
       safeSet({ status: "error", error: outcome.error, requestId: outcome.requestId });
     },
-    [enabled, getIdToken, initializing, limit, scanType, setStateSafe, user],
+    [enabled, getIdToken, initializing, limit, scanType, setStateSafe, user?.uid],
   );
 
   useEffect(() => {
@@ -99,10 +102,11 @@ export function useBodyScans(opts?: UseBodyScansOptions): State & {
   }, [fetchOnce, user?.uid, enabled, scanType, limit]);
 
   useEffect(() => {
-    return subscribeDocumentDeleted(({ documentId }) => {
-      void fetchOnce({ cacheBust: `deleted-${documentId}-${Date.now()}` });
+    return subscribeBodyScanListInvalidation((event) => {
+      if (scanType && !bodyScanListInvalidationAffects(event, scanType)) return;
+      void fetchOnce({ cacheBust: `invalidate:${event.reason}:${Date.now()}` });
     });
-  }, [fetchOnce]);
+  }, [fetchOnce, scanType]);
 
   return useMemo(() => ({ ...state, refetch: fetchOnce }), [state, fetchOnce]);
 }

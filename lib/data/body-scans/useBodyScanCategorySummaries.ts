@@ -2,6 +2,7 @@
 /**
  * Landing/hub: one category-scoped limit=1 query per category.
  * Proves emptiness and latest without loading full history.
+ * Refetches on unified Body Scan list invalidation (upload/confirm/reprocess/delete).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -14,7 +15,10 @@ import {
   type BodyScanCategorySummaryRow,
   type BodyScanCategorySummaryState,
 } from "@/lib/data/body-scans/bodyScanCategorySummary";
-import { subscribeDocumentDeleted } from "@/lib/data/documents/documentListInvalidate";
+import {
+  bodyScanListInvalidationAffects,
+  subscribeBodyScanListInvalidation,
+} from "@/lib/data/body-scans/bodyScanListInvalidate";
 import { truthOutcomeFromApiResult } from "@/lib/data/truthOutcome";
 import type { GetOptions } from "@/lib/api/http";
 
@@ -40,11 +44,14 @@ export function useBodyScanCategorySummaries(opts?: UseBodyScanCategorySummaries
   const { user, initializing, getIdToken } = useAuth();
   const enabled = opts?.enabled ?? true;
   const reqSeq = useRef(0);
+  const accountRef = useRef<string | null>(null);
+  accountRef.current = user?.uid ?? null;
   const [map, setMap] = useState<SummariesMap>(() => initialMap("partial"));
 
   const fetchAll = useCallback(
     async (refetchOpts?: GetOptions) => {
       const seq = ++reqSeq.current;
+      const accountAtStart = accountRef.current;
       if (!enabled) {
         const empty = {} as SummariesMap;
         for (const type of BODY_SCAN_CATEGORY_TYPES) {
@@ -60,6 +67,7 @@ export function useBodyScanCategorySummaries(opts?: UseBodyScanCategorySummaries
 
       const token = await getIdToken(false);
       if (seq !== reqSeq.current) return;
+      if (accountRef.current !== accountAtStart) return;
       if (!token) {
         const err = {} as SummariesMap;
         for (const type of BODY_SCAN_CATEGORY_TYPES) {
@@ -69,6 +77,7 @@ export function useBodyScanCategorySummaries(opts?: UseBodyScanCategorySummaries
         return;
       }
 
+      // Enter partial so stale "No scans yet" / Latest cannot linger during refresh.
       setMap(initialMap("partial"));
 
       const results = await Promise.all(
@@ -85,6 +94,7 @@ export function useBodyScanCategorySummaries(opts?: UseBodyScanCategorySummaries
         }),
       );
       if (seq !== reqSeq.current) return;
+      if (accountRef.current !== accountAtStart) return;
 
       const next = {} as SummariesMap;
       for (const { scanType, res } of results) {
@@ -102,7 +112,7 @@ export function useBodyScanCategorySummaries(opts?: UseBodyScanCategorySummaries
       }
       setMap(next);
     },
-    [enabled, getIdToken, initializing, user],
+    [enabled, getIdToken, initializing, user?.uid],
   );
 
   useEffect(() => {
@@ -110,8 +120,9 @@ export function useBodyScanCategorySummaries(opts?: UseBodyScanCategorySummaries
   }, [fetchAll, user?.uid, enabled]);
 
   useEffect(() => {
-    return subscribeDocumentDeleted(({ documentId }) => {
-      void fetchAll({ cacheBust: `deleted-${documentId}-${Date.now()}` });
+    return subscribeBodyScanListInvalidation((event) => {
+      if (!bodyScanListInvalidationAffects(event, "all")) return;
+      void fetchAll({ cacheBust: `invalidate:${event.reason}:${Date.now()}` });
     });
   }, [fetchAll]);
 

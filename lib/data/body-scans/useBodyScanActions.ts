@@ -3,8 +3,9 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { confirmBodyScan, deleteBodyScan, reprocessBodyScan } from "@/lib/api/bodyScans";
-import type { BodyScanConfirmRequestDto } from "@/lib/contracts";
+import type { BodyScanConfirmRequestDto, BodyScanType } from "@/lib/contracts";
 import { clearBodyScanOriginalCacheForDocument } from "@/lib/data/body-scans/bodyScanOriginalCache";
+import { invalidateBodyScanList } from "@/lib/data/body-scans/bodyScanListInvalidate";
 import {
   emitBodyScanRuntimeDevStatus,
   httpStatusToDevBucket,
@@ -12,6 +13,16 @@ import {
 import { markDocumentDeleted } from "@/lib/data/documents/documentListInvalidate";
 
 export type BodyScanActionKind = "confirm" | "reprocess" | "delete";
+
+export type BodyScanConfirmOptions = {
+  /** Prior category when known — used to scope type-change invalidation. */
+  previousScanType?: BodyScanType;
+};
+
+export type BodyScanDeleteOptions = {
+  /** Category when known — scopes delete invalidation; unknown → all. */
+  scanType?: BodyScanType;
+};
 
 export type BodyScanActionOutcome =
   | { ok: true; kind: BodyScanActionKind }
@@ -148,10 +159,28 @@ export function useBodyScanActions(scanId: string) {
   );
 
   const confirm = useCallback(
-    (body: BodyScanConfirmRequestDto) =>
+    (body: BodyScanConfirmRequestDto, options?: BodyScanConfirmOptions) =>
       run("confirm", (token, idempotencyKey) =>
         confirmBodyScan(token, scanId, body, { idempotencyKey }),
-      ),
+      ).then((outcome) => {
+        if (!outcome.ok) return outcome;
+        const previous = options?.previousScanType;
+        const next = body.scanType;
+        if (previous && next && previous !== next) {
+          invalidateBodyScanList({
+            reason: "scan_type_changed",
+            categories: [previous, next],
+          });
+        } else if (previous || next) {
+          invalidateBodyScanList({
+            reason: "confirm_success",
+            categories: previous && next ? [previous, next] : previous ? [previous] : [next!],
+          });
+        } else {
+          invalidateBodyScanList({ reason: "confirm_success", categories: "all" });
+        }
+        return outcome;
+      }),
     [run, scanId],
   );
 
@@ -159,25 +188,38 @@ export function useBodyScanActions(scanId: string) {
     () =>
       run("reprocess", (token, idempotencyKey) =>
         reprocessBodyScan(token, scanId, { idempotencyKey }),
-      ),
+      ).then((outcome) => {
+        if (outcome.ok) {
+          // Detector may revise category/status — invalidate all five summaries.
+          invalidateBodyScanList({ reason: "reprocess_success", categories: "all" });
+        }
+        return outcome;
+      }),
     [run, scanId],
   );
 
-  const remove = useCallback(async () => {
-    const outcome = await run("delete", (token) => deleteBodyScan(token, scanId));
-    // Scan id and document id are the same record, so the document lists invalidate too.
-    if (outcome.ok) {
-      markDocumentDeleted(scanId);
-      // B-3E-CACHE-01: drop any local original preview after authoritative server delete.
-      if (user?.uid) {
-        await clearBodyScanOriginalCacheForDocument({
-          userId: user.uid,
-          documentId: scanId,
-        }).catch(() => undefined);
+  const remove = useCallback(
+    async (options?: BodyScanDeleteOptions) => {
+      const outcome = await run("delete", (token) => deleteBodyScan(token, scanId));
+      // Scan id and document id are the same record, so the document lists invalidate too.
+      if (outcome.ok) {
+        markDocumentDeleted(scanId);
+        invalidateBodyScanList({
+          reason: "delete_success",
+          categories: options?.scanType ? [options.scanType] : "all",
+        });
+        // B-3E-CACHE-01: drop any local original preview after authoritative server delete.
+        if (user?.uid) {
+          await clearBodyScanOriginalCacheForDocument({
+            userId: user.uid,
+            documentId: scanId,
+          }).catch(() => undefined);
+        }
       }
-    }
-    return outcome;
-  }, [run, scanId, user?.uid]);
+      return outcome;
+    },
+    [run, scanId, user?.uid],
+  );
 
   const clearError = useCallback(() => {
     setState((prev) => (prev.errorMessage == null ? prev : { ...prev, errorMessage: null }));

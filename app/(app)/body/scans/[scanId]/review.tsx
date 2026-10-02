@@ -33,10 +33,15 @@ export default function BodyScanReviewScreen() {
       corrections: { fieldId: string; value: number | null }[];
       acknowledgedFieldIds: string[];
     }) => {
-      const outcome = await actions.confirm({
-        corrections: submission.corrections,
-        acknowledgedFieldIds: submission.acknowledgedFieldIds,
-      });
+      const outcome = await actions.confirm(
+        {
+          corrections: submission.corrections,
+          acknowledgedFieldIds: submission.acknowledgedFieldIds,
+        },
+        review.status === "ready"
+          ? { previousScanType: review.data.scanType }
+          : undefined,
+      );
       if (outcome.ok) router.replace(`/(app)/body/scans/${scanId}`);
       else review.refetch({ cacheBust: `confirm-${Date.now()}` });
     },

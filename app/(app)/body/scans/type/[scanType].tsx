@@ -1,5 +1,6 @@
-import React, { useEffect, useLayoutEffect } from "react";
+import React, { useCallback, useEffect, useLayoutEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 
 import type { BodyScanType } from "@/lib/contracts";
@@ -41,6 +42,16 @@ export default function BodyScanCategoryHistoryScreen() {
     scanType: scanType ?? "other",
     enabled: enabled && scanType != null,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!enabled || scanType == null) return;
+      history.refetch({
+        resetPages: true,
+        cacheBust: `historyFocus:${Date.now()}`,
+      });
+    }, [enabled, history.refetch, scanType]),
+  );
 
   useLayoutEffect(() => {
     if (!category) return;

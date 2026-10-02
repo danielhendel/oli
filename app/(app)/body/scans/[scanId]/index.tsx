@@ -77,9 +77,11 @@ export default function BodyScanDetailScreen() {
   }, [actions, detail, scan?.canRetry, scanId.length]);
 
   const onDelete = useCallback(async () => {
-    const outcome = await actions.remove();
+    const outcome = await actions.remove(
+      scan?.scanType ? { scanType: scan.scanType } : undefined,
+    );
     if (outcome.ok) router.replace("/(app)/body/scans");
-  }, [actions, router]);
+  }, [actions, router, scan?.scanType]);
 
   const detailActions = useMemo<BodyScanDetailAction[]>(() => {
     if (!scan) return [];
