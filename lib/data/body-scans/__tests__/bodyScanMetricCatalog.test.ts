@@ -19,6 +19,12 @@ describe("bodyScanMetricCatalog", () => {
     expect(BODY_SCAN_METRIC_LABELS.skeletal_muscle_mass).not.toBe(BODY_SCAN_METRIC_LABELS.lean_mass);
   });
 
+  it("mirrors canonical registry labels (single label source)", () => {
+    expect(BODY_SCAN_METRIC_LABELS.fat_percent).toBe("Body Fat");
+    expect(BODY_SCAN_METRIC_LABELS.bone_mineral_density).toBe("Total Body BMD");
+    expect(BODY_SCAN_METRIC_LABELS.fat_free_mass).toBe("Fat-Free Mass");
+  });
+
   it("routes metrics to the designed sections", () => {
     expect(bodyScanSectionForMetric({ metricId: "fat_percent", region: "total" })).toBe("overview");
     expect(bodyScanSectionForMetric({ metricId: "visceral_fat_mass", region: "total" })).toBe(
@@ -44,7 +50,7 @@ describe("bodyScanMetricCatalog", () => {
 
   it("labels regional metrics with their region", () => {
     expect(bodyScanMetricDisplayLabel({ metricId: "fat_percent", region: "total" })).toBe(
-      "Total Body Fat",
+      "Body Fat",
     );
     expect(bodyScanMetricDisplayLabel({ metricId: "lean_mass", region: "left_leg" })).toBe(
       "Left Leg Lean Mass",

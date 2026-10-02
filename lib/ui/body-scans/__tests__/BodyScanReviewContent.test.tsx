@@ -95,7 +95,7 @@ function review(overrides: Partial<BodyScanReviewResponseDto> = {}): BodyScanRev
         fieldId: "total:bone_mineral_density",
         metricId: "bone_mineral_density",
         region: "total",
-        label: "Bone Mineral Density",
+        label: "Total Body BMD",
         rawValue: "1.186 g/cm²",
         normalizedValue: 1.186,
         unit: "g_per_cm2",

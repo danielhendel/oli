@@ -21,7 +21,7 @@ const SCAN: BodyScanDetailDto = {
   uploadedAt: "2026-03-05T12:00:00.000Z",
   deviceLabel: "GE Lunar iDXA",
   adapterLabel: "Live Lean Rx DXA v1.0.0",
-  sourceFilename: "body-scan.pdf",
+  sourceFilename: "Original DXA report",
   metrics: [
     metric({ metricId: "fat_percent", region: "total", value: 21.4, unit: "percent" }),
     metric({ metricId: "lean_mass", region: "total", value: 58.2, unit: "kg" }),
@@ -52,24 +52,29 @@ describe("buildBodyScanDetailSections", () => {
     ]);
   });
 
-  it("puts lateral lean mass only in the balance section, with a difference row", () => {
+  it("puts lateral lean mass in regional lean region cards, with a difference row", () => {
     const sections = buildBodyScanDetailSections(SCAN);
     const regional = sections.find((s) => s.id === "regional_composition");
-    expect(regional?.rows.map((r) => r.label)).toEqual(["Trunk Fat Mass"]);
+    expect(regional?.regionBlocks.map((b) => b.title)).toEqual(["Trunk"]);
+    expect(regional?.regionBlocks[0]?.rows.map((r) => r.label)).toEqual(["Fat Mass"]);
 
     const balance = sections.find((s) => s.id === "regional_lean_balance");
+    expect(balance?.regionBlocks.map((b) => b.title)).toEqual(["Right Arm", "Left Arm"]);
+    expect(balance?.regionBlocks.flatMap((b) => b.rows.map((r) => r.label))).toEqual([
+      "Lean Mass",
+      "Lean Mass",
+    ]);
     expect(balance?.rows.map((r) => r.label)).toEqual([
-      "Left Arm Lean Mass",
-      "Right Arm Lean Mass",
       "Right Arm − Left Arm Difference",
     ]);
-    expect(balance?.rows[2]?.valueText).toBe("+0.3 kg");
+    expect(balance?.rows[0]?.valueText).toBe("+0.3 kg");
   });
 
   it("carries correction flags through to rows", () => {
     const sections = buildBodyScanDetailSections(SCAN);
     const balance = sections.find((s) => s.id === "regional_lean_balance");
-    expect(balance?.rows.find((r) => r.label === "Right Arm Lean Mass")?.corrected).toBe(true);
+    const right = balance?.regionBlocks.find((b) => b.region === "right_arm");
+    expect(right?.rows[0]?.corrected).toBe(true);
   });
 
   it("omits sections with no reported metrics instead of showing zeros", () => {
@@ -79,7 +84,10 @@ describe("buildBodyScanDetailSections", () => {
     };
     const sections = buildBodyScanDetailSections(sparse);
     expect(sections.map((s) => s.id)).toEqual(["overview", "source"]);
-    const values = sections.flatMap((s) => s.rows.map((r) => r.valueText));
+    const values = sections.flatMap((s) => [
+      ...s.rows.map((r) => r.valueText),
+      ...s.regionBlocks.flatMap((b) => b.rows.map((r) => r.valueText)),
+    ]);
     expect(values).not.toContain("0.0 kg");
   });
 
@@ -94,9 +102,18 @@ describe("buildBodyScanDetailSections", () => {
     expect(source?.rows.find((r) => r.key === "source_performed_at")?.valueText).toBeNull();
   });
 
-  it("formats bone density with report precision", () => {
+  it("formats bone density with report precision and Total Body BMD label", () => {
     const sections = buildBodyScanDetailSections(SCAN);
     const bone = sections.find((s) => s.id === "total_body_bone");
+    expect(bone?.rows[0]?.label).toBe("Total Body BMD");
     expect(bone?.rows[0]?.valueText).toBe("1.234 g/cm²");
+  });
+
+  it("labels body fat from the registry", () => {
+    const sections = buildBodyScanDetailSections(SCAN);
+    const overview = sections.find((s) => s.id === "overview");
+    expect(overview?.rows.map((r) => r.label)).toContain("Body Fat");
+    expect(overview?.rows.map((r) => r.label)).not.toContain("Fat");
+    expect(overview?.rows.map((r) => r.label)).not.toContain("Total Body Fat");
   });
 });
