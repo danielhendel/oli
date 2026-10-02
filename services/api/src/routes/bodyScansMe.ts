@@ -17,10 +17,12 @@ import {
   bodyScanDetailResponseDtoSchema,
   bodyScanReprocessResponseDtoSchema,
   bodyScanReviewResponseDtoSchema,
+  bodyScanTypeSchema,
   bodyScansListResponseDtoSchema,
   userDocumentRecordSchema,
   type BodyScanExtractionDraft,
   type BodyScanRecord,
+  type BodyScanType,
   type DocumentIngestionJob,
   type UserDocumentRecord,
 } from "@oli/contracts";
@@ -59,7 +61,15 @@ import {
   transitionBodyScanStatus,
 } from "../../../../lib/data/body-scans/bodyScanStatusMachine";
 import { assertBodyScanWriteTargetAllowed } from "../../../../lib/data/body-scans/bodyScanTrendIsolation";
+import { normalizeBodyScanType } from "../../../../lib/data/body-scans/normalizeBodyScanType";
+import {
+  bodyScanListCursorMatchesFilter,
+  decodeBodyScanListCursor,
+  encodeBodyScanListCursor,
+} from "../lib/bodyScans/bodyScanListCursor";
 
+export const BODY_SCAN_LIST_DEFAULT_LIMIT = 25;
+export const BODY_SCAN_LIST_MAX_LIMIT = 50;
 function getAdmin() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   return require("../firebaseAdmin").admin as typeof import("../firebaseAdmin").admin;
@@ -172,6 +182,40 @@ function deleteLifecycleDeps(uid: string): DeleteDocumentLifecycleDeps {
   };
 }
 
+function isListableBodyScan(record: BodyScanRecord | null | undefined): boolean {
+  if (!record) return false;
+  if (record.retentionStatus === "deleted") return false;
+  if (record.status === "deleted" || record.status === "uploading") return false;
+  return true;
+}
+
+function parseBodyScanListLimit(raw: unknown): number {
+  if (typeof raw !== "string") return BODY_SCAN_LIST_DEFAULT_LIMIT;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return BODY_SCAN_LIST_DEFAULT_LIMIT;
+  return Math.min(Math.max(Math.trunc(n), 1), BODY_SCAN_LIST_MAX_LIMIT);
+}
+
+function parseBodyScanListScanType(
+  raw: unknown,
+): { ok: true; scanType?: BodyScanType } | { ok: false } {
+  if (raw == null || raw === "") return { ok: true };
+  if (typeof raw !== "string") return { ok: false };
+  const normalized = normalizeBodyScanType(raw);
+  // Reject free-form strings that normalize only to other via unknown path when the
+  // input was not an explicit governed type / evidence-backed alias.
+  const direct = bodyScanTypeSchema.safeParse(raw.trim().toLowerCase());
+  if (direct.success) return { ok: true, scanType: direct.data };
+  // Evidence-backed aliases (dexa → dxa, bodpod → bod_pod).
+  if (normalized !== "other" || raw.trim().toLowerCase() === "other") {
+    return { ok: true, scanType: normalized };
+  }
+  // dexa / bodpod aliases:
+  if (raw.trim().toLowerCase() === "dexa") return { ok: true, scanType: "dxa" };
+  if (raw.trim().toLowerCase() === "bodpod") return { ok: true, scanType: "bod_pod" };
+  return { ok: false };
+}
+
 /** GET /users/me/body-scans */
 router.get(
   "/",
@@ -182,26 +226,96 @@ router.get(
       return;
     }
 
-    const limitRaw = typeof req.query.limit === "string" ? Number(req.query.limit) : 50;
-    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(Math.trunc(limitRaw), 1), 50) : 50;
+    const limit = parseBodyScanListLimit(req.query.limit);
+    const scanTypeParsed = parseBodyScanListScanType(req.query.scanType);
+    if (!scanTypeParsed.ok) {
+      res.status(400).json({
+        ok: false,
+        error: { code: "INVALID_SCAN_TYPE", requestId: getRid(req) },
+      });
+      return;
+    }
+    const scanType = scanTypeParsed.scanType;
 
-    const snap = await userCollection(uid, "bodyScans")
-      .orderBy("createdAt", "desc")
-      .limit(limit)
-      .get();
-
-    const items = [];
-    for (const doc of snap.docs) {
-      const record = doc.data() as BodyScanRecord;
-      if (!record || record.retentionStatus === "deleted") continue;
-      if (record.status === "deleted" || record.status === "uploading") continue;
-      items.push(toBodyScanListItemDto({ ...record, id: doc.id }));
+    const cursorRaw = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+    let cursorPayload = null as ReturnType<typeof decodeBodyScanListCursor>;
+    if (cursorRaw) {
+      cursorPayload = decodeBodyScanListCursor(cursorRaw);
+      if (!cursorPayload || !bodyScanListCursorMatchesFilter(cursorPayload, scanType)) {
+        res.status(400).json({
+          ok: false,
+          error: { code: "INVALID_CURSOR", requestId: getRid(req) },
+        });
+        return;
+      }
     }
 
-    const payload = { ok: true as const, items, nextCursor: null };
+    const col = userCollection(uid, "bodyScans");
+    // Sort: createdAt desc (always present). UI prefers performedAt for labels.
+    // Category filter uses scanType equality — composite index: scanType + createdAt.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = col.orderBy("createdAt", "desc");
+    if (scanType) {
+      query = col.where("scanType", "==", scanType).orderBy("createdAt", "desc");
+    }
+
+    if (cursorPayload) {
+      const cursorSnap = await col.doc(cursorPayload.id).get();
+      if (!cursorSnap.exists) {
+        res.status(400).json({
+          ok: false,
+          error: { code: "INVALID_CURSOR", requestId: getRid(req) },
+        });
+        return;
+      }
+      const cursorRecord = cursorSnap.data() as BodyScanRecord | undefined;
+      if (scanType && cursorRecord?.scanType !== scanType) {
+        res.status(400).json({
+          ok: false,
+          error: { code: "INVALID_CURSOR", requestId: getRid(req) },
+        });
+        return;
+      }
+      query = query.startAfter(cursorSnap);
+    }
+
+    // Over-fetch to determine hasMore without a second round-trip.
+    const snap = await query.limit(limit + 1).get();
+    const rawDocs = snap.docs as { id: string; data: () => unknown }[];
+
+    const listable: { id: string; record: BodyScanRecord }[] = [];
+    for (const doc of rawDocs) {
+      const record = { ...(doc.data() as BodyScanRecord), id: doc.id };
+      if (!isListableBodyScan(record)) continue;
+      listable.push({ id: doc.id, record });
+    }
+
+    const hasMore = listable.length > limit;
+    const page = hasMore ? listable.slice(0, limit) : listable;
+    const items = page.map(({ record }) => toBodyScanListItemDto(record));
+
+    const last = page[page.length - 1];
+    const nextCursor =
+      hasMore && last
+        ? encodeBodyScanListCursor({
+            v: 1,
+            id: last.id,
+            scanType: scanType ?? null,
+          })
+        : null;
+
+    const payload = {
+      ok: true as const,
+      items,
+      nextCursor,
+      hasMore: hasMore && nextCursor != null,
+    };
     const validated = bodyScansListResponseDtoSchema.safeParse(payload);
     if (!validated.success) {
-      res.status(500).json({ ok: false, error: { code: "INTERNAL_CONTRACT_MISMATCH", requestId: getRid(req) } });
+      res.status(500).json({
+        ok: false,
+        error: { code: "INTERNAL_CONTRACT_MISMATCH", requestId: getRid(req) },
+      });
       return;
     }
     res.status(200).json(validated.data);

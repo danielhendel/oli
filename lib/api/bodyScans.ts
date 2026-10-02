@@ -15,15 +15,30 @@ import {
   type BodyScanDetailResponseDto,
   type BodyScanReprocessResponseDto,
   type BodyScanReviewResponseDto,
+  type BodyScanType,
   type BodyScansListResponseDto,
 } from "@/lib/contracts";
 
+export type GetBodyScansOptions = GetOptions & {
+  limit?: number;
+  scanType?: BodyScanType;
+  cursor?: string | null;
+};
+
+function buildBodyScansListPath(opts?: GetBodyScansOptions): string {
+  const params = new URLSearchParams();
+  if (opts?.limit != null) params.set("limit", String(opts.limit));
+  if (opts?.scanType) params.set("scanType", opts.scanType);
+  if (opts?.cursor) params.set("cursor", opts.cursor);
+  const qs = params.toString();
+  return qs.length > 0 ? `/users/me/body-scans?${qs}` : "/users/me/body-scans";
+}
+
 export const getBodyScans = async (
   idToken: string,
-  opts?: GetOptions & { limit?: number },
+  opts?: GetBodyScansOptions,
 ): Promise<ApiResult<BodyScansListResponseDto>> => {
-  const path = opts?.limit != null ? `/users/me/body-scans?limit=${opts.limit}` : "/users/me/body-scans";
-  return apiGetZodAuthed(path, idToken, bodyScansListResponseDtoSchema, opts);
+  return apiGetZodAuthed(buildBodyScansListPath(opts), idToken, bodyScansListResponseDtoSchema, opts);
 };
 
 export const getBodyScanDetail = async (

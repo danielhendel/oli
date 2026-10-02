@@ -206,23 +206,87 @@ describe("Body Scans routes", () => {
 
     (userCollection as jest.Mock).mockImplementation((uid: string, name: string) => {
       const store = storeFor(uid, name);
-      const entries = (field?: string, value?: unknown) =>
-        [...store.entries()].filter(([, data]) => (field ? data[field] === value : true));
-      const query = (field?: string, value?: unknown) => ({
-        where: (f2: string, _op: string, v2: unknown) => query(f2, v2),
-        limit: () => ({
-          get: async () => ({ docs: entries(field, value).map(([id, data]) => ({ id, data: () => data })) }),
-        }),
-        get: async () => ({ docs: entries(field, value).map(([id, data]) => ({ id, data: () => data })) }),
-      });
+
+      type DocSnap = { id: string; data: () => Record<string, unknown>; exists: boolean };
+
+      function allDocs(): DocSnap[] {
+        return [...store.entries()].map(([id, data]) => ({
+          id,
+          exists: true,
+          data: () => data,
+        }));
+      }
+
+      function buildQuery(state: {
+        filters: { field: string; value: unknown }[];
+        orderByField: string | null;
+        orderDir: "asc" | "desc";
+        startAfterId: string | null;
+      }) {
+        const run = (limitN?: number) => {
+          let docs = allDocs();
+          for (const f of state.filters) {
+            docs = docs.filter((d) => d.data()[f.field] === f.value);
+          }
+          if (state.orderByField) {
+            const field = state.orderByField;
+            docs = [...docs].sort((a, b) => {
+              const av = String(a.data()[field] ?? "");
+              const bv = String(b.data()[field] ?? "");
+              if (av === bv) return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+              const cmp = av < bv ? -1 : 1;
+              return state.orderDir === "desc" ? -cmp : cmp;
+            });
+          }
+          if (state.startAfterId) {
+            const idx = docs.findIndex((d) => d.id === state.startAfterId);
+            docs = idx >= 0 ? docs.slice(idx + 1) : [];
+          }
+          if (limitN != null) docs = docs.slice(0, limitN);
+          return { docs, size: docs.length };
+        };
+
+        const api = {
+          where: (field: string, _op: string, value: unknown) =>
+            buildQuery({
+              ...state,
+              filters: [...state.filters, { field, value }],
+            }),
+          orderBy: (field: string, dir?: string) =>
+            buildQuery({
+              ...state,
+              orderByField: field,
+              orderDir: dir === "asc" ? "asc" : "desc",
+            }),
+          startAfter: (snap: { id: string }) =>
+            buildQuery({
+              ...state,
+              startAfterId: snap.id,
+            }),
+          limit: (n: number) => ({
+            get: async () => run(n),
+          }),
+          get: async () => run(),
+        };
+        return api;
+      }
+
       return {
         doc: (id?: string) => makeDocRef(store, id ?? `auto_${store.size + 1}`),
-        where: (field: string, _op: string, value: unknown) => query(field, value),
-        orderBy: () => ({
-          limit: () => ({
-            get: async () => ({ docs: entries().map(([id, data]) => ({ id, data: () => data })) }),
+        where: (field: string, _op: string, value: unknown) =>
+          buildQuery({
+            filters: [{ field, value }],
+            orderByField: null,
+            orderDir: "desc",
+            startAfterId: null,
           }),
-        }),
+        orderBy: (field: string, dir?: string) =>
+          buildQuery({
+            filters: [],
+            orderByField: field,
+            orderDir: dir === "asc" ? "asc" : "desc",
+            startAfterId: null,
+          }),
       };
     });
   });
@@ -239,11 +303,123 @@ describe("Body Scans routes", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.items).toHaveLength(1);
+    expect(json.hasMore).toBe(false);
+    expect(json.nextCursor).toBeNull();
     expect(json.items[0]).toMatchObject({ id: "doc_1", scanType: "dxa", status: "needs_review" });
     const serialized = JSON.stringify(json);
     expect(serialized).not.toContain("user_123");
     expect(serialized).not.toContain("storageObjectId");
     expect(serialized).not.toContain(DOCUMENT.checksumSha256);
+  });
+
+  function seedScan(id: string, overrides: Record<string, unknown> = {}) {
+    storeFor("user_123", "bodyScans").set(id, {
+      ...SCAN,
+      id,
+      documentId: id,
+      createdAt: overrides.createdAt ?? SCAN.createdAt,
+      ...overrides,
+    });
+  }
+
+  it("filters by scanType and paginates with nextCursor/hasMore", async () => {
+    // 3 InBody + 2 DXA; request InBody limit=2 → hasMore, then page 2 empties.
+    seedScan("ib_1", { scanType: "inbody", method: "other", createdAt: "2026-03-05T15:00:00.000Z" });
+    seedScan("ib_2", { scanType: "inbody", method: "other", createdAt: "2026-03-05T14:00:00.000Z" });
+    seedScan("ib_3", { scanType: "inbody", method: "other", createdAt: "2026-03-05T13:00:00.000Z" });
+    seedScan("dx_1", { scanType: "dxa", method: "dxa", createdAt: "2026-03-05T16:00:00.000Z" });
+    seedScan("dx_2", { scanType: "dxa", method: "dxa", createdAt: "2026-03-05T12:00:00.000Z" });
+
+    const page1 = await fetch(`${baseUrl}/users/me/body-scans?scanType=inbody&limit=2`);
+    expect(page1.status).toBe(200);
+    const p1 = await page1.json();
+    expect(p1.items.map((i: { id: string }) => i.id)).toEqual(["ib_1", "ib_2"]);
+    expect(p1.hasMore).toBe(true);
+    expect(typeof p1.nextCursor).toBe("string");
+    expect(p1.items.every((i: { scanType: string }) => i.scanType === "inbody")).toBe(true);
+
+    const page2 = await fetch(
+      `${baseUrl}/users/me/body-scans?scanType=inbody&limit=2&cursor=${encodeURIComponent(p1.nextCursor)}`,
+    );
+    expect(page2.status).toBe(200);
+    const p2 = await page2.json();
+    expect(p2.items.map((i: { id: string }) => i.id)).toEqual(["ib_3"]);
+    expect(p2.hasMore).toBe(false);
+    expect(p2.nextCursor).toBeNull();
+
+    // All three InBody reachable exactly once across pages.
+    const allIds = [...p1.items, ...p2.items].map((i: { id: string }) => i.id);
+    expect(allIds).toEqual(["ib_1", "ib_2", "ib_3"]);
+  });
+
+  it("rejects invalid scanType and malformed / mismatched cursors", async () => {
+    seedScan("ib_1", { scanType: "inbody", method: "other", createdAt: "2026-03-05T15:00:00.000Z" });
+    seedScan("ib_2", { scanType: "inbody", method: "other", createdAt: "2026-03-05T14:00:00.000Z" });
+
+    const badType = await fetch(`${baseUrl}/users/me/body-scans?scanType=not_a_type`);
+    expect(badType.status).toBe(400);
+    expect((await badType.json()).error.code).toBe("INVALID_SCAN_TYPE");
+
+    const badCursor = await fetch(`${baseUrl}/users/me/body-scans?cursor=not-opaque`);
+    expect(badCursor.status).toBe(400);
+    expect((await badCursor.json()).error.code).toBe("INVALID_CURSOR");
+
+    const page = await fetch(`${baseUrl}/users/me/body-scans?scanType=inbody&limit=1`);
+    const pageJson = await page.json();
+    expect(pageJson.hasMore).toBe(true);
+    expect(typeof pageJson.nextCursor).toBe("string");
+
+    // Cursor bound to inbody must not continue a dxa filter.
+    const mismatch = await fetch(
+      `${baseUrl}/users/me/body-scans?scanType=dxa&limit=1&cursor=${encodeURIComponent(pageJson.nextCursor)}`,
+    );
+    expect(mismatch.status).toBe(400);
+    expect((await mismatch.json()).error.code).toBe("INVALID_CURSOR");
+  });
+
+  it("category limit=1 summary returns newest in category (not mixed-page empty)", async () => {
+    // Newest 50-equivalent: newest are DXA; older InBody still found by category query.
+    for (let i = 0; i < 5; i++) {
+      seedScan(`dx_${i}`, {
+        scanType: "dxa",
+        method: "dxa",
+        createdAt: `2026-03-0${6 + (i % 3)}T1${i}:00:00.000Z`,
+      });
+    }
+    seedScan("ib_old", {
+      scanType: "inbody",
+      method: "other",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    const res = await fetch(`${baseUrl}/users/me/body-scans?scanType=inbody&limit=1`);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.items).toHaveLength(1);
+    expect(json.items[0].id).toBe("ib_old");
+    expect(json.items[0].scanType).toBe("inbody");
+    expect(json.hasMore).toBe(false);
+  });
+
+  it("pages same-timestamp records without duplicate or skip (id tie-break)", async () => {
+    const ts = "2026-03-05T12:00:00.000Z";
+    seedScan("same_a", { scanType: "dxa", createdAt: ts });
+    seedScan("same_b", { scanType: "dxa", createdAt: ts });
+    seedScan("same_c", { scanType: "dxa", createdAt: ts });
+
+    const p1 = await (await fetch(`${baseUrl}/users/me/body-scans?scanType=dxa&limit=2`)).json();
+    expect(p1.items).toHaveLength(2);
+    expect(p1.hasMore).toBe(true);
+    const p2 = await (
+      await fetch(
+        `${baseUrl}/users/me/body-scans?scanType=dxa&limit=2&cursor=${encodeURIComponent(p1.nextCursor)}`,
+      )
+    ).json();
+    expect(p2.items).toHaveLength(1);
+    expect(p2.hasMore).toBe(false);
+    const ids = [...p1.items, ...p2.items].map((i: { id: string }) => i.id);
+    expect(new Set(ids).size).toBe(3);
+    expect(ids.sort()).toEqual(["same_a", "same_b", "same_c"]);
   });
 
   it("detail uses a non-identifying Body Scan source label", async () => {

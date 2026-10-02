@@ -326,6 +326,17 @@ export const bodyScansListResponseDtoSchema = z
     ok: z.literal(true),
     items: z.array(bodyScanListItemDtoSchema),
     nextCursor: z.string().nullable(),
+    /** True when another page is available under the same filter. */
+    hasMore: z.boolean(),
+  })
+  .strip();
+
+/** Query params for GET /users/me/body-scans (validated at the route). */
+export const bodyScansListQuerySchema = z
+  .object({
+    scanType: bodyScanTypeSchema.optional(),
+    limit: z.number().int().min(1).max(50).optional(),
+    cursor: z.string().min(1).max(512).optional(),
   })
   .strip();
 
@@ -468,6 +479,7 @@ export type BodyScanRecord = z.infer<typeof bodyScanRecordSchema>;
 export type BodyScanFact = z.infer<typeof bodyScanFactSchema>;
 export type BodyScanListItemDto = z.infer<typeof bodyScanListItemDtoSchema>;
 export type BodyScansListResponseDto = z.infer<typeof bodyScansListResponseDtoSchema>;
+export type BodyScansListQuery = z.infer<typeof bodyScansListQuerySchema>;
 export type BodyScanMetricDto = z.infer<typeof bodyScanMetricDtoSchema>;
 export type BodyScanDetailDto = z.infer<typeof bodyScanDetailDtoSchema>;
 export type BodyScanDetailResponseDto = z.infer<typeof bodyScanDetailResponseDtoSchema>;

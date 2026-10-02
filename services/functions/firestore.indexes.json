@@ -90,6 +90,14 @@
         { "fieldPath": "schemaVersion", "order": "ASCENDING" },
         { "fieldPath": "collectedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "bodyScans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "scanType", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

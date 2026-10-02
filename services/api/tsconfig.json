@@ -30,6 +30,7 @@
     "../../lib/data/body-scans/bodyScanStatusMachine.ts",
     "../../lib/data/body-scans/bodyScanTrendIsolation.ts",
     "../../lib/data/body-scans/bodyScanCategoryCatalog.ts",
+    "../../lib/data/body-scans/normalizeBodyScanType.ts",
     "../../lib/data/body-scans/confirmBodyScanMetrics.ts",
     "../../lib/data/documents/documentTypes.ts",
     "../../lib/data/documents/documentStatus.ts",
