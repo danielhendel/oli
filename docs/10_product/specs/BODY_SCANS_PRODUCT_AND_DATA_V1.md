@@ -70,12 +70,12 @@ For InBody / Evolt / Bod Pod / Other:
 
 ## 4. Supported V1 capabilities
 
-1. Body Scans section on Body Composition (after Components)
-2. Body Scans list (newest first)
-3. Add Scan PDF flow (PDF only)
+1. Body Scans section on Body Composition (after Components) — **category-first** grouped navigator
+2. Body Scans hub + type-specific category history (`/(app)/body/scans/type/[scanType]`, newest first)
+3. Add Scan PDF flow (PDF only; category chooser from section Add; `?scanType=` preset from category)
 4. Private original PDF storage (Document OS Model A)
 5. Asynchronous / app-close-safe processing (poll status; do not block UI on extraction)
-6. Scan-type detection and correction
+6. Scan-type detection and correction (preferred category at upload when no adapter candidate)
 7. DXA automated extraction adapter (Live Lean / GE Lunar)
 8. Review-and-confirm flow
 9. Designed Body Scan detail page
@@ -90,6 +90,8 @@ For InBody / Evolt / Bod Pod / Other:
 18. Loading / empty / error / offline states
 19. Feature flag `bodyScans` (dev enabled; production disabled)
 20. Account isolation and rules tests
+
+**Category vs method:** product categories (DXA, InBody, Evolt, Bod Pod, Other) are navigation labels. Scientific method remains separate (`inbody`/`evolt` → `bia`; `bod_pod` → `air_displacement`).
 
 ---
 

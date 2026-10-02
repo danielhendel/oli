@@ -12,7 +12,23 @@
 
 Upload a scan report (PDF) from Body Composition → Body Scans, review the values the adapter read, correct anything that differs, save them, open the original report, re-read the report, and delete the scan. Nothing is recorded until the user explicitly confirms it.
 
-Routes: `/(app)/body/scans`, `/(app)/body/scans/new`, `/(app)/body/scans/[scanId]`, `/(app)/body/scans/[scanId]/review`, `/(app)/body/scans/[scanId]/report`. The former `/(app)/body/dexa` and `/(app)/scans` placeholders now redirect into this experience.
+### Navigation hierarchy (category-first)
+
+```text
+Body Composition
+      ↓
+Body Scan category (DXA / InBody / Evolt / Bod Pod / Other)
+      ↓
+Category history (newest first)
+      ↓
+Individual scan result
+```
+
+Landing and hub show a compact grouped category list (stable order). Category rows open type-specific history. Add from the section opens a category chooser; Add from a category page opens upload with `?scanType=` preselected. Invalid `scanType` routes fail closed to the Body Scans hub.
+
+Product category is separate from scientific method (InBody/Evolt → `bia`; Bod Pod → `air_displacement`). Preferred category at upload is stored on the document and applied when no adapter sets `scanTypeCandidate`.
+
+Routes: `/(app)/body/scans`, `/(app)/body/scans/type/[scanType]`, `/(app)/body/scans/new`, `/(app)/body/scans/[scanId]`, `/(app)/body/scans/[scanId]/review`, `/(app)/body/scans/[scanId]/report`. The former `/(app)/body/dexa` and `/(app)/scans` placeholders now redirect into this experience.
 
 ---
 
