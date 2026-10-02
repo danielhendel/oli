@@ -1,7 +1,7 @@
 # Body Scan Canonical Metric Registry
 
-**Status:** Stage 3E Phase A–C implemented  
-**Authority:** Subordinate to Constitution / code+CI; companion to `BODY_SCANS_PRODUCT_AND_DATA_V1.md`  
+**Status:** Stage 3E Phase A–E implemented
+**Authority:** Subordinate to Constitution / code+CI; companion to `BODY_SCANS_PRODUCT_AND_DATA_V1.md`
 **Planning freeze:** `/Users/danielhendel/oli-planning/OLI_BODY_SCAN_CANONICAL_METRIC_REGISTRY_SPEC_V1.md`
 
 ## Architecture (locked)
@@ -84,11 +84,18 @@ DXA adapter must not emit them yet. No diagnosis.
 | File | Role |
 |------|------|
 | `lib/contracts/bodyScans.ts` | Metric/region/unit/group schemas |
-| `lib/data/body-scans/bodyScanMetricRegistry.ts` | Definitions |
+| `lib/data/body-scans/bodyScanMetricRegistry.ts` | Definitions (labels, groups, visibility) |
 | `lib/data/body-scans/bodyScanCapabilities.ts` | DXA + BIA boundary |
 | `lib/data/body-scans/bodyScanMetricAliases.ts` | Compatibility aliases |
 | `lib/data/body-scans/validateBodyScanAgainstRegistry.ts` | Adapter emit gate |
-| `lib/data/body-scans/bodyScanMetricCatalog.ts` | Labels + section routing via registry |
+| `lib/data/body-scans/bodyScanMetricCatalog.ts` | Thin presentation adapter (region labels, section titles; metric labels from registry) |
+| `lib/data/body-scans/buildBodyScanPresentationGroups.ts` | Shared Review/Detail grouping selector |
+
+## Review / Detail presentation (Phase D/E)
+
+Registry is the sole user-facing label source (`Body Fat`, `Total Body BMD`, …).
+Shared selector `buildBodyScanPresentationGroups` drives group order, region cards, and UI enablement (`uiEnabled` + productStatus).
+T/Z (deferred) and SMM (future) never render. Source section is metadata-only.
 
 ## Storage
 
