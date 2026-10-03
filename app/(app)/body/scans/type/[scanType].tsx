@@ -82,7 +82,12 @@ export default function BodyScanCategoryHistoryScreen() {
 
   return (
     <View style={styles.root}>
-      <ModuleScreenShell title={category.historyTitle} hideTitleChrome>
+      <ModuleScreenShell
+        title={category.historyTitle}
+        hideTitleChrome
+        // Category history owns vertical scrolling via FlatList — never nest in ScrollView.
+        bodyScrollEnabled={false}
+      >
         {!enabled ? (
           <EmptyState
             title="Body Scans are not available yet"

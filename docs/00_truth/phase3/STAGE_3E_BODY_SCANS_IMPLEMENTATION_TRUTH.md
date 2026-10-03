@@ -60,6 +60,17 @@ never appends onto stale pages. Body Composition pull-to-refresh includes
 `bodyScanSummaries.refetch`. Body Scans hub and category-history screens also
 refetch on focus. Query completion does not re-publish invalidation.
 
+### Scroll ownership (runtime containment)
+
+Every Body Scan screen has exactly one primary vertical scroll owner.
+Category history uses `ModuleScreenShell` with `bodyScrollEnabled={false}` and a
+root `FlatList` that owns pagination, Load More, Retry, and end-of-history.
+Scan result and Review keep one shell `ScrollView` with ordinary mapped Views
+(no nested vertical `FlatList`/`SectionList`). Warning suppression
+(`LogBox.ignoreLogs`, console monkey-patches, `nestedScrollEnabled` as the sole
+fix, `disableVirtualization`) is prohibited. Physical retest must prove the
+VirtualizedLists nesting warning is absent without suppression.
+
 No Evidence Resolver, Assessment Confidence, or composition scores.
 
 ---

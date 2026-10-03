@@ -130,6 +130,7 @@ export function BodyScanCategoryHistoryContent({
 
   return (
     <FlatList
+      style={styles.listRoot}
       data={items as BodyScanListItemDto[]}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
@@ -187,7 +188,8 @@ export function BodyScanCategoryHistoryContent({
 }
 
 const styles = StyleSheet.create({
-  list: { paddingBottom: 24 },
+  listRoot: { flex: 1, minHeight: 0 },
+  list: { paddingBottom: 24, flexGrow: 1 },
   listGap: { height: 10 },
   row: {
     ...elevatedCardSurfaceStyle,
