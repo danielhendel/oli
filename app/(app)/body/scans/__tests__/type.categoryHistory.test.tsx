@@ -63,8 +63,18 @@ jest.mock("@/lib/ui/HeaderBackButton", () => ({
   HeaderBackButton: () => null,
 }));
 
+const mockShellProps: { bodyScrollEnabled?: boolean }[] = [];
 jest.mock("@/lib/ui/ModuleScreenShell", () => ({
-  ModuleScreenShell: ({ children }: { children: React.ReactNode }) => children,
+  ModuleScreenShell: ({
+    children,
+    bodyScrollEnabled,
+  }: {
+    children: React.ReactNode;
+    bodyScrollEnabled?: boolean;
+  }) => {
+    mockShellProps.push({ bodyScrollEnabled });
+    return children;
+  },
 }));
 
 describe("BodyScanCategoryHistoryScreen", () => {
@@ -72,7 +82,15 @@ describe("BodyScanCategoryHistoryScreen", () => {
     mockReplace.mockClear();
     mockPush.mockClear();
     mockSetOptions.mockClear();
+    mockShellProps.length = 0;
     mockParams = { scanType: "dxa" };
+  });
+
+  it("opts out of shell ScrollView so FlatList owns vertical scrolling", () => {
+    act(() => {
+      renderer.create(<BodyScanCategoryHistoryScreen />);
+    });
+    expect(mockShellProps.some((p) => p.bodyScrollEnabled === false)).toBe(true);
   });
 
   it("renders DXA history and opens scan detail", () => {

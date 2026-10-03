@@ -21,4 +21,28 @@ describe("ModuleScreenShell refresh", () => {
     const scroll = tree!.root.findByType(ScrollView);
     expect(scroll.props.alwaysBounceVertical).toBe(true);
   });
+
+  it("defaults to ScrollView body (scrollable)", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <ModuleScreenShell title="Test">
+          <Text>Body</Text>
+        </ModuleScreenShell>,
+      );
+    });
+    expect(tree!.root.findAllByType(ScrollView)).toHaveLength(1);
+  });
+
+  it("bodyScrollEnabled=false uses plain View — no ScrollView around children", async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <ModuleScreenShell title="Test" hideTitleChrome bodyScrollEnabled={false}>
+          <Text>Body</Text>
+        </ModuleScreenShell>,
+      );
+    });
+    expect(tree!.root.findAllByType(ScrollView)).toHaveLength(0);
+  });
 });
