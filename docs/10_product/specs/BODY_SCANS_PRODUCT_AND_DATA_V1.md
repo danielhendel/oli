@@ -1,7 +1,7 @@
 # Body Scans Product and Data Specification v1
 
-**Status:** Stage 3E ACTIVE (foundation implementation in progress)
-**Date:** 2026-09-25
+**Status:** Stage 3E ACTIVE — foundation **truth-frozen** at physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); not merged; production flag disabled. Freeze: `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`. Evidence Resolver **AUTHORIZED** next; Assessment Confidence / scores **BLOCKED**.
+**Date:** 2026-09-25 (freeze update 2026-10-03)
 **User-facing name:** Body Scans
 **Internal terms:** Body Composition Assessment / Body Scan
 **Authority level:** T2 product authority (subordinate to Constitution and code/CI)
@@ -11,6 +11,7 @@
 - Progress map: `docs/00_truth/REPO_TRUTH_PROGRESS_MAP.md`
 - Roadmap: `docs/10_product/roadmap/ROADMAP_REALITY.md`
 - System state: `docs/20_architecture/SYSTEM_STATE.md`
+- Foundation truth freeze: `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
 
 **Governing ingestion architecture:** Document Ingestion OS (`PHASE_3C_DOCUMENT_INGESTION_OS.md`) remains binding. Stage 3E extends that OS for the `scans` domain; a separate ADR is **not** required unless a future change breaks Model A private storage, owner-only Admin SDK writes, or the governed ingest front door.
 

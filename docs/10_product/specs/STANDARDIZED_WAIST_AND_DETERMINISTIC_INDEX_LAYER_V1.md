@@ -1,6 +1,6 @@
 # Standardized Waist Measurement + Deterministic Index Layer
 
-**Status:** Stage 3E implemented (foundation)  
+**Status:** Stage 3E implemented (foundation) — **truth-frozen** at physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); see `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`  
 **Authority:** Subordinate to Constitution / code+CI  
 **Model status:** `evidence_informed` — not clinically validated
 
@@ -15,14 +15,14 @@ CANONICAL BODY COMPOSITION EVIDENCE BRIDGE
        ↓
 EXPLICIT DETERMINISTIC CALCULATIONS (BMI / WHtR / FMI / FFMI / ALMI)
        ↓
-FUTURE Evidence Resolver        ← BLOCKED
+FUTURE Evidence Resolver        ← AUTHORIZED (next implementation phase; not implemented here)
        ↓
 FUTURE Assessment Confidence    ← BLOCKED
        ↓
 FUTURE Health / Performance scores ← BLOCKED
 ```
 
-This phase ends **before** the Evidence Resolver.
+Waist capture + deterministic index helpers are **truth-frozen**. Evidence Resolver is the **authorized next** implementation phase and must not reopen Waist protocol or index formulas without a new physical gate.
 
 ## Waist source of truth
 
@@ -160,13 +160,13 @@ Pure helpers do **not** call `Date.now()`. Callers may supply `calculatedAt` at 
 - BMI remains only where Weight UI already shows it
 - **No** personal classification, risk bands, scores, or targets on Waist
 
-## Explicitly out of scope
+## Explicitly out of scope (this Waist/index phase)
 
-- Evidence Resolver / source ranking / “best” evidence
-- Assessment Confidence
-- Health / Performance Composition scores
-- InBody / Evolt integrations
-- Production deploy / PR
+- Evidence Resolver implementation (authorized next; not part of this frozen Waist/index surface)
+- Assessment Confidence (**BLOCKED**)
+- Health / Performance Composition scores (**BLOCKED**)
+- InBody / Evolt device integrations beyond Body Scan store + manual review
+- Production deploy / PR from this freeze alone
 
 ## Privacy
 

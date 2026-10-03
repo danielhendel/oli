@@ -1,6 +1,6 @@
 # Body Scan Canonical Metric Registry
 
-**Status:** Stage 3E Phase A–E implemented
+**Status:** Stage 3E Phase A–E implemented — **truth-frozen** at physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); see `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
 **Authority:** Subordinate to Constitution / code+CI; companion to `BODY_SCANS_PRODUCT_AND_DATA_V1.md`
 **Planning freeze:** `/Users/danielhendel/oli-planning/OLI_BODY_SCAN_CANONICAL_METRIC_REGISTRY_SPEC_V1.md`
 

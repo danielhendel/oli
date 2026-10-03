@@ -1,7 +1,7 @@
 # Repo-Truth Progress Map
 
 **Status:** Current operational truth (subordinate to code + CI)
-**Last verified:** 2026-09-25
+**Last verified:** 2026-10-03
 **Merged `main` SHA:** `5835051715ceea5e1a1cece12f28a9af53e206e7`
 **R0:** Merged (PR #211) at `55e2ad6762949bb09006f8beefd95bae60dbd9bb`
 **R1:** Merged (PR #212) at `f502d8b83a3b2ad309c92ae8433ef14ea5c71c10`
@@ -24,7 +24,7 @@
 **Stage 3C physical runtime SHA:** `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**; ancestor of `main`)
 **Stage 3C post-merge proof:** **PASS** (suites/tests/skipped: 1106 / 6714 / 0)
 **Stage 3D:** **NOT BEGUN / DEFERRED**
-**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` — foundation V1 **implemented on branch, not merged** (product/data: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`; implementation truth: `docs/00_truth/phase3/STAGE_3E_BODY_SCANS_IMPLEMENTATION_TRUTH.md`)
+**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` — foundation V1 **implemented on branch, not merged**; Waist/index/Evidence Bridge/metric registry/category navigation/pagination/cache/scroll foundation **truth-frozen** at physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**) — `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`. Evidence Resolver **AUTHORIZED** next; Assessment Confidence and composition scores **STILL BLOCKED**.
 
 > **Rule:** If this map conflicts with merged code or CI, **code and CI win**. Update this map; do not invent product truth from docs alone.
 
@@ -48,7 +48,7 @@
 >
 > **Stage 3C status:** **MERGED** (PR [#221](https://github.com/danielhendel/oli/pull/221) at `5835051715ceea5e1a1cece12f28a9af53e206e7`). Physical runtime SHA `e4a23a552910f28241b10b25ae84b46529dab891` (**PASS**, 2026-09-25; ancestor of `main`). Post-merge proof **PASS** (1106 / 6714 / 0). Landing IA **APPROVED**: Total Mass → Weight; Components → Body Fat + Lean Mass. Body Fat Gallagher educational ranges **APPROVED FOR STAGE 3C V1** (`gallagher-4c-bmi-equivalent-body-fat-reference` / `2000.1`); personal Body Fat classification **BLOCKED**. Lean Mass numerical reference **BLOCKED**; composition-share **APPROVED**. Detail trend pages + display modes **COMPLETE**. Complete Body Fat Apple Health history (**5Y** / **All**; checkpoint `appleHealth:bodyFatBackfillState:{uid}`). Weight remains the **only** approved personal Body classifier. ACE **REJECTED**. No Body score; no Muscle Mass. Stage 3D **NOT BEGUN / DEFERRED**. Stage 3E Body Scans **ACTIVE**. No staging/production deploy from Stage 3C. No new Firestore standards path. Completion audit: `docs/90_audits/2026-09-25-stage3c-body-composition-standards-graphs-completion.md`.
 >
-> **Stage 3E status:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` (base `5835051715ceea5e1a1cece12f28a9af53e206e7`). Body Scans foundation V1 — designed results + original PDF evidence; Document Ingestion OS reuse; DXA Live Lean / GE Lunar adapter; InBody/Evolt/Bod Pod/Other store + manual review; no scan/scale trend mixing; production `bodyScans` flag disabled; release gates remain **OPEN**. Product/data: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`. No staging/production deploy from Stage 3E implementation agent.
+> **Stage 3E status:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` (base `5835051715ceea5e1a1cece12f28a9af53e206e7`). Body Scans foundation V1 — designed results + original PDF evidence; Document Ingestion OS reuse; DXA Live Lean / GE Lunar adapter; InBody/Evolt/Bod Pod/Other store + manual review; category-first navigation + filtered cursor pagination + mutation invalidation + scroll containment; no scan/scale trend mixing; production `bodyScans` flag disabled; release gates remain **OPEN**. **Foundation truth freeze (2026-10-03):** physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); staging API `oli-api-00282-45c` @ 100%; Gateway `oli-api-config-20261002-183632`; Firestore `bodyScans` `scanType` ASC + `createdAt` DESC READY — `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`. Evidence Resolver **AUTHORIZED** as next implementation phase. Assessment Confidence and Health / Performance Composition scores **STILL BLOCKED**. No PR / merge / production deploy from the freeze alone. Product/data: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`.
 
 ---
 

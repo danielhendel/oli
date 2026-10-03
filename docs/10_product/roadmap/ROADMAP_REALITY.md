@@ -20,7 +20,7 @@
 **Stage 3C physical runtime SHA:** `e4a23a552910f28241b10b25ae84b46529dab891` (physical-iPhone **PASS**; ancestor of `main`)
 **Stage 3C post-merge proof:** **PASS** (1106 / 6714 / 0)
 **Stage 3D:** **NOT BEGUN / DEFERRED**
-**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` — foundation V1 **implemented on branch, not merged** (spec: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`; implementation truth: `docs/00_truth/phase3/STAGE_3E_BODY_SCANS_IMPLEMENTATION_TRUTH.md`)
+**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` — foundation V1 **implemented on branch, not merged**; Waist/index/Evidence Bridge/Body Scan navigation foundation **truth-frozen** at `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); Evidence Resolver **AUTHORIZED** next (Assessment Confidence / scores **BLOCKED**) — freeze: `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
 **R0 baseline:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb` (PR #211)
 **Prior Stage 1A truth freeze:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (PR #209)
 **Product decisions:** [CONSUMER_LAUNCH_PRODUCT_DECISIONS.md](../decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md)
@@ -143,12 +143,15 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Product/data: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`
 - Designed results + original PDF; Document Ingestion OS reuse; Live Lean DXA adapter; no scan/scale trend mixing
 - Implementation truth: `docs/00_truth/phase3/STAGE_3E_BODY_SCANS_IMPLEMENTATION_TRUTH.md`
-- Built on branch: upload → extract → review → confirm → detail → reprocess → delete; export and account-deletion coverage; short-lived signed View Original; trend isolation enforced by **CHECK 23** (**I-21**)
+- Built on branch: upload → extract → review → confirm → detail → reprocess → delete; export and account-deletion coverage; short-lived signed View Original; trend isolation enforced by **CHECK 23** (**I-21**); category-first navigation; filtered cursor pagination; mutation invalidation; single scroll owner
+- **Foundation truth freeze (2026-10-03):** physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**) — `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
+- Approved staging lineage at freeze: API `oli-api-00282-45c` @ 100%; Gateway `oli-api-config-20261002-183632`; Firestore index `bodyScans` `scanType` ASC + `createdAt` DESC READY
+- Evidence Resolver: **AUTHORIZED** next; Assessment Confidence / composition scores: **STILL BLOCKED**
 - Limits: 5 MiB shared Document OS upload limit; text-layer only (no OCR; image-only → manual review); DXA is the only structured adapter
 - Feature flag `bodyScans`: development enabled; production **disabled**
-- Physical real-PDF test **required** (do not commit personal PDF)
+- Controlled real personal DXA PDF into Git remains **forbidden**
 - **RG-LEGAL-01 OPEN**; **RG-SOURCE-PRIVACY-01 OPEN**; export coverage/scalability **OPEN**
-- No staging/production deploy from Stage 3E implementation agent
+- No PR / merge / production deploy from the foundation freeze alone
 
 **Stage 2:** **MERGED** (PR #217) at `c92ca0518366f0ef7b5e3af08e127fb623506622`.
 **Stage 1C:** **MERGED** (PR #215) at `d7f4fd0548a6e1d34e3870310e0b0479cdd9a137`; physical-iPhone deletion E2E **PASS** (2026-09-04).

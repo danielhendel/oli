@@ -1,6 +1,6 @@
 # Canonical Body Composition Evidence Bridge
 
-**Status:** Stage 3E implemented (derived view)  
+**Status:** Stage 3E implemented (derived view) — **truth-frozen** at physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); see `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`  
 **Authority:** Subordinate to Constitution / code+CI; companion to Body Scan registry and Dual Score scientific freeze  
 **Model status:** `evidence_informed` — not clinically validated
 
@@ -22,11 +22,11 @@ EXPLICIT DETERMINISTIC INDEX HELPERS (BMI / WHtR / FMI / FFMI / ALMI)
   — never auto-emitted by the bridge
   — legacy profile waist is not an automatic WHtR input
         ↓
-FUTURE Evidence Resolver
+FUTURE Evidence Resolver        ← AUTHORIZED (next implementation phase; not implemented here)
         ↓
-FUTURE Assessment Confidence
+FUTURE Assessment Confidence    ← BLOCKED
         ↓
-FUTURE Health / Performance Composition scores
+FUTURE Health / Performance Composition scores ← BLOCKED
 ```
 
 ## Persistence strategy
@@ -122,9 +122,9 @@ The bridge **does not** auto-select cross-source inputs or emit these indices au
 
 ## Boundaries (forbidden in this module)
 
-- Evidence Resolver / best-current selector
-- Assessment Confidence results
-- Health Composition / Performance Composition scores
+- Evidence Resolver / best-current selector (**AUTHORIZED** as a separate next phase; must not be smuggled into this bridge module)
+- Assessment Confidence results (**BLOCKED**)
+- Health Composition / Performance Composition scores (**BLOCKED**)
 - Weights, thresholds, status bands
 - Writing scan facts into Weight / Body Fat / Lean continuous trends or `dailyFacts`
 

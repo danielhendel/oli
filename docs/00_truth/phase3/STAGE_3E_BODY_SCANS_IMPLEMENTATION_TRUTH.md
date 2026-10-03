@@ -6,6 +6,8 @@
 
 **Base:** `5835051715ceea5e1a1cece12f28a9af53e206e7` (Stage 3C merge), docs-only commit `6c17349e`.
 
+**Foundation truth freeze:** `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md` — physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**). Evidence Resolver **AUTHORIZED** as next phase; Assessment Confidence and composition scores **STILL BLOCKED**.
+
 ---
 
 ## 1. What a user can do
@@ -68,10 +70,13 @@ root `FlatList` that owns pagination, Load More, Retry, and end-of-history.
 Scan result and Review keep one shell `ScrollView` with ordinary mapped Views
 (no nested vertical `FlatList`/`SectionList`). Warning suppression
 (`LogBox.ignoreLogs`, console monkey-patches, `nestedScrollEnabled` as the sole
-fix, `disableVirtualization`) is prohibited. Physical retest must prove the
-VirtualizedLists nesting warning is absent without suppression.
+fix, `disableVirtualization`) is prohibited. Physical retest at
+`e9397b357642b45eef2a6a40c78217281b375d91` proved the VirtualizedLists nesting
+warning absent without suppression (**B-BODY-SCAN-SCROLL-CONTAINMENT-01**
+PHYSICALLY CLOSED).
 
-No Evidence Resolver, Assessment Confidence, or composition scores.
+Evidence Resolver is **AUTHORIZED** as the next implementation phase (not
+implemented here). Assessment Confidence and composition scores remain **BLOCKED**.
 
 ---
 
@@ -232,13 +237,13 @@ Audit events (`body_scan_created`, `body_scan_extraction_completed`, `body_scan_
 - **RG-LEGAL-01** and **RG-SOURCE-PRIVACY-01** remain **OPEN**.
 - Export coverage / scalability **OPEN**.
 - **B-3E-CACHE-01**, **B-3E-PREVIEW-OPEN-01**, **B-3E-STALE-HARNESS-01**: physically CLOSED (preserve).
-- **B-3E-PDFKIT-CONTRAST-01** + **EXConstants** restoration: code fix on this pass; narrow physical retest required.
+- **B-BODY-SCAN-SCROLL-CONTAINMENT-01**: physically CLOSED at `e9397b357642b45eef2a6a40c78217281b375d91` (preserve).
+- PDFKit + cache cleanup zero/zero reconfirmed at the foundation truth-freeze SHA (preserve).
 - Controlled physical **real** DXA PDF test remains **blocked**; the personal PDF must never enter Git.
-- Full real-PDF E2E also requires Stage 3E staging API deployment (separate from the API-independent viewer/cache gate; `/users/me/body-scans` 404 is out of scope here).
-- Independent Stage 3E architecture / security / staging gate **required**.
-- No staging or production deployment from this work.
+- Stage 3E branch **not merged**; no PR from the foundation freeze alone.
+- Assessment Confidence and Health / Performance Composition scores remain **BLOCKED**.
+- Evidence Resolver: **AUTHORIZED** next — see foundation truth freeze (not implemented in this document).
 
 Do **not** claim Stage 3E merged or production-ready.
 Do **not** claim the independent source-privacy gate PASS from this document alone.
-Do **not** claim the physical check PASS from this document alone.
 
