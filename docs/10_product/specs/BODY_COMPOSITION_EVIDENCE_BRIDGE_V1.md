@@ -22,7 +22,7 @@ EXPLICIT DETERMINISTIC INDEX HELPERS (BMI / WHtR / FMI / FFMI / ALMI)
   — never auto-emitted by the bridge
   — legacy profile waist is not an automatic WHtR input
         ↓
-FUTURE Evidence Resolver        ← AUTHORIZED NEXT (after independent docs freeze re-gate PASS; not implemented here)
+Evidence Resolver               ← implemented separately (draft v1; pending independent re-gate; not in this bridge module)
         ↓
 FUTURE Assessment Confidence    ← BLOCKED
         ↓

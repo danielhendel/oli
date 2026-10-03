@@ -143,12 +143,12 @@ Pagination honesty: physical confirmation covers history list scroll, footer/end
 
 | Phase | Status |
 |-------|--------|
-| **Evidence Resolver** | **AUTHORIZED** as the next implementation phase after independent docs truth-freeze re-gate PASS |
-| Assessment Confidence | **STILL BLOCKED** |
+| **Evidence Resolver** | **Implemented / pending independent re-gate** (`body_composition_resolver_draft_v1`; spec `docs/10_product/specs/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1.md`) |
+| Assessment Confidence | **STILL BLOCKED** pending independent Resolver re-gate |
 | Health Composition score (0–100) | **STILL BLOCKED** |
 | Performance Composition score (0–100) | **STILL BLOCKED** |
 
-Authorization means a **new bounded implementation agent** may begin Evidence Resolver work against this frozen foundation runtime SHA (or a docs-only successor), without reopening Waist protocol, deterministic index formulas, Evidence Bridge persistence strategy, Body Scan metric registry keys, category navigation order, filtered cursor pagination, mutation invalidation bus, or scroll-ownership architecture — unless a proven defect requires a bounded correction and a new physical gate.
+Foundation authorization remains: Resolver work must not reopen Waist protocol, deterministic index formulas, Evidence Bridge persistence strategy, Body Scan metric registry keys, category navigation order, filtered cursor pagination, mutation invalidation bus, or scroll-ownership architecture — unless a proven defect requires a bounded correction and a new physical gate.
 
 The Evidence Resolver must **not** silently invent Assessment Confidence or either composition score.
 
@@ -159,7 +159,7 @@ FOUNDATION PHYSICALLY APPROVED (runtime e9397b35…)
         ↓
 DOCS TRUTH FREEZE (initial 0fabe472… + docs consistency corrections)
         ↓
-EVIDENCE RESOLVER — AUTHORIZED NEXT
+EVIDENCE RESOLVER — IMPLEMENTED / PENDING INDEPENDENT RE-GATE
         ↓
 ASSESSMENT CONFIDENCE — BLOCKED
         ↓
@@ -174,6 +174,7 @@ DRAFT HEALTH/PERFORMANCE SCORE ENGINES — BLOCKED
 - Roadmap: `docs/10_product/roadmap/ROADMAP_REALITY.md`
 - Waist / index: `docs/10_product/specs/STANDARDIZED_WAIST_AND_DETERMINISTIC_INDEX_LAYER_V1.md`
 - Evidence Bridge: `docs/10_product/specs/BODY_COMPOSITION_EVIDENCE_BRIDGE_V1.md`
+- Evidence Resolver: `docs/10_product/specs/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1.md`
 - Metric registry: `docs/10_product/specs/BODY_SCAN_CANONICAL_METRIC_REGISTRY_V1.md`
 - Body Scans product: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`
 - Body Scans implementation truth: `docs/00_truth/phase3/STAGE_3E_BODY_SCANS_IMPLEMENTATION_TRUTH.md`
