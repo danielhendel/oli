@@ -20,7 +20,7 @@
 **Stage 3C physical runtime SHA:** `e4a23a552910f28241b10b25ae84b46529dab891` (physical-iPhone **PASS**; ancestor of `main`)
 **Stage 3C post-merge proof:** **PASS** (1106 / 6714 / 0)
 **Stage 3D:** **NOT BEGUN / DEFERRED**
-**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` — foundation V1 **implemented on branch, not merged**; Waist/index/Evidence Bridge/Body Scan navigation foundation **truth-frozen** at `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); Evidence Resolver **AUTHORIZED** next (Assessment Confidence / scores **BLOCKED**) — freeze: `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
+**Stage 3E Body Scans:** **ACTIVE** on `feat/body-composition-stage3e-body-scans-v1` — foundation V1 **implemented on branch, not merged**; Waist/index/Evidence Bridge/Body Scan navigation foundation **truth-frozen** at runtime `e9397b357642b45eef2a6a40c78217281b375d91` (**user-reported physical PASS**); initial docs freeze `0fabe4721c311a1a6a8f77a72cc600683e659224`. Sequence: foundation physically approved → docs truth freeze → Evidence Resolver **AUTHORIZED NEXT** (after independent docs re-gate PASS) → Assessment Confidence **BLOCKED** → draft Health/Performance score engines **BLOCKED**. Freeze: `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
 **R0 baseline:** `55e2ad6762949bb09006f8beefd95bae60dbd9bb` (PR #211)
 **Prior Stage 1A truth freeze:** `6c8797bea5135124adb3c3f47b0bee85bc5b2c8e` (PR #209)
 **Product decisions:** [CONSUMER_LAUNCH_PRODUCT_DECISIONS.md](../decisions/CONSUMER_LAUNCH_PRODUCT_DECISIONS.md)
@@ -144,9 +144,9 @@ This roadmap reflects **dependency-ordered completion gates** for the analytics-
 - Designed results + original PDF; Document Ingestion OS reuse; Live Lean DXA adapter; no scan/scale trend mixing
 - Implementation truth: `docs/00_truth/phase3/STAGE_3E_BODY_SCANS_IMPLEMENTATION_TRUTH.md`
 - Built on branch: upload → extract → review → confirm → detail → reprocess → delete; export and account-deletion coverage; short-lived signed View Original; trend isolation enforced by **CHECK 23** (**I-21**); category-first navigation; filtered cursor pagination; mutation invalidation; single scroll owner
-- **Foundation truth freeze (2026-10-03):** physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**) — `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
+- **Foundation truth freeze (2026-10-03):** physically approved runtime SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**user-reported physical PASS**); initial docs-only freeze SHA `0fabe4721c311a1a6a8f77a72cc600683e659224` — `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
 - Approved staging lineage at freeze: API `oli-api-00282-45c` @ 100%; Gateway `oli-api-config-20261002-183632`; Firestore index `bodyScans` `scanType` ASC + `createdAt` DESC READY
-- Evidence Resolver: **AUTHORIZED** next; Assessment Confidence / composition scores: **STILL BLOCKED**
+- Evidence Resolver: **AUTHORIZED** next after independent docs freeze re-gate PASS; Assessment Confidence / composition scores: **STILL BLOCKED**; public numeric scores not ready
 - Limits: 5 MiB shared Document OS upload limit; text-layer only (no OCR; image-only → manual review); DXA is the only structured adapter
 - Feature flag `bodyScans`: development enabled; production **disabled**
 - Controlled real personal DXA PDF into Git remains **forbidden**

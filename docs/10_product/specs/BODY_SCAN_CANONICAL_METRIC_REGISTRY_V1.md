@@ -1,6 +1,6 @@
 # Body Scan Canonical Metric Registry
 
-**Status:** Stage 3E Phase A–E implemented — **truth-frozen** at physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); see `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
+**Status:** Stage 3E Phase A–E implemented — **truth-frozen** at physically approved runtime SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); initial docs freeze `0fabe4721c311a1a6a8f77a72cc600683e659224`; see `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
 **Authority:** Subordinate to Constitution / code+CI; companion to `BODY_SCANS_PRODUCT_AND_DATA_V1.md`
 **Planning freeze:** `/Users/danielhendel/oli-planning/OLI_BODY_SCAN_CANONICAL_METRIC_REGISTRY_SPEC_V1.md`
 
@@ -55,7 +55,7 @@ lean_mass +  right_arm
 
 ## Units
 
-Canonical: `kg`, `percent`, `cm3`, `g_per_cm2`, `ratio`, `score` (T/Z ontology).  
+Canonical: `kg`, `percent`, `cm3`, `g_per_cm2`, `ratio`, `score` (T/Z ontology).
 BMC Stage 3E persisted unit remains **`g`** (unchanged).
 
 ## Source-reported-only (parser must not invent)
@@ -66,17 +66,17 @@ Never infer VAT mass ↔ volume. Never map DXA lean → skeletal muscle mass.
 
 ## Trend isolation
 
-Every registry entry has `continuousTrendEligible: false`.  
+Every registry entry has `continuousTrendEligible: false`.
 Confirmed facts keep `excludedFromContinuousTrends: true`.
 
 ## Scoring boundary
 
-Registry may list soft construct eligibility tags (`H1`…`H4`, `P1`…`P3`) only.  
+Registry may list soft construct eligibility tags (`H1`…`H4`, `P1`…`P3`) only.
 **No** weights, transforms, or score engines in this module.
 
 ## T / Z
 
-Ontology **on** (`t_score`, `z_score`). Stage 3E UI **deferred** (`uiEnabled: false`).  
+Ontology **on** (`t_score`, `z_score`). Stage 3E UI **deferred** (`uiEnabled: false`).
 DXA adapter must not emit them yet. No diagnosis.
 
 ## Code map

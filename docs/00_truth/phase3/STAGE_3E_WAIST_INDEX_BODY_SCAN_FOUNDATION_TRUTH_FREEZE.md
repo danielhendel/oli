@@ -1,19 +1,37 @@
 # Stage 3E — Waist / Index / Evidence Bridge / Body Scan Foundation Truth Freeze
 
-**Date:** 2026-10-03  
-**Branch:** `feat/body-composition-stage3e-body-scans-v1`  
-**Kind:** **docs-only truth freeze** (this commit must not change runtime source, tests, API, Gateway, indexes, rules, Functions, native code, schemas, or product behavior)  
-**Physical client SHA:** `e9397b357642b45eef2a6a40c78217281b375d91`  
-**Physical result:** **PASS**  
+**Date:** 2026-10-03
+**Branch:** `feat/body-composition-stage3e-body-scans-v1`
+**Kind:** **docs-only truth freeze** (must not change runtime source, tests, API, Gateway, indexes, rules, Functions, native code, schemas, or product behavior)
 **Merge / PR / production:** **NOT** opened or touched by this freeze
 
 > **Rule:** Any later runtime change (`.ts` / `.tsx` / native / API / Functions / schema / OpenAPI / indexes / rules) on this foundation **invalidates** the physical PASS recorded here. A new physical gate is required before re-freezing.
 
 ---
 
+## 0. Immutable SHA identity
+
+### Physically approved runtime SHA
+
+`e9397b357642b45eef2a6a40c78217281b375d91`
+
+Meaning: this is the runtime source that passed the final physical iPhone gate for the Waist / index / Evidence Bridge / Body Scan navigation foundation.
+
+### Initial docs-only foundation freeze SHA
+
+`0fabe4721c311a1a6a8f77a72cc600683e659224`
+
+Meaning: this commit introduced the docs-only foundation freeze. It did not change or rebuild runtime code.
+
+### Docs consistency correction
+
+A subsequent docs-only consistency correction preserves this same runtime and freeze contract. That correction commit is **not** a separately physically tested runtime.
+
+---
+
 ## 1. What is frozen
 
-The following foundation surfaces are **truth-frozen** at the physical client SHA above:
+The following foundation surfaces are **truth-frozen** at the physically approved runtime SHA above:
 
 | Surface | Authority / implementation truth |
 |---------|----------------------------------|
@@ -57,26 +75,55 @@ Do **not** treat `status.traffic[0]` alone as the serving revision. Inspect the 
 
 ---
 
-## 3. Final physical PASS record
+## 3. Evidence record (physical vs automated)
 
 Physical client SHA: `e9397b357642b45eef2a6a40c78217281b375d91`
 
-| Check | Result |
-|-------|--------|
-| Category history scrolls | **PASS** |
-| No VirtualizedLists nesting warning (without suppression) | **PASS** |
-| Individual scan result scrolls correctly | **PASS** |
-| Review measurements scrolls correctly | **PASS** |
-| Category pagination (Load More / end-of-history) | **PASS** |
-| PDFKit Original report open / close | **PASS** |
-| Original-report cache cleanup zero/zero after dismiss | **PASS** |
-| No RedBox | **PASS** |
-| No crash | **PASS** |
-| No request loop | **PASS** |
-| Single Metro on 8081 (no second Metro / 8082 fallback) | **PASS** |
-| Repository clean and local↔remote aligned at freeze SHA | **PASS** (required at freeze commit + push) |
+### A. User-reported physical confirmation on iPhone
 
-Defect **B-BODY-SCAN-SCROLL-CONTAINMENT-01**: **PHYSICALLY CLOSED** at this SHA.
+The user reported that the requested narrow physical checks passed on the exact client SHA above, including:
+
+| Check | Evidence class | Result |
+|-------|----------------|--------|
+| Exact physically approved client SHA loaded | User-reported physical | PASS |
+| Category-first Body Scan navigation opened | User-reported physical | PASS |
+| DXA category history opened and scrolled | User-reported physical | PASS |
+| History footer / end state reachable | User-reported physical | PASS |
+| No VirtualizedLists nesting warning (without suppression) | User-reported physical | PASS |
+| Existing scan result opened and scrolled | User-reported physical | PASS |
+| Review measurements (narrow requested check) | User-reported physical | PASS |
+| Original report opened in PDFKit | User-reported physical | PASS |
+| PDFKit Close | User-reported physical | PASS |
+| Cache cleanup remaining/partial zero after dismiss | User-reported physical | PASS |
+| No RedBox | User-reported physical | PASS |
+| No crash | User-reported physical | PASS |
+| No request loop | User-reported physical | PASS |
+| Single Metro on 8081 (no second Metro / 8082 fallback) | User-reported physical | PASS |
+
+Stability note: No RedBox, crash, or request loop was reported. A frozen-overlay condition was not separately identified in the final user report. The user reported all requested narrow physical checks passed, including the stability checklist.
+
+Defect **B-BODY-SCAN-SCROLL-CONTAINMENT-01**: **PHYSICALLY CLOSED** at the runtime SHA above (user-reported).
+
+### B. Automated / contract / emulator confirmation
+
+| Check | Evidence class | Result |
+|-------|----------------|--------|
+| Category-scoped filtering (`scanType`) | Automated / API / emulator | PASS |
+| Cursor continuation (`hasMore` / `nextCursor`) | Automated / API / emulator | PASS |
+| Filtered pagination matrices (incl. boundary / dedupe / false-empty prevention) | Automated / API / emulator | PASS |
+| Mutation invalidation / category cache freshness | Automated | PASS |
+| Review field / confirmation contracts | Automated | PASS |
+| Scroll-ownership structural tests (non-scroll shell + root FlatList) | Automated | PASS |
+| Repository clean / local↔remote alignment at freeze + docs corrections | Git proof | PASS |
+
+Pagination honesty: physical confirmation covers history list scroll, footer/end-state reachability, and absence of the nested-list warning. Complete filtered cursor pagination (including multi-page matrices such as 0/1/49/50/51/100+) is **PASS through governed API/emulator and automated gates**. This freeze does **not** claim “100+ scan pagination physically verified” on a seeded multi-page physical account.
+
+### C. Not exposed / not separately testable here
+
+- Public numeric Health / Performance Composition scores (not implemented)
+- Assessment Confidence (not implemented)
+- Evidence Resolver ranking / best-current selection (authorized next; not implemented)
+- Controlled real personal DXA PDF committed to Git (forbidden)
 
 ---
 
@@ -96,14 +143,28 @@ Defect **B-BODY-SCAN-SCROLL-CONTAINMENT-01**: **PHYSICALLY CLOSED** at this SHA.
 
 | Phase | Status |
 |-------|--------|
-| **Evidence Resolver** | **AUTHORIZED** as the next implementation phase |
+| **Evidence Resolver** | **AUTHORIZED** as the next implementation phase after independent docs truth-freeze re-gate PASS |
 | Assessment Confidence | **STILL BLOCKED** |
 | Health Composition score (0–100) | **STILL BLOCKED** |
 | Performance Composition score (0–100) | **STILL BLOCKED** |
 
-Authorization means a **new bounded implementation agent** may begin Evidence Resolver work against this frozen foundation SHA (or a docs-only successor), without reopening Waist protocol, deterministic index formulas, Evidence Bridge persistence strategy, Body Scan metric registry keys, category navigation order, filtered cursor pagination, mutation invalidation bus, or scroll-ownership architecture — unless a proven defect requires a bounded correction and a new physical gate.
+Authorization means a **new bounded implementation agent** may begin Evidence Resolver work against this frozen foundation runtime SHA (or a docs-only successor), without reopening Waist protocol, deterministic index formulas, Evidence Bridge persistence strategy, Body Scan metric registry keys, category navigation order, filtered cursor pagination, mutation invalidation bus, or scroll-ownership architecture — unless a proven defect requires a bounded correction and a new physical gate.
 
 The Evidence Resolver must **not** silently invent Assessment Confidence or either composition score.
+
+Phase sequence:
+
+```text
+FOUNDATION PHYSICALLY APPROVED (runtime e9397b35…)
+        ↓
+DOCS TRUTH FREEZE (initial 0fabe472… + docs consistency corrections)
+        ↓
+EVIDENCE RESOLVER — AUTHORIZED NEXT
+        ↓
+ASSESSMENT CONFIDENCE — BLOCKED
+        ↓
+DRAFT HEALTH/PERFORMANCE SCORE ENGINES — BLOCKED
+```
 
 ---
 

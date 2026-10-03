@@ -6,7 +6,7 @@
 
 **Base:** `5835051715ceea5e1a1cece12f28a9af53e206e7` (Stage 3C merge), docs-only commit `6c17349e`.
 
-**Foundation truth freeze:** `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md` — physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**). Evidence Resolver **AUTHORIZED** as next phase; Assessment Confidence and composition scores **STILL BLOCKED**.
+**Foundation truth freeze:** `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md` — physically approved runtime SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); initial docs-only freeze SHA `0fabe4721c311a1a6a8f77a72cc600683e659224`. Evidence Resolver **AUTHORIZED** as next phase after independent docs re-gate PASS; Assessment Confidence and composition scores **STILL BLOCKED**.
 
 ---
 
@@ -201,15 +201,43 @@ This is enforced three ways: `assertBodyScanWriteTargetAllowed` guards every Bod
 
 #### Physical evidence / blockers
 
+##### Historical — CLOSED (pre-foundation runtime)
+
+At earlier Stage 3E viewer SHAs:
+
+- **B-3E-PDFKIT-CONTRAST-01** required a contrast correction for Close / “Original Report” on dark nav chrome.
+- **EXConstants** linkage required restoration after PDFKit `pod install` dropped `EXConstants` on the iOS 15.1 app.
+- A narrow independent physical retest of contrast + EXConstants was pending.
+
+Subsequently, before the final physically approved foundation runtime:
+
+- contrast passed in Light and Dark Mode;
+- EXConstants runtime warning count was zero;
+- PDFKit open/close passed;
+- cache cleanup remaining/partial zero passed;
+- those blockers closed.
+
 | ID | Evidence | Status |
 |----|----------|--------|
 | **B-3E-PREVIEW-OPEN-01** | PDFKit opens on physical iPhone (scroll/zoom/close/swipe/repeat/double-tap) | **PHYSICALLY CLOSED** (preserve) |
 | **B-3E-STALE-HARNESS-01** | Stale PDF + abandoned partial create/inspect/sweep proven physically | **PHYSICALLY CLOSED** (preserve) |
 | **B-3E-CACHE-01** | Account/document/sign-out isolation + clear-all + safe DEV logs proven | **PHYSICALLY CLOSED** (preserve) |
-| **B-3E-PDFKIT-CONTRAST-01** | Close / “Original Report” too dark on dark nav chrome | **CODE FIX on this pass** — narrow physical retest |
-| **EXConstants regression** | `No native ExponentConstants module found` after PDFKit pod install | **CODE FIX on this pass** — narrow physical retest |
+| **B-3E-PDFKIT-CONTRAST-01** | Close / “Original Report” contrast on dark nav chrome | **HISTORICAL — CLOSED** before foundation runtime |
+| **EXConstants regression** | `No native ExponentConstants module found` after PDFKit pod install | **HISTORICAL — CLOSED** before foundation runtime |
 
-**Still open for this pass:** Narrow independent physical verification of contrast + EXConstants only. Real personal PDF remains blocked. **RG-SOURCE-PRIVACY-01** / **RG-LEGAL-01** remain OPEN. No backend deployment. No PR from this pass.
+##### Current physical truth
+
+Runtime SHA: `e9397b357642b45eef2a6a40c78217281b375d91`
+
+User-reported physical PASS on that client:
+
+- PDFKit physical path PASS; Close PASS; secure materialization PASS;
+- cache cleanup remaining/partial zero;
+- no VirtualizedLists warning after the scroll-containment correction;
+- no RedBox / crash / request loop;
+- Body Scan category-navigation physical gate PASS.
+
+Real personal DXA PDF into Git remains forbidden. **RG-SOURCE-PRIVACY-01** / **RG-LEGAL-01** remain OPEN. No PR / production deploy from the foundation freeze alone.
 
 ---
 
@@ -236,13 +264,18 @@ Audit events (`body_scan_created`, `body_scan_extraction_completed`, `body_scan_
 - Production `bodyScans` flag **disabled**; development enabled.
 - **RG-LEGAL-01** and **RG-SOURCE-PRIVACY-01** remain **OPEN**.
 - Export coverage / scalability **OPEN**.
-- **B-3E-CACHE-01**, **B-3E-PREVIEW-OPEN-01**, **B-3E-STALE-HARNESS-01**: physically CLOSED (preserve).
-- **B-BODY-SCAN-SCROLL-CONTAINMENT-01**: physically CLOSED at `e9397b357642b45eef2a6a40c78217281b375d91` (preserve).
-- PDFKit + cache cleanup zero/zero reconfirmed at the foundation truth-freeze SHA (preserve).
-- Controlled physical **real** DXA PDF test remains **blocked**; the personal PDF must never enter Git.
+- Controlled physical **real** personal DXA PDF into Git remains **forbidden**.
 - Stage 3E branch **not merged**; no PR from the foundation freeze alone.
 - Assessment Confidence and Health / Performance Composition scores remain **BLOCKED**.
-- Evidence Resolver: **AUTHORIZED** next — see foundation truth freeze (not implemented in this document).
+- Evidence Resolver: **AUTHORIZED** next after independent docs truth-freeze re-gate PASS — see foundation truth freeze (not implemented in this document).
+
+### Closed foundation defects (current truth — not open)
+
+- **B-3E-CACHE-01**, **B-3E-PREVIEW-OPEN-01**, **B-3E-STALE-HARNESS-01**: PHYSICALLY CLOSED (preserve).
+- **B-3E-PDFKIT-CONTRAST-01**, **EXConstants** regression: HISTORICAL — CLOSED before foundation runtime.
+- **B-BODY-SCAN-SCROLL-CONTAINMENT-01**: PHYSICALLY CLOSED at runtime SHA `e9397b357642b45eef2a6a40c78217281b375d91`.
+- PDFKit + cache cleanup remaining/partial zero: user-reported physical PASS at that runtime SHA.
+- Staging API `oli-api-00282-45c` @ 100%, Gateway `oli-api-config-20261002-183632`, Firestore index READY: recorded at freeze (not pending deployment for this foundation).
 
 Do **not** claim Stage 3E merged or production-ready.
 Do **not** claim the independent source-privacy gate PASS from this document alone.

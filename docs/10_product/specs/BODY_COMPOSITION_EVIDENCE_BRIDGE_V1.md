@@ -1,7 +1,7 @@
 # Canonical Body Composition Evidence Bridge
 
-**Status:** Stage 3E implemented (derived view) — **truth-frozen** at physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); see `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`  
-**Authority:** Subordinate to Constitution / code+CI; companion to Body Scan registry and Dual Score scientific freeze  
+**Status:** Stage 3E implemented (derived view) — **truth-frozen** at physically approved runtime SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); initial docs freeze `0fabe4721c311a1a6a8f77a72cc600683e659224`; see `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
+**Authority:** Subordinate to Constitution / code+CI; companion to Body Scan registry and Dual Score scientific freeze
 **Model status:** `evidence_informed` — not clinically validated
 
 ## Architecture
@@ -22,7 +22,7 @@ EXPLICIT DETERMINISTIC INDEX HELPERS (BMI / WHtR / FMI / FFMI / ALMI)
   — never auto-emitted by the bridge
   — legacy profile waist is not an automatic WHtR input
         ↓
-FUTURE Evidence Resolver        ← AUTHORIZED (next implementation phase; not implemented here)
+FUTURE Evidence Resolver        ← AUTHORIZED NEXT (after independent docs freeze re-gate PASS; not implemented here)
         ↓
 FUTURE Assessment Confidence    ← BLOCKED
         ↓
@@ -107,17 +107,41 @@ Reuses Body Scan regions (`total`, `android`, `gynoid`, bilateral limbs, …). R
 
 ## Subject context
 
-Separate from observations: sex, DOB (governed profile only), height, waist.  
+Separate from observations: sex, DOB (governed profile only), height, waist.
 Ethnicity is **not** in V1 evidence/scoring.
 
 ## Waist
 
-Profile `bodyInputs.waistCircumferenceCm` is the current governed source.  
-No waist-entry UI in this phase. Observation emitted only when an effective timestamp is supplied. Missing continuous waist capture path remains a documented gap for Health Composition minimum input.
+### Dated Waist source of truth
+
+Dated Waist authority is a RawEvent:
+
+| Field | Value |
+|-------|-------|
+| `kind` | `body_composition` |
+| Field | `waistCircumferenceCm` |
+| Canonical unit | `cm` |
+| `sourceSystem` | `manual` |
+| `measurementMethod` | `manual_anthropometry` |
+| `evidenceType` | `measured` |
+
+New Oli-created protocol is `who_midpoint_v1` / version `1` **only when explicitly reported** by the source event. Missing protocol stays unknown/`null` and must **never** be inferred merely from manual source, `manual_anthropometry`, or presence of Waist. `measuredAt` is required; future manual dates are rejected.
+
+### Standardized Waist UI
+
+The current product includes Body Measurements → Waist with Add, Edit/correction, Delete, dated history, graph, unit display toggle, and standardized WHO-midpoint guidance.
+
+### Legacy profile Waist
+
+`bodyInputs.waistCircumferenceCm` remains only for backward-compatible profile schema and historical profile export/context according to policy. It is **not** editable as current Waist, dated evidence, Waist history, latest Waist, an automatic WHtR input, or a competing active source of truth.
+
+### Evidence Bridge behavior
+
+Dated Waist RawEvents may enter as observations. Multiple observations remain distinct. No winner/current selection. No automatic WHtR emission. Completeness remains `caller_supplied_partial`.
 
 ## Calculated indices
 
-Pure helpers exist for BMI / WHtR / FMI / FFMI / ALMI (`formulas.ts`).  
+Pure helpers exist for BMI / WHtR / FMI / FFMI / ALMI (`formulas.ts`).
 The bridge **does not** auto-select cross-source inputs or emit these indices automatically.
 
 ## Boundaries (forbidden in this module)

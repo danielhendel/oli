@@ -1,7 +1,7 @@
 # Standardized Waist Measurement + Deterministic Index Layer
 
-**Status:** Stage 3E implemented (foundation) — **truth-frozen** at physical client SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); see `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`  
-**Authority:** Subordinate to Constitution / code+CI  
+**Status:** Stage 3E implemented (foundation) — **truth-frozen** at physically approved runtime SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); initial docs freeze `0fabe4721c311a1a6a8f77a72cc600683e659224`; see `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
+**Authority:** Subordinate to Constitution / code+CI
 **Model status:** `evidence_informed` — not clinically validated
 
 ## Architecture boundary
@@ -15,7 +15,7 @@ CANONICAL BODY COMPOSITION EVIDENCE BRIDGE
        ↓
 EXPLICIT DETERMINISTIC CALCULATIONS (BMI / WHtR / FMI / FFMI / ALMI)
        ↓
-FUTURE Evidence Resolver        ← AUTHORIZED (next implementation phase; not implemented here)
+FUTURE Evidence Resolver        ← AUTHORIZED NEXT (after independent docs freeze re-gate PASS; not implemented here)
        ↓
 FUTURE Assessment Confidence    ← BLOCKED
        ↓
