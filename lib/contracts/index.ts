@@ -37,6 +37,9 @@ export * from "./bodyScans";
 // Canonical Body Composition Evidence Bridge (derived view; no score/resolver)
 export * from "./bodyCompositionEvidence";
 
+// Body Composition Evidence Resolver (derived view; no confidence/scores)
+export * from "./bodyCompositionEvidenceResolver";
+
 // Labs OS — extraction drafts, review, accepted structured results (Phase 3D-A)
 export * from "./labsOs";
 export * from "./labsVerification";

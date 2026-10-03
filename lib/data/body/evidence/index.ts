@@ -25,3 +25,9 @@ export {
 export { buildBodyCompositionSubjectContext } from "./subjectContext";
 export { BODY_COMPOSITION_EVIDENCE_METRIC_REGISTRY } from "./metricRegistry";
 export { useBodyCompositionEvidence } from "./useBodyCompositionEvidence";
+export { resolveBodyCompositionEvidence } from "./resolver/resolveBodyCompositionEvidence";
+export type { ResolveBodyCompositionEvidenceInput } from "./resolver/resolveBodyCompositionEvidence";
+export {
+  BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES,
+  RESOLVER_POLICY_VERSION,
+} from "./resolver/policy";

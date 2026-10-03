@@ -1,0 +1,83 @@
+/**
+ * Recency metadata for the Evidence Resolver.
+ * Exact half-lives and freshness scores are OPEN — do not invent them.
+ */
+
+import type {
+  BodyCompositionEvidenceObservation,
+  BodyCompositionResolverRecencyMetadata,
+} from "@oli/contracts";
+
+const MS_PER_DAY = 86_400_000;
+
+export function parseAsOfMs(asOf: string): number | null {
+  const ms = Date.parse(asOf);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+export function parseMeasuredAtMs(measuredAt: string): number | null {
+  if (!measuredAt?.trim()) return null;
+  const ms = Date.parse(measuredAt);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/** UTC calendar day key for same-day conflict rules (deterministic). */
+export function utcDayKey(isoOrMs: string | number): string | null {
+  const ms = typeof isoOrMs === "number" ? isoOrMs : parseMeasuredAtMs(isoOrMs);
+  if (ms == null) return null;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+export function ageDays(measuredAtMs: number, asOfMs: number): number {
+  return Math.max(0, (asOfMs - measuredAtMs) / MS_PER_DAY);
+}
+
+export function buildRecencyMetadata(args: {
+  primaryObservation: BodyCompositionEvidenceObservation | null;
+  asOfMs: number;
+  datedPrimaryCount: number;
+  undatedCandidateCount: number;
+  futureExcludedCount: number;
+}): BodyCompositionResolverRecencyMetadata {
+  const primary = args.primaryObservation;
+  if (!primary) {
+    return {
+      recencyPolicyState: "threshold_not_frozen",
+      primaryAgeDays: null,
+      primaryRecencyClass: null,
+      datedPrimaryCount: args.datedPrimaryCount,
+      undatedCandidateCount: args.undatedCandidateCount,
+      futureExcludedCount: args.futureExcludedCount,
+    };
+  }
+  const measuredMs = parseMeasuredAtMs(primary.measuredAt);
+  if (measuredMs == null) {
+    return {
+      recencyPolicyState: "undated",
+      primaryAgeDays: null,
+      primaryRecencyClass: primary.recencyClass,
+      datedPrimaryCount: args.datedPrimaryCount,
+      undatedCandidateCount: args.undatedCandidateCount,
+      futureExcludedCount: args.futureExcludedCount,
+    };
+  }
+  if (measuredMs > args.asOfMs) {
+    return {
+      recencyPolicyState: "future_invalid",
+      primaryAgeDays: null,
+      primaryRecencyClass: primary.recencyClass,
+      datedPrimaryCount: args.datedPrimaryCount,
+      undatedCandidateCount: args.undatedCandidateCount,
+      futureExcludedCount: args.futureExcludedCount,
+    };
+  }
+  return {
+    // Exact current/aging/historical thresholds are not frozen in repository truth.
+    recencyPolicyState: "threshold_not_frozen",
+    primaryAgeDays: ageDays(measuredMs, args.asOfMs),
+    primaryRecencyClass: primary.recencyClass,
+    datedPrimaryCount: args.datedPrimaryCount,
+    undatedCandidateCount: args.undatedCandidateCount,
+    futureExcludedCount: args.futureExcludedCount,
+  };
+}
