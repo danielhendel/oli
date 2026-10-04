@@ -43,6 +43,9 @@ export * from "./bodyCompositionEvidenceResolver";
 // Body Composition Assessment Confidence (derived view; no scores / no UI)
 export * from "./bodyCompositionAssessmentConfidence";
 
+// Body Composition Dual Score engines (internal draft; no UI / no persistence / public NO-GO)
+export * from "./bodyCompositionScores";
+
 // Labs OS — extraction drafts, review, accepted structured results (Phase 3D-A)
 export * from "./labsOs";
 export * from "./labsVerification";

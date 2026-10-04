@@ -38,3 +38,6 @@ export {
   FROZEN_LABEL_RULE_COUNT,
   LABEL_POLICY_STATE,
 } from "./confidence/policy";
+// Dual Score engines are intentionally NOT re-exported from the evidence barrel
+// so consumer runtime cannot reach them via the standard evidence import path.
+// Import only from `lib/data/body/evidence/scoring` for internal draft use.
