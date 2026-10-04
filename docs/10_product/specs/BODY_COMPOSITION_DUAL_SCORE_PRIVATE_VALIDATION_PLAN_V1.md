@@ -15,8 +15,8 @@
 | Health version | `body_composition_health_score_draft_v1` |
 | Performance-Supporting version | `body_composition_performance_supporting_score_draft_v1` |
 | Companion decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_VALIDATION_DECISION_REGISTER_V1.md` |
-| Methodology status | **COMPLETE / PENDING FINAL INDEPENDENT AUTHORIZATION RE-GATE** |
-| Wave 1 execution | **NOT AUTHORIZED** |
+| Methodology status | **COMPLETE / PENDING INDEPENDENT EXECUTION-SEMANTICS RE-GATE** |
+| Wave 1 execution | **BLOCKED pending re-gate** |
 | Tier B | **NOT AUTHORIZED** |
 
 > **This document is a VALIDATION PROTOCOL.**
@@ -57,8 +57,8 @@ If validation later suggests the formula should change: **document evidence** an
 | Implementation truth freeze | **PASS** @ `3bed6aa…` |
 | Independent docs re-gate | **PASS** |
 | Validation plan methodology (at `6f97bb6e…`) | **FAIL** (10 blockers) — historical |
-| Validation plan methodology | **COMPLETE / PENDING FINAL INDEPENDENT AUTHORIZATION RE-GATE** |
-| Wave 1 synthetic execution | **NOT AUTHORIZED** |
+| Validation plan methodology | **COMPLETE / PENDING INDEPENDENT EXECUTION-SEMANTICS RE-GATE** |
+| Wave 1 synthetic execution | **BLOCKED pending re-gate** |
 | Tier B de-identified / real-user | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer validity | **NOT ESTABLISHED** |
@@ -324,11 +324,19 @@ At minimum consider:
 
 ### 10.1 Internal explainability requirements (no UI)
 
-Health: H1 / H2 / H3. Performance-Supporting: P1 / P3. Dominant construct; adverse non-hiding; change attribution; withhold-reason translatability (internal).
+Health: H1 / H2 / H3. Performance-Supporting: P1 / P3. `dominantAdverseConstruct` (§23.17.1); adverse non-hiding; change attribution; withhold-reason translatability (internal).
 
-### 10.2 Contribution analysis
+### 10.2 Contribution analysis (authoritative formulas → §23.17.1)
 
-Absolute / marginal / dominant / change contribution; detect adverse-hide.
+Wherever BCV-012 / BCV-017 / BCV-018 (or any Wave 1 protocol) requests contribution outputs, use **only** the §23.17.1 definitions:
+
+- `absoluteContribution`
+- `marginalContributionPerConstructPoint`
+- `weightedDeficit`
+- `dominantAdverseConstruct`
+- `changeContribution`
+
+Vague phrases such as “contribution analysis”, “marginal effect”, or “dominant contribution” are **non-operative** unless mapped to those equations.
 
 ### 10.3 Misinterpretation battery (release-critical before private pilot display)
 
@@ -373,20 +381,20 @@ Use joint/correlated draws from §3 wherever applicable.
 | Central intervals | Report **all** of central 50%, 80%, 90%, 95% — none privileged for UI |
 | Quantiles | mean, SD, p05, p10, p25, p50, p75, p90, p95 |
 | Exploratory threshold-crossing | Internal thresholds `{10,20,…,90}` only — **NOT** product bands |
-| Directional-reversal probability | Sign flip under noise alone |
-| Construct contribution to total uncertainty | Which construct drives spread |
+| `directionalReversalProbability` | Exact two-replicate protocol → §23.17.2 |
+| `varianceContribution` / `constructUncertaintyShare` | Covariance-aware allocation → §23.17.3 |
 
 **Do NOT freeze:** consumer interval width; confidence label; final UI; product bands. Internal analysis only.
 
 ### 11.3 Change triad (NOT interchangeable)
 
-| Concept | Meaning | Methods (examples) |
-|---------|---------|--------------------|
-| **A. SDC / MDC** | Measurement-error-derived smallest detectable change | SEM, SDC/MDC formulas, Bland–Altman, heteroscedasticity |
-| **B. Clinically meaningful change** | Change tied to clinically meaningful outcome or accepted external standard | Anchor-based and/or distribution-based methods where appropriate |
-| **C. User-perceived meaningful change** | Change a user can meaningfully perceive / understand / value | Comprehension / perception research |
+| Concept | Meaning | Wave 1 formula authority |
+|---------|---------|--------------------------|
+| **A. SDC / MDC** | Measurement-error-derived smallest detectable change | **BCV-032A only** → §23.17.6 (`SEM_diff`, `SDC95_individual`; `MDC95` alias) |
+| **B. Clinically meaningful change** | Change tied to clinically meaningful outcome or accepted external standard | **NO Wave 1 formula** — evidence-dependent unresolved |
+| **C. User-perceived meaningful change** | Change a user can meaningfully perceive / understand / value | **NO Wave 1 formula** — evidence-dependent unresolved |
 
-Final numeric thresholds remain **unresolved** (ER-BC-13). Presenting score changes below SDC/MDC as “meaningful” is a **hard release blocker**.
+Final numeric thresholds remain **unresolved** (ER-BC-13). Presenting score changes below SDC/MDC as “meaningful” is a **hard release blocker**. BCV-032A must prove A/B/C remain separate and must not manufacture clinical/user thresholds.
 
 ---
 
@@ -806,7 +814,7 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 | Hypothesis | Steep knot neighborhoods dominate instability |
 | Inputs | Synthetic indices; joint error model |
 | Method | Local derivatives / finite differences + MC |
-| Metrics | ∂score/∂index; construct contribution |
+| Metrics | ∂score/∂index; §23.17.1 contribution fields |
 | Dependencies | BCV-001; BCV-029 |
 | Acceptance type | exploratory / evidence-dependent |
 | Failure meaning | Unexpected explosive sensitivity |
@@ -893,10 +901,10 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 | Priority | P0 |
 | Tier | A |
 | Objective | Directional explainability for paradoxes |
-| Hypothesis | Aggregates explainable via construct contributions |
+| Hypothesis | Aggregates explainable via §23.17.1 contributions + §23.17.7 directional relations |
 | Inputs | Canonical numeric persona table W1-PERSONAS (P-01…P-12) |
-| Method | Score + contribution audit |
-| Metrics | Expert review pass; adverse-hide flags |
+| Method | Score + §23.17.1 contribution fields + §23.17.7 relation audit |
+| Metrics | Relation pass rate; adverse-hide flags; `dominantAdverseConstruct` |
 | Dependencies | BCV-018 |
 | Acceptance type | exploratory |
 | Failure meaning | Unexplainable paradox |
@@ -913,8 +921,8 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 | Objective | Detect aggregate direction hiding adverse constructs |
 | Hypothesis | Weighted sums can hide clinically concerning construct lows |
 | Inputs | Synthetic construct combinations |
-| Method | Absolute/marginal/dominant/change contributions |
-| Metrics | Hide rate; dominant construct map |
+| Method | §23.17.1 contribution fields only |
+| Metrics | Hide rate; `dominantAdverseConstruct` map |
 | Dependencies | Frozen weights (do not change) |
 | Acceptance type | exploratory / evidence-dependent |
 | Failure meaning | R7 |
@@ -1132,7 +1140,7 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 | Hypothesis | Aggregate intervals can span multiple integer scores |
 | Inputs | Joint draws from BCV-029 |
 | Method | Full propagation chain; report distributional outputs |
-| Metrics | Distribution; median/mean/SD; central 50/80/90/95%; p05–p95; exploratory threshold-crossing {10…90}; directional-reversal; construct uncertainty share (no product bands) |
+| Metrics | Distribution; median/mean/SD; central 50/80/90/95%; p05–p95; exploratory threshold-crossing {10…90}; `directionalReversalProbability` (§23.17.2); `constructUncertaintyShare` (§23.17.3); no product bands |
 | Dependencies | BCV-029; no UI freeze |
 | Acceptance type | exploratory / evidence-dependent |
 | Failure meaning | R5 — false precision |
@@ -1182,8 +1190,8 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 | Objective | Prove the triad is definitionally separated in Wave 1 artifacts; map noise envelopes from BCV-029/030 to SDC-candidate *methodology* (not acceptance numbers) |
 | Hypothesis | SDC/MDC, clinical meaningful change, and user-perceived change are non-interchangeable constructs |
 | Inputs | Wave 1 noise outputs; frozen triad definitions; ER-BC-13 placeholders |
-| Method | Consistency audit + candidate-formula documentation; no empirical clinical anchors required in Wave 1 |
-| Metrics | Triad definition checklist; mapped candidate SDC formulas; explicit “unresolved policy” flags |
+| Method | Consistency audit + §23.17.6 candidate-formula documentation; no empirical clinical anchors required in Wave 1 |
+| Metrics | Triad definition checklist; `SEM_diff` / `SDC95_individual` / `MDC95` alias mapping; explicit unresolved clinical/user-perceived flags |
 | Dependencies | ER-BC-13; BCV-029; BCV-030 |
 | Acceptance type | structural invariant (definitions) / exploratory (numeric candidates) |
 | Failure meaning | Triad collapsed or ambiguous |
@@ -1239,7 +1247,7 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 | Hypothesis | Acute state can move lean constructs without lasting biology |
 | Inputs | Candidate acute deltas from ER-BC-16 (magnitudes unresolved) |
 | Method | Scenario simulation; artifact vs real-change labeling |
-| Metrics | Score/construct Δ; false-improvement rates |
+| Metrics | Score/construct Δ; `falseImprovementIndicator` / `falseImprovementRate` (§23.17.8) |
 | Dependencies | ER-BC-16; BCV-024 |
 | Acceptance type | exploratory / evidence-dependent |
 | Failure meaning | R22 |
@@ -1278,7 +1286,7 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 | BCV-014 | Floor/ceiling | exploratory |
 | BCV-015 | Missingness + Resolver status | structural invariant (reasons) + exploratory rates |
 | BCV-016 | Temporal coherence schedules | structural invariant (eligibility) + exploratory rates |
-| BCV-017 | Numeric personas | exploratory / qualitative pattern audit |
+| BCV-017 | Numeric personas | exploratory / directional-relation audit (§23.17.7) |
 | BCV-018 | Contribution / adverse-hide | exploratory |
 | BCV-029 | Joint correlated measurement error | exploratory / evidence-dependent |
 | BCV-030 | Aggregate uncertainty propagation | exploratory / evidence-dependent |
@@ -1361,7 +1369,7 @@ derivedSeed =
 | `sigmaIndex` | `0.5×→0`, `1.0×→1`, `1.5×→2`, `2.0×→3`; non-noise runs use `0` |
 | `rhoIndex` | Model A uses `0`; Model B uses ρ grid order `{-0.75,-0.50,-0.25,0,+0.25,+0.50,+0.75}` → `0…6` |
 | `modelIndex` | Model A→0; Model B→1; non-noise→0 |
-| `substreamIndex` | Health→0; Perf→1; other fixed substreams as declared per BCV (default `0`) |
+| `substreamIndex` | Health→0; Perf→1; directional-reversal pairs → §23.17.2 (`scoreBase + 2k` / `+1`); other fixed substreams as declared per BCV (default `0`) |
 
 No hashed/string-derived seeds.
 
@@ -1481,7 +1489,7 @@ Synthetic ranges are **computational domains**, not clinical ranges.
 
 BCV-001 is:
 
-1. **Independent 1D sweeps** through each scoring transform (vary ONE input; hold companions at §23.5.4 references)
+1. **Independent 1D sweeps** through each scoring transform (vary ONE input; hold companions at §23.5.4 references). Dense-local knot neighborhoods (§23.5.1) apply to **1D diagnostics only**.
 2. **Deterministic 2D aggregate surfaces** with **both** governed H3 pathways (do not collapse H3):
 
 | Surface ID | Axes | H3 Resolver primary | Non-varied construct |
@@ -1494,6 +1502,24 @@ BCV-001 is:
 | `PERFORMANCE_P1_P3` | P1 × P3 | n/a | n/a |
 
 3. **No 3D Health cube** in Wave 1
+
+**2D axis construction (authoritative — no executor step choice):**
+
+```text
+canonicalAxisGrid(variable) =
+  sorted unique union of:
+    1. every canonical COARSE grid point for that variable from §23.5.1
+       (WHtR step 0.01; FMI step 0.25; ALMI step 0.10; FFMI step 0.10)
+       over the §23.5 domain for the sex under test;
+    2. every exact mathematical knot for that variable inside that domain (§23.5.2);
+    3. knot - EPS_SURF when that point is inside the domain;
+    4. knot + EPS_SURF when that point is inside the domain.
+
+2D surface(x,y) = Cartesian product:
+  canonicalAxisGrid(x) × canonicalAxisGrid(y)
+```
+
+Applies to **all six** Surface IDs. **Do NOT** use dense-local grids across the entire 2D surface.
 
 These Surface IDs **must** appear in future artifacts.
 
@@ -1588,7 +1614,7 @@ Document `corr(FM,ALM)=rho^2` in artifacts.
 
 ### 23.8 BCV-030 interval & threshold contract
 
-Report **all** of: central 50/80/90/95%; mean; SD; p05,p10,p25,p50,p75,p90,p95 via Type 7; median=`Q(0.5)`; directional-reversal probability; construct uncertainty share; exploratory threshold-crossing at `{10,20,…,90}`.
+Report **all** of: central 50/80/90/95%; mean; SD; p05,p10,p25,p50,p75,p90,p95 via Type 7; median=`Q(0.5)`; `directionalReversalProbability` (§23.17.2); `varianceContribution` / `constructUncertaintyShare` (§23.17.3); exploratory threshold-crossing at `{10,20,…,90}`.
 
 **No product bands.**
 
@@ -1739,24 +1765,26 @@ Shared defaults unless overridden:
 - DXA channels `resolved`; H3 primary = ALMI unless noted
 - Height/Waist/FMI/ALMI/FFMI units: cm / cm / kg·m⁻² / kg·m⁻² / kg·m⁻²
 
-| ID | Sex | Age | Height | Waist | WHtR | FMI | ALMI | FFMI | H3 primary | Qualitative pattern |
-|----|-----|-----|--------|-------|------|-----|------|------|------------|---------------------|
-| P-01 | male | 30 | 178 | 78 | 0.438 | 4.5 | 8.2 | 19.0 | ALMI | Favorable all |
-| P-02 | male | 40 | 175 | 105 | 0.600 | 5.0 | 8.0 | 18.8 | ALMI | High central + favorable lean |
-| P-03 | male | 35 | 180 | 80 | 0.444 | 4.0 | 6.2 | 16.2 | ALMI | Favorable adiposity + low lean |
-| P-04 | male | 28 | 182 | 92 | 0.505 | 10.0 | 8.5 | 20.8 | ALMI | High FMI + high FFMI |
-| P-05 | male | 55 | 170 | 76 | 0.447 | 3.0 | 5.8 | 15.8 | ALMI | Low FMI + low ALMI |
-| P-06 | male | 45 | 176 | 102 | 0.580 | 4.8 | 7.8 | 18.5 | ALMI | Discordant high WHtR / favorable FMI |
-| P-07 | male | 42 | 176 | 82 | 0.466 | 12.0 | 7.6 | 18.2 | ALMI | Discordant favorable WHtR / high FMI |
-| P-08 | male | 60 | 172 | 108 | 0.628 | 11.5 | 6.1 | 16.0 | ALMI | Sarcopenic-obesity-like pattern |
-| P-09 | male | 32 | 185 | 100 | 0.541 | 7.5 | 9.0 | 21.0 | ALMI | High muscularity + high central adiposity |
-| P-10 | male | 38 | 178 | 98 | 0.551 | 5.2 | 7.5 | 18.0 | ALMI | Low BMI-like composition + high central adiposity |
-| P-11 | female | 30 | 165 | 70 | 0.424 | 6.5 | 6.5 | 16.2 | ALMI | Female favorable pattern |
-| P-12 | female | 48 | 162 | 95 | 0.586 | 14.0 | 5.2 | 14.8 | ALMI | Female adverse mixed pattern |
+**Reference for directional predicates:** sex-specific §23.5.4 companion reference anchors. Health constructs/aggregate compare to Health scores from that sex’s §23.5.4 row (H3 via ALMI primary). Performance constructs/aggregate compare to Performance scores from that same row (P1=FFMI, P3=FMI). Comparator → §23.17.7. **No** consumer bands. **No** qualitative labels (`excellent` / `healthy` / `poor` / `optimal` / `elite`).
+
+| ID | Sex | Age | Height | Waist | WHtR | FMI | ALMI | FFMI | H3 primary | expectedH1Relation | expectedH2Relation | expectedH3Relation | expectedHealthAggregateRelation | expectedP1Relation | expectedP3Relation | expectedPerformanceAggregateRelation | Notes (non-operative) |
+|----|-----|-----|--------|-------|------|-----|------|------|------------|--------------------|--------------------|--------------------|---------------------------------|--------------------|--------------------|--------------------------------------|-----------------------|
+| P-01 | male | 30 | 178 | 78 | 0.438 | 4.5 | 8.2 | 19.0 | ALMI | higher | equal | equal | higher | equal | equal | equal | Favorable all |
+| P-02 | male | 40 | 175 | 105 | 0.600 | 5.0 | 8.0 | 18.8 | ALMI | lower | equal | equal | lower | lower | equal | lower | High central + favorable lean |
+| P-03 | male | 35 | 180 | 80 | 0.444 | 4.0 | 6.2 | 16.2 | ALMI | higher | equal | lower | lower | lower | equal | lower | Favorable adiposity + low lean |
+| P-04 | male | 28 | 182 | 92 | 0.505 | 10.0 | 8.5 | 20.8 | ALMI | lower | lower | equal | lower | higher | lower | lower | High FMI + high FFMI |
+| P-05 | male | 55 | 170 | 76 | 0.447 | 3.0 | 5.8 | 15.8 | ALMI | higher | lower | lower | lower | lower | equal | lower | Low FMI + low ALMI |
+| P-06 | male | 45 | 176 | 102 | 0.580 | 4.8 | 7.8 | 18.5 | ALMI | lower | equal | lower | lower | lower | equal | lower | Discordant high WHtR / favorable FMI |
+| P-07 | male | 42 | 176 | 82 | 0.466 | 12.0 | 7.6 | 18.2 | ALMI | higher | lower | lower | lower | lower | lower | lower | Discordant favorable WHtR / high FMI |
+| P-08 | male | 60 | 172 | 108 | 0.628 | 11.5 | 6.1 | 16.0 | ALMI | lower | lower | lower | lower | lower | lower | lower | Sarcopenic-obesity-like pattern |
+| P-09 | male | 32 | 185 | 100 | 0.541 | 7.5 | 9.0 | 21.0 | ALMI | lower | lower | equal | lower | higher | lower | lower | High muscularity + high central adiposity |
+| P-10 | male | 38 | 178 | 98 | 0.551 | 5.2 | 7.5 | 18.0 | ALMI | lower | equal | lower | lower | lower | equal | lower | Low BMI-like composition + high central adiposity |
+| P-11 | female | 30 | 165 | 70 | 0.424 | 6.5 | 6.5 | 16.2 | ALMI | higher | equal | equal | higher | lower | equal | lower | Female favorable pattern |
+| P-12 | female | 48 | 162 | 95 | 0.586 | 14.0 | 5.2 | 14.8 | ALMI | lower | lower | lower | lower | lower | lower | lower | Female adverse mixed pattern |
 
 For each persona also evaluate Performance-Supporting using P1=FFMI and P3=FMI from the same row.
 
-**Required BCV-017 outputs:** construct scores; aggregates; dominant construct; adverse-hide flag; qualitative pattern match pass/fail with rationale.
+**Required BCV-017 outputs:** construct scores; aggregates; `absoluteContribution` / `weightedDeficit` / `dominantAdverseConstruct` (§23.17.1); adverse-hide flag; `expectedRelation` / `observedRelation` / pass-fail per §23.17.7 for every applicable construct and aggregate column above.
 
 ---
 
@@ -1836,7 +1864,8 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 
 | Item | Frozen |
 |------|--------|
-| Geometry | §23.5.3–23.5.4 (1D sweeps + HEALTH_H1_H2 / H1×H3-ALMI / H1×H3-FFMI / H2×H3-ALMI / H2×H3-FFMI / PERFORMANCE_P1_P3; no 3D cube) |
+| Geometry | §23.5.3–23.5.4 (1D sweeps + six Surface IDs; no 3D cube) |
+| 2D axes | `canonicalAxisGrid` Cartesian product only (§23.5.3 / §23.17.5) — dense-local = 1D only |
 | Epsilon | EPS_NUM + EPS_SURF |
 | Outputs | continuity; max jump; local slopes; occupancy; NaN/OOR=0 |
 | Artifacts | `results.json`, `results.csv`, `summary.md`, `manifest.json` (+ optional plots) |
@@ -1850,7 +1879,7 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 | Baselines | P-01…P-12 |
 | Noise | §23.6–23.7; multipliers 0.5/1/1.5/2.0×; Models A+B |
 | MC / seed | §23.3 / §23.2 |
-| Outputs | MAE/median/p90/p95 \|Δ\|; exploratory threshold crossings; construct contribution |
+| Outputs | MAE/median/p90/p95 \|Δ\|; exploratory threshold crossings; §23.17.1 contribution fields where construct Δ attributed; `directionalReversalProbability` (§23.17.2) when aggregate noise reported |
 | Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | exploratory / evidence-dependent |
 | PHI | none |
@@ -1866,7 +1895,7 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 | Joint FD pairs | Health H1/H2, H1/H3-ALMI, H1/H3-FFMI, H2/H3-ALMI, H2/H3-FFMI; Perf P1/P3 |
 | Joint signs | exactly `(+,+) (+,-) (-,+) (-,-)` with `EPS_SURF` on both |
 | FD formula | central difference `(f(x+h)-f(x-h))/(2h)` where defined |
-| Outputs | local slope; normalized sensitivity; dominant construct; aggregate Δ |
+| Outputs | local slope; normalized sensitivity; aggregate Δ; §23.17.1 `absoluteContribution` / `marginalContributionPerConstructPoint` / `weightedDeficit` / `dominantAdverseConstruct` / `changeContribution` (no other contribution meanings) |
 | Artifacts | `results.json`, `results.csv`, `summary.md`, `manifest.json` |
 | Class | exploratory |
 | PHI | none |
@@ -1900,7 +1929,12 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 
 | Item | Frozen |
 |------|--------|
+| Baselines | Male **P-01**; female **P-11** only (§23.17.4) — no new numeric baselines |
+| Resolver statuses | exact fixture set §23.17.4.1 |
+| Missingness mutations | exact single-factor set §23.17.4.2; multi-factor only via frozen precedence matrix |
 | Matrix | each core missing alone + all pairs + all Health triples / Perf both; Resolver statuses `{resolved, resolved_with_supporting, multiple_valid, policy_not_frozen, conflict, insufficient, undated_only, unsupported}` |
+| Output fields | §23.17.4.3 (`fixtureId` … `observedPrimaryReason`) |
+| Expected reasons | Mathematical Truth Freeze only — no new policy |
 | Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | structural + exploratory |
 | PHI | none |
@@ -1918,7 +1952,10 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 
 | Item | Frozen |
 |------|--------|
-| Table | P-01…P-12 (§23.10) |
+| Table | P-01…P-12 (§23.10) including expectedRelation columns |
+| Reference | §23.5.4 sex-specific anchors; aggregates from those anchors (§23.17.7) |
+| Comparator | §23.17.7 directional predicates (`higher`/`lower`/`equal`/`not_applicable`) |
+| Contribution fields | §23.17.1 only |
 | Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | exploratory |
 | PHI | none |
@@ -1933,7 +1970,7 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 | Perf favorable | FFMI male `20.5` / female `17.5`; FMI male `7.0` / female `10.0` |
 | Perf adverse | FFMI male `16.0` / female `14.0`; FMI male `16.0` / female `22.0` |
 | Exact combinations | (1) each single adverse construct + all other companions favorable; (2) dual adverse pairs for Health H1+H2, H1+H3, H2+H3 and Perf P1+P3 |
-| Metrics | absolute/marginal/dominant contribution; adverse-hide if any construct `<40` while aggregate `≥70` |
+| Metrics | §23.17.1 fields only; adverse-hide if any construct `<40` while aggregate `≥70` |
 | Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | exploratory |
 | PHI | none |
@@ -1948,7 +1985,7 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 | Construction | §23.7.1 / §23.7.2 |
 | MC / seed / draw order | §23.3 / §23.2 |
 | Baselines | P-01…P-12 |
-| Outputs | tails; construct shares; document `corr(FM,ALM)=rho^2`; optional labeled non-compliant independent-height ablation |
+| Outputs | tails; `varianceContribution` / `constructUncertaintyShare` (§23.17.3); document `corr(FM,ALM)=rho^2`; optional labeled non-compliant independent-height ablation |
 | Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | exploratory / evidence-dependent |
 | PHI | none |
@@ -1960,6 +1997,7 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 | Chain | measurement→index→construct→aggregate |
 | Intervals/thresholds | §23.8 |
 | Models / MC | A+B / §23.3 |
+| Required fields | `directionalReversalProbability` (§23.17.2); `varianceContribution` / `constructUncertaintyShare` / Var(A) / covariance matrix (§23.17.3) |
 | Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | exploratory / evidence-dependent |
 | PHI | none |
@@ -1977,7 +2015,13 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 
 | Item | Frozen |
 |------|--------|
-| Method | analysis of BCV-029/030 envelopes; triad non-equivalence checklist; candidate SDC formulas; unresolved clinical/user-perceived flags |
+| Method | analysis of BCV-029/030 envelopes; triad non-equivalence checklist; **only** §23.17.6 candidate formulas |
+| SEM | `SEM_diff = SD(delta) / sqrt(2)` with `delta = repeatedMeasurement2 - repeatedMeasurement1` |
+| SDC95 | `SDC95_individual = 1.96 * sqrt(2) * SEM_diff` (= `1.96 * SD(delta)`) |
+| MDC95 | terminology alias: `MDC95_individual = SDC95_individual` — **no** competing MDC formula |
+| Group-level SDC | **SHALL NOT** calculate in Wave 1 |
+| Clinical meaningful change | **NO formula** — evidence-dependent unresolved |
+| User-perceived meaningful change | **NO formula** — evidence-dependent unresolved |
 | Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | structural + exploratory |
 | PHI | none |
@@ -2012,7 +2056,7 @@ Menstrual scenarios: female baselines only (P-11, P-12). Recompute FFMI/ALMI fro
 
 | Item | Frozen |
 |------|--------|
-| Outputs | construct/aggregate Δ; false-improvement vs BASE; artifact-vs-biology label |
+| Outputs | construct/aggregate Δ; `falseImprovementIndicator` / `falseImprovementRate` (§23.17.8); artifact-vs-biology label |
 | Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | exploratory / evidence-dependent |
 | PHI | none |
@@ -2023,22 +2067,22 @@ Menstrual scenarios: female baselines only (P-11, P-12). Recompute FFMI/ALMI fro
 
 | BCV | Domain | Grid/MC | Epsilon | Noise | Seed | Outputs | Artifacts | Class | PHI |
 |-----|--------|---------|---------|-------|------|---------|-----------|-------|-----|
-| 001 | §23.5.3–4 | 1D+2D | NUM+SURF | none | N/A | continuity/slopes | json+csv+md+manifest | structural+expl | none |
-| 002 | personas | MC §23.3 | n/a | A+B | §23.2 | \|Δ\|/rates | json+md+manifest | expl/evid | none |
+| 001 | §23.5.3–4 | 1D+2D `canonicalAxisGrid` | NUM+SURF | none | N/A | continuity/slopes | json+csv+md+manifest | structural+expl | none |
+| 002 | personas | MC §23.3 | n/a | A+B | §23.2 | \|Δ\|/rates/§23.17 | json+md+manifest | expl/evid | none |
 | 006 | ages | grid | NUM | none | N/A | invariance | json+csv+md+manifest | structural | none |
 | 007 | sex anchors | grid | NUM | none | N/A | transform contrasts | json+csv+md+manifest | structural+expl | none |
-| 012 | centers+personas | FD+signs | SURF | n/a | §23.2 | sens/norm sens | json+csv+md+manifest | expl | none |
+| 012 | centers+personas | FD+signs | SURF | n/a | §23.2 | sens + §23.17.1 | json+csv+md+manifest | expl | none |
 | 013 | knots/plateaus | ±eps | NUM+SURF | none | N/A | L/K/R/width | json+csv+md+manifest | structural | none |
 | 014 | §23.5 coarse | grid | n/a | none | N/A | floor/ceil % | json+csv+md+manifest | expl | none |
-| 015 | missing×status | combo | n/a | none | N/A | reasons | json+md+manifest | structural+expl | none |
+| 015 | P-01/P-11 fixtures | combo | n/a | none | N/A | reasons §23.17.4 | json+md+manifest | structural+expl | none |
 | 016 | S-01…S-15 | catalog | n/a | none | N/A | eligibility | json+md+manifest | structural | none |
-| 017 | P-01…P-12 | table | n/a | none | N/A | patterns | json+md+manifest | expl | none |
-| 018 | companion anchors | fixed combos | n/a | none | N/A | hide flags | json+md+manifest | expl | none |
-| 029 | personas | MC | n/a | A+B pairs | §23.2 | tails/corr | json+md+manifest | expl/evid | none |
-| 030 | personas | MC | n/a | A+B | §23.2 | intervals/rates | json+md+manifest | expl/evid | none |
+| 017 | P-01…P-12 | table | NUM | none | N/A | relations §23.17.7 | json+md+manifest | expl | none |
+| 018 | companion anchors | fixed combos | n/a | none | N/A | §23.17.1 + hide | json+md+manifest | expl | none |
+| 029 | personas | MC | n/a | A+B pairs | §23.2 | tails/§23.17.3 | json+md+manifest | expl/evid | none |
+| 030 | personas | MC | n/a | A+B | §23.2 | intervals/§23.17.2–3 | json+md+manifest | expl/evid | none |
 | 031 | §23.12 | levels | NUM | none | N/A | invariance | json+csv+md+manifest | structural | none |
-| 032A | 029/030 | analysis | n/a | inherits | inherits | triad checklist | json+md+manifest | structural+expl | none |
-| 034 | P-01/08/11/12 | scenario matrix | n/a | §23.13 | §23.2 | Δscore | json+md+manifest | expl/evid | none |
+| 032A | 029/030 | analysis | n/a | inherits | inherits | §23.17.6 triad | json+md+manifest | structural+expl | none |
+| 034 | P-01/08/11/12 | scenario matrix | n/a | §23.13 | §23.2 | Δ + §23.17.8 | json+md+manifest | expl/evid | none |
 
 ---
 
@@ -2056,6 +2100,14 @@ Menstrual scenarios: female baselines only (P-11, P-12). Recompute FFMI/ALMI fro
 | Acute-state deltas / Waist inclusion | **NO** — BCV-034 |
 | Artifacts / manifest / root | **NO** — §23.9 |
 | Parameter fallback | **NO** — §23.6 |
+| Contribution equation / dominant / tie-break / change contribution | **NO** — §23.17.1 |
+| Directional-reversal protocol / denominator / zero handling | **NO** — §23.17.2 |
+| Uncertainty variance allocation / covariance / near-zero | **NO** — §23.17.3 |
+| False-improvement predicate / unavailable / rate | **NO** — §23.17.8 |
+| BCV-015 baseline / Resolver fixtures / missingness mutations | **NO** — §23.17.4 |
+| BCV-001 2D axis grid | **NO** — §23.5.3 / §23.17.5 |
+| BCV-032A SEM / SDC95 / MDC95 / clinical / user-perceived | **NO** — §23.17.6 |
+| BCV-017 pattern comparator / aggregate reference | **NO** — §23.17.7 |
 
 **Total material methodology choices remaining for Wave 1 execution engineer: 0.**
 
@@ -2064,14 +2116,212 @@ Menstrual scenarios: female baselines only (P-11, P-12). Recompute FFMI/ALMI fro
 ### 23.16 Wave 1 authorization gate
 
 ```text
-independent methodology re-gate PASS
+independent execution-semantics re-gate PASS
         ↓
-explicit WAVE 1 AUTHORIZED decision (separate)
+explicit WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED (separate)
         ↓
 only then may synthetic execution begin under this contract
 ```
 
 **This document does not authorize Wave 1.**
+
+---
+
+### 23.17 Wave 1 execution-semantics freeze (authoritative)
+
+Closes the eight residual execution ambiguities discovered when the authorized Wave 1 execution agent STOPPED before adding code. **Does not** reopen score formulas, weights, knots, Resolver, Confidence, Wave 1 membership, Monte Carlo/PRNG/covariance protocols, personas, schedules, or public status.
+
+#### 23.17.1 Contribution metrics
+
+For construct `i` with construct score `score_i ∈ [0,100]` and frozen aggregate weight `weight_i`:
+
+| Symbol | Definition |
+|--------|------------|
+| `absoluteContribution_i` | `weight_i * score_i` (aggregate score points) |
+| `marginalContributionPerConstructPoint_i` | `weight_i` (one additional construct-score point changes unclipped aggregate by `weight_i`; **no** counterfactual baseline) |
+| `weightedDeficit_i` | `weight_i * (100 - score_i)` — descriptive validation math only; **does not** imply 100 is clinically ideal |
+| `changeContribution_i` | Between states A→B: `weight_i * (score_i_B - score_i_A)` |
+
+Frozen weights (Mathematical Truth Freeze; do not change):
+
+| Score | Weights |
+|-------|---------|
+| Health | `w_H1=0.45`, `w_H2=0.35`, `w_H3=0.20` ⇒ contributions `0.45*H1`, `0.35*H2`, `0.20*H3` |
+| Performance-Supporting | `w_P1=0.50`, `w_P3=0.50` ⇒ contributions `0.50*P1`, `0.50*P3` |
+
+```text
+sum_i absoluteContribution_i = unclipped aggregate
+aggregateChange = sum_i changeContribution_i
+```
+
+subject only to the already-frozen aggregate calculation (`clip01` may still apply to emitted aggregate).
+
+`dominantAdverseConstruct` = construct with **MAX** `weightedDeficit_i`.
+
+Tie-break order:
+
+- Health: H1 → H2 → H3
+- Performance-Supporting: P1 → P3
+
+No other contribution definition may be introduced.
+
+#### 23.17.2 Directional-reversal probability
+
+Two-replicate noise test for one fixed latent synthetic state with deterministic true aggregate `S0`:
+
+1. Generate two independent noisy measurement realizations `S_A`, `S_B`.
+2. `delta_A = S_A - S0`; `delta_B = S_B - S0`.
+3. `reversalIndicator = 1` iff `delta_A * delta_B < 0`; else `0`.
+4. If either delta is exact zero: `reversalIndicator = 0`.
+5. `directionalReversalProbability = mean(reversalIndicator)` across Monte Carlo pairs.
+
+Pair sampling under §23.2 seed contract:
+
+```text
+N_pairs = converged Monte Carlo observation count for that protocol/score under §23.3
+For pair index k = 0 … N_pairs-1:
+  replicate A: substreamIndex = scoreBase + 2*k
+  replicate B: substreamIndex = scoreBase + 2*k + 1
+scoreBase_Health = 100
+scoreBase_Perf   = 200
+```
+
+Each replicate draws the full §23.2.3 Gaussian order once under its derived seed, then scores once.
+
+Meaning: can measurement noise alone make two repeated observations imply opposite directions relative to the same latent baseline? **Not** a probability of true biological reversal.
+
+#### 23.17.3 Construct uncertainty share
+
+Let `C_i` = construct-score random variable, `w_i` = frozen weight, `A = sum_i (w_i * C_i)` (unclipped aggregate random variable).
+
+```text
+varianceContribution_i =
+  w_i^2 * Var(C_i)
+  + sum_{j ≠ i} (w_i * w_j * Cov(C_i, C_j))
+
+SUM_i varianceContribution_i = Var(A)
+
+constructUncertaintyShare_i =
+  varianceContribution_i / Var(A)   if Var(A) > EPS_NUM
+  null                               if Var(A) <= EPS_NUM
+```
+
+When `Var(A) <= EPS_NUM`, record flag `aggregate_variance_near_zero`.
+
+Shares **may be negative** when negative covariance exists. **Do not clip** shares.
+
+Report: raw `varianceContribution`, signed `constructUncertaintyShare`, `Var(A)`, and the construct-score covariance matrix. Estimate `Var`/`Cov` from the protocol’s Monte Carlo construct-score samples (batch SD divisor rules in §23.3 apply to reported aggregate SD; for this allocation use the same sample moments on construct scores / unclipped aggregate).
+
+#### 23.17.4 BCV-015 canonical fixture assembly
+
+**Baselines (exact existing IDs; no new numeric values):**
+
+| Sex | baselinePersonaId |
+|-----|-------------------|
+| male | **P-01** |
+| female | **P-11** |
+
+Factory rule: start from the fully valid baseline; mutate **only** the target construct/status/missingness under test; all non-target constructs remain bit-for-bit equivalent to baseline.
+
+##### 23.17.4.1 Resolver-status fixtures (per target construct)
+
+| Status | Fixture contents |
+|--------|------------------|
+| `resolved` | one valid governed primary observation; Resolver status `resolved`; one `primaryEvidenceRef` |
+| `resolved_with_supporting` | same primary as `resolved` + one additional valid supporting observation; status `resolved_with_supporting`; `primaryEvidenceRef` remains the governed primary |
+| `multiple_valid` | two independently valid candidate observations; status `multiple_valid`; **no** score-layer winner |
+| `policy_not_frozen` | status `policy_not_frozen`; do not repair downstream |
+| `conflict` | status `conflict`; two incompatible candidates sufficient to represent conflict; do not resolve downstream |
+| `insufficient` | status `insufficient`; no governed numeric scoring channel available |
+| `undated_only` | observation/value present; required `measuredAt` absent; status `undated_only` |
+| `unsupported` | status `unsupported`; method/source set to a frozen unsupported method (e.g. consumer BIA / unknown Waist protocol per Mathematical Truth Freeze) |
+
+##### 23.17.4.2 Missingness fixtures (single-factor only)
+
+| Mutation | Action |
+|----------|--------|
+| `MISSING_VALUE` | remove numeric value only |
+| `MISSING_MEASURED_AT` | retain numeric value; remove `measuredAt` |
+| `MISSING_REQUIRED_METHOD` | retain value/date; replace governed method with frozen unsupported method |
+| `MISSING_REQUIRED_DEMOGRAPHIC` | where applicable: `sex` missing **or** `height` missing **or** DOB/age context missing — **one** demographic dimension per fixture |
+
+Only **one** missingness dimension may be mutated per single-factor fixture. Multi-factor cases are separately identified and use the already-frozen precedence matrix.
+
+##### 23.17.4.3 Fixture output fields (required every fixture)
+
+`fixtureId`, `baselinePersonaId`, `targetConstruct`, `resolverStatus`, `missingnessMutation`, `expectedAvailability`, `expectedPrimaryReason`, `observedAvailability`, `observedPrimaryReason`.
+
+`expectedAvailability` / `expectedPrimaryReason` **must** be obtained solely by applying the Mathematical Truth Freeze reason/precedence tables to the fixture. The execution engineer must not infer new policy.
+
+#### 23.17.5 BCV-001 2D surface axis grid
+
+Authoritative definition is §23.5.3 (`canonicalAxisGrid` + Cartesian product). Dense-local grids remain 1D diagnostics only. No 2D axis-step choice remains.
+
+#### 23.17.6 BCV-032A change-method formula enumeration
+
+Methodology-consistency audit only. Exact measurement-error formulas:
+
+```text
+SEM_diff = SD(delta) / sqrt(2)
+  where delta = repeatedMeasurement2 - repeatedMeasurement1
+
+SDC95_individual = 1.96 * sqrt(2) * SEM_diff
+                 = 1.96 * SD(delta)     (algebraic identity)
+
+MDC95_individual = SDC95_individual     (terminology alias only)
+```
+
+- Group-level SDC: **SHALL NOT** calculate in Wave 1 (no empirical study N).
+- Clinical meaningful change: **NO formula** in Wave 1 — evidence-dependent unresolved.
+- User-perceived meaningful change: **NO formula** in Wave 1 — evidence-dependent unresolved.
+
+BCV-032A must prove these concepts remain separate and must not manufacture clinical/user thresholds.
+
+#### 23.17.7 BCV-017 directional pass/fail rubric
+
+Replace qualitative free-text pass/fail. For every persona and every applicable construct/aggregate, `expectedRelation ∈ {higher, lower, equal, not_applicable}` relative to the sex-specific §23.5.4 reference (Health vs Performance as in §23.10).
+
+Computed predicate for scores `S_persona` vs `S_reference`:
+
+```text
+if S_persona > S_reference + EPS_NUM: observedRelation = "higher"
+else if S_persona < S_reference - EPS_NUM: observedRelation = "lower"
+else: observedRelation = "equal"
+
+Pass iff observedRelation == expectedRelation
+not_applicable rows are excluded from the pass denominator
+```
+
+Aggregate reference = aggregate score generated from the corresponding sex-specific frozen §23.5.4 reference anchor. No new reference score may be chosen by execution code.
+
+#### 23.17.8 False-improvement vs BASE (BCV-034)
+
+For each persona and scenario:
+
+```text
+baseAggregate = score under BASE
+scenarioAggregate = score under scenario
+
+falseImprovementIndicator =
+  1 if scenarioAggregate - baseAggregate > EPS_NUM
+  0 otherwise
+  null if either aggregate is unavailable
+
+falseImprovementRate =
+  count(indicator == 1) / count(indicator ∈ {0,1})
+```
+
+Report unavailable count separately.
+
+“False improvement” means apparent score improvement caused by the synthetic acute-state perturbation, not validated durable biological improvement. **Not** a clinical false-positive rate.
+
+#### 23.17.9 Required result field names
+
+Where applicable, emit exactly:
+
+`absoluteContribution`, `marginalContributionPerConstructPoint`, `weightedDeficit`, `dominantAdverseConstruct`, `changeContribution`, `directionalReversalProbability`, `varianceContribution`, `constructUncertaintyShare`, `falseImprovementIndicator`, `falseImprovementRate`.
+
+Use `null` only where mathematically undefined under the rules above.
 
 ---
 
@@ -2131,21 +2381,21 @@ No path auto-authorizes consumer integration or public scores. Synthetic alone c
 
 ---
 
-## 28. End-state of this Wave 1 zero-ambiguity correction
+## 28. End-state of this Wave 1 execution-semantics closure
 
 | Item | Status |
 |------|--------|
-| Private validation plan methodology | **COMPLETE / PENDING FINAL INDEPENDENT AUTHORIZATION RE-GATE** |
-| Wave 1 computational determinism | **CLOSED in docs** (pending independent confirmation) |
-| Wave 1 execution | **NOT AUTHORIZED** |
+| Private validation plan | **COMPLETE / PENDING INDEPENDENT EXECUTION-SEMANTICS RE-GATE** |
+| Wave 1 execution semantics (docs) | **CLOSED** (pending independent confirmation) |
+| Wave 1 execution | **BLOCKED pending re-gate** |
 | Tier B | **NOT AUTHORIZED** |
 | Validation execution | **NOT STARTED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
 | Public Health / Performance-Supporting | **NO-GO** |
 
-**Next action:** open a **new independent methodology reviewer** against the new SHA focusing on the six computational residuals (uint32/polar mapping; Model A path; batch SD + Type 7 quantiles; BCV-001 H3 ALMI/FFMI 2D coverage; manifest schema; BCV-029 catalog identity with §23), contradiction search, and zero material execution choices. Only an explicit **FINAL RE-GATE PASS** plus **WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED** may open the execution agent.
+**Next action:** open a **new independent reviewer** against the new SHA inspecting **only**: the eight execution semantics (§23.17); contradiction search; zero material executor choices; docs-only integrity; status consistency. Only if that review returns **PASS** and **WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED** may the Wave 1 execution agent be reopened.
 
 ---
 
-END OF PRIVATE / INTERNAL VALIDATION PLAN V1 (WAVE 1 ZERO-AMBIGUITY CORRECTION)
+END OF PRIVATE / INTERNAL VALIDATION PLAN V1 (WAVE 1 EXECUTION-SEMANTICS CLOSURE)
