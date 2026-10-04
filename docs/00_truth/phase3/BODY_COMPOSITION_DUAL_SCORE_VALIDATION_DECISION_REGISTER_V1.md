@@ -4,14 +4,14 @@
 **Date:** 2026-10-04
 **Branch:** `feat/body-composition-stage3e-body-scans-v1`
 **Kind:** Documentation only. Records validation-gate state. **Does not** authorize consumer release, change score math, or start validation execution.
-**Methodology correction:** closes independent methodology re-gate **FAIL** (10 blockers) against SHA `6f97bb6ec815981733fab0747a7b7491250670d5`.
+**Wave 1 zero-ambiguity correction:** closes methodology re-gate V2 residual Blocker 7 ambiguities against SHA `c9962e24f6632565da261feb55a706d63fa1ac06`.
 
 | Identity | Value |
 |----------|-------|
 | Implementation truth-freeze SHA | `3bed6aa6012690737bb5f7455a4397ca6a3bfe64` |
 | Approved runtime implementation SHA | `d940b1616b341e98b19e82f2cd6a6242dfe41691` |
 | Mathematical truth-freeze SHA | `e258267d109d1d05e20270f205e5fdb29ae2aca6` |
-| Prior plan SHA (methodology FAIL) | `6f97bb6ec815981733fab0747a7b7491250670d5` |
+| Prior methodology correction SHA | `c9962e24f6632565da261feb55a706d63fa1ac06` |
 | Validation plan | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_PRIVATE_VALIDATION_PLAN_V1.md` |
 | Health version | `body_composition_health_score_draft_v1` |
 | Performance-Supporting version | `body_composition_performance_supporting_score_draft_v1` |
@@ -29,8 +29,10 @@
 | Implementation truth freeze | **PASS** @ `3bed6aa…` |
 | Independent docs re-gate | **PASS** |
 | Validation plan methodology (at `6f97bb6e…`) | **FAIL** (10 blockers) — historical |
-| Validation plan methodology (correction) | **CORRECTED / PENDING INDEPENDENT RE-GATE** |
-| Wave 1 synthetic validation | **NOT AUTHORIZED** |
+| Validation plan methodology correction (at `c9962e24…`) | **FAIL** on residual Wave 1 zero-ambiguity (Blocker 7) — historical |
+| Validation plan methodology (this correction) | **COMPLETE / PENDING INDEPENDENT RE-GATE** |
+| Wave 1 synthetic validation | **NOT AUTHORIZED** (pending independent re-gate + explicit WAVE 1 AUTHORIZED) |
+| Wave 1 execution | **NOT STARTED** |
 | Tier B de-identified / real-user validation | **NOT AUTHORIZED** |
 | Validation execution | **NOT STARTED** |
 | Clinical validation | **NOT ESTABLISHED** |
@@ -42,24 +44,36 @@
 
 ---
 
-## 2. Methodology FAIL → correction map
+## 2. Experiment catalog count (authoritative)
 
-| Blocker | Topic | Correction locus |
-|---------|-------|------------------|
-| 1 | Correlated measurement error | Plan §3 + BCV-029 + ER-BC-17 |
-| 2 | Uncertainty propagation | Plan §11 + BCV-030 |
-| 3 | Intersectional fairness | Plan §9.5 + BCV-031 |
-| 4 | Change triad | Plan §11.3 + BCV-032 + ER-BC-13 |
-| 5 | Outcome claim controls | Plan §12 + ER-BC-14 |
-| 6 | Misinterpretation battery | Plan §10.3 + BCV-033 + ER-BC-18 |
-| 7 | Experiment catalog completeness | Plan §22 — 33 BCVs with required fields |
-| 8 | De-identification / Tier B limits | Plan §14 + ER-BC-15 |
-| 9 | Acute-state lean confounds | Plan §15 + BCV-034 + ER-BC-16 |
-| 10 | Circularity hardening | Plan §7–8 |
+| Count model | Value |
+|-------------|-------|
+| Parent BCVs | **34** (BCV-001 … BCV-034) |
+| Executable subprotocols | **2** (BCV-032A, BCV-032B) |
+| Wave 1 executable protocols | **16** (includes BCV-032A; excludes BCV-032B) |
+
+Do **not** state “33 BCVs”. Do **not** count 032A/032B as additional parent BCVs.
 
 ---
 
-## 3. Claim level
+## 3. Methodology FAIL → correction map
+
+| Blocker | Topic | Status after this correction |
+|---------|-------|------------------------------|
+| 1 | Correlated measurement error | Conceptually closed; Wave 1 Model A+B + ρ grid frozen |
+| 2 | Uncertainty propagation | Conceptually closed; intervals/quantiles/threshold grid frozen |
+| 3 | Intersectional fairness | Conceptually closed; structural procedure frozen |
+| 4 | Change triad | Conceptually closed; **BCV-032A P0 Wave 1** / **BCV-032B P1 later** |
+| 5 | Outcome claim controls | Conceptually closed |
+| 6 | Misinterpretation battery | Conceptually closed (P1; not Wave 1) |
+| 7 | Experiment catalog / Wave 1 zero-ambiguity | **Target of this correction** — execution contracts frozen |
+| 8 | De-identification / Tier B limits | Conceptually closed; Tier B still NOT AUTHORIZED |
+| 9 | Acute-state lean confounds | Conceptually closed; BCV-034 scenario matrix frozen |
+| 10 | Circularity hardening | Conceptually closed |
+
+---
+
+## 4. Claim level
 
 | Item | Value |
 |------|-------|
@@ -70,64 +84,33 @@
 
 ---
 
-## 4. What mathematical PASS does and does not mean
-
-| Established | Not established |
-|-------------|-----------------|
-| Formulas match mathematical freeze | Clinical meaningfulness |
-| Engines fail closed per precedence | Longitudinal stability |
-| Implementation Exact-Math Re-Gate V2 PASS | Joint measurement-error robustness in vivo |
-| Pure / unwired / non-persistent | Fairness (single-factor or intersectional) |
-| | Consumer interpretability / misconception resistance |
-| | Suitability for health claims |
-| | Public release readiness |
-
----
-
 ## 5. Validation execution authorization
 
 | Wave | Authorization |
 |------|---------------|
-| Wave 1 synthetic | **NOT AUTHORIZED** — requires independent methodology re-gate **PASS** + separate execution authorization |
-| Tier B de-identified / real-user | **NOT AUTHORIZED** — privacy/re-id governance incomplete |
+| Wave 1 synthetic | **NOT AUTHORIZED** — requires independent methodology re-gate **PASS** + explicit **WAVE 1 AUTHORIZED** |
+| Tier B de-identified / real-user | **NOT AUTHORIZED** |
 | Consumer pilot | **NOT AUTHORIZED** |
 | Public scores | **NO-GO** |
 
 ---
 
-## 6. Open future scientific-review questions (placeholder)
+## 6. Hard blockers (active)
 
-No formula changes are authorized. Questions may be opened when validation evidence warrants:
-
-| ID | Question | Trigger |
-|----|----------|---------|
-| FSR-BC-01 | Should 90d era / 180d age windows change? | Temporal coherence evidence |
-| FSR-BC-02 | Is age invariance defensible? | Age fairness evidence |
-| FSR-BC-03 | Do sex transforms require recalibration? | Sex fairness evidence |
-| FSR-BC-04 | Is single-function cross-vendor DXA scoring defensible? | Cross-platform evidence |
-| FSR-BC-05 | Should ethnicity enter a future model? | Ethnicity-omission bias evidence |
-| FSR-BC-06 | Knot / weight recalibration? | Construct / known-groups / outcome evidence |
-
-Empty until evidence is filed. Listing a question ≠ approving a change.
+All hard public-release blockers in the private validation plan remain **ACTIVE**. Any one is sufficient to maintain **NO-GO**.
 
 ---
 
-## 7. Hard blockers (active)
-
-All hard public-release blockers in the private validation plan remain **ACTIVE**, including unexplained subgroup/intersectional bias, unstable repeatability, high uncertainty/noise, Δ below SDC presented as meaningful, vendor/site drift, acute-state instability, misleading interpretation, missingness/access bias, privacy/re-identification risk, regulatory/legal uncertainty, and unresolved false precision.
-
-Any one is sufficient to maintain **NO-GO**.
-
----
-
-## 8. Next gate
+## 7. Next gate
 
 ```text
-VALIDATION PLAN METHODOLOGY CORRECTION (this phase)
+WAVE 1 ZERO-AMBIGUITY CORRECTION (this phase)
         ↓
 independent validation-methodology re-gate
         ↓
-(only if PASS) Wave 1 synthetic execution authorization
+(only if PASS) explicit WAVE 1 AUTHORIZED
+        ↓
+Wave 1 synthetic execution under frozen contract
         ↓
 Tier B empirical / de-identified validation (privacy-gated)
         ↓

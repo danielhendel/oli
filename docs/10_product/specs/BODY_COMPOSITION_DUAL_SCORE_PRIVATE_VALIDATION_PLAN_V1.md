@@ -15,7 +15,7 @@
 | Health version | `body_composition_health_score_draft_v1` |
 | Performance-Supporting version | `body_composition_performance_supporting_score_draft_v1` |
 | Companion decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_VALIDATION_DECISION_REGISTER_V1.md` |
-| Methodology status | **CORRECTED / PENDING INDEPENDENT RE-GATE** |
+| Methodology status | **COMPLETE / PENDING INDEPENDENT RE-GATE** (Wave 1 zero-ambiguity correction) |
 | Wave 1 execution | **NOT AUTHORIZED** |
 | Tier B | **NOT AUTHORIZED** |
 
@@ -57,7 +57,7 @@ If validation later suggests the formula should change: **document evidence** an
 | Implementation truth freeze | **PASS** @ `3bed6aa…` |
 | Independent docs re-gate | **PASS** |
 | Validation plan methodology (at `6f97bb6e…`) | **FAIL** (10 blockers) — historical |
-| Validation plan methodology (this correction) | **CORRECTED / PENDING INDEPENDENT RE-GATE** |
+| Validation plan methodology (Wave 1 zero-ambiguity correction) | **COMPLETE / PENDING INDEPENDENT RE-GATE** |
 | Wave 1 synthetic execution | **NOT AUTHORIZED** |
 | Tier B de-identified / real-user | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
@@ -370,13 +370,13 @@ Use joint/correlated draws from §3 wherever applicable.
 |--------|-------|
 | Score distribution | Per subject / scenario |
 | Median | Central tendency under noise |
-| Central interval | e.g. central 50%/80% — width **not** frozen for UI |
-| p90 / p95 spread | Tail uncertainty |
-| Band-crossing probability | If future presentation bands exist |
+| Central intervals | Report **all** of central 50%, 80%, 90%, 95% — none privileged for UI |
+| Quantiles | mean, SD, p05, p10, p25, p50, p75, p90, p95 |
+| Exploratory threshold-crossing | Internal thresholds `{10,20,…,90}` only — **NOT** product bands |
 | Directional-reversal probability | Sign flip under noise alone |
 | Construct contribution to total uncertainty | Which construct drives spread |
 
-**Do NOT freeze:** consumer interval width; confidence label; final UI. Internal analysis only.
+**Do NOT freeze:** consumer interval width; confidence label; final UI; product bands. Internal analysis only.
 
 ### 11.3 Change triad (NOT interchangeable)
 
@@ -626,7 +626,7 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 | Hypothesis | Waist noise alone can move H1/Health materially near steep segments |
 | Inputs | Synthetic Waist/Height; joint ε_H; candidate σ_waist |
 | Method | Monte Carlo; biology fixed |
-| Metrics | MAE, p90/p95 \|Δ\|, band-crossing, H1 contribution |
+| Metrics | MAE, p90/p95 \|Δ\|, exploratory threshold-crossing {10…90}, H1 contribution |
 | Dependencies | ER-BC-02; BCV-029 joint model |
 | Acceptance type | evidence-dependent |
 | Failure meaning | R1 — noise dominates |
@@ -894,7 +894,7 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 | Tier | A |
 | Objective | Directional explainability for paradoxes |
 | Hypothesis | Aggregates explainable via construct contributions |
-| Inputs | Persona table §5 |
+| Inputs | Canonical numeric persona table W1-PERSONAS (P-01…P-12) |
 | Method | Score + contribution audit |
 | Metrics | Expert review pass; adverse-hide flags |
 | Dependencies | BCV-018 |
@@ -1132,7 +1132,7 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 | Hypothesis | Aggregate intervals can span multiple integer scores |
 | Inputs | Joint draws from BCV-029 |
 | Method | Full propagation chain; report distributional outputs |
-| Metrics | Distribution, median, central interval, p90/p95, band-cross prob, directional-reversal prob, construct uncertainty share |
+| Metrics | Distribution; median/mean/SD; central 50/80/90/95%; p05–p95; exploratory threshold-crossing {10…90}; directional-reversal; construct uncertainty share (no product bands) |
 | Dependencies | BCV-029; no UI freeze |
 | Acceptance type | exploratory / evidence-dependent |
 | Failure meaning | R5 — false precision |
@@ -1158,23 +1158,56 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 | Next action | Science review; do not invent cutoffs |
 | PHI | none for structural |
 
-#### BCV-032 — Change-interpretation triad
+#### BCV-032 — Change-interpretation triad (parent)
 
 | Field | Value |
 |-------|-------|
 | Layer | V10 (+ V2/V3/V9) |
-| Priority | **P0 methodology** / **P1 empirical** |
-| Tier | A methodology; B empirical |
+| Parent ID | **BCV-032** |
+| Executable subprotocols | **BCV-032A** (P0 Wave 1) · **BCV-032B** (P1 Tier B/C later) |
 | Objective | Separate SDC/MDC vs clinically meaningful vs user-perceived change |
-| Hypothesis | These three thresholds diverge; small integers may be < SDC |
-| Inputs | SEM/retest; optional clinical anchors; perception tasks |
-| Method | SEM/SDC/MDC; Bland–Altman; heteroscedasticity; anchor/distribution clinical methods; perception research |
-| Metrics | Triad table (all unresolved as product policy) |
+| Catalog counting | Counts as **1 parent BCV**; **2 executable subprotocols** |
 | Dependencies | ER-BC-13; BCV-020; BCV-030 |
-| Acceptance type | evidence-dependent |
 | Failure meaning | R19 |
 | Next action | Forbid meaningful-Δ claims below SDC |
-| PHI | gated if empirical |
+
+#### BCV-032A — Change-Triad Methodology Consistency Audit
+
+| Field | Value |
+|-------|-------|
+| Layer | V10 |
+| Priority | **P0** |
+| Wave | **Wave 1** (docs/analysis only; Tier A) |
+| Tier | A |
+| Objective | Prove the triad is definitionally separated in Wave 1 artifacts; map noise envelopes from BCV-029/030 to SDC-candidate *methodology* (not acceptance numbers) |
+| Hypothesis | SDC/MDC, clinical meaningful change, and user-perceived change are non-interchangeable constructs |
+| Inputs | Wave 1 noise outputs; frozen triad definitions; ER-BC-13 placeholders |
+| Method | Consistency audit + candidate-formula documentation; no empirical clinical anchors required in Wave 1 |
+| Metrics | Triad definition checklist; mapped candidate SDC formulas; explicit “unresolved policy” flags |
+| Dependencies | ER-BC-13; BCV-029; BCV-030 |
+| Acceptance type | structural invariant (definitions) / exploratory (numeric candidates) |
+| Failure meaning | Triad collapsed or ambiguous |
+| Next action | Keep thresholds unresolved; gate R19 language |
+| PHI | none |
+
+#### BCV-032B — Empirical Change-Triad Validation
+
+| Field | Value |
+|-------|-------|
+| Layer | V10 |
+| Priority | **P1** |
+| Wave | **Not Wave 1** |
+| Tier | B/C |
+| Objective | Empirically estimate SDC/MDC vs clinical vs user-perceived change |
+| Hypothesis | Empirical thresholds diverge across the triad |
+| Inputs | Retest data; optional clinical anchors; perception tasks |
+| Method | SEM/SDC/MDC; Bland–Altman; heteroscedasticity; anchor/distribution; perception research |
+| Metrics | Triad table (still unresolved as product policy until scientific review) |
+| Dependencies | Tier B governance; ER-BC-13; BCV-003/004 |
+| Acceptance type | evidence-dependent |
+| Failure meaning | R19 |
+| Next action | Scientific review before any delta presentation claim |
+| PHI | gated |
 
 #### BCV-033 — Score misinterpretation battery
 
@@ -1217,59 +1250,580 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 
 | Priority | Experiments |
 |----------|-------------|
-| **P0** | 001, 002, 006(struct), 007(struct), 012, 013, 014, 015, 016(sim), 017, 018, 029, 030, 031(struct), 032(method), 034(synth) |
-| **P1** | 003, 004, 005, 006(emp), 007(emp), 008, 010, 011, 016(emp), 019, 020, 032(emp), 033, 034(emp) |
+| **P0** | 001, 002, 006(struct), 007(struct), 012, 013, 014, 015, 016(sim), 017, 018, 029, 030, 031(struct), **032A**, 034(synth) |
+| **P1** | 003, 004, 005, 006(emp), 007(emp), 008, 010, 011, 016(emp), 019, 020, **032B**, 033, 034(emp) |
 | **P2** | 009, 021, 022, 023, 024, 027, 028, 031(emp as data allow) |
 | **P3** | 025, 026 |
 
-**Total experiments: 34** (BCV-001 … BCV-028 plus BCV-029 … BCV-034).
+**Catalog count model:** **34 parent BCVs** (BCV-001 … BCV-034) + **2 executable subprotocols** (BCV-032A, BCV-032B). Do not count 032A/032B as additional parents.
 
 ---
 
-## 23. Wave 1 definition (not authorized)
+## 23. WAVE 1 SYNTHETIC EXECUTION CONTRACT
 
-Wave 1 may be **considered** only after independent methodology re-gate **PASS** and separate execution authorization. Wave 1 cannot be authorized until all P0 synthetic protocols are sufficiently specified (this correction targets that).
+> **Status:** Protocol frozen for independent methodology re-gate.
+> **Authorization:** Wave 1 synthetic execution remains **NOT AUTHORIZED** until re-gate **PASS** + explicit WAVE 1 AUTHORIZED decision.
+> **Scope:** Tier A synthetic only. **No PHI. No production data. No score-engine changes. No clinical claims. No release-status changes.**
 
-### 23.1 Wave 1 minimum set
+### 23.0 Wave 1 membership (complete P0 set)
 
-| ID | Title |
-|----|-------|
-| BCV-001 | Mathematical surface stress |
-| BCV-002 | Measurement perturbation |
-| BCV-006 | Structural age fairness |
-| BCV-007 | Structural sex fairness |
-| BCV-012 | Sensitivity map |
-| BCV-013 | Knot/plateau analysis |
-| BCV-014 | Floor/ceiling |
-| BCV-015 | Missingness |
-| BCV-016 | Temporal coherence simulation |
-| BCV-017 | Personas |
-| BCV-018 | Contribution/adverse-hide |
-| BCV-029 | Correlated measurement error |
-| BCV-030 | Aggregate uncertainty propagation |
-| BCV-031 | Structural intersectional fairness |
-| BCV-034 | Acute-state sensitivity simulation |
+| ID | Title | Interpretation class |
+|----|-------|----------------------|
+| BCV-001 | Mathematical surface stress | structural invariant + exploratory maps |
+| BCV-002 | Measurement perturbation | exploratory / evidence-dependent |
+| BCV-006 | Structural age fairness | structural invariant |
+| BCV-007 | Structural sex fairness | structural invariant + exploratory maps |
+| BCV-012 | Sensitivity map | exploratory |
+| BCV-013 | Knot/plateau analysis | structural invariant |
+| BCV-014 | Floor/ceiling | exploratory |
+| BCV-015 | Missingness + Resolver status | structural invariant (reasons) + exploratory rates |
+| BCV-016 | Temporal coherence schedules | structural invariant (eligibility) + exploratory rates |
+| BCV-017 | Numeric personas | exploratory / qualitative pattern audit |
+| BCV-018 | Contribution / adverse-hide | exploratory |
+| BCV-029 | Joint correlated measurement error | exploratory / evidence-dependent |
+| BCV-030 | Aggregate uncertainty propagation | exploratory / evidence-dependent |
+| BCV-031 | Structural intersectional fairness | structural invariant |
+| **BCV-032A** | Change-triad methodology consistency audit | structural invariant (definitions) + exploratory candidates |
+| BCV-034 | Acute-state sensitivity simulation | exploratory / evidence-dependent |
 
-### 23.2 Wave 1 execution contract (future)
+**Catalog count model (authoritative):**
 
-When separately authorized:
+- **34 parent BCVs** (BCV-001 … BCV-034)
+- **+ 2 executable subprotocols** under parent BCV-032: **BCV-032A** (Wave 1 P0), **BCV-032B** (P1 later)
+- Wave 1 executes **16 protocols** listed above (includes 032A; excludes 032B)
 
-- no PHI; no production data
-- deterministic seeds where randomness used
-- reproducible scripts
-- explicit parameter provenance (σ/ρ sources; unresolved markers)
-- **no change** to score engine
-- outputs only as synthetic validation artifacts
-- no clinical claims
-- no release-status changes
+---
 
-**This authoring pass does NOT authorize Wave 1.**
+### 23.1 Global engine / identity pins
+
+| Pin | Value |
+|-----|-------|
+| Health engine version | `body_composition_health_score_draft_v1` |
+| Performance-Supporting engine version | `body_composition_performance_supporting_score_draft_v1` |
+| Approved implementation SHA | `d940b1616b341e98b19e82f2cd6a6242dfe41691` |
+| Mathematical freeze SHA | `e258267d109d1d05e20270f205e5fdb29ae2aca6` |
+| Implementation truth-freeze SHA | `3bed6aa6012690737bb5f7455a4397ca6a3bfe64` |
+| Score engine mutation | **FORBIDDEN** |
+
+---
+
+### 23.2 Randomness / seed contract
+
+| Item | Frozen rule |
+|------|-------------|
+| Canonical seed | `20261004` |
+| PRNG | IEEE-754 double arithmetic; **mulberry32** (or bit-identical port) when a PRNG is required in JS/TS; document exact library/path in artifact manifest |
+| Experiment seed | `seed_exp = (canonical_seed * 1_000_003 + experiment_numeric_id) mod 2^32` |
+| Experiment numeric IDs | 001→1 … 034→34; **032A→3201**; **032B→3202** |
+| Stream derivation | For substreams (Model A/B, σ multiplier, persona, schedule): `seed_stream = (seed_exp * 1_000_033 + stream_code) mod 2^32` with stream_code documented in manifest |
+| Reproducibility | Same code SHA + same manifest + same seeds ⇒ bit-identical numeric tables (within IEEE-754). No arbitrary seeds. |
+
+---
+
+### 23.3 Monte Carlo contract (BCV-002, BCV-029, BCV-030, and any Wave 1 MC)
+
+Deterministic convergence-based Monte Carlo (independent of clinical acceptance):
+
+| Parameter | Frozen value |
+|-----------|--------------|
+| Minimum draws | `100_000` |
+| Checkpoint interval | every `10_000` draws after minimum |
+| Hard maximum | `1_000_000` |
+| Monitored statistics | median(\|Δscore\|), p95(\|Δscore\|), and for BCV-030 also p05/p95 of score and exploratory threshold-crossing rates at {10,50,90} |
+| Convergence rule | At checkpoint *k*, for each monitored statistic *s*: `|s_k − s_{k−1}| ≤ tol_s` **and** estimated Monte Carlo SE for that statistic ≤ `se_tol_s` |
+| `tol_median` | `1e-3` score points |
+| `tol_p95` | `5e-3` score points |
+| `tol_quantile` (BCV-030 score quantiles) | `5e-3` score points |
+| `tol_rate` (threshold-crossing rates) | `1e-3` absolute probability |
+| `se_tol_median` | `5e-3` |
+| `se_tol_p95` | `1e-2` |
+| `se_tol_rate` | `2e-3` |
+| SE estimator | Batch-means SE using non-overlapping blocks of 10_000 draws |
+| Stop | First checkpoint after minimum where **all** monitored stats for that BCV meet tol + se_tol; else continue to hard max and mark `converged=false` |
+| Health vs Perf | Run separately with independent streams; both must satisfy their own convergence |
+
+These tolerances are **simulation-estimate precision** rules only — **not** clinical acceptance thresholds.
+
+---
+
+### 23.4 Canonical epsilon policy
+
+Reuse repository score-test numerical convention (`1e-9` in piecewise-linear score tests).
+
+| Symbol | Value | Use |
+|--------|-------|-----|
+| `EPS_NUM` | `1e-9` | Exact floating-point knot/boundary continuity tests |
+| `EPS_SURF` | `1e-4` | Practical surface / finite-difference step on index units (WHtR/FMI/ALMI/FFMI) |
+| `EPS_CM` | `1e-3` cm | Practical anthropometry finite-difference on Waist/Height when needed |
+
+Distinguish:
+
+- **numerical epsilon** (`EPS_NUM`) — implementation continuity
+- **surface epsilon** (`EPS_SURF` / `EPS_CM`) — local sensitivity geometry
+- **physiologic perturbation** — measurement-error / acute-state models (not epsilons)
+
+---
+
+### 23.5 Canonical synthetic domains & grids (BCV-001 / shared)
+
+Synthetic ranges are **computational domains**, not clinical ranges.
+
+#### 23.5.1 Domains
+
+| Variable | Sex | min | max | Notes |
+|----------|-----|-----|-----|-------|
+| WHtR | both | 0.30 | 0.95 | covers ≤0.40 plateau, knots 0.50/0.60/0.80, upper tail |
+| FMI | male | 0.5 | 25.0 | covers H2/P3 male knots |
+| FMI | female | 1.0 | 30.0 | covers H2/P3 female knots |
+| ALMI | male | 4.0 | 12.0 | covers H3 ALMI male knots |
+| ALMI | female | 3.0 | 10.0 | covers H3 ALMI female knots |
+| FFMI | male | 14.0 | 24.0 | covers H3/P1 male knots |
+| FFMI | female | 12.0 | 21.0 | covers H3/P1 female knots |
+| Height_cm | both | 140.0 | 210.0 | structural/size studies |
+| Waist_cm | both | 50.0 | 160.0 | with Height ⇒ WHtR domain |
+| Age_years (completed) | both | 20 | 90 | adult gate only; no age slope |
+| Sex | — | `male` \| `female` | only governed values |
+
+#### 23.5.2 Grid steps
+
+| Region | Step |
+|--------|------|
+| Coarse global | WHtR `0.01`; FMI `0.25`; ALMI `0.10`; FFMI `0.10` |
+| Dense local around every frozen knot | ±`0.05` in index units at step `0.005` (WHtR) or `0.05` (FMI/ALMI/FFMI) |
+| Exact knot inclusion | **mandatory** — every frozen knot x must appear exactly |
+| Exact ±`EPS_NUM` | include `knot ± EPS_NUM` for continuity |
+| Exact ±`EPS_SURF` | include `knot ± EPS_SURF` for practical neighborhood |
+
+#### 23.5.3 Frozen knots (from mathematical / implementation freeze; do not alter)
+
+| Construct | Sex | Knot x values |
+|-----------|-----|---------------|
+| H1 WHtR | both | 0.40, 0.50, 0.60, 0.80 |
+| H2 FMI | male | 2.0, 3.5, 5.5, 9.0, 15.0 |
+| H2 FMI | female | 3.5, 5.5, 8.5, 13.0, 21.0 |
+| H3 ALMI | male | 6.0, 7.0, 8.0 |
+| H3 ALMI | female | 4.5, 5.5, 6.3 |
+| H3 FFMI | male | 16.0, 16.7, 18.5 |
+| H3 FFMI | female | 14.0, 14.6, 16.0 |
+| P1 FFMI | male | 16.0, 16.7, 19.0, 20.5 |
+| P1 FFMI | female | 14.0, 14.6, 16.5, 17.5 |
+| P3 FMI | male | 2.0, 3.0, 7.0, 10.0, 16.0 |
+| P3 FMI | female | 3.5, 5.0, 10.0, 14.0, 22.0 |
+
+#### 23.5.4 Default eligible demographics for surface grids
+
+Unless a BCV overrides:
+
+- `sex` as grid factor
+- `dateOfBirth` such that completed UTC years = 30 at `asOf`
+- `asOf` = `2026-10-04T12:00:00.000Z`
+- all scoring `measuredAt` = `asOf` (same-day eligible)
+- Resolver constructs/channels: `resolved` with DXA primary as required; H1 WHtR `who_midpoint_v1` v1
+- H3 primary: ALMI when ALMI is the swept lean index; FFMI when FFMI is swept (never invent score-layer fallback)
+
+---
+
+### 23.6 Parameter fallback when ER σ/ρ unavailable
+
+Do **not** invent σ. If ER-BC-01/02/16/17 have not frozen magnitudes at execution start:
+
+| Parameter | Fallback |
+|-----------|----------|
+| Base σ placeholders | Use **unit-normalized exploratory σ\*** labeled `exploratory_normalized_not_empirical` in manifest |
+| σ\* Waist | `1.0` cm |
+| σ\* Height | `0.5` cm |
+| σ\* FM | `0.25` kg |
+| σ\* FFM | `0.25` kg |
+| σ\* ALM | `0.20` kg |
+| Multipliers (always run) | `0.5×`, `1.0×`, `1.5×`, `2.0×` of the active σ vector |
+| ρ grid (Model B) | `{-0.75,-0.50,-0.25,0,+0.25,+0.50,+0.75}` exploratory — **not** empirical estimates |
+
+If ER later supplies magnitudes, re-run with ER values and mark `parameterSource=ER`; keep exploratory runs archived.
+
+---
+
+### 23.7 Noise / covariance models (BCV-002 / BCV-029 / BCV-030)
+
+**Critical joint-Height rule:** one shared `ε_H` per draw applied simultaneously to WHtR, FMI, FFMI, ALMI recomputation.
+
+| Model | Definition | Wave 1 |
+|-------|------------|--------|
+| **Model A** | Shared Height error; Waist independent; DXA FM/FFM/ALM independent Gaussian (zero-mean) after Height coupling | **REQUIRED** |
+| **Model B** | Model A + DXA covariance: apply ρ from frozen ρ grid to (FM,FFM) and (LM/FFM,ALM) pairs as specified in manifest; if ER-BC-17 supplies a covariance, use it **in addition to** the ρ-grid sensitivity labeled exploratory | **REQUIRED** |
+
+Wave 1 runs **both** Model A and Model B. Engineer may not choose only one.
+
+---
+
+### 23.8 BCV-030 interval & threshold contract
+
+**No authorized consumer score bands exist.** Do not use product bands.
+
+Report **all** of:
+
+- central 50%, central 80%, central 90%, central 95% intervals
+- mean, SD
+- quantiles: p05, p10, p25, p50, p75, p90, p95
+- median
+- directional-reversal probability (sign of Δscore under noise)
+- construct-level contribution to total uncertainty (variance share or absolute |Δ| share)
+- **exploratory internal threshold-crossing** at thresholds `{10,20,30,40,50,60,70,80,90}`
+
+These thresholds are **NOT** product bands, health categories, or release thresholds.
+
+---
+
+### 23.9 Artifact + parameter manifest contract
+
+Every Wave 1 BCV MUST emit:
+
+1. Machine-readable results: `JSON` and/or `CSV`
+2. Human-readable: Markdown summary
+3. Optional plots for surface/grid studies
+
+Every artifact MUST include:
+
+| Field | Required |
+|-------|----------|
+| experimentId | yes |
+| engineVersion(s) | yes |
+| implementationSha | yes |
+| mathematicalFreezeSha | yes |
+| seed / stream seeds | yes |
+| parameterManifest | yes |
+| runTimestampUtc | yes |
+| codeSha | yes |
+| resultSummary | yes |
+| phi | must be `none` |
+
+#### Canonical parameter manifest schema (planning only — do not implement code yet)
+
+```text
+experimentId
+engineVersion
+implementationSha
+mathematicalFreezeSha
+seed
+inputDomains
+gridSteps
+epsilon { EPS_NUM, EPS_SURF, EPS_CM }
+monteCarloProtocol { min, checkpoint, max, tol*, se_tol*, converged }
+noiseParameters { source, sigmaStar?, multipliers, modelA, modelB }
+covarianceParameters { rhoGrid?, erSource? }
+scheduleId?
+personaId?
+provenance
+notes
+```
+
+---
+
+### 23.10 Canonical numeric persona table (BCV-017) — W1-PERSONAS
+
+Synthetic only. **Not** clinical archetypes or normative cutoffs. Internally coherent enough to drive scores.
+
+Shared defaults unless overridden:
+
+- `asOf` = `2026-10-04T12:00:00.000Z`
+- all `measuredAt` = `asOf` (S-01)
+- Waist protocol `who_midpoint_v1` v1
+- DXA channels `resolved`; H3 primary = ALMI unless noted
+- Height/Waist/FMI/ALMI/FFMI units: cm / cm / kg·m⁻² / kg·m⁻² / kg·m⁻²
+
+| ID | Sex | Age | Height | Waist | WHtR | FMI | ALMI | FFMI | H3 primary | Qualitative pattern |
+|----|-----|-----|--------|-------|------|-----|------|------|------------|---------------------|
+| P-01 | male | 30 | 178 | 78 | 0.438 | 4.5 | 8.2 | 19.0 | ALMI | Favorable all |
+| P-02 | male | 40 | 175 | 105 | 0.600 | 5.0 | 8.0 | 18.8 | ALMI | High central + favorable lean |
+| P-03 | male | 35 | 180 | 80 | 0.444 | 4.0 | 6.2 | 16.2 | ALMI | Favorable adiposity + low lean |
+| P-04 | male | 28 | 182 | 92 | 0.505 | 10.0 | 8.5 | 20.8 | ALMI | High FMI + high FFMI |
+| P-05 | male | 55 | 170 | 76 | 0.447 | 3.0 | 5.8 | 15.8 | ALMI | Low FMI + low ALMI |
+| P-06 | male | 45 | 176 | 102 | 0.580 | 4.8 | 7.8 | 18.5 | ALMI | Discordant high WHtR / favorable FMI |
+| P-07 | male | 42 | 176 | 82 | 0.466 | 12.0 | 7.6 | 18.2 | ALMI | Discordant favorable WHtR / high FMI |
+| P-08 | male | 60 | 172 | 108 | 0.628 | 11.5 | 6.1 | 16.0 | ALMI | Sarcopenic-obesity-like pattern |
+| P-09 | male | 32 | 185 | 100 | 0.541 | 7.5 | 9.0 | 21.0 | ALMI | High muscularity + high central adiposity |
+| P-10 | male | 38 | 178 | 98 | 0.551 | 5.2 | 7.5 | 18.0 | ALMI | Low BMI-like composition + high central adiposity |
+| P-11 | female | 30 | 165 | 70 | 0.424 | 6.5 | 6.5 | 16.2 | ALMI | Female favorable pattern |
+| P-12 | female | 48 | 162 | 95 | 0.586 | 14.0 | 5.2 | 14.8 | ALMI | Female adverse mixed pattern |
+
+For each persona also evaluate Performance-Supporting using P1=FFMI and P3=FMI from the same row.
+
+**Required BCV-017 outputs:** construct scores; aggregates; dominant construct; adverse-hide flag; qualitative pattern match pass/fail with rationale.
+
+---
+
+### 23.11 Temporal schedule catalog (BCV-016) — W1-SCHEDULES
+
+`asOf = 2026-10-04T12:00:00.000Z`. `DAY_MS = 86_400_000`. Timestamps are exact.
+
+Base eligible subject: P-01 demographics/indices with construct inputs as listed; only `measuredAt` / `sourceEventId` vary.
+
+| ID | Definition | Exact timestamps relative to asOf |
+|----|------------|-----------------------------------|
+| S-01 | Same-day all constructs | all `measuredAt = asOf` |
+| S-02 | 30d separation | H1(Waist+Height)=asOf; DXA(H2/H3/P1/P3)=asOf−30d |
+| S-03 | 89d separation | H1=asOf; DXA=asOf−89d |
+| S-04 | 90d separation | H1=asOf; DXA=asOf−90d |
+| S-05 | 90d + 1ms | H1=asOf; DXA=asOf−(90d+1ms) |
+| S-06 | 91d | H1=asOf; DXA=asOf−91d |
+| S-07 | one input age 179d | all=asOf except Waist=asOf−179d |
+| S-08 | 180d | Waist=asOf−180d; others=asOf |
+| S-09 | 180d + 1ms | Waist=asOf−(180d+1ms); others=asOf |
+| S-10 | H1 fresh + DXA old | H1=asOf; DXA=asOf−120d |
+| S-11 | DXA fresh + H1 old | DXA=asOf; H1=asOf−120d |
+| S-12 | rolling monthly waist + semiannual DXA | Waist=asOf−30d; Height=asOf−30d; DXA=asOf−180d |
+| S-13 | annual DXA + monthly waist | Waist/Height=asOf−30d; DXA=asOf−365d |
+| S-14 | same sourceEventId scan constructs | DXA constructs share `sourceEventId="scan-A"` at asOf−10d; Waist=asOf−10d different event |
+| S-15 | same timestamp, different sourceEventId | all `measuredAt=asOf−10d` but Waist `sourceEventId="w1"` and DXA `"scan-B"` (gap not forced 0) |
+
+**Required outputs per schedule:** aggregate status; primaryReason; constructReasons; eligibility boolean; era/age gate hit flags.
+
+---
+
+### 23.12 Structural fairness procedure (BCV-006 / 007 / 031)
+
+**Rule:** hold scoring composition inputs identical; vary only the demographic/context dimension under test.
+
+| Study | Hold constant | Vary | Expected structural result |
+|-------|---------------|------|----------------------------|
+| BCV-006 age | P-01 composition inputs | completed ages {20,30,40,50,60,70,80,90} via DOB | identical scores (adult-eligible) |
+| BCV-007 sex | sex-appropriate matched index *z*-positions near mid knots + cross-sex identical raw indices where defined | male/female | document transform differences; not assumed fair |
+| BCV-031 age×sex | composition | ages × sexes grid | report cells; adult identity within sex |
+| BCV-031 height×sex | FMI/ALMI/FFMI/WHtR fixed; recompute Waist=WHtR×Height | heights {150,160,170,180,190,200} × sex | scores identical when indices fixed |
+| BCV-031 BMI-proxy×sex | indices fixed; label BMI bands only as metadata | labels underweight/normal/overweight/obese | **score invariant** (BMI unused) |
+| BCV-031 athletic×sex | indices fixed; athletic label metadata | athletic/non-athletic × sex | **score invariant** (label unused) |
+| BCV-031 menopause×age | female indices fixed; menopause label metadata | pre/post × ages | **score invariant** (label unused) |
+| BCV-031 ethnicity label | indices fixed; ethnicity metadata | label variants | **score invariant** (unused) |
+| BCV-031 vendor×site hidden-path | indices fixed; vendor/site metadata only | Hologic/GE × site A/B | **score invariant** (no hidden code-path dependence). Empirical vendor bias = later Tier B/C |
+
+**Outputs:** pairwise score deltas; max |Δ|; invariance pass/fail at `EPS_NUM` for unused-factor tests; tables for sex-transform exploratory contrasts.
+
+---
+
+### 23.13 Per-BCV Wave 1 protocol details
+
+#### BCV-001 — Mathematical surface stress
+
+| Item | Frozen |
+|------|--------|
+| Domain/grid | §23.5 |
+| Method | Evaluate Health and Perf on coarse+dense+knot±EPS grids by sex; H3 ALMI and H3 FFMI sweeps separate |
+| Epsilon | EPS_NUM + EPS_SURF |
+| Noise | none |
+| Seed | N/A (deterministic grid) |
+| Outputs | continuity flags; max jump off withhold boundaries; local slopes; floor/ceiling occupancy; NaN/OOR counts (must be 0 for finite eligible inputs) |
+| Artifacts | CSV grids + MD summary + optional plots |
+| Class | structural invariant (continuity/NaN/OOR); exploratory (maps) |
+| PHI | none |
+
+#### BCV-002 — Measurement perturbation
+
+| Item | Frozen |
+|------|--------|
+| Baseline cases | P-01…P-12 |
+| Noise | §23.6–23.7; multipliers 0.5/1/1.5/2.0× |
+| Shared Height | mandatory |
+| Models | A and B |
+| MC | §23.3 |
+| Seed | §23.2 |
+| Outputs | MAE/median/p90/p95 \|Δ\|; threshold-crossing on exploratory grid; construct contribution |
+| Artifacts | JSON/CSV + MD |
+| Class | exploratory / evidence-dependent |
+| PHI | none |
+
+#### BCV-012 — Sensitivity map
+
+| Item | Frozen |
+|------|--------|
+| Domains | §23.5 around personas P-01…P-12 and mid-knot centers |
+| One-at-a-time | perturb each of WHtR,FMI,ALMI,FFMI by ±EPS_SURF and ±0.01 / ±0.1 as secondary practical steps `{EPS_SURF, 0.01, 0.1}` for WHtR; `{EPS_SURF, 0.1, 0.5}` for FMI/ALMI/FFMI |
+| Joint cases | simultaneous ±EPS_SURF on all indices; Model A unit noise single draw set seed-fixed n=10_000 diagnostic (non-convergent diagnostic stream `stream_code=12`) |
+| Finite difference | central difference where possible: `(f(x+h)-f(x-h))/(2h)` |
+| Outputs | local slope; normalized sensitivity `\|slope\|·scale`; dominant construct; aggregate delta |
+| Artifacts | CSV + MD + optional heatmaps |
+| Class | exploratory |
+| PHI | none |
+
+#### BCV-013 — Knot / plateau
+
+| Item | Frozen |
+|------|--------|
+| Knots/plateaus | §23.5.3; H1 plateau x≤0.40; FMI mid plateaus per freeze |
+| Epsilon | left/right at knot±EPS_NUM and knot±EPS_SURF |
+| Outputs | left value; knot value; right value; left slope; right slope; discontinuity delta (`|left-right|` across EPS_NUM); plateau width |
+| Continuity invariant | discontinuity delta ≤ 1e-6 score points at EPS_NUM neighborhood for continuous transforms |
+| Class | structural invariant |
+| PHI | none |
+
+#### BCV-014 — Floor / ceiling
+
+| Item | Frozen |
+|------|--------|
+| Sampling | full §23.5 coarse grids by sex for Health and Perf |
+| Exact floor | score `== 0` |
+| Exact ceiling | score `== 100` |
+| Near floor | `0 < score ≤ 5` |
+| Near ceiling | `95 ≤ score < 100` |
+| Outputs | % exact floor; % near floor; % exact ceiling; % near ceiling; histogram edges `[0,5,10,…,100]` + quantiles p05…p95 |
+| Note | near band width 5 is exploratory analysis only — **not** a release threshold |
+| Class | exploratory |
+| PHI | none |
+
+#### BCV-015 — Missingness / Resolver
+
+| Item | Frozen |
+|------|--------|
+| Matrix | each core construct missing alone + all pairs + all three (Health) / both (Perf); Resolver statuses `{resolved, resolved_with_supporting, multiple_valid, policy_not_frozen, conflict, insufficient, undated_only, unsupported}` applied per construct |
+| Outputs | status; primaryReason; constructReasons; match to freeze precedence |
+| Class | structural invariant on reasons; exploratory on rates |
+| PHI | none |
+
+#### BCV-016 — Schedules
+
+| Item | Frozen |
+|------|--------|
+| Catalog | S-01…S-15 exact (§23.11) |
+| Outputs | eligibility; reasons; gate flags |
+| Class | structural invariant |
+| PHI | none |
+
+#### BCV-017 — Personas
+
+| Item | Frozen |
+|------|--------|
+| Table | P-01…P-12 (§23.10) |
+| Outputs | scores; contributions; pattern audit |
+| Class | exploratory |
+| PHI | none |
+
+#### BCV-018 — Contribution / adverse-hide
+
+| Item | Frozen |
+|------|--------|
+| Cases | P-01…P-12 + synthetic adverse-hide set: each construct set to low-tail while others mid-plateau (exact index picks: H1=0.70, H2 male FMI=12 / female=16, H3 ALMI male=6.2 / female=4.7, with other constructs at mid favorable knots) |
+| Metrics | absolute contribution; marginal contribution; dominant; adverse-hide boolean if any construct < 40 while aggregate ≥ 70 |
+| Class | exploratory |
+| PHI | none |
+
+#### BCV-029 — Correlated error
+
+| Item | Frozen |
+|------|--------|
+| Models | A and B required |
+| ρ grid | §23.6 |
+| MC | §23.3 |
+| Baselines | P-01…P-12 |
+| Outputs | joint vs independent-height ablation (independent-height ablation is diagnostic only and must be labeled non-compliant vs production methodology); p90/p95; construct shares |
+| Class | exploratory / evidence-dependent |
+| PHI | none |
+
+#### BCV-030 — Uncertainty propagation
+
+| Item | Frozen |
+|------|--------|
+| Chain | measurement→index→construct→aggregate |
+| Intervals/quantiles/thresholds | §23.8 |
+| MC | §23.3 |
+| Models | A and B |
+| Product bands | **none** |
+| Class | exploratory / evidence-dependent |
+| PHI | none |
+
+#### BCV-031 — Intersectional structural fairness
+
+| Item | Frozen |
+|------|--------|
+| Procedure | §23.12 |
+| Outputs | invariance tables; max \|Δ\| |
+| Class | structural invariant |
+| PHI | none |
+
+#### BCV-032A — Change-triad methodology audit
+
+| Item | Frozen |
+|------|--------|
+| Method | Docs/analysis using BCV-029/030 envelopes; define candidate SDC formulas; assert triad non-equivalence in text+tables |
+| Must produce | triad checklist; candidate SDC from SEM-style mapping; explicit unresolved flags for clinical and user-perceived thresholds |
+| Must not | freeze acceptance numbers; run Tier B |
+| Class | structural invariant (definitions) + exploratory (candidates) |
+| PHI | none |
+
+#### BCV-034 — Acute-state simulation
+
+| Item | Frozen |
+|------|--------|
+| Baseline | P-01, P-08, P-11, P-12 |
+| Scenario matrix (multipliers on ER-BC-16 placeholders; if unavailable use normalized exploratory deltas below) | see table |
+| Exploratory default deltas (labeled non-empirical) | FFM ±{0.5,1.0,1.5} kg; ALM ±{0.3,0.6,0.9} kg; optional Waist ±{1,2} cm; Weight metadata only (non-scoring) ±{0.5,1.0,1.5} kg |
+| Scenarios | hydration↑; hydration↓; glycogen↑; glycogen↓; recent exercise; illness/inflammation; edema; menstrual-phase (female baselines only); morning vs evening TOD label (metadata + apply TOD delta set = hydration↓ exploratory) |
+| Outputs | construct/aggregate Δ; false-improvement rate vs baseline; artifact-vs-biology label column |
+| Class | exploratory / evidence-dependent |
+| PHI | none |
+
+---
+
+### 23.14 Zero-ambiguity table (Wave 1 P0)
+
+| BCV | Exact input domain | Grid/MC | Epsilon | Noise model | Seed | Dependencies | Outputs | Artifact | Interpretation class | PHI |
+|-----|--------------------|---------|---------|-------------|------|--------------|---------|----------|----------------------|-----|
+| 001 | §23.5 | grid | NUM+SURF | none | N/A | freeze SHAs | continuity/slopes/occupancy | CSV+MD(+plots) | structural+exploratory | none |
+| 002 | personas | MC §23.3 | n/a | A+B + σ multipliers | §23.2 | ER-01/02/17 or fallback | \|Δ\| quantiles; crossings | JSON/CSV+MD | exploratory/evid-dep | none |
+| 006 | P-01 ages | grid ages | NUM | none | N/A | adult gate | invariance Δ | CSV+MD | structural | none |
+| 007 | sex grids | grid | NUM+SURF | none | N/A | sex transforms | dist/floor/sens | CSV+MD | structural+exploratory | none |
+| 012 | personas+knots | FD steps | SURF | diagnostic n=10k | §23.2 | 001 | slopes/sens/dominant | CSV+MD(+plots) | exploratory | none |
+| 013 | knots | knot±eps | NUM+SURF | none | N/A | freeze knots | L/K/R values&slopes | CSV+MD | structural | none |
+| 014 | §23.5 coarse | grid | n/a | none | N/A | 001 | floor/near/ceil % | CSV+MD | exploratory | none |
+| 015 | missing×status | combinatorial | n/a | none | N/A | reason freeze | reasons/status | JSON+MD | structural+exploratory | none |
+| 016 | S-01…S-15 | schedule catalog | n/a | none | N/A | recency freeze | eligibility/reasons | JSON+MD | structural | none |
+| 017 | P-01…P-12 | persona table | n/a | none | N/A | — | scores/patterns | JSON+MD | exploratory | none |
+| 018 | personas+hide set | fixed cases | n/a | none | N/A | weights freeze | contributions/hide | JSON+MD | exploratory | none |
+| 029 | personas | MC §23.3 | n/a | A+B + ρ grid | §23.2 | ER-17 or fallback | joint vs ablation; tails | JSON/CSV+MD | exploratory/evid-dep | none |
+| 030 | personas | MC §23.3 | n/a | A+B | §23.2 | 029 | intervals/quantiles/thresholds | JSON/CSV+MD | exploratory/evid-dep | none |
+| 031 | §23.12 | structural grids | NUM | none | N/A | 006/007 | invariance tables | CSV+MD | structural | none |
+| 032A | 029/030 outputs | analysis | n/a | inherited | inherits | ER-13 | triad checklist+candidates | MD+JSON | structural+exploratory | none |
+| 034 | P-01/08/11/12 | scenario matrix | n/a | acute deltas | §23.2 | ER-16 or fallback | Δscore; false-improve | JSON+MD | exploratory/evid-dep | none |
+
+---
+
+### 23.15 Engineer-choice audit (must all be NO)
+
+| Choice | Remaining? |
+|--------|------------|
+| N / stopping rule | **NO** — §23.3 |
+| Seed / PRNG | **NO** — §23.2 |
+| Domain / grid / step | **NO** — §23.5 |
+| Epsilon | **NO** — §23.4 |
+| Persona values | **NO** — §23.10 |
+| Schedules | **NO** — §23.11 |
+| Covariance mode | **NO** — both A and B + ρ grid |
+| Interval set | **NO** — §23.8 |
+| Threshold set | **NO** — exploratory 10…90; no product bands |
+| Output metrics | **NO** — per-BCV |
+| Artifacts / manifest | **NO** — §23.9 |
+| Parameter fallback | **NO** — §23.6 |
+
+If any answer becomes YES after review, Wave 1 zero-ambiguity is **not** closed.
+
+---
+
+### 23.16 Wave 1 authorization gate
+
+```text
+independent methodology re-gate PASS
+        ↓
+explicit WAVE 1 AUTHORIZED decision (separate)
+        ↓
+only then may synthetic execution begin under this contract
+```
+
+**This document does not authorize Wave 1.**
 
 ---
 
 ## 24. Wave 2 (Tier B) — still blocked
 
-Empirical retest, repeated Waist, longitudinal, cross-platform, known-groups, correlations — only after §14 governance + ER-BC-15 + separate authorization.
+Empirical retest, repeated Waist, longitudinal, cross-platform, known-groups, correlations — only after privacy/re-id governance + ER-BC-15 + separate authorization.
+
+BCV-032B is **P1 / Tier B–C**, not Wave 1.
 
 ---
 
@@ -1279,34 +1833,30 @@ Every ER includes: question; why needed; scope; evidence types; output needed; w
 
 | ID | Question | Why needed | Scope | Evidence types | Output needed | May inform | May NOT prove |
 |----|----------|------------|-------|----------------|---------------|------------|---------------|
-| ER-BC-01 | DXA precision/repeatability | Noise/SDC baselines | FM/FFM/ALM | Lit + vendor docs | σ/SEM candidates | V2/V5 thresholds | Clinical validity |
+| ER-BC-01 | DXA precision/repeatability | Noise/SDC baselines | FM/FFM/ALM | Lit + vendor docs | σ/SEM candidates | V2/V5; §23.6 | Clinical validity |
 | ER-BC-02 | Waist WHO-midpoint repeatability | H1 noise | Protocol error | Lit + methods | σ_waist candidates | BCV-002 | Clinical meaning |
 | ER-BC-03 | FMI/ALMI health-outcome association | Construct support | Health externals | Epidem. lit | Association map | V6/V11 | Causality |
 | ER-BC-04 | FFMI/performance association | Perf construct | Strength/function | Lit | Association map | V6/V11 | Sport prediction |
 | ER-BC-05 | DXA vendor comparability | One-function scoring | Hologic/GE/other | Bridging studies | Bias/LoA | V5/R2 | Interchangeability assumption |
 | ER-BC-06 | Index precision after height propagation | Joint Height | FMI/ALMI/FFMI/WHtR | Methods + ER-01/02 | Propagated σ | BCV-029/030 | UI intervals |
-| ER-BC-07 | Clinically meaningful BC change | Triad B | Clinical anchors | Lit | CMC candidates | BCV-032 | Product MMC freeze |
+| ER-BC-07 | Clinically meaningful BC change | Triad B | Clinical anchors | Lit | CMC candidates | BCV-032B | Product MMC freeze |
 | ER-BC-08 | Sarcopenia constructs vs H3 | Lean adequacy meaning | ALMI/FFMI lit | Consensus defs | Construct map | V6/V7 | Clinical sarcopenia diagnosis |
 | ER-BC-09 | BC ↔ cardiometabolic outcomes | Longer-term Health | Outcomes | Cohorts | Association map | V11 | Predictive product claim |
 | ER-BC-10 | Age-related change vs age-invariant score | Age fairness | Aging lit | Lit | Defensibility brief | BCV-006 | Formula change authorization |
 | ER-BC-11 | Sex-specific reference limitations | Sex fairness | FMI/FFMI/ALMI | Lit | Fairness caveats | BCV-007 | Automatic fairness |
 | ER-BC-12 | Ethnicity omission bias | Fairness | Population lit | Lit/datasets | Bias hypotheses | BCV-021 | Ethnicity injection now |
-| **ER-BC-13** | SDC/MDC vs clinical vs user-perceived | Change triad | All three | Lit + methods | Triad framework | BCV-032 | Interchangeable thresholds |
-| **ER-BC-14** | Prediction/calibration methodology | V11 controls | Prognostic methods | Methods lit | Study checklist | Future predictive studies | Current predictive claim |
-| **ER-BC-15** | Re-identification + private validation governance | Tier B safety | Privacy | Governance + risk methods | Tier B checklist | Tier B auth | That de-id = anonymous |
-| **ER-BC-16** | Acute-state effects on DXA lean/indices | Artifact vs biology | Hydration etc. | Lit | Acute delta candidates | BCV-034 | That Δscore = remodeling |
-| **ER-BC-17** | Correlated anthropometric/index error | Joint model magnitudes | Height+DXA cov | Methods lit | σ/ρ candidates | BCV-029 | Independent-noise sufficiency |
-| **ER-BC-18** | Score/numeracy misinterpretation | Misconception battery | Consumer cognition | HCI/health lit | Probe set | BCV-033 | That UI copy alone is enough |
+| ER-BC-13 | SDC/MDC vs clinical vs user-perceived | Change triad | All three | Lit + methods | Triad framework | BCV-032A/B | Interchangeable thresholds |
+| ER-BC-14 | Prediction/calibration methodology | V11 controls | Prognostic methods | Methods lit | Study checklist | Future predictive studies | Current predictive claim |
+| ER-BC-15 | Re-identification + private validation governance | Tier B safety | Privacy | Governance + risk methods | Tier B checklist | Tier B auth | That de-id = anonymous |
+| ER-BC-16 | Acute-state effects on DXA lean/indices | Artifact vs biology | Hydration etc. | Lit | Acute delta candidates | BCV-034 | That Δscore = remodeling |
+| ER-BC-17 | Correlated anthropometric/index error | Joint model magnitudes | Height+DXA cov | Methods lit | σ/ρ candidates | BCV-029 | Independent-noise sufficiency |
+| ER-BC-18 | Score/numeracy misinterpretation | Misconception battery | Consumer cognition | HCI/health lit | Probe set | BCV-033 | That UI copy alone is enough |
 
 ---
 
 ## 26. Clinical / regulatory boundary
 
-### 26.1 Not currently validated to
-
-Diagnose disease; predict individual medical events; replace clinician judgment; prescribe treatment; identify sarcopenia clinically; diagnose obesity; determine athlete readiness.
-
-### 26.2 No clinical validation claim
+Not currently validated to: diagnose disease; predict individual medical events; replace clinician judgment; prescribe treatment; identify sarcopenia clinically; diagnose obesity; determine athlete readiness.
 
 Synthetic tests ≠ clinical validation. Correlation ≠ clinical validation. Internal user testing ≠ necessarily clinical validation. Exact-Math PASS ≠ clinical validation.
 
@@ -1325,39 +1875,21 @@ No path auto-authorizes consumer integration or public scores. Synthetic alone c
 
 ---
 
-## 28. Zero-ambiguity audit (Wave 1 engineer)
-
-A future Wave 1 engineer must **not** need to invent:
-
-| Topic | Specified? |
-|-------|------------|
-| Which error sources are joint | Yes — shared Height into WHtR/FMI/FFMI/ALMI; optional DXA cov |
-| What gets propagated | Yes — measurement→index→construct→aggregate |
-| What each experiment measures | Yes — per-BCV fields |
-| Dataset tier | Yes — Tier A for Wave 1 |
-| Dependencies | Yes — per BCV |
-| Outputs to report | Yes — metrics fields + §11.2 |
-| Exploratory vs acceptance | Yes — acceptance-status type |
-| Whether PHI allowed | Yes — Wave 1 = none |
-
-Numerical σ/ρ may remain literature/evidence-review dependent and must be marked unresolved until ER outputs exist.
-
----
-
-## 29. End-state of this correction pass
+## 28. End-state of this Wave 1 zero-ambiguity correction
 
 | Item | Status |
 |------|--------|
-| Private validation plan methodology | **CORRECTED / PENDING INDEPENDENT RE-GATE** |
-| Wave 1 | **NOT AUTHORIZED** |
+| Private validation plan methodology | **COMPLETE / PENDING INDEPENDENT RE-GATE** |
+| Wave 1 zero-ambiguity | **CLOSED in docs** (pending independent confirmation) |
+| Wave 1 execution | **NOT AUTHORIZED** |
 | Tier B | **NOT AUTHORIZED** |
 | Validation execution | **NOT STARTED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
 | Public Health / Performance-Supporting | **NO-GO** |
 
-**Next action:** open a **new independent validation-methodology reviewer** against the new SHA, focused on the 10 previously failed areas plus Wave 1 zero-ambiguity. Only after **PASS** may Wave 1 synthetic execution be considered.
+**Next action:** open a **new independent methodology reviewer** against the new SHA focusing on Wave 1 zero-ambiguity, catalog consistency, decision-register count, numeric personas, schedules, MC/grid/epsilon, covariance default, interval/threshold handling, and BCV-032A/B membership. Only after **PASS** + explicit **WAVE 1 AUTHORIZED** may synthetic execution begin.
 
 ---
 
-END OF PRIVATE / INTERNAL VALIDATION PLAN V1 (METHODOLOGY CORRECTION)
+END OF PRIVATE / INTERNAL VALIDATION PLAN V1 (WAVE 1 ZERO-AMBIGUITY CORRECTION)
