@@ -385,7 +385,7 @@ Resolver output is recomputed from current evidence. Source correction/deletion 
 
 **Historical at Resolver freeze SHA:** Assessment Confidence was authorized only after this Resolver docs freeze re-gate PASS and was not yet implemented in the Resolver freeze itself.
 
-**Current downstream status (supersedes later progress):**
+**Current downstream status:**
 
 - Assessment Confidence **implementation PASS** at `dc506bbe6881637f8025af842974df41afdef3ab`
 - Independent Confidence re-gate: **PASS**
