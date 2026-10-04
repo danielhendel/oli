@@ -17,7 +17,7 @@ EXPLICIT DETERMINISTIC CALCULATIONS (BMI / WHtR / FMI / FFMI / ALMI)
        ↓
 Evidence Resolver               ← IMPLEMENTED separately (scientific PASS 3ae4737b…; docs freeze re-gate PASS; not in this Waist/index surface)
        ↓
-ASSESSMENT CONFIDENCE           ← implemented · READY FOR NEW INDEPENDENT RE-GATE · not PASS
+ASSESSMENT CONFIDENCE           ← implementation PASS · docs freeze pending independent docs review
        ↓
 FUTURE Health / Performance scores ← STILL BLOCKED
 ```
@@ -163,7 +163,7 @@ Pure helpers do **not** call `Date.now()`. Callers may supply `calculatedAt` at 
 ## Explicitly out of scope (this Waist/index phase)
 
 - Evidence Resolver implementation (separate phase at `3ae4737b…`; not part of this frozen Waist/index surface)
-- Assessment Confidence (implemented · READY FOR NEW INDEPENDENT RE-GATE · not PASS; truth freeze NOT STARTED; see `BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1.md`)
+- Assessment Confidence (implementation PASS · docs freeze pending independent docs review; see `BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`)
 - Health / Performance Composition scores (**STILL BLOCKED**)
 - InBody / Evolt device integrations beyond Body Scan store + manual review
 - Production deploy / PR from this freeze alone

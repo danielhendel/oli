@@ -1,15 +1,17 @@
 # Body Composition Assessment Confidence V1
 
-**Status:** Implementation complete · **READY FOR NEW INDEPENDENT RE-GATE** (not PASS)
+**Status:** Implementation **PASS** · independent policy/data/value re-gate **PASS** · docs-only truth freeze **pending independent docs review**
 **Implementation SHA:** `dc506bbe6881637f8025af842974df41afdef3ab`
+**Docs-consistency SHA:** `caa9cb4336aebac0df3812705ecdf3d36a11fef0` (docs/whitespace only; runtime unchanged)
 **Confidence version:** `body_composition_assessment_confidence_draft_v1`
 **Resolver dependency:** `body_composition_resolver_draft_v1` (approved runtime ancestor `3ae4737b8212fa5479fa1f621028e32ad7ab5757`)
 **Resolver docs truth-freeze SHA:** `49751716b450e6d05d607938e52624d29d680a1c` (**PASS**)
-**Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze + Resolver V1 truth freeze
+**Canonical freeze:** `docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`
+**Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze + Resolver V1 truth freeze + Confidence V1 truth freeze
 **Not:** clinically validated · production calibrated · score validated
-**Independent implementation re-gate:** prior report **FAIL** (documentation consistency + trailing whitespace only; no Confidence code/policy defect identified) · after docs correction = **READY FOR NEW INDEPENDENT RE-GATE** · independent PASS = **NOT YET**
-**Confidence docs truth freeze:** **NOT STARTED** · blocked until implementation re-gate PASS
-**Health / Performance Composition scores:** **STILL BLOCKED**
+**Independent implementation re-gate:** **PASS**
+**Confidence docs truth freeze:** **pending independent docs review**
+**Health / Performance Composition scores:** **STILL BLOCKED** (score-engine planning blocked until Confidence docs re-gate PASS)
 **Public numeric scores:** **NOT READY**
 
 ---
@@ -50,7 +52,7 @@ CANONICAL EVIDENCE BRIDGE
        ↓
 EVIDENCE RESOLVER
        ↓
-ASSESSMENT CONFIDENCE  ← this document (implemented · READY FOR NEW INDEPENDENT RE-GATE · not PASS)
+ASSESSMENT CONFIDENCE  ← this document (implementation PASS · docs freeze pending independent docs review)
        ↓
 FUTURE Health / Performance score engines  (STILL BLOCKED)
 ```
@@ -328,26 +330,13 @@ Current phase status:
 
 | Gate | State |
 |------|-------|
-| Implementation | complete at `dc506bbe6881637f8025af842974df41afdef3ab` |
-| Independent implementation re-gate | prior FAIL (docs/whitespace only) · **READY FOR NEW INDEPENDENT RE-GATE** · PASS **NOT YET** |
-| Confidence docs truth freeze | **NOT STARTED** · blocked until implementation re-gate PASS |
-| Health / Performance Composition scores | **STILL BLOCKED** |
+| Implementation | **PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` |
+| Independent implementation re-gate | **PASS** |
+| Confidence docs truth freeze | **pending independent docs review** (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`) |
+| Health / Performance Composition score planning | **BLOCKED** until Confidence docs re-gate PASS |
+| Health / Performance Composition score implementation | **STILL BLOCKED** |
 | Public numeric scores | **NOT READY** |
 
-A new independent Confidence re-gate must review:
+Only after independent Confidence docs truth-freeze re-gate PASS may Health and Performance Composition score engines be separately planned.
 
-- policy fidelity
-- label assignment / withholding
-- Resolver integration
-- completeness
-- method/protocol/calculation facts
-- recency boundary
-- value independence
-- duplicate/source-count behavior
-- no scoring
-- privacy / data integrity
-- docs consistency / `git diff --check`
-
-Do **not** create the Assessment Confidence truth-freeze document until that independent implementation re-gate returns PASS.
-
-Only after independent Confidence PASS and its subsequent docs-only truth freeze may Health and Performance Composition score engines be separately planned.
+Do **not** implement score engines before that authorization.

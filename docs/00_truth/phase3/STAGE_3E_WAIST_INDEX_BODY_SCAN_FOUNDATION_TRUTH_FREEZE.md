@@ -149,9 +149,9 @@ Pagination honesty: physical confirmation covers history list scroll, footer/end
 | Phase | Status |
 |-------|--------|
 | **Evidence Resolver** | **IMPLEMENTED** · scientific re-gate **PASS** at `3ae4737b8212fa5479fa1f621028e32ad7ab5757` · docs truth-freeze re-gate **PASS** at `49751716b450e6d05d607938e52624d29d680a1c` — `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md` |
-| Assessment Confidence | **implementation complete** at `dc506bbe6881637f8025af842974df41afdef3ab` · prior independent re-gate **FAIL** (docs consistency + whitespace only) · docs corrected in current descendant · **READY FOR NEW INDEPENDENT IMPLEMENTATION RE-GATE** · independent PASS **NOT YET** · Confidence docs truth freeze **NOT STARTED** |
-| Health Composition score (0–100) | **STILL BLOCKED** |
-| Performance Composition score (0–100) | **STILL BLOCKED** |
+| Assessment Confidence | **implementation PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` · independent re-gate **PASS** · docs truth freeze **pending independent docs review** — `docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md` |
+| Health Composition score (0–100) | **STILL BLOCKED** (score-engine planning blocked until Confidence docs re-gate PASS) |
+| Performance Composition score (0–100) | **STILL BLOCKED** (score-engine planning blocked until Confidence docs re-gate PASS) |
 | Public numeric scores | **NOT READY** |
 
 Foundation authorization remains: Resolver/Confidence work must not reopen Waist protocol, deterministic index formulas, Evidence Bridge persistence strategy, Body Scan metric registry keys, category navigation order, filtered cursor pagination, mutation invalidation bus, or scroll-ownership architecture — unless a proven defect requires a bounded correction and a new physical gate.
@@ -169,11 +169,13 @@ RESOLVER IMPLEMENTATION + SCIENTIFIC RE-GATE PASS (3ae4737b…)
         ↓
 RESOLVER DOCS-ONLY TRUTH FREEZE RE-GATE PASS (49751716…)
         ↓
-ASSESSMENT CONFIDENCE IMPLEMENTATION (dc506bbe…)
+ASSESSMENT CONFIDENCE IMPLEMENTATION PASS (dc506bbe…)
         ↓
-ASSESSMENT CONFIDENCE — READY FOR NEW INDEPENDENT RE-GATE (not PASS)
+ASSESSMENT CONFIDENCE INDEPENDENT RE-GATE PASS
         ↓
-CONFIDENCE DOCS TRUTH FREEZE — NOT STARTED (blocked until implementation re-gate PASS)
+CONFIDENCE DOCS TRUTH FREEZE — pending independent docs review
+        ↓
+SCORE-ENGINE PLANNING — BLOCKED until Confidence docs re-gate PASS
         ↓
 DRAFT HEALTH/PERFORMANCE SCORE ENGINES — STILL BLOCKED
 ```
