@@ -170,8 +170,8 @@ H3 reframed as **lean adequacy / reserve**, not young-adult high-lean optimizati
 
 | Engine | Scientific Re-Gate V2 | Mathematical freeze | Implementation |
 |--------|----------------------|---------------------|----------------|
-| Health | **PASS** / SCIENTIFICALLY AUTHORIZED | CREATED / pending independent freeze review | **STILL BLOCKED** until freeze re-gate PASS |
-| Performance-Supporting | **PASS** / SCIENTIFICALLY AUTHORIZED | CREATED / pending independent freeze review | **STILL BLOCKED** until freeze re-gate PASS |
+| Health | **PASS** / SCIENTIFICALLY AUTHORIZED | Edge cases A/B/C **CLOSED** · **READY FOR INDEPENDENT RE-GATE** | **STILL BLOCKED** until freeze re-gate PASS |
+| Performance-Supporting | **PASS** / SCIENTIFICALLY AUTHORIZED | Edge cases A/B/C **CLOSED** · **READY FOR INDEPENDENT RE-GATE** | **STILL BLOCKED** until freeze re-gate PASS |
 | Public either | NO-GO | NO-GO | **NO-GO** |
 
 Do **not** authorize score runtime from scientific PASS alone. Mathematical freeze re-gate is required next.
@@ -185,3 +185,19 @@ Do **not** authorize score runtime from scientific PASS alone. Mathematical free
 **Correction (mathematical-freeze docs pass):** current authoritative sibling status labels updated to **Performance-Supporting Composition** / **Performance-Supporting score** where they describe current state. Historical mentions of the old name remain when clearly historical (e.g. Defect 6 narrative).
 
 **Status:** **CLOSED** (NON-BLOCKING)
+
+---
+
+## Mathematical freeze re-gate defects A / B / C (at 995e400f)
+
+Independent mathematical truth-freeze re-gate at `995e400f22652184b096092e19d088d4cb4169b8`: **FAIL** on three bounded policy ambiguities only. Prior math (knots/weights/methods/windows/public NO-GO) independently passed.
+
+| Defect | Finding | Correction | Status |
+|--------|---------|------------|--------|
+| A Future evidence | `ageMs > MAX` only; `measuredAt > asOf` could incorrectly pass | Reject `ageMs < 0` with `future_evidence`; keep `evidence_too_old` distinct | **CLOSED** |
+| B Age semantics | `ageYears >= 20` underspecified | UTC completed calendar years from DOB + asOf; Mar 1 leap-day anniversary convention; `required_age_missing` | **CLOSED** |
+| C Reason selection | Ambiguous “as applicable / sole cause” phrasing | Deterministic construct + engine precedence tables; aggregate vs construct reason shape | **CLOSED** |
+
+Exact text: `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md` §§4–6.
+
+**Status after correction:** mathematical freeze **READY FOR INDEPENDENT RE-GATE**. Implementation remains **BLOCKED**. Public **NO-GO**.

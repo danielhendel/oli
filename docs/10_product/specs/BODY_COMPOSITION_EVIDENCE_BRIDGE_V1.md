@@ -148,7 +148,7 @@ The bridge **does not** auto-select cross-source inputs or emit these indices au
 
 - Evidence Resolver / best-current selector (**IMPLEMENTED** as a separate pure-domain module at approved SHA `3ae4737b…`; must not be smuggled into this bridge module)
 - Assessment Confidence results (separate pure domain; see `BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1.md`)
-- Health Composition / Performance-Supporting Composition scores (**STILL BLOCKED**; Scientific Re-Gate V2 PASS; mathematical freeze pending independent review)
+- Health Composition / Performance-Supporting Composition scores (**STILL BLOCKED**; Scientific Re-Gate V2 PASS; mathematical freeze edge cases A/B/C closed · READY FOR INDEPENDENT RE-GATE)
 - Weights, thresholds, status bands
 - Writing scan facts into Weight / Body Fat / Lean continuous trends or `dailyFacts`
 

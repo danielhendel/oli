@@ -23,10 +23,12 @@
 | Independent scientific review at 93f5960b | **FAIL** (8 blocking defects) — historical |
 | Blocker correction at 6fa8cb22 | Defects 1–8 **CLOSED** |
 | Independent Scientific Re-Gate V2 | **PASS** |
-| Final mathematical truth freeze | **CREATED** — pending independent review |
+| Mathematical freeze re-gate at 995e400f | **FAIL** on defects A/B/C only (historical) |
+| Edge-case correction (future evidence / age / reason precedence) | **CLOSED** in mathematical freeze |
+| Final mathematical truth freeze | **READY FOR INDEPENDENT RE-GATE** |
 | Score implementation | **STILL BLOCKED** until mathematical freeze re-gate PASS |
 | Public scores | **NO-GO** |
-| Next | Independent mathematical/docs freeze re-gate |
+| Next | Independent mathematical/docs freeze re-gate against correction SHA |
 
 ---
 
@@ -213,7 +215,8 @@ DRAFT PRODUCT POLICY, not physiologic half-life.
 |------|---------|
 | Defects 1–8 | **CLOSED** |
 | Independent Scientific Re-Gate V2 | **PASS** |
-| Final mathematical truth freeze | **PENDING INDEPENDENT REVIEW** |
+| Mathematical freeze defects A/B/C | **CLOSED** |
+| Final mathematical truth freeze | **READY FOR INDEPENDENT RE-GATE** |
 | HEALTH SCORE ENGINE IMPLEMENTATION | **STILL BLOCKED** until mathematical freeze re-gate PASS |
 | PERFORMANCE-SUPPORTING SCORE ENGINE IMPLEMENTATION | **STILL BLOCKED** until mathematical freeze re-gate PASS |
 | Public either | **NO-GO** |

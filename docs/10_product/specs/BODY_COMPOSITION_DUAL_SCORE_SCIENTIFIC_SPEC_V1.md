@@ -14,7 +14,7 @@
 |------|--------|
 | Scientific specification | **PASS** |
 | Independent Scientific Re-Gate V2 | **PASS** |
-| Final mathematical truth freeze | **CURRENT** / pending independent freeze review |
+| Final mathematical truth freeze | **CURRENT** · edge cases A/B/C closed · **READY FOR INDEPENDENT RE-GATE** |
 | Runtime implementation | **BLOCKED** until mathematical freeze re-gate PASS |
 | Public Health / Public Performance-Supporting | **NO-GO** |
 
@@ -514,13 +514,15 @@ Let each scoring input `i` have `measuredAt_i` (required).
 
 ```text
 DAY = 86_400_000 ms
-MAX_AGE_MS = 180 * DAY
+MAX_INPUT_AGE_MS = 180 * DAY
 MAX_GAP_MS = 90 * DAY
 
 function era_ok(inputs):
   for i in inputs:
-    if measuredAt_i missing: return false
-    if (T* - measuredAt_i) > MAX_AGE_MS: return false   # inclusive: == 180d OK
+    if measuredAt_i missing or not finite: return false
+    ageMs = T* - measuredAt_i
+    if ageMs < 0: return false                         # future_evidence
+    if ageMs > MAX_INPUT_AGE_MS: return false          # inclusive: == 180d OK
   for each pair i < j:
     gap = abs(measuredAt_i - measuredAt_j)
     if same_verified_body_scan(i, j): gap = 0
@@ -530,7 +532,9 @@ function era_ok(inputs):
 
 `same_verified_body_scan`: both indices derive from the same verified Body Scan `sourceEventId`.
 
-Standardized Waist may combine with that scan **only if** Waist `measuredAt` is within 90 days of the scan `measuredAt` **and** both pass the 180-day currentness rule.
+Standardized Waist may combine with that scan **only if** Waist `measuredAt` is within 90 days of the scan `measuredAt` **and** both pass the 180-day currentness rule (and are not future).
+
+Exact age/future/reason precedence authority: mathematical freeze §§4–6.
 
 | Case | Behavior |
 |------|----------|
@@ -538,6 +542,8 @@ Standardized Waist may combine with that scan **only if** Waist `measuredAt` is 
 | 1-day gap | Eligible |
 | Exactly 90 days | Eligible |
 | 90 days + 1 ms | `evidence_era_mismatch` — withhold aggregate |
+| `measuredAt = asOf + 1 ms` | `future_evidence` — withhold (always ineligible) |
+| `measuredAt = asOf` | Eligible on age dimension |
 | Input age exactly 180 days | Eligible |
 | 180 days + 1 ms | `evidence_too_old` — withhold aggregate |
 | Years-old DXA + current Waist | Withhold |
@@ -582,7 +588,7 @@ Public scores separately gated.
 | Factor | Rule |
 |--------|------|
 | Sex | Required for H2, H3, P1, P3. Missing → aggregate unavailable. H1 WHtR sex-independent. No mixed-sex thresholds. |
-| Age | Adult-only (`age >= 20`). No age slope. No age percentile. Fairness limitation documented. Public blocked pending age-fairness validation. |
+| Age | Adult-only: UTC completed calendar years from profile `dateOfBirth` and explicit `asOf` must be `>= 20` (exact function in mathematical freeze §5.1; leap-day Mar 1 convention). No age slope. No age percentile. Fairness limitation documented. Public blocked pending age-fairness validation. |
 | Ethnicity | Not used in V1 math. Fairness-validation required. No ancestry-specific WC/WHtR/FMI adjustment. |
 
 ---
@@ -596,21 +602,26 @@ Current-state only. No trend input. No score smoothing. Evidence aggregation rem
 ## 19. Withholding codes
 
 ```text
-insufficient_core_constructs
-incomplete_health_composition
-policy_not_frozen
+invalid_provenance
+future_evidence
 evidence_too_old
 evidence_era_mismatch
+required_age_missing
 required_sex_missing
 required_height_missing
-required_age_missing
-unresolved_construct
 unsupported_method
-multiple_valid_unfrozen
 conflict_unresolved
+policy_not_frozen
+multiple_valid_unfrozen
+unresolved_construct
 p1_ffmi_not_resolved
+incomplete_health_composition
+insufficient_core_constructs
 public_release_not_authorized
 ```
+
+Exact precedence, construct vs aggregate reason shape, UTC completed-year age gate, and future-evidence rejection are frozen in
+`docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md` §§4–6.
 
 `calculation_unavailable` vs `calculated_internal_not_public` remain distinct. Internal draft still must not emit public 0–100.
 
@@ -661,7 +672,7 @@ Run at correction time against the exact formulas above.
 |------|---------|
 | Scientific specification | **PASS** |
 | Independent Scientific Re-Gate V2 | **PASS** (SHA `6fa8cb22…`) |
-| Final mathematical truth freeze | **CREATED** — pending independent mathematical/docs freeze re-gate |
+| Final mathematical truth freeze | Edge cases A/B/C **CLOSED** — **READY FOR INDEPENDENT RE-GATE** |
 | Health internal draft engine (code) | **STILL BLOCKED** until mathematical freeze re-gate PASS |
 | Performance-Supporting internal draft engine (code) | **STILL BLOCKED** until mathematical freeze re-gate PASS |
 | Public Health | **NO-GO** |

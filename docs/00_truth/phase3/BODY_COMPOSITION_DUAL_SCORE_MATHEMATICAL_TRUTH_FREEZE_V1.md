@@ -4,11 +4,13 @@
 **Date:** 2026-10-04
 **Branch:** `feat/body-composition-stage3e-body-scans-v1`
 **Kind:** Documentation only. **Does not** represent a score-engine runtime build.
+**Edge-case correction:** closes mathematical re-gate defects **A / B / C** against SHA `995e400f22652184b096092e19d088d4cb4169b8`. Knots, weights, methods, windows, and public NO-GO are unchanged.
 
 | Identity | Value |
 |----------|-------|
 | Scientific blocker-correction SHA | `6fa8cb22b5a90982057f27c68a27743c4103df47` |
 | Independent Scientific Re-Gate V2 | **PASS** |
+| Prior mathematical freeze SHA (failed A/B/C) | `995e400f22652184b096092e19d088d4cb4169b8` |
 | Prior scientific-planning SHA | `93f5960b98326b2de4116f08d2eb15564b321dc5` |
 | Health engine version | `body_composition_health_score_draft_v1` |
 | Performance-Supporting engine version | `body_composition_performance_supporting_score_draft_v1` |
@@ -128,41 +130,185 @@ If any required numeric input is missing, `NaN`, `+Infinity`, or `-Infinity`:
 
 ```text
 DAY_MS = 86_400_000
-MAX_AGE_MS = 180 * DAY_MS
+MAX_INPUT_AGE_MS = 180 * DAY_MS
 MAX_GAP_MS = 90 * DAY_MS
 ```
 
-Inclusive boundaries: `age_ms <= MAX_AGE_MS` eligible; `gap_ms <= MAX_GAP_MS` eligible.
+Inclusive upper bounds: `ageMs <= MAX_INPUT_AGE_MS` eligible on age dimension; `gapMs <= MAX_GAP_MS` eligible on era dimension.
+Future evidence (`ageMs < 0`) is **always ineligible** (Defect A).
 
 ---
 
 ## 4. Canonical withholding vocabulary (LOCKED)
 
-Use **only** these reason codes (from approved scientific spec). Never invent synonyms at runtime.
+Use **only** these reason codes. Prefer existing scientific-spec spellings. Never invent runtime synonyms.
 
 | Code | When |
 |------|------|
-| `incomplete_health_composition` | Health aggregate withheld because any of H1/H2/H3 is `null` after eligibility |
-| `insufficient_core_constructs` | Performance-Supporting aggregate withheld because P1 or P3 is `null`; also usable as Health synonym only if Health already uses `incomplete_health_composition` as primary |
-| `policy_not_frozen` | Required construct/channel Resolver status is `policy_not_frozen` |
-| `evidence_too_old` | Any scoring input has `(asOf - measuredAt) > MAX_AGE_MS` |
-| `evidence_era_mismatch` | Pairwise gap among scoring inputs `> MAX_GAP_MS` (after same-scan zeroing) |
+| `invalid_provenance` | Non-finite / unparseable `asOf` or required `measuredAt`; malformed timestamp; DOB string not valid `YYYY-MM-DD`; non-finite required numeric metric value when channel otherwise resolved |
+| `future_evidence` | Any scoring input with `ageMs < 0` (`measuredAt > asOf`) |
+| `evidence_too_old` | Any scoring input with `ageMs > MAX_INPUT_AGE_MS` |
+| `evidence_era_mismatch` | Pairwise/era gap among scoring inputs `> MAX_GAP_MS` (after same-scan zeroing) |
+| `required_age_missing` | Missing/invalid DOB, DOB after asOf, or completed UTC years `< 20` |
 | `required_sex_missing` | Sex required and missing/invalid for H2/H3/P1/P3 |
 | `required_height_missing` | Height required for WHtR / FMI / FFMI / ALMI and missing/invalid |
-| `required_age_missing` | Age missing/invalid **or** `age < 20` (adult draft eligibility failed) |
-| `unresolved_construct` | Required construct has no eligible numeric channel; or `undated_only`; or `measuredAt` missing on a required scoring input |
-| `unsupported_method` | Method outside frozen DXA / WHO-midpoint profile |
-| `multiple_valid_unfrozen` | Construct-level `multiple_valid` without a governed resolved numeric channel under §10.2 |
+| `unsupported_method` | Method/protocol outside frozen DXA / WHO-midpoint profile; Resolver construct status `unsupported` |
 | `conflict_unresolved` | Resolver construct status `conflict` |
-| `p1_ffmi_not_resolved` | P1 eligibility failed because DXA FFMI channel is not `resolved` / `resolved_with_supporting` |
-| `public_release_not_authorized` | Any attempt to emit public user-facing score |
+| `policy_not_frozen` | Resolver construct/channel status `policy_not_frozen` |
+| `multiple_valid_unfrozen` | Resolver `multiple_valid` without a governed usable numeric channel under §10.2 |
+| `unresolved_construct` | Resolver `insufficient` or `undated_only`; or no eligible numeric channel after higher-precedence failures ruled out; or required measuredAt missing (after invalid/future checks) |
+| `p1_ffmi_not_resolved` | P1 only: DXA FFMI channel is not `resolved` / `resolved_with_supporting` **and** no higher-precedence Resolver failure applies |
+| `incomplete_health_composition` | Health **aggregate** primary reason when any of H1/H2/H3 is unavailable |
+| `insufficient_core_constructs` | Performance-Supporting **aggregate** primary reason when P1 or P3 is unavailable |
+| `public_release_not_authorized` | Attempt to expose an otherwise-valid **internal** score on a public/consumer surface — **never** replaces calculation-withholding reasons |
 
-Aggregate availability flags:
+Aggregate availability flags (not withholding-reason substitutes):
 
 - `calculation_unavailable` — no internal numeric aggregate
 - `calculated_internal_not_public` — reserved for future internal debug emission behind flag; **still not public**
 
-**Missing / unsupported / stale / conflict never score 0.** Score `0` is only a valid model output from eligible finite evidence.
+**Missing / unsupported / stale / future / conflict never score 0.** Score `0` is only a valid model output from eligible finite evidence.
+
+### 4.1 Output shape (LOCKED — no implementation choice)
+
+Every construct evaluation returns:
+
+```text
+ConstructResult = {
+  value: number | null,          # null when withheld
+  primaryReason: ReasonCode | null  # null iff value is non-null
+}
+```
+
+Every engine aggregate evaluation returns:
+
+```text
+AggregateResult = {
+  status: "unavailable" | "calculated_internal_not_public",
+  score: number | null,
+  primaryReason: ReasonCode | null,
+  constructReasons: {
+    # Health keys:
+    H1?: ReasonCode,
+    H2?: ReasonCode,
+    H3?: ReasonCode,
+    # Performance-Supporting keys:
+    P1?: ReasonCode,
+    P3?: ReasonCode
+  }
+}
+```
+
+Rules:
+
+1. Construct `primaryReason` is the root-cause code for that construct (never replaced by the aggregate code).
+2. Aggregate `primaryReason` is the aggregate consequence code (Health: `incomplete_health_composition`; Performance-Supporting: `insufficient_core_constructs`) when cores are incomplete — **unless** a higher-precedence **engine-level** gate failed first (see §4.2).
+3. `constructReasons` always preserves each unavailable construct’s own `primaryReason`.
+4. `public_release_not_authorized` may be attached only by a public-surface gate **after** a successful internal calculation; it must not overwrite scientific withholding reasons on `AggregateResult.primaryReason` for calculation failure.
+
+### 4.2 Engine-level fail-closed precedence (LOCKED)
+
+Evaluate in this exact order. First failure wins as engine/aggregate `primaryReason` and **stops** scoring:
+
+| Rank | Condition | `primaryReason` |
+|------|-----------|-----------------|
+| 1 | `asOf` missing / non-finite / unparseable | `invalid_provenance` |
+| 2 | Adult age gate fails (§5) | `required_age_missing` |
+| 3 | Any scoring input fails input-age validation with `future_evidence` (§6) | `future_evidence` |
+| 4 | Any scoring input fails input-age validation with `evidence_too_old` (§6) | `evidence_too_old` |
+| 5 | Era gap fails (§6) | `evidence_era_mismatch` |
+| 6 | Else evaluate constructs; if any required core construct `value` is null | Health → `incomplete_health_composition`; Performance-Supporting → `insufficient_core_constructs` |
+
+Notes:
+
+- Rank 3–5 apply to the set of inputs that would be used for the aggregate (Health: inputs for H1/H2/H3; Performance-Supporting: inputs for P1/P3).
+- If multiple inputs are future, still one engine reason: `future_evidence`.
+- If both future and too-old inputs exist in the same set: **future wins** (rank 3 before 4).
+
+### 4.3 Construct-level fail-closed precedence (LOCKED)
+
+For each construct, select **exactly one** `primaryReason` using this order (first match wins):
+
+| Rank | Condition | `primaryReason` |
+|------|-----------|-----------------|
+| 1 | Required timestamp/metric provenance invalid or non-finite (including missing required `measuredAt` when treating as invalid parse/state) | `invalid_provenance` |
+| 2 | Any construct scoring input has `ageMs < 0` | `future_evidence` |
+| 3 | Required sex missing/invalid (H2/H3/P1/P3) | `required_sex_missing` |
+| 4 | Required height missing/invalid | `required_height_missing` |
+| 5 | Method/protocol unsupported **or** Resolver status `unsupported` | `unsupported_method` |
+| 6 | Resolver status `conflict` | `conflict_unresolved` |
+| 7 | Resolver status `policy_not_frozen` | `policy_not_frozen` |
+| 8 | Resolver status `multiple_valid` and no governed usable numeric channel (§10.2 for H1; otherwise always) | `multiple_valid_unfrozen` |
+| 9 | Resolver status `insufficient` or `undated_only` | `unresolved_construct` |
+| 10 | No eligible numeric channel / unresolved primary after above | `unresolved_construct` |
+| 11 | P1 only: FFMI channel not `resolved` / `resolved_with_supporting` | `p1_ffmi_not_resolved` |
+| 12 | Any construct scoring input has `ageMs > MAX_INPUT_AGE_MS` | `evidence_too_old` |
+
+Construct-level era gap is not scored per-construct; era mismatch is engine rank 5 (§4.2).
+
+### 4.4 Construct reason tables (LOCKED)
+
+#### H1
+
+| Condition | `primaryReason` |
+|-----------|-----------------|
+| Invalid asOf/measuredAt/WHtR provenance | `invalid_provenance` |
+| Future Waist or Height-dated input used for WHtR | `future_evidence` |
+| Height missing/invalid | `required_height_missing` |
+| Unsupported Waist protocol/method | `unsupported_method` |
+| Resolver conflict | `conflict_unresolved` |
+| Resolver `policy_not_frozen` | `policy_not_frozen` |
+| `multiple_valid` with no independently governed resolved WHtR channel | `multiple_valid_unfrozen` |
+| No valid governed WHtR channel (including `insufficient` / `undated_only`) | `unresolved_construct` |
+| Stale Waist/Height input | `evidence_too_old` |
+
+#### H2 / H3 / P3
+
+| Condition | `primaryReason` |
+|-----------|-----------------|
+| Invalid provenance / non-finite metric | `invalid_provenance` |
+| Future evidence | `future_evidence` |
+| Sex missing/invalid | `required_sex_missing` |
+| Height missing/invalid (index requires height) | `required_height_missing` |
+| Method not DXA / unsupported | `unsupported_method` |
+| Resolver conflict | `conflict_unresolved` |
+| Resolver `policy_not_frozen` | `policy_not_frozen` |
+| Resolver `multiple_valid` | `multiple_valid_unfrozen` |
+| Resolver `insufficient` / `undated_only` / unresolved numeric channel | `unresolved_construct` |
+| Stale evidence | `evidence_too_old` |
+
+#### P1
+
+| Condition | `primaryReason` |
+|-----------|-----------------|
+| Invalid provenance / non-finite FFMI | `invalid_provenance` |
+| Future evidence | `future_evidence` |
+| Sex missing/invalid | `required_sex_missing` |
+| Height missing/invalid | `required_height_missing` |
+| Method not DXA / Resolver `unsupported` | `unsupported_method` |
+| Resolver conflict | `conflict_unresolved` |
+| Resolver `policy_not_frozen` | `policy_not_frozen` |
+| Resolver `multiple_valid` | `multiple_valid_unfrozen` |
+| Resolver `insufficient` / `undated_only` | `unresolved_construct` |
+| FFMI channel not resolved (after higher Resolver failures ruled out) | `p1_ffmi_not_resolved` |
+| Stale evidence | `evidence_too_old` |
+
+**P1 special case (LOCKED):** `policy_not_frozen` **never** becomes `p1_ffmi_not_resolved`. `p1_ffmi_not_resolved` is used only when no higher-precedence construct reason applies and the FFMI channel is not `resolved` / `resolved_with_supporting`.
+
+### 4.5 Multiple simultaneous failures (LOCKED examples)
+
+| Example | Construct `primaryReason` |
+|---------|---------------------------|
+| A. sex missing + evidence too old | `required_sex_missing` (rank 3 before 12) |
+| B. Resolver conflict + stale | `conflict_unresolved` (rank 6 before 12) |
+| C. P1 `policy_not_frozen` + FFMI unavailable | `policy_not_frozen` (rank 7 before 11) |
+| D. H1 future evidence + unsupported protocol | `future_evidence` (rank 2 before 5) |
+| E. future + too-old inputs in same aggregate set | engine `primaryReason` = `future_evidence` (§4.2) |
+| F. H2 unresolved + H3 OK + H1 OK | Health aggregate `primaryReason` = `incomplete_health_composition`; `constructReasons.H2` = H2 root reason |
+
+### 4.6 Public-release reason boundary (LOCKED)
+
+`public_release_not_authorized` applies **only** when an otherwise-valid internal draft score would be exposed on a consumer/public surface. It does **not** replace scientific calculation-withholding reasons.
 
 ---
 
@@ -170,45 +316,141 @@ Aggregate availability flags:
 
 | Factor | Rule |
 |--------|------|
-| Age | Require finite `ageYears >= 20`. Else withhold: `required_age_missing` |
-| Age slope | **None**. Identical adult composition ⇒ identical draft score |
+| Age | Completed UTC calendar years from profile `dateOfBirth` and evaluation `asOf` must be `>= 20` (§5.1). Else withhold: `required_age_missing` |
+| Age slope | **None**. Identical adult composition ⇒ identical draft score. No upper-age adjustment. No percentile adjustment. Age only gates adult eligibility. |
 | Sex | Required for H2, H3, P1, P3. Values: governed reference sex `male` or `female` only. Missing/other → `required_sex_missing` |
 | H1 sex | Sex-independent |
 | Ethnicity | **Not used** in V1 math |
 | Height | Required whenever WHtR / FMI / FFMI / ALMI are used; missing → `required_height_missing` |
 
+### 5.1 Exact adult age function (LOCKED — Defect B)
+
+Inputs:
+
+- `dateOfBirth`: profile identity string `YYYY-MM-DD`
+- `asOf`: explicit evaluation timestamp (ms since Unix epoch). **No `Date.now()`.**
+
+Calendar basis: **UTC** date components of both DOB and `asOf` (avoids device-local timezone dependence for score engines).
+
+Completed-year semantics match repository helper `ageYearsFromProfileDateOfBirth` month/day anniversary comparison, except score engines:
+
+1. use **UTC** components (helper uses local `Date` components);
+2. require explicit `asOf` (helper defaults to `new Date()` — forbidden here);
+3. do **not** apply the helper’s 2–120 clamp (score gate is only `>= 20`).
+
+Leap-day policy (**LOCKED — March 1 convention**):
+
+- DOB `YYYY-02-29` keeps birth month=2, birth day=29.
+- In non-leap `asOf` years, UTC Feb 28 is still before day 29 ⇒ anniversary not yet reached.
+- UTC Mar 1 completes the year.
+- This matches the existing helper’s `getDate() < birthDay` comparison behavior for day=29.
+
+```text
+function parseDobUtc(dateOfBirth):
+  if dateOfBirth missing or not matching /^\d{4}-\d{2}-\d{2}$/: return null
+  (Y, M, D) = numeric parts
+  if Y,M,D not all finite integers: return null
+  if M < 1 or M > 12 or D < 1 or D > 31: return null
+  # Reject impossible civil dates except allow Feb 29 only in Gregorian leap years
+  if M == 2 and D == 29 and not isGregorianLeapYear(Y): return null
+  if D > daysInMonthUTC(Y, M): return null
+  return { year: Y, month: M, day: D }   # month 1–12
+
+function utcYmd(asOfMs):
+  if asOfMs missing or not finite: return null
+  d = Date from asOfMs as UTC
+  return { year: d.UTCFullYear, month: d.UTCMonth + 1, day: d.UTCDate }
+
+function completedUtcYears(dateOfBirth, asOfMs):
+  dob = parseDobUtc(dateOfBirth)
+  asOf = utcYmd(asOfMs)
+  if dob is null or asOf is null: return null          # → required_age_missing
+  # DOB after asOf calendar day:
+  if (dob.year, dob.month, dob.day) > (asOf.year, asOf.month, asOf.day):
+    return null                                       # → required_age_missing
+  years = asOf.year - dob.year
+  if (
+    asOf.month < dob.month
+    OR (asOf.month == dob.month AND asOf.day < dob.day)
+  ):
+    years = years - 1
+  if years < 0: return null
+  return years
+
+function adultAgeOk(dateOfBirth, asOfMs):
+  years = completedUtcYears(dateOfBirth, asOfMs)
+  if years is null: return false                      # required_age_missing
+  return years >= 20
+```
+
+Boundary table:
+
+| DOB | asOf (UTC calendar) | Completed years | Result |
+|-----|---------------------|-----------------|--------|
+| `2006-10-05` | `2026-10-04` | 19 | **WITHHOLD** `required_age_missing` |
+| `2006-10-04` | `2026-10-04` | 20 | **eligible** on age dimension |
+| `2006-10-04` | `2026-10-03` | 19 | **WITHHOLD** (day before 20th birthday) |
+| `2004-02-29` | `2024-02-28` | 19 | **WITHHOLD** (day before 20th birthday; 20th falls on leap-day 2024-02-29) |
+| `2004-02-29` | `2024-02-29` | 20 | **eligible** (exact 20th birthday) |
+| `2000-02-29` | `2025-02-28` | 24 | **eligible** (non-leap year: anniversary not reached until Mar 1; 25−1=24 ≥ 20) |
+| `2000-02-29` | `2025-03-01` | 25 | **eligible** (leap-day anniversary completes on Mar 1 in non-leap years) |
+| `2006-02-29` | any | n/a | **WITHHOLD** `required_age_missing` (invalid DOB — 2006 is not a leap year) |
+| missing DOB | any | n/a | **WITHHOLD** `required_age_missing` |
+| invalid DOB | any | n/a | **WITHHOLD** `required_age_missing` |
+| DOB after asOf day | — | n/a | **WITHHOLD** `required_age_missing` |
+
+Day-before-20th-birthday: ineligible. Exact 20th birthday: eligible. After 20th birthday: eligible.
+
 ---
 
 ## 6. Recency / same-era (both engines) — DRAFT PRODUCT POLICY
 
-Inputs: `asOf` (required evaluation timestamp) and each scoring input `measuredAt` (required).
+Inputs: explicit `asOf` (required) and each scoring input `measuredAt` (required). **No `Date.now()`.**
+
+Resolver already excludes future evidence; score layer still rejects future evidence as **input validation** defense-in-depth (not a second evidence-selection policy).
 
 ```text
-function age_ms(measuredAt, asOf) = asOf - measuredAt
+function ageMs(measuredAtMs, asOfMs):
+  if asOfMs missing or not finite: fail closed → invalid_provenance
+  if measuredAtMs missing or not finite: fail closed → invalid_provenance
+  return asOfMs - measuredAtMs
 
-function era_ok(scoring_inputs, asOf):
-  if asOf missing or not finite: return false
+function inputAgeReason(measuredAtMs, asOfMs):
+  age = ageMs(measuredAtMs, asOfMs)
+  if age is fail-closed invalid: return invalid_provenance
+  if age < 0: return future_evidence          # ALWAYS INELIGIBLE
+  if age > MAX_INPUT_AGE_MS: return evidence_too_old
+  return null                                 # age-dimension eligible
+
+function eraGapMs(scoring_input_measuredAt_ms_list):
+  # after forcing gap=0 for same verified Body Scan sourceEventId pairs
+  # by treating those measuredAt values as equal for gap purposes
+  return max(adjustedMeasuredAtMs[]) - min(adjustedMeasuredAtMs[])
+
+function era_ok(scoring_inputs, asOfMs):
+  if asOfMs missing or not finite: return false  # invalid_provenance
   for each input i in scoring_inputs:
-    if measuredAt_i missing or not finite: return false
-    if age_ms(measuredAt_i, asOf) > MAX_AGE_MS: return false   # 180d inclusive OK
-  for each unordered pair (i, j), i < j:
-    gap = abs(measuredAt_i - measuredAt_j)
-    if same_verified_body_scan(i, j): gap = 0
-    if gap > MAX_GAP_MS: return false                          # 90d inclusive OK
+    r = inputAgeReason(measuredAtMs_i, asOfMs)
+    if r != null: return false
+  gap = eraGapMs(scoring_inputs)
+  if gap > MAX_GAP_MS: return false             # evidence_era_mismatch
   return true
 ```
 
-`same_verified_body_scan(i, j)` is true **only** when both derive from the same verified Body Scan `sourceEventId`. Same timestamp alone is **not** sufficient.
+`same_verified_body_scan(i, j)` is true **only** when both derive from the same verified Body Scan `sourceEventId`. Same timestamp alone is **not** sufficient. When true, those inputs contribute **0** to era gap (adjusted equal timestamps).
 
 | Case | Result |
 |------|--------|
-| ageDays = 180 | Eligible |
-| ageDays > 180 | `evidence_too_old` |
+| `measuredAt = asOf + 1 ms` | **WITHHOLD** `future_evidence` |
+| `measuredAt = asOf` | eligible on age dimension |
+| `measuredAt = asOf - 180d` | eligible on age dimension |
+| `measuredAt = asOf - 180d - 1 ms` | **WITHHOLD** `evidence_too_old` |
 | gap = 90 days | Eligible |
 | gap > 90 days | `evidence_era_mismatch` |
 | H2+H3 same `sourceEventId` | gap forced 0 |
-| Waist + scan | Waist–scan gap must be ≤ 90d **and** both ≤ 180d old |
-| Undated scoring input | `unresolved_construct` |
+| Waist + scan | Waist–scan gap must be ≤ 90d **and** both age-eligible (not future, not too old) |
+| Missing/non-finite `measuredAt` on a required scoring input | construct `invalid_provenance`; blocks era_ok |
+| Resolver status `undated_only` | construct `unresolved_construct` |
 
 These are **not** physiological half-lives.
 
@@ -236,12 +478,12 @@ Method failure → `unsupported_method`.
 |---------------------------|----------------|
 | `resolved` | Eligible if method/metric/demographics/era pass |
 | `resolved_with_supporting` | Use frozen **primary channel only** |
-| `multiple_valid` | Fail closed **except** H1 rule §10.2 |
-| `policy_not_frozen` | Fail closed → `policy_not_frozen` |
-| `conflict` | Fail closed → `conflict_unresolved` |
-| `insufficient` | Fail closed → construct `null` → aggregate incomplete |
-| `undated_only` | Fail closed → `unresolved_construct` |
-| `unsupported` | Fail closed → `unsupported_method` |
+| `multiple_valid` | Fail closed **except** H1 rule §10.2; construct reason `multiple_valid_unfrozen` when no usable channel |
+| `policy_not_frozen` | Fail closed → construct reason `policy_not_frozen` |
+| `conflict` | Fail closed → construct reason `conflict_unresolved` |
+| `insufficient` | Fail closed → construct reason `unresolved_construct` |
+| `undated_only` | Fail closed → construct reason `unresolved_construct` |
+| `unsupported` | Fail closed → construct reason `unsupported_method` |
 
 Same-day DXA/BIA day-boundary ADR remains deferred. If Resolver returns `policy_not_frozen` for that reason: fail closed. Score does not invent day boundary.
 
@@ -275,7 +517,8 @@ Same-day DXA/BIA day-boundary ADR remains deferred. If Resolver returns `policy_
 2. VAT channels are always non-scoring / explanatory.
 3. Score engine **must not** override construct-level Resolver status or invent a global WHtR winner.
 4. If WHtR channel is independently resolved while VAT is complementary (construct may still be `multiple_valid` truthfully): score WHtR value only.
-5. If no governed resolved WHtR channel is exposed: H1 = `null`; reason `multiple_valid_unfrozen` or `unresolved_construct` as applicable.
+5. If construct status is `multiple_valid` and no governed resolved WHtR channel is exposed: H1 = `null`; `primaryReason` = `multiple_valid_unfrozen`.
+6. If no governed resolved WHtR channel is exposed for any other unresolved status (`insufficient`, `undated_only`, or missing channel after higher ranks): H1 = `null`; `primaryReason` = `unresolved_construct`.
 
 ### 10.3 Exact transform
 
@@ -521,12 +764,12 @@ No dampening; no severity cap; no H4 adjustment; no renormalization; no H1-only 
 
 ### 14.5 Missing
 
-| Missing | Aggregate | Primary reason |
-|---------|-----------|----------------|
-| H1 or H2 or H3 | unavailable | `incomplete_health_composition` |
-| H4 | ignored | n/a |
+| Missing | Aggregate status | Aggregate `primaryReason` | `constructReasons` |
+|---------|------------------|---------------------------|--------------------|
+| H1 or H2 or H3 unavailable after eligibility | `unavailable` | `incomplete_health_composition` (unless a higher engine-level gate in §4.2 already fired) | each unavailable core keeps its own construct `primaryReason` |
+| H4 | ignored | n/a | n/a |
 
-Construct results may be returned independently for explanation; they are **not** the Health Composition aggregate.
+Construct results may be returned independently for explanation; they are **not** the Health Composition aggregate. Aggregate reason never replaces construct root-cause reasons.
 
 ---
 
@@ -535,12 +778,21 @@ Construct results may be returned independently for explanation; they are **not*
 ### 15.1 Eligibility — DXA FFMI ONLY
 
 ```text
-if P1 construct status in {policy_not_frozen, conflict, insufficient, undated_only, unsupported}:
-  P1 = null  # policy_not_frozen / conflict_unresolved / unresolved_construct / unsupported_method
+# Apply §4.3 construct precedence exactly. Illustrative terminal branches:
+if P1 construct status == policy_not_frozen:
+  P1 = { value: null, primaryReason: policy_not_frozen }
+else if P1 construct status == conflict:
+  P1 = { value: null, primaryReason: conflict_unresolved }
+else if P1 construct status == unsupported:
+  P1 = { value: null, primaryReason: unsupported_method }
+else if P1 construct status in {insufficient, undated_only}:
+  P1 = { value: null, primaryReason: unresolved_construct }
+else if P1 construct status == multiple_valid:
+  P1 = { value: null, primaryReason: multiple_valid_unfrozen }
 else if FFMI channel status in {resolved, resolved_with_supporting} and method is dxa:
-  P1 = P1_ffmi(FFMI, sex)
+  P1 = { value: P1_ffmi(FFMI, sex), primaryReason: null }  # still subject to sex/height/future/stale ranks
 else:
-  P1 = null  # reason p1_ffmi_not_resolved
+  P1 = { value: null, primaryReason: p1_ffmi_not_resolved }
 ```
 
 FFM / total Lean: explanatory / non-scoring. **No** score-layer `FFMI > FFM > Lean`.
@@ -684,9 +936,11 @@ No dampening; no severity cap; no P2 adjustment; no renormalization; no prelimin
 
 ### 18.5 Missing
 
-| Missing | Aggregate | Reason |
-|---------|-----------|--------|
-| P1 or P3 | unavailable | `insufficient_core_constructs` (or `p1_ffmi_not_resolved` when that is the sole cause) |
+| Missing | Aggregate status | Aggregate `primaryReason` | `constructReasons` |
+|---------|------------------|---------------------------|--------------------|
+| P1 or P3 unavailable after eligibility | `unavailable` | **always** `insufficient_core_constructs` (unless a higher engine-level gate in §4.2 already fired) | e.g. `P1: p1_ffmi_not_resolved` or `P1: policy_not_frozen` preserved separately |
+
+Aggregate primary reason is **never** `p1_ffmi_not_resolved`. That code is construct-level only.
 
 ---
 
@@ -763,10 +1017,10 @@ Attributed to independent re-gate of scientific correction SHA `6fa8cb22…` —
 
 ## 24. Zero-engineer-choice declaration
 
-For draft_v1 Health and Performance-Supporting engines, every branch above specifies metric, method, version, units, dates, age, sex, channel, Resolver state, Confidence non-dependency, recency, knots, interpolation, tails, weights, missing data, status, clipping, rounding, and withholding.
+For draft_v1 Health and Performance-Supporting engines, every branch above specifies metric, method, version, units, dates, age (UTC completed years + leap-day Mar 1), sex, channel, Resolver state, Confidence non-dependency, recency (including future evidence), knots, interpolation, tails, weights, missing data, status, clipping, rounding, withholding vocabulary, construct vs aggregate reasons, and precedence for simultaneous failures.
 
 **Remaining runtime scientific/product choices:** none.
-**Remaining ambiguous boundaries:** none.
+**Remaining ambiguous boundaries:** none (Defects A/B/C closed).
 **Implementation remains blocked** only by the independent mathematical/docs freeze re-gate process — not by open math.
 
 ---

@@ -150,8 +150,8 @@ Pagination honesty: physical confirmation covers history list scroll, footer/end
 |-------|--------|
 | **Evidence Resolver** | **IMPLEMENTED** · scientific re-gate **PASS** at `3ae4737b8212fa5479fa1f621028e32ad7ab5757` · docs truth-freeze re-gate **PASS** at `49751716b450e6d05d607938e52624d29d680a1c` — `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md` |
 | Assessment Confidence | **implementation PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` — `docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md` |
-| Health Composition score (0–100) | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze pending independent review) |
-| Performance-Supporting Composition score (0–100) | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze pending independent review) |
+| Health Composition score (0–100) | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze edge cases A/B/C closed · READY FOR INDEPENDENT RE-GATE) |
+| Performance-Supporting Composition score (0–100) | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze edge cases A/B/C closed · READY FOR INDEPENDENT RE-GATE) |
 | Public numeric scores | **NO-GO** |
 
 Foundation authorization remains: Resolver/Confidence work must not reopen Waist protocol, deterministic index formulas, Evidence Bridge persistence strategy, Body Scan metric registry keys, category navigation order, filtered cursor pagination, mutation invalidation bus, or scroll-ownership architecture — unless a proven defect requires a bounded correction and a new physical gate.

@@ -11,7 +11,7 @@
 **Not:** clinically validated · production calibrated · score validated
 **Independent implementation re-gate:** **PASS**
 **Confidence docs truth freeze:** **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8`
-**Health / Performance-Supporting Composition scores:** implementation **STILL BLOCKED**; Scientific Re-Gate V2 **PASS**; final mathematical truth freeze **CREATED / PENDING INDEPENDENT REVIEW** (`BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md`); no implementation authorization until freeze re-gate PASS
+**Health / Performance-Supporting Composition scores:** implementation **STILL BLOCKED**; Scientific Re-Gate V2 **PASS**; final mathematical truth freeze edge cases A/B/C **CLOSED** · **READY FOR INDEPENDENT RE-GATE** (`BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md`); no implementation authorization until freeze re-gate PASS
 **Public numeric scores:** **NO-GO**
 
 ---
@@ -333,7 +333,7 @@ Current phase status:
 | Implementation | **PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` |
 | Independent implementation re-gate | **PASS** |
 | Confidence docs truth freeze | **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`) |
-| Health / Performance-Supporting Composition score planning | **PASS** (scientific) · mathematical freeze pending independent review |
+| Health / Performance-Supporting Composition score planning | **PASS** (scientific) · mathematical freeze edge cases A/B/C closed · READY FOR INDEPENDENT RE-GATE |
 | Health / Performance-Supporting Composition score implementation | **STILL BLOCKED** until mathematical freeze re-gate PASS |
 | Public numeric scores | **NO-GO** |
 
