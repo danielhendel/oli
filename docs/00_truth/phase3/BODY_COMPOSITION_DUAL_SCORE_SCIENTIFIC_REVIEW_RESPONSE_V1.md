@@ -201,3 +201,17 @@ Independent mathematical truth-freeze re-gate at `995e400f22652184b096092e19d088
 Exact text: `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md` §§4–6.
 
 **Status after correction:** mathematical freeze **READY FOR INDEPENDENT RE-GATE**. Implementation remains **BLOCKED**. Public **NO-GO**.
+
+---
+
+## Mathematical freeze re-gate V2 — reason-vocabulary defects (at d829bee3)
+
+Independent re-gate V2 at `d829bee3a734ef2506652ea27f982490da54ccfa`: **FAIL** on reason dual-assignment only. Math/science policy otherwise frozen.
+
+| Defect | Finding | Correction | Status |
+|--------|---------|------------|--------|
+| Invalid DOB reason | Dual `invalid_provenance` / `required_age_missing` | All DOB failures → `required_age_missing` only | **CLOSED** |
+| Missing measuredAt reason | Dual `invalid_provenance` / `unresolved_construct` | Missing/malformed/non-finite measuredAt → `invalid_provenance` only; `undated_only` → `invalid_provenance` | **CLOSED** |
+| Soft branch language | “when treating as …” left implementer choice | Deterministic §4.7 / §4.8 tables; soft forks removed | **CLOSED** |
+
+**Status after correction:** mathematical freeze **READY FOR INDEPENDENT RE-GATE**.

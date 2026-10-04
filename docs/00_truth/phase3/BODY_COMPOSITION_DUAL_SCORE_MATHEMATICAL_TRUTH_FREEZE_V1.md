@@ -4,7 +4,9 @@
 **Date:** 2026-10-04
 **Branch:** `feat/body-composition-stage3e-body-scans-v1`
 **Kind:** Documentation only. **Does not** represent a score-engine runtime build.
-**Edge-case correction:** closes mathematical re-gate defects **A / B / C** against SHA `995e400f22652184b096092e19d088d4cb4169b8`. Knots, weights, methods, windows, and public NO-GO are unchanged.
+**Edge-case correction:** closes mathematical re-gate defects **A / B / C** against SHA `995e400f22652184b096092e19d088d4cb4169b8`.
+**Reason-vocabulary correction:** closes dual-assignment defects for invalid DOB / missing `measuredAt` / soft “when treating as” language against SHA `d829bee3a734ef2506652ea27f982490da54ccfa`.
+Knots, weights, methods, windows, age function, leap-day rule, and public NO-GO are unchanged.
 
 | Identity | Value |
 |----------|-------|
@@ -145,19 +147,19 @@ Use **only** these reason codes. Prefer existing scientific-spec spellings. Neve
 
 | Code | When |
 |------|------|
-| `invalid_provenance` | Non-finite / unparseable `asOf` or required `measuredAt`; malformed timestamp; DOB string not valid `YYYY-MM-DD`; non-finite required numeric metric value when channel otherwise resolved |
-| `future_evidence` | Any scoring input with `ageMs < 0` (`measuredAt > asOf`) |
-| `evidence_too_old` | Any scoring input with `ageMs > MAX_INPUT_AGE_MS` |
+| `invalid_provenance` | Evidence/provenance integrity failure only: missing, malformed, or non-finite required `measuredAt`; non-finite/unparseable `asOf`; non-finite required numeric metric when a channel is otherwise present; Resolver construct status `undated_only` (dated provenance unavailable). **Never** used for DOB/age failures, stale, future, method, or Resolver policy/conflict/unsupported/insufficient |
+| `future_evidence` | Any scoring input with valid finite `measuredAt` and `ageMs < 0` (`measuredAt > asOf`) |
+| `evidence_too_old` | Any scoring input with valid finite `measuredAt` and `ageMs > MAX_INPUT_AGE_MS` |
 | `evidence_era_mismatch` | Pairwise/era gap among scoring inputs `> MAX_GAP_MS` (after same-scan zeroing) |
-| `required_age_missing` | Missing/invalid DOB, DOB after asOf, or completed UTC years `< 20` |
+| `required_age_missing` | **All** DOB/age eligibility failures: missing DOB, malformed DOB, impossible calendar DOB, DOB after asOf, or completed UTC years `< 20`. **Never** `invalid_provenance` |
 | `required_sex_missing` | Sex required and missing/invalid for H2/H3/P1/P3 |
 | `required_height_missing` | Height required for WHtR / FMI / FFMI / ALMI and missing/invalid |
 | `unsupported_method` | Method/protocol outside frozen DXA / WHO-midpoint profile; Resolver construct status `unsupported` |
 | `conflict_unresolved` | Resolver construct status `conflict` |
 | `policy_not_frozen` | Resolver construct/channel status `policy_not_frozen` |
 | `multiple_valid_unfrozen` | Resolver `multiple_valid` without a governed usable numeric channel under §10.2 |
-| `unresolved_construct` | Resolver `insufficient` or `undated_only`; or no eligible numeric channel after higher-precedence failures ruled out; or required measuredAt missing (after invalid/future checks) |
-| `p1_ffmi_not_resolved` | P1 only: DXA FFMI channel is not `resolved` / `resolved_with_supporting` **and** no higher-precedence Resolver failure applies |
+| `unresolved_construct` | Required construct yields no governed resolved numeric scoring channel after upstream Resolver processing, and no more-specific reason applies. Includes Resolver status `insufficient` and “no eligible primary channel” after higher ranks. **Never** means: missing `measuredAt`, `invalid_provenance`, `policy_not_frozen`, `conflict`, `unsupported`, `undated_only`, or P1 FFMI-specific failure |
+| `p1_ffmi_not_resolved` | P1 only: DXA FFMI channel is not `resolved` / `resolved_with_supporting` **and** no higher-precedence construct reason applies |
 | `incomplete_health_composition` | Health **aggregate** primary reason when any of H1/H2/H3 is unavailable |
 | `insufficient_core_constructs` | Performance-Supporting **aggregate** primary reason when P1 or P3 is unavailable |
 | `public_release_not_authorized` | Attempt to expose an otherwise-valid **internal** score on a public/consumer surface — **never** replaces calculation-withholding reasons |
@@ -213,17 +215,19 @@ Evaluate in this exact order. First failure wins as engine/aggregate `primaryRea
 | Rank | Condition | `primaryReason` |
 |------|-----------|-----------------|
 | 1 | `asOf` missing / non-finite / unparseable | `invalid_provenance` |
-| 2 | Adult age gate fails (§5) | `required_age_missing` |
-| 3 | Any scoring input fails input-age validation with `future_evidence` (§6) | `future_evidence` |
-| 4 | Any scoring input fails input-age validation with `evidence_too_old` (§6) | `evidence_too_old` |
-| 5 | Era gap fails (§6) | `evidence_era_mismatch` |
-| 6 | Else evaluate constructs; if any required core construct `value` is null | Health → `incomplete_health_composition`; Performance-Supporting → `insufficient_core_constructs` |
+| 2 | Adult age gate fails (§5 / DOB table §4.7) | `required_age_missing` |
+| 3 | Any required scoring input has missing, malformed, or non-finite `measuredAt` | `invalid_provenance` |
+| 4 | Any scoring input fails with `future_evidence` (§6 / §4.8) | `future_evidence` |
+| 5 | Any scoring input fails with `evidence_too_old` (§6 / §4.8) | `evidence_too_old` |
+| 6 | Era gap fails (§6) | `evidence_era_mismatch` |
+| 7 | Else evaluate constructs; if any required core construct `value` is null | Health → `incomplete_health_composition`; Performance-Supporting → `insufficient_core_constructs` |
 
 Notes:
 
-- Rank 3–5 apply to the set of inputs that would be used for the aggregate (Health: inputs for H1/H2/H3; Performance-Supporting: inputs for P1/P3).
+- Ranks 3–6 apply to the set of inputs that would be used for the aggregate (Health: inputs for H1/H2/H3; Performance-Supporting: inputs for P1/P3).
 - If multiple inputs are future, still one engine reason: `future_evidence`.
-- If both future and too-old inputs exist in the same set: **future wins** (rank 3 before 4).
+- If both future and too-old inputs exist in the same set: **future wins** (rank 4 before 5).
+- Missing `measuredAt` **never** becomes `unresolved_construct` at engine level.
 
 ### 4.3 Construct-level fail-closed precedence (LOCKED)
 
@@ -231,20 +235,20 @@ For each construct, select **exactly one** `primaryReason` using this order (fir
 
 | Rank | Condition | `primaryReason` |
 |------|-----------|-----------------|
-| 1 | Required timestamp/metric provenance invalid or non-finite (including missing required `measuredAt` when treating as invalid parse/state) | `invalid_provenance` |
-| 2 | Any construct scoring input has `ageMs < 0` | `future_evidence` |
+| 1 | Required `measuredAt` missing, malformed, or non-finite; **or** Resolver status `undated_only`; **or** required numeric metric non-finite when a channel value is otherwise present | `invalid_provenance` |
+| 2 | Any construct scoring input has finite `measuredAt` and `ageMs < 0` | `future_evidence` |
 | 3 | Required sex missing/invalid (H2/H3/P1/P3) | `required_sex_missing` |
 | 4 | Required height missing/invalid | `required_height_missing` |
-| 5 | Method/protocol unsupported **or** Resolver status `unsupported` | `unsupported_method` |
+| 5 | Method/protocol unsupported; Resolver status `unsupported` | `unsupported_method` |
 | 6 | Resolver status `conflict` | `conflict_unresolved` |
 | 7 | Resolver status `policy_not_frozen` | `policy_not_frozen` |
 | 8 | Resolver status `multiple_valid` and no governed usable numeric channel (§10.2 for H1; otherwise always) | `multiple_valid_unfrozen` |
-| 9 | Resolver status `insufficient` or `undated_only` | `unresolved_construct` |
-| 10 | No eligible numeric channel / unresolved primary after above | `unresolved_construct` |
+| 9 | Resolver status `insufficient` | `unresolved_construct` |
+| 10 | No eligible numeric channel / unresolved primary after above ranks | `unresolved_construct` |
 | 11 | P1 only: FFMI channel not `resolved` / `resolved_with_supporting` | `p1_ffmi_not_resolved` |
-| 12 | Any construct scoring input has `ageMs > MAX_INPUT_AGE_MS` | `evidence_too_old` |
+| 12 | Any construct scoring input has finite `measuredAt` and `ageMs > MAX_INPUT_AGE_MS` | `evidence_too_old` |
 
-Construct-level era gap is not scored per-construct; era mismatch is engine rank 5 (§4.2).
+Construct-level era gap is not scored per-construct; era mismatch is engine rank 6 (§4.2).
 
 ### 4.4 Construct reason tables (LOCKED)
 
@@ -252,63 +256,92 @@ Construct-level era gap is not scored per-construct; era mismatch is engine rank
 
 | Condition | `primaryReason` |
 |-----------|-----------------|
-| Invalid asOf/measuredAt/WHtR provenance | `invalid_provenance` |
+| Missing/malformed/non-finite Waist or Height `measuredAt`; Resolver `undated_only`; non-finite WHtR | `invalid_provenance` |
 | Future Waist or Height-dated input used for WHtR | `future_evidence` |
 | Height missing/invalid | `required_height_missing` |
 | Unsupported Waist protocol/method | `unsupported_method` |
 | Resolver conflict | `conflict_unresolved` |
 | Resolver `policy_not_frozen` | `policy_not_frozen` |
 | `multiple_valid` with no independently governed resolved WHtR channel | `multiple_valid_unfrozen` |
-| No valid governed WHtR channel (including `insufficient` / `undated_only`) | `unresolved_construct` |
+| Resolver `insufficient` or no governed WHtR channel after higher ranks | `unresolved_construct` |
 | Stale Waist/Height input | `evidence_too_old` |
 
 #### H2 / H3 / P3
 
 | Condition | `primaryReason` |
 |-----------|-----------------|
-| Invalid provenance / non-finite metric | `invalid_provenance` |
+| Missing/malformed/non-finite `measuredAt`; Resolver `undated_only`; non-finite metric | `invalid_provenance` |
 | Future evidence | `future_evidence` |
 | Sex missing/invalid | `required_sex_missing` |
 | Height missing/invalid (index requires height) | `required_height_missing` |
-| Method not DXA / unsupported | `unsupported_method` |
+| Method not DXA; Resolver `unsupported` | `unsupported_method` |
 | Resolver conflict | `conflict_unresolved` |
 | Resolver `policy_not_frozen` | `policy_not_frozen` |
 | Resolver `multiple_valid` | `multiple_valid_unfrozen` |
-| Resolver `insufficient` / `undated_only` / unresolved numeric channel | `unresolved_construct` |
+| Resolver `insufficient` or unresolved numeric channel after higher ranks | `unresolved_construct` |
 | Stale evidence | `evidence_too_old` |
 
 #### P1
 
 | Condition | `primaryReason` |
 |-----------|-----------------|
-| Invalid provenance / non-finite FFMI | `invalid_provenance` |
+| Missing/malformed/non-finite `measuredAt`; Resolver `undated_only`; non-finite FFMI | `invalid_provenance` |
 | Future evidence | `future_evidence` |
 | Sex missing/invalid | `required_sex_missing` |
 | Height missing/invalid | `required_height_missing` |
-| Method not DXA / Resolver `unsupported` | `unsupported_method` |
+| Method not DXA; Resolver `unsupported` | `unsupported_method` |
 | Resolver conflict | `conflict_unresolved` |
 | Resolver `policy_not_frozen` | `policy_not_frozen` |
 | Resolver `multiple_valid` | `multiple_valid_unfrozen` |
-| Resolver `insufficient` / `undated_only` | `unresolved_construct` |
-| FFMI channel not resolved (after higher Resolver failures ruled out) | `p1_ffmi_not_resolved` |
+| Resolver `insufficient` | `unresolved_construct` |
+| FFMI channel not resolved after higher ranks | `p1_ffmi_not_resolved` |
 | Stale evidence | `evidence_too_old` |
 
-**P1 special case (LOCKED):** `policy_not_frozen` **never** becomes `p1_ffmi_not_resolved`. `p1_ffmi_not_resolved` is used only when no higher-precedence construct reason applies and the FFMI channel is not `resolved` / `resolved_with_supporting`.
+**P1 special case (LOCKED):** `policy_not_frozen` **never** becomes `p1_ffmi_not_resolved`. `p1_ffmi_not_resolved` applies only when no higher-precedence construct reason exists and the P1 scoring path is otherwise past ranks 1–10 but FFMI is not `resolved` / `resolved_with_supporting`.
 
 ### 4.5 Multiple simultaneous failures (LOCKED examples)
 
-| Example | Construct `primaryReason` |
-|---------|---------------------------|
-| A. sex missing + evidence too old | `required_sex_missing` (rank 3 before 12) |
-| B. Resolver conflict + stale | `conflict_unresolved` (rank 6 before 12) |
-| C. P1 `policy_not_frozen` + FFMI unavailable | `policy_not_frozen` (rank 7 before 11) |
-| D. H1 future evidence + unsupported protocol | `future_evidence` (rank 2 before 5) |
-| E. future + too-old inputs in same aggregate set | engine `primaryReason` = `future_evidence` (§4.2) |
-| F. H2 unresolved + H3 OK + H1 OK | Health aggregate `primaryReason` = `incomplete_health_composition`; `constructReasons.H2` = H2 root reason |
+| Example | Result |
+|---------|--------|
+| A. sex missing + evidence too old | construct `required_sex_missing` (rank 3 before 12) |
+| B. Resolver conflict + stale | construct `conflict_unresolved` (rank 6 before 12) |
+| C. P1 `policy_not_frozen` + FFMI unavailable | construct `policy_not_frozen` (rank 7 before 11) |
+| D. H1 future evidence + unsupported protocol | construct `future_evidence` (rank 2 before 5) |
+| E. future + too-old inputs in same aggregate set | engine `future_evidence` (§4.2 rank 4 before 5) |
+| F. H2 unresolved + H3 OK + H1 OK | Health aggregate `incomplete_health_composition`; `constructReasons.H2` = H2 root reason |
+| G. malformed DOB + otherwise valid evidence | engine `required_age_missing` (§4.2 rank 2; DOB never uses `invalid_provenance`) |
+| H. missing `measuredAt` + otherwise valid construct channel | construct `invalid_provenance` (§4.3 rank 1) |
+| I. missing `measuredAt` + unsupported method | construct `invalid_provenance` (rank 1 before rank 5) |
 
 ### 4.6 Public-release reason boundary (LOCKED)
 
 `public_release_not_authorized` applies **only** when an otherwise-valid internal draft score would be exposed on a consumer/public surface. It does **not** replace scientific calculation-withholding reasons.
+
+### 4.7 Canonical DOB decision table (LOCKED)
+
+| DOB / age condition | `primaryReason` |
+|---------------------|-----------------|
+| missing DOB | `required_age_missing` |
+| malformed DOB | `required_age_missing` |
+| impossible calendar DOB | `required_age_missing` |
+| DOB after asOf calendar day | `required_age_missing` |
+| valid DOB, completed UTC years `< 20` | `required_age_missing` |
+| valid DOB, completed UTC years `>= 20` | age gate passes |
+
+`invalid_provenance` does **not** appear in this table.
+
+### 4.8 Canonical measuredAt decision table (LOCKED)
+
+| `measuredAt` condition | `primaryReason` / action |
+|------------------------|--------------------------|
+| missing required `measuredAt` | `invalid_provenance` |
+| malformed `measuredAt` | `invalid_provenance` |
+| non-finite `measuredAt` | `invalid_provenance` |
+| valid `measuredAt` and `measuredAt > asOf` | `future_evidence` |
+| valid `measuredAt` and `ageMs > MAX_INPUT_AGE_MS` | `evidence_too_old` |
+| valid `measuredAt` and `0 <= ageMs <= MAX_INPUT_AGE_MS` | continue (age-dimension eligible) |
+
+No implementer discretion. No soft “when treating as” branch.
 
 ---
 
@@ -362,9 +395,12 @@ function utcYmd(asOfMs):
   return { year: d.UTCFullYear, month: d.UTCMonth + 1, day: d.UTCDate }
 
 function completedUtcYears(dateOfBirth, asOfMs):
+  # PRECONDITION (engine §4.2 rank 1): asOfMs is already finite/parseable.
+  # Do not call this function when asOf failed provenance — that is invalid_provenance,
+  # never required_age_missing.
   dob = parseDobUtc(dateOfBirth)
-  asOf = utcYmd(asOfMs)
-  if dob is null or asOf is null: return null          # → required_age_missing
+  asOf = utcYmd(asOfMs)                               # non-null under precondition
+  if dob is null: return null                         # → required_age_missing only
   # DOB after asOf calendar day:
   if (dob.year, dob.month, dob.day) > (asOf.year, asOf.month, asOf.day):
     return null                                       # → required_age_missing
@@ -374,14 +410,17 @@ function completedUtcYears(dateOfBirth, asOfMs):
     OR (asOf.month == dob.month AND asOf.day < dob.day)
   ):
     years = years - 1
-  if years < 0: return null
+  if years < 0: return null                           # → required_age_missing
   return years
 
 function adultAgeOk(dateOfBirth, asOfMs):
+  # PRECONDITION: asOfMs already validated (§4.2 rank 1 = invalid_provenance if not).
   years = completedUtcYears(dateOfBirth, asOfMs)
-  if years is null: return false                      # required_age_missing
-  return years >= 20
+  if years is null: return false                      # → required_age_missing (DOB/age only)
+  return years >= 20                                  # false → required_age_missing
 ```
+
+All DOB availability/validity failures use `required_age_missing` only (§4.7). `invalid_provenance` is never emitted for DOB.
 
 Boundary table:
 
@@ -410,17 +449,20 @@ Inputs: explicit `asOf` (required) and each scoring input `measuredAt` (required
 Resolver already excludes future evidence; score layer still rejects future evidence as **input validation** defense-in-depth (not a second evidence-selection policy).
 
 ```text
+function measuredAtReason(measuredAtMs, asOfMs):   # §4.8 — deterministic, no soft forks
+  if asOfMs missing or not finite: return invalid_provenance
+  if measuredAtMs missing or malformed or not finite: return invalid_provenance
+  ageMs = asOfMs - measuredAtMs
+  if ageMs < 0: return future_evidence          # ALWAYS INELIGIBLE
+  if ageMs > MAX_INPUT_AGE_MS: return evidence_too_old
+  return null                                   # continue; age-dimension eligible
+
 function ageMs(measuredAtMs, asOfMs):
-  if asOfMs missing or not finite: fail closed → invalid_provenance
-  if measuredAtMs missing or not finite: fail closed → invalid_provenance
+  # Call only when measuredAtReason(...) is null.
   return asOfMs - measuredAtMs
 
 function inputAgeReason(measuredAtMs, asOfMs):
-  age = ageMs(measuredAtMs, asOfMs)
-  if age is fail-closed invalid: return invalid_provenance
-  if age < 0: return future_evidence          # ALWAYS INELIGIBLE
-  if age > MAX_INPUT_AGE_MS: return evidence_too_old
-  return null                                 # age-dimension eligible
+  return measuredAtReason(measuredAtMs, asOfMs)
 
 function eraGapMs(scoring_input_measuredAt_ms_list):
   # after forcing gap=0 for same verified Body Scan sourceEventId pairs
@@ -430,7 +472,7 @@ function eraGapMs(scoring_input_measuredAt_ms_list):
 function era_ok(scoring_inputs, asOfMs):
   if asOfMs missing or not finite: return false  # invalid_provenance
   for each input i in scoring_inputs:
-    r = inputAgeReason(measuredAtMs_i, asOfMs)
+    r = measuredAtReason(measuredAtMs_i, asOfMs)
     if r != null: return false
   gap = eraGapMs(scoring_inputs)
   if gap > MAX_GAP_MS: return false             # evidence_era_mismatch
@@ -449,8 +491,8 @@ function era_ok(scoring_inputs, asOfMs):
 | gap > 90 days | `evidence_era_mismatch` |
 | H2+H3 same `sourceEventId` | gap forced 0 |
 | Waist + scan | Waist–scan gap must be ≤ 90d **and** both age-eligible (not future, not too old) |
-| Missing/non-finite `measuredAt` on a required scoring input | construct `invalid_provenance`; blocks era_ok |
-| Resolver status `undated_only` | construct `unresolved_construct` |
+| Missing/malformed/non-finite `measuredAt` on a required scoring input | `invalid_provenance` (never `unresolved_construct`) |
+| Resolver status `undated_only` | `invalid_provenance` (dated provenance unavailable) |
 
 These are **not** physiological half-lives.
 
@@ -482,7 +524,7 @@ Method failure → `unsupported_method`.
 | `policy_not_frozen` | Fail closed → construct reason `policy_not_frozen` |
 | `conflict` | Fail closed → construct reason `conflict_unresolved` |
 | `insufficient` | Fail closed → construct reason `unresolved_construct` |
-| `undated_only` | Fail closed → construct reason `unresolved_construct` |
+| `undated_only` | Fail closed → construct reason `invalid_provenance` |
 | `unsupported` | Fail closed → construct reason `unsupported_method` |
 
 Same-day DXA/BIA day-boundary ADR remains deferred. If Resolver returns `policy_not_frozen` for that reason: fail closed. Score does not invent day boundary.
@@ -518,7 +560,8 @@ Same-day DXA/BIA day-boundary ADR remains deferred. If Resolver returns `policy_
 3. Score engine **must not** override construct-level Resolver status or invent a global WHtR winner.
 4. If WHtR channel is independently resolved while VAT is complementary (construct may still be `multiple_valid` truthfully): score WHtR value only.
 5. If construct status is `multiple_valid` and no governed resolved WHtR channel is exposed: H1 = `null`; `primaryReason` = `multiple_valid_unfrozen`.
-6. If no governed resolved WHtR channel is exposed for any other unresolved status (`insufficient`, `undated_only`, or missing channel after higher ranks): H1 = `null`; `primaryReason` = `unresolved_construct`.
+6. If Resolver status is `undated_only`: H1 = `null`; `primaryReason` = `invalid_provenance`.
+7. If Resolver status is `insufficient`, or no governed resolved WHtR channel remains after higher ranks: H1 = `null`; `primaryReason` = `unresolved_construct`.
 
 ### 10.3 Exact transform
 
@@ -634,14 +677,25 @@ Kelly classes = descriptive BMI-equivalent **EVIDENCE-REFERENCE** bounds for x. 
 ### 12.1 Channel selection (consume Resolver; do not invent)
 
 ```text
-if H3 construct status in {policy_not_frozen, conflict, insufficient, undated_only, unsupported}:
-  H3 = null
+# Apply §4.3 construct precedence exactly (first match wins).
+if required measuredAt missing/malformed/non-finite OR H3 status == undated_only:
+  H3 = { value: null, primaryReason: invalid_provenance }
+else if H3 status == policy_not_frozen:
+  H3 = { value: null, primaryReason: policy_not_frozen }
+else if H3 status == conflict:
+  H3 = { value: null, primaryReason: conflict_unresolved }
+else if H3 status == unsupported:
+  H3 = { value: null, primaryReason: unsupported_method }
+else if H3 status == insufficient:
+  H3 = { value: null, primaryReason: unresolved_construct }
+else if H3 status == multiple_valid:
+  H3 = { value: null, primaryReason: multiple_valid_unfrozen }
 else if H3 primary channel is ALMI and status in {resolved, resolved_with_supporting} and method dxa:
-  H3 = H3_almi(ALMI, sex)
+  H3 = { value: H3_almi(ALMI, sex), primaryReason: null }
 else if H3 primary channel is FFMI and status in {resolved, resolved_with_supporting} and method dxa:
-  H3 = H3_ffmi(FFMI, sex)
+  H3 = { value: H3_ffmi(FFMI, sex), primaryReason: null }
 else:
-  H3 = null
+  H3 = { value: null, primaryReason: unresolved_construct }
 ```
 
 FFM / total Lean: explanatory / non-scoring. Do **not** implement ALMI>FFMI in score code (Resolver already owns that).
@@ -778,19 +832,21 @@ Construct results may be returned independently for explanation; they are **not*
 ### 15.1 Eligibility — DXA FFMI ONLY
 
 ```text
-# Apply §4.3 construct precedence exactly. Illustrative terminal branches:
-if P1 construct status == policy_not_frozen:
+# Apply §4.3 construct precedence exactly (first match wins). Terminal Resolver branches:
+if required measuredAt missing/malformed/non-finite OR P1 status == undated_only:
+  P1 = { value: null, primaryReason: invalid_provenance }
+else if P1 construct status == policy_not_frozen:
   P1 = { value: null, primaryReason: policy_not_frozen }
 else if P1 construct status == conflict:
   P1 = { value: null, primaryReason: conflict_unresolved }
 else if P1 construct status == unsupported:
   P1 = { value: null, primaryReason: unsupported_method }
-else if P1 construct status in {insufficient, undated_only}:
+else if P1 construct status == insufficient:
   P1 = { value: null, primaryReason: unresolved_construct }
 else if P1 construct status == multiple_valid:
   P1 = { value: null, primaryReason: multiple_valid_unfrozen }
 else if FFMI channel status in {resolved, resolved_with_supporting} and method is dxa:
-  P1 = { value: P1_ffmi(FFMI, sex), primaryReason: null }  # still subject to sex/height/future/stale ranks
+  P1 = { value: P1_ffmi(FFMI, sex), primaryReason: null }  # still subject to sex/height/future/stale ranks in §4.3
 else:
   P1 = { value: null, primaryReason: p1_ffmi_not_resolved }
 ```
