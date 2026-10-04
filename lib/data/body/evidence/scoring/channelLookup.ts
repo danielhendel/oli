@@ -98,46 +98,34 @@ export function governedFmiChannel(
 }
 
 /**
- * H3: consume Resolver primary channel — ALMI or FFMI only when that channel is resolved.
- * Do not implement ALMI>FFMI selection here.
+ * H3: consume Resolver PRIMARY only (§12.1).
+ *
+ * Canonical primary representation: `construct.primaryEvidenceRefs[0]` from the
+ * approved Resolver construct result. Score ALMI/FFMI only when that primary
+ * observation is ALMI/FFMI and the matching channel is resolved.
+ *
+ * Never search later refs and never invent lean-channel precedence.
  */
 export function governedH3LeanChannel(
   construct: BodyCompositionResolverConstructResult,
   byId: Map<string, BodyCompositionEvidenceObservation>,
 ): (GovernedMetricChannel & { kind: "almi" | "ffmi" }) | null {
-  if (!RESOLVED.has(construct.status)) {
-    // Only resolved construct statuses expose a primary lean channel for scoring.
-    // (Channel may still be inspected for fail-closed reasons elsewhere.)
-  }
-  const almi = findChannel(construct, ALMI_CHANNEL_ID);
-  const ffmi = findChannel(construct, FFMI_CHANNEL_ID);
+  if (!RESOLVED.has(construct.status)) return null;
 
-  // Prefer reading Resolver primary refs: if primary obs is ALMI/FFMI and matching channel resolved.
   const primaryRef = construct.primaryEvidenceRefs[0];
-  if (primaryRef && RESOLVED.has(construct.status)) {
-    const primaryObs = byId.get(primaryRef);
-    if (primaryObs?.metricKey === "almi" && isChannelResolved(almi)) {
-      return { channel: almi, observation: primaryObs, kind: "almi" };
-    }
-    if (primaryObs?.metricKey === "ffmi" && isChannelResolved(ffmi)) {
-      return { channel: ffmi, observation: primaryObs, kind: "ffmi" };
-    }
-  }
+  if (!primaryRef) return null;
+  const primaryObs = byId.get(primaryRef);
+  if (!primaryObs) return null;
 
-  // If construct resolved_with_supporting / resolved but primary ref missing metric match,
-  // use the resolved frozen primary channel only when uniquely indicated by channel status
-  // and construct primaryEvidenceRefs already point there — do not invent ALMI>FFMI.
-  if (RESOLVED.has(construct.status) && isChannelResolved(almi) && almi.primaryEvidenceRefs[0]) {
-    const obs = byId.get(almi.primaryEvidenceRefs[0]);
-    if (obs?.metricKey === "almi" && construct.primaryEvidenceRefs.includes(obs.observationId)) {
-      return { channel: almi, observation: obs, kind: "almi" };
-    }
+  if (primaryObs.metricKey === "almi") {
+    const almi = findChannel(construct, ALMI_CHANNEL_ID);
+    if (!isChannelResolved(almi)) return null;
+    return { channel: almi, observation: primaryObs, kind: "almi" };
   }
-  if (RESOLVED.has(construct.status) && isChannelResolved(ffmi) && ffmi.primaryEvidenceRefs[0]) {
-    const obs = byId.get(ffmi.primaryEvidenceRefs[0]);
-    if (obs?.metricKey === "ffmi" && construct.primaryEvidenceRefs.includes(obs.observationId)) {
-      return { channel: ffmi, observation: obs, kind: "ffmi" };
-    }
+  if (primaryObs.metricKey === "ffmi") {
+    const ffmi = findChannel(construct, FFMI_CHANNEL_ID);
+    if (!isChannelResolved(ffmi)) return null;
+    return { channel: ffmi, observation: primaryObs, kind: "ffmi" };
   }
   return null;
 }

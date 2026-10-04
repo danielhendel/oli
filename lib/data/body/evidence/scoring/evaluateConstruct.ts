@@ -47,6 +47,18 @@ export type ConstructEvalContext = {
   subjectHeightCm: number | null;
 };
 
+/**
+ * Explicit measuredAt integrity for aggregate §4.2 rank 3.
+ * Must not be inferred later from filtered finite timestamp arrays.
+ */
+export type MeasuredAtIntegrity = "valid" | "invalid";
+
+export type ConstructEvalOutput = {
+  result: BodyCompositionScoreConstructResult;
+  scoringInputs: ScoringTimestampInput[];
+  measuredAtIntegrity: MeasuredAtIntegrity;
+};
+
 function withheld(reason: BodyCompositionScoreReasonCode): BodyCompositionScoreConstructResult {
   return { value: null, primaryReason: reason };
 }
@@ -95,11 +107,15 @@ function evaluateDxaIndexConstruct(args: {
   ctx: ConstructEvalContext;
   resolved: ResolvedIndex;
   transform: (value: number, sex: BodyCompositionScoreSex) => number | null;
-}): { result: BodyCompositionScoreConstructResult; scoringInputs: ScoringTimestampInput[] } {
+}): ConstructEvalOutput {
   const { ctx, resolved } = args;
   const construct = ctx.construct;
   if (!construct) {
-    return { result: withheld("unresolved_construct"), scoringInputs: [] };
+    return {
+      result: withheld("unresolved_construct"),
+      scoringInputs: [],
+      measuredAtIntegrity: "valid",
+    };
   }
 
   const byId = observationMap(ctx.bundle);
@@ -109,93 +125,110 @@ function evaluateDxaIndexConstruct(args: {
   // Height presence is required, but H2/H3/P1/P3 stale/future tables do not
   // treat profile-height age as a scoring input (unlike H1 Waist/Height).
   const { inputs, invalidMeasuredAt } = collectTs(obs ? [obs] : []);
+  const measuredAtIntegrity: MeasuredAtIntegrity =
+    construct.status === "undated_only" || (obs != null && invalidMeasuredAt)
+      ? "invalid"
+      : "valid";
 
   // Rank 1
   if (construct.status === "undated_only") {
-    return { result: withheld("invalid_provenance"), scoringInputs: inputs };
+    return { result: withheld("invalid_provenance"), scoringInputs: inputs, measuredAtIntegrity };
   }
   if (obs && !Number.isFinite(obs.value)) {
-    return { result: withheld("invalid_provenance"), scoringInputs: inputs };
+    return { result: withheld("invalid_provenance"), scoringInputs: inputs, measuredAtIntegrity };
   }
   if (obs && invalidMeasuredAt) {
-    return { result: withheld("invalid_provenance"), scoringInputs: inputs };
+    return { result: withheld("invalid_provenance"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 2
   if (hasFuture(inputs, ctx.asOfMs)) {
-    return { result: withheld("future_evidence"), scoringInputs: inputs };
+    return { result: withheld("future_evidence"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 3
   if (ctx.sex == null) {
-    return { result: withheld("required_sex_missing"), scoringInputs: inputs };
+    return { result: withheld("required_sex_missing"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 4 — height required when an index observation is used
   if (obs) {
     if (heightObs == null || !(Number.isFinite(heightObs.value) && heightObs.value > 0)) {
-      return { result: withheld("required_height_missing"), scoringInputs: inputs };
+      return {
+        result: withheld("required_height_missing"),
+        scoringInputs: inputs,
+        measuredAtIntegrity,
+      };
     }
   }
 
   // Rank 5
   if (construct.status === "unsupported") {
-    return { result: withheld("unsupported_method"), scoringInputs: inputs };
+    return { result: withheld("unsupported_method"), scoringInputs: inputs, measuredAtIntegrity };
   }
   if (obs) {
     const method = indexMeasurementMethod(obs, byId);
     if (method !== "dxa") {
-      return { result: withheld("unsupported_method"), scoringInputs: inputs };
+      return { result: withheld("unsupported_method"), scoringInputs: inputs, measuredAtIntegrity };
     }
   }
 
   // Rank 6
   if (construct.status === "conflict") {
-    return { result: withheld("conflict_unresolved"), scoringInputs: inputs };
+    return { result: withheld("conflict_unresolved"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 7
   if (construct.status === "policy_not_frozen") {
-    return { result: withheld("policy_not_frozen"), scoringInputs: inputs };
+    return { result: withheld("policy_not_frozen"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 8
   if (construct.status === "multiple_valid") {
-    return { result: withheld("multiple_valid_unfrozen"), scoringInputs: inputs };
+    return {
+      result: withheld("multiple_valid_unfrozen"),
+      scoringInputs: inputs,
+      measuredAtIntegrity,
+    };
   }
 
   // Rank 9
   if (construct.status === "insufficient") {
-    return { result: withheld("unresolved_construct"), scoringInputs: inputs };
+    return { result: withheld("unresolved_construct"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 10 / 11
   if (!obs) {
     if (resolved.p1FfmiNotResolved) {
-      return { result: withheld("p1_ffmi_not_resolved"), scoringInputs: inputs };
+      return {
+        result: withheld("p1_ffmi_not_resolved"),
+        scoringInputs: inputs,
+        measuredAtIntegrity,
+      };
     }
-    return { result: withheld("unresolved_construct"), scoringInputs: inputs };
+    return { result: withheld("unresolved_construct"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 12
   if (hasStale(inputs, ctx.asOfMs)) {
-    return { result: withheld("evidence_too_old"), scoringInputs: inputs };
+    return { result: withheld("evidence_too_old"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   const transformed = args.transform(obs.value, ctx.sex);
   if (transformed == null) {
-    return { result: withheld("invalid_provenance"), scoringInputs: inputs };
+    return { result: withheld("invalid_provenance"), scoringInputs: inputs, measuredAtIntegrity };
   }
-  return { result: available(transformed), scoringInputs: inputs };
+  return { result: available(transformed), scoringInputs: inputs, measuredAtIntegrity };
 }
 
-export function evaluateH1(ctx: ConstructEvalContext): {
-  result: BodyCompositionScoreConstructResult;
-  scoringInputs: ScoringTimestampInput[];
-} {
+export function evaluateH1(ctx: ConstructEvalContext): ConstructEvalOutput {
   const construct = ctx.construct;
   if (!construct) {
-    return { result: withheld("unresolved_construct"), scoringInputs: [] };
+    return {
+      result: withheld("unresolved_construct"),
+      scoringInputs: [],
+      measuredAtIntegrity: "valid",
+    };
   }
   const byId = observationMap(ctx.bundle);
   const governed = governedH1WhtrChannel(construct, byId);
@@ -203,78 +236,90 @@ export function evaluateH1(ctx: ConstructEvalContext): {
   const waist = whtr ? waistObservationFromWhtr(whtr, byId) : null;
   const height = whtr ? heightObservationFromIndex(whtr, byId) : null;
   const { inputs, invalidMeasuredAt } = collectTs([whtr, waist, height]);
+  const measuredAtIntegrity: MeasuredAtIntegrity =
+    construct.status === "undated_only" || (whtr != null && invalidMeasuredAt)
+      ? "invalid"
+      : "valid";
 
   // Rank 1
   if (construct.status === "undated_only") {
-    return { result: withheld("invalid_provenance"), scoringInputs: inputs };
+    return { result: withheld("invalid_provenance"), scoringInputs: inputs, measuredAtIntegrity };
   }
   if (whtr && !Number.isFinite(whtr.value)) {
-    return { result: withheld("invalid_provenance"), scoringInputs: inputs };
+    return { result: withheld("invalid_provenance"), scoringInputs: inputs, measuredAtIntegrity };
   }
   if (whtr && invalidMeasuredAt) {
-    return { result: withheld("invalid_provenance"), scoringInputs: inputs };
+    return { result: withheld("invalid_provenance"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 2
   if (hasFuture(inputs, ctx.asOfMs)) {
-    return { result: withheld("future_evidence"), scoringInputs: inputs };
+    return { result: withheld("future_evidence"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 3 — H1 sex-independent
 
   // Rank 4
   if (whtr && (height == null || !(Number.isFinite(height.value) && height.value > 0))) {
-    return { result: withheld("required_height_missing"), scoringInputs: inputs };
+    return {
+      result: withheld("required_height_missing"),
+      scoringInputs: inputs,
+      measuredAtIntegrity,
+    };
   }
 
   // Rank 5
   if (construct.status === "unsupported") {
-    return { result: withheld("unsupported_method"), scoringInputs: inputs };
+    return { result: withheld("unsupported_method"), scoringInputs: inputs, measuredAtIntegrity };
   }
   if (whtr) {
     if (!isValidWhtrObservation(whtr) || !waist || !isValidWhoWaist(waist)) {
-      return { result: withheld("unsupported_method"), scoringInputs: inputs };
+      return { result: withheld("unsupported_method"), scoringInputs: inputs, measuredAtIntegrity };
     }
   }
 
   // Rank 6
   if (construct.status === "conflict") {
-    return { result: withheld("conflict_unresolved"), scoringInputs: inputs };
+    return { result: withheld("conflict_unresolved"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 7
   if (construct.status === "policy_not_frozen") {
-    return { result: withheld("policy_not_frozen"), scoringInputs: inputs };
+    return { result: withheld("policy_not_frozen"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 8 — multiple_valid only without governed WHtR (§10.2)
   if (construct.status === "multiple_valid" && !governed) {
-    return { result: withheld("multiple_valid_unfrozen"), scoringInputs: inputs };
+    return {
+      result: withheld("multiple_valid_unfrozen"),
+      scoringInputs: inputs,
+      measuredAtIntegrity,
+    };
   }
 
   // Rank 9
   if (construct.status === "insufficient") {
-    return { result: withheld("unresolved_construct"), scoringInputs: inputs };
+    return { result: withheld("unresolved_construct"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 10
   if (!governed || !whtr) {
-    return { result: withheld("unresolved_construct"), scoringInputs: inputs };
+    return { result: withheld("unresolved_construct"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   // Rank 12
   if (hasStale(inputs, ctx.asOfMs)) {
-    return { result: withheld("evidence_too_old"), scoringInputs: inputs };
+    return { result: withheld("evidence_too_old"), scoringInputs: inputs, measuredAtIntegrity };
   }
 
   const value = H1_whtr(whtr.value);
   if (value == null) {
-    return { result: withheld("invalid_provenance"), scoringInputs: inputs };
+    return { result: withheld("invalid_provenance"), scoringInputs: inputs, measuredAtIntegrity };
   }
-  return { result: available(value), scoringInputs: inputs };
+  return { result: available(value), scoringInputs: inputs, measuredAtIntegrity };
 }
 
-export function evaluateH2(ctx: ConstructEvalContext) {
+export function evaluateH2(ctx: ConstructEvalContext): ConstructEvalOutput {
   const byId = observationMap(ctx.bundle);
   const governed = ctx.construct ? governedFmiChannel(ctx.construct, byId) : null;
   return evaluateDxaIndexConstruct({
@@ -287,7 +332,7 @@ export function evaluateH2(ctx: ConstructEvalContext) {
   });
 }
 
-export function evaluateH3(ctx: ConstructEvalContext) {
+export function evaluateH3(ctx: ConstructEvalContext): ConstructEvalOutput {
   const byId = observationMap(ctx.bundle);
   const governed = ctx.construct ? governedH3LeanChannel(ctx.construct, byId) : null;
   return evaluateDxaIndexConstruct({
@@ -306,7 +351,7 @@ export function evaluateH3(ctx: ConstructEvalContext) {
   });
 }
 
-export function evaluateP1(ctx: ConstructEvalContext) {
+export function evaluateP1(ctx: ConstructEvalContext): ConstructEvalOutput {
   const byId = observationMap(ctx.bundle);
   const governed = ctx.construct ? governedP1FfmiChannel(ctx.construct, byId) : null;
   return evaluateDxaIndexConstruct({
@@ -319,7 +364,7 @@ export function evaluateP1(ctx: ConstructEvalContext) {
   });
 }
 
-export function evaluateP3(ctx: ConstructEvalContext) {
+export function evaluateP3(ctx: ConstructEvalContext): ConstructEvalOutput {
   const byId = observationMap(ctx.bundle);
   const governed = ctx.construct ? governedFmiChannel(ctx.construct, byId) : null;
   return evaluateDxaIndexConstruct({

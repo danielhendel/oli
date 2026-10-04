@@ -26,6 +26,7 @@ import {
   constructReasonsFromScores,
   evaluateP1,
   evaluateP3,
+  type MeasuredAtIntegrity,
 } from "./evaluateConstruct";
 import {
   eraGapMs,
@@ -53,23 +54,28 @@ function mergeInputs(groups: ScoringTimestampInput[][]): ScoringTimestampInput[]
   return groups.flat();
 }
 
-function engineMeasuredAtGate(
-  inputs: ScoringTimestampInput[],
-  asOfMs: number,
-): BodyCompositionScoreReasonCode | null {
-  for (const input of inputs) {
-    const r = measuredAtReason(input.measuredAtMs, asOfMs);
-    if (r === "invalid_provenance") return "invalid_provenance";
+/**
+ * Aggregate §4.2 ranks 3–6.
+ * Rank 3 uses explicit measuredAtIntegrity from construct evaluation —
+ * never inferred from filtered finite timestamp arrays alone.
+ */
+function engineMeasuredAtGate(args: {
+  measuredAtIntegrity: readonly MeasuredAtIntegrity[];
+  inputs: ScoringTimestampInput[];
+  asOfMs: number;
+}): BodyCompositionScoreReasonCode | null {
+  if (args.measuredAtIntegrity.includes("invalid")) {
+    return "invalid_provenance";
   }
-  for (const input of inputs) {
-    const r = measuredAtReason(input.measuredAtMs, asOfMs);
+  for (const input of args.inputs) {
+    const r = measuredAtReason(input.measuredAtMs, args.asOfMs);
     if (r === "future_evidence") return "future_evidence";
   }
-  for (const input of inputs) {
-    const r = measuredAtReason(input.measuredAtMs, asOfMs);
+  for (const input of args.inputs) {
+    const r = measuredAtReason(input.measuredAtMs, args.asOfMs);
     if (r === "evidence_too_old") return "evidence_too_old";
   }
-  if (inputs.length >= 2 && eraGapMs(inputs) > MAX_SCORE_CONSTRUCT_GAP_MS) {
+  if (args.inputs.length >= 2 && eraGapMs(args.inputs) > MAX_SCORE_CONSTRUCT_GAP_MS) {
     return "evidence_era_mismatch";
   }
   return null;
@@ -240,7 +246,11 @@ export function scorePerformanceSupportingComposition(
   const constructReasons = constructReasonsFromScores(constructScores);
   const scoringInputs = mergeInputs([p1.scoringInputs, p3.scoringInputs]);
 
-  const engineGate = engineMeasuredAtGate(scoringInputs, asOfMs);
+  const engineGate = engineMeasuredAtGate({
+    measuredAtIntegrity: [p1.measuredAtIntegrity, p3.measuredAtIntegrity],
+    inputs: scoringInputs,
+    asOfMs,
+  });
   if (engineGate) {
     return fail(engineGate, constructScores, input.bundle.completeness, [
       "engine_recency_or_era_gate",

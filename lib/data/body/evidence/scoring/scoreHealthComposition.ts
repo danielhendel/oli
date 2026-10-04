@@ -26,6 +26,7 @@ import {
   evaluateH1,
   evaluateH2,
   evaluateH3,
+  type MeasuredAtIntegrity,
 } from "./evaluateConstruct";
 import {
   eraGapMs,
@@ -54,23 +55,32 @@ function mergeInputs(groups: ScoringTimestampInput[][]): ScoringTimestampInput[]
   return groups.flat();
 }
 
-function engineMeasuredAtGate(
-  inputs: ScoringTimestampInput[],
-  asOfMs: number,
-): BodyCompositionScoreReasonCode | null {
-  for (const input of inputs) {
-    const r = measuredAtReason(input.measuredAtMs, asOfMs);
-    if (r === "invalid_provenance") return "invalid_provenance";
+/**
+ * Aggregate §4.2 ranks 3–6.
+ * Rank 3 uses explicit measuredAtIntegrity from construct evaluation —
+ * never inferred from filtered finite timestamp arrays alone.
+ */
+function engineMeasuredAtGate(args: {
+  measuredAtIntegrity: readonly MeasuredAtIntegrity[];
+  inputs: ScoringTimestampInput[];
+  asOfMs: number;
+}): BodyCompositionScoreReasonCode | null {
+  // Rank 3 — required scoring input missing/malformed/non-finite measuredAt
+  if (args.measuredAtIntegrity.includes("invalid")) {
+    return "invalid_provenance";
   }
-  for (const input of inputs) {
-    const r = measuredAtReason(input.measuredAtMs, asOfMs);
+  // Rank 4
+  for (const input of args.inputs) {
+    const r = measuredAtReason(input.measuredAtMs, args.asOfMs);
     if (r === "future_evidence") return "future_evidence";
   }
-  for (const input of inputs) {
-    const r = measuredAtReason(input.measuredAtMs, asOfMs);
+  // Rank 5
+  for (const input of args.inputs) {
+    const r = measuredAtReason(input.measuredAtMs, args.asOfMs);
     if (r === "evidence_too_old") return "evidence_too_old";
   }
-  if (inputs.length >= 2 && eraGapMs(inputs) > MAX_SCORE_CONSTRUCT_GAP_MS) {
+  // Rank 6
+  if (args.inputs.length >= 2 && eraGapMs(args.inputs) > MAX_SCORE_CONSTRUCT_GAP_MS) {
     return "evidence_era_mismatch";
   }
   return null;
@@ -257,7 +267,15 @@ export function scoreHealthComposition(
   const scoringInputs = mergeInputs([h1.scoringInputs, h2.scoringInputs, h3.scoringInputs]);
 
   // §4.2 ranks 3–6 on aggregate scoring input set
-  const engineGate = engineMeasuredAtGate(scoringInputs, asOfMs);
+  const engineGate = engineMeasuredAtGate({
+    measuredAtIntegrity: [
+      h1.measuredAtIntegrity,
+      h2.measuredAtIntegrity,
+      h3.measuredAtIntegrity,
+    ],
+    inputs: scoringInputs,
+    asOfMs,
+  });
   if (engineGate) {
     return fail(engineGate, constructScores, input.bundle.completeness, [
       "engine_recency_or_era_gate",
