@@ -5,7 +5,7 @@
 **Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze + Resolver V1 truth freeze
 **Not:** clinically validated · production calibrated · score validated
 **Assessment Confidence:** implementation **PASS** at `dc506bbe…` · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`)
-**Composition scores:** **STILL BLOCKED** · public numeric scores **NOT READY**
+**Composition scores:** Internal draft engines **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** · Implementation truth freeze **PENDING INDEPENDENT DOCS RE-GATE** · Consumer integration **NOT AUTHORIZED** · public numeric scores **NO-GO**
 
 ---
 
@@ -33,7 +33,7 @@ EVIDENCE RESOLVER  ← this document
        ↓
 ASSESSMENT CONFIDENCE          (implementation PASS · docs truth-freeze re-gate PASS at d2b0b3ab…)
        ↓
-FUTURE Health / Performance score engines  (STILL BLOCKED)
+Health / Performance score engines  (internal draft PASS @ d940b161… · Re-Gate V2 PASS · unwired · public NO-GO)
 ```
 
 ---
@@ -264,8 +264,8 @@ Resolver returns `policy_not_frozen` / `multiple_valid` / `threshold_not_frozen`
 |------------|-------|
 | Evidence Resolver | **IMPLEMENTED** · scientific re-gate **PASS** · docs freeze re-gate **PASS** |
 | Assessment Confidence | **implementation PASS** · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` |
-| Health Composition score | **STILL BLOCKED** |
-| Performance-Supporting Composition score | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze edge cases A/B/C closed · READY FOR INDEPENDENT RE-GATE) |
+| Health Composition score | Internal draft engine **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** · Implementation truth freeze **PENDING INDEPENDENT DOCS RE-GATE** · Consumer integration **NOT AUTHORIZED** |
+| Performance-Supporting Composition score | Internal draft engine **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** · Implementation truth freeze **PENDING INDEPENDENT DOCS RE-GATE** · Consumer integration **NOT AUTHORIZED** |
 | Public numeric scores | **NO-GO** |
 
 Approved Resolver runtime SHA: `3ae4737b8212fa5479fa1f621028e32ad7ab5757`.

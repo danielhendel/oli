@@ -170,11 +170,11 @@ H3 reframed as **lean adequacy / reserve**, not young-adult high-lean optimizati
 
 | Engine | Scientific Re-Gate V2 | Mathematical freeze | Implementation |
 |--------|----------------------|---------------------|----------------|
-| Health | **PASS** / SCIENTIFICALLY AUTHORIZED | Edge cases A/B/C **CLOSED** · **READY FOR INDEPENDENT RE-GATE** | **STILL BLOCKED** until freeze re-gate PASS |
-| Performance-Supporting | **PASS** / SCIENTIFICALLY AUTHORIZED | Edge cases A/B/C **CLOSED** · **READY FOR INDEPENDENT RE-GATE** | **STILL BLOCKED** until freeze re-gate PASS |
+| Health | **PASS** / SCIENTIFICALLY AUTHORIZED | Edge cases A/B/C **CLOSED** · Mathematical Truth-Freeze Re-Gate V3 **PASS** (`e258267d…`) | **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** |
+| Performance-Supporting | **PASS** / SCIENTIFICALLY AUTHORIZED | Edge cases A/B/C **CLOSED** · Mathematical Truth-Freeze Re-Gate V3 **PASS** (`e258267d…`) | **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** |
 | Public either | NO-GO | NO-GO | **NO-GO** |
 
-Do **not** authorize score runtime from scientific PASS alone. Mathematical freeze re-gate is required next.
+Implementation truth freeze: **CREATED / PENDING INDEPENDENT DOCS RE-GATE**. Consumer integration **NOT AUTHORIZED**.
 
 ---
 
@@ -200,7 +200,8 @@ Independent mathematical truth-freeze re-gate at `995e400f22652184b096092e19d088
 
 Exact text: `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md` §§4–6.
 
-**Status after correction:** mathematical freeze **READY FOR INDEPENDENT RE-GATE**. Implementation remains **BLOCKED**. Public **NO-GO**.
+**Status after correction (historical at that pass):** mathematical freeze was **READY FOR INDEPENDENT RE-GATE**; implementation remained **BLOCKED**; public **NO-GO**.
+**Current status:** Mathematical Truth-Freeze Re-Gate V3 **PASS** (`e258267d…`); internal draft engines **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS**; Implementation truth freeze **PENDING INDEPENDENT DOCS RE-GATE**; Consumer integration **NOT AUTHORIZED**; public **NO-GO**.
 
 ---
 
@@ -214,4 +215,5 @@ Independent re-gate V2 at `d829bee3a734ef2506652ea27f982490da54ccfa`: **FAIL** o
 | Missing measuredAt reason | Dual `invalid_provenance` / `unresolved_construct` | Missing/malformed/non-finite measuredAt → `invalid_provenance` only; `undated_only` → `invalid_provenance` | **CLOSED** |
 | Soft branch language | “when treating as …” left implementer choice | Deterministic §4.7 / §4.8 tables; soft forks removed | **CLOSED** |
 
-**Status after correction:** mathematical freeze **READY FOR INDEPENDENT RE-GATE**.
+**Status after correction (historical at that pass):** mathematical freeze was **READY FOR INDEPENDENT RE-GATE**.
+**Current status:** Mathematical Truth-Freeze Re-Gate V3 **PASS** (`e258267d…`); internal draft engines **PASS** @ `d940b161…`; Implementation truth freeze **PENDING INDEPENDENT DOCS RE-GATE**; public **NO-GO**.

@@ -19,7 +19,7 @@ Evidence Resolver               ← IMPLEMENTED separately (scientific PASS 3ae4
        ↓
 ASSESSMENT CONFIDENCE           ← implementation PASS · docs truth-freeze re-gate PASS at d2b0b3ab…
        ↓
-FUTURE Health / Performance scores ← STILL BLOCKED
+Health / Performance scores ← internal draft PASS @ d940b161… · Re-Gate V2 PASS · unwired · public NO-GO
 ```
 
 Waist capture + deterministic index helpers are **truth-frozen**. Evidence Resolver is **implemented** as a separate pure-domain phase and must not reopen Waist protocol or index formulas without a new physical gate.
@@ -164,7 +164,7 @@ Pure helpers do **not** call `Date.now()`. Callers may supply `calculatedAt` at 
 
 - Evidence Resolver implementation (separate phase at `3ae4737b…`; not part of this frozen Waist/index surface)
 - Assessment Confidence (implementation PASS · docs truth-freeze re-gate PASS at d2b0b3ab…; see `BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`)
-- Health / Performance-Supporting Composition scores (**STILL BLOCKED**; Scientific Re-Gate V2 PASS; mathematical freeze edge cases A/B/C closed · READY FOR INDEPENDENT RE-GATE)
+- Health / Performance-Supporting Composition scores (internal draft engines **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** · Implementation truth freeze **PENDING INDEPENDENT DOCS RE-GATE** · Consumer integration **NOT AUTHORIZED** · public **NO-GO**)
 - InBody / Evolt device integrations beyond Body Scan store + manual review
 - Production deploy / PR from this freeze alone
 

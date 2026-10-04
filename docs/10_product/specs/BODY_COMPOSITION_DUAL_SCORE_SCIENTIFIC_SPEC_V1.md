@@ -14,8 +14,10 @@
 |------|--------|
 | Scientific specification | **PASS** |
 | Independent Scientific Re-Gate V2 | **PASS** |
-| Final mathematical truth freeze | **CURRENT** · edge cases A/B/C closed · **READY FOR INDEPENDENT RE-GATE** |
-| Runtime implementation | **BLOCKED** until mathematical freeze re-gate PASS |
+| Final mathematical truth freeze | **PASS** (`e258267d…`) · edge cases A/B/C closed |
+| Runtime implementation | **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** |
+| Implementation truth freeze | **CREATED / PENDING INDEPENDENT DOCS RE-GATE** |
+| Consumer integration | **NOT AUTHORIZED** |
 | Public Health / Public Performance-Supporting | **NO-GO** |
 
 Version IDs:
@@ -672,13 +674,15 @@ Run at correction time against the exact formulas above.
 |------|---------|
 | Scientific specification | **PASS** |
 | Independent Scientific Re-Gate V2 | **PASS** (SHA `6fa8cb22…`) |
-| Final mathematical truth freeze | Edge cases A/B/C **CLOSED** — **READY FOR INDEPENDENT RE-GATE** |
-| Health internal draft engine (code) | **STILL BLOCKED** until mathematical freeze re-gate PASS |
-| Performance-Supporting internal draft engine (code) | **STILL BLOCKED** until mathematical freeze re-gate PASS |
+| Final mathematical truth freeze | Edge cases A/B/C **CLOSED** — Mathematical Truth-Freeze Re-Gate V3 **PASS** (`e258267d…`) |
+| Health internal draft engine (code) | **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** |
+| Performance-Supporting internal draft engine (code) | **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** |
+| Implementation truth freeze | **CREATED / PENDING INDEPENDENT DOCS RE-GATE** |
+| Consumer integration | **NOT AUTHORIZED** |
 | Public Health | **NO-GO** |
 | Public Performance-Supporting | **NO-GO** |
 
-Engineers may not implement until the mathematical truth freeze receives independent re-gate PASS. This document freezes product-policy science; `BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md` is the implementation-authority math freeze.
+This document freezes product-policy science; `BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md` remains the algorithm-authority math freeze. Proven runtime match is recorded in `BODY_COMPOSITION_DUAL_SCORE_ENGINE_IMPLEMENTATION_TRUTH_FREEZE_V1.md`.
 
 ---
 

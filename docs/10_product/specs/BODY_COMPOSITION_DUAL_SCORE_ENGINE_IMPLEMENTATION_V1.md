@@ -1,19 +1,24 @@
 # Body Composition Dual Score — Internal Draft Engine Implementation V1
 
-**Document type:** Implementation map (docs only for consumers; engines are pure domain code)  
-**Date:** 2026-10-04  
-**Branch:** `feat/body-composition-stage3e-body-scans-v1`  
-**Authority for math:** `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md`  
+**Document type:** Implementation map (docs only for consumers; engines are pure domain code)
+**Date:** 2026-10-04
+**Branch:** `feat/body-composition-stage3e-body-scans-v1`
+**Authority for math:** `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md` @ `e258267d109d1d05e20270f205e5fdb29ae2aca6`
+**Canonical implementation freeze:** `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_ENGINE_IMPLEMENTATION_TRUTH_FREEZE_V1.md`
 **This document does not rewrite the mathematical truth freeze.**
 
 | Identity | Value |
 |----------|-------|
+| Approved implementation SHA | `d940b1616b341e98b19e82f2cd6a6242dfe41691` |
 | Health engine version | `body_composition_health_score_draft_v1` |
 | Performance-Supporting engine version | `body_composition_performance_supporting_score_draft_v1` |
-| Health internal draft engine | **READY FOR INDEPENDENT RE-GATE** (Defect A/B correction applied) |
-| Performance-Supporting internal draft engine | **READY FOR INDEPENDENT RE-GATE** (Defect A/B correction applied) |
+| Health internal draft engine | **PASS** |
+| Performance-Supporting internal draft engine | **PASS** |
+| Independent Exact-Math Implementation Re-Gate V2 | **PASS** |
+| Implementation truth freeze | **CREATED / PENDING INDEPENDENT DOCS RE-GATE** |
 | Public Health | **NO-GO** |
 | Public Performance-Supporting | **NO-GO** |
+| Consumer integration | **NOT AUTHORIZED** |
 | Persistence | **None** |
 | Consumer UI | **None** |
 | API / Functions / Firestore / Storage | **None** |
@@ -133,6 +138,8 @@ Construct evaluation returns explicit `measuredAtIntegrity: "valid" | "invalid"`
 - Rank 3 (`invalid_provenance`) wins before rank 7 missing-core reasons (`incomplete_health_composition` / `insufficient_core_constructs`).
 - Future / stale remain distinct (`future_evidence` / `evidence_too_old`) after rank 3 clears.
 
+**Defect A: CLOSED** at approved implementation SHA.
+
 ### 6.2 H3 Resolver-primary-only (§12.1)
 
 Canonical primary representation: `construct.primaryEvidenceRefs[0]` on the approved Resolver construct result.
@@ -143,6 +150,8 @@ Canonical primary representation: `construct.primaryEvidenceRefs[0]` on the appr
 
 The score layer must **not** search later refs, try ALMI then FFMI, or encode ALMI>FFMI.
 
+**Defect B: CLOSED** at approved implementation SHA.
+
 ---
 
 ## 7. Isolation mechanism
@@ -151,15 +160,19 @@ The score layer must **not** search later refs, try ALMI then FFMI, or encode AL
 
 Score engines live only under `lib/data/body/evidence/scoring/` and are intentionally omitted from the evidence barrel export. Nothing in `app/`, API, or Functions imports them.
 
+Isolation is currently **stronger than a runtime flag** because the modules have no consumer/runtime integration path.
+
 ---
 
 ## 8. Non-public / no persistence / no UI / no public release
 
 | Topic | Status |
 |-------|--------|
-| Internal draft engines | Defect A/B correction applied — **READY FOR INDEPENDENT RE-GATE** |
+| Internal draft engines | **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** |
+| Implementation truth freeze | **CREATED / PENDING INDEPENDENT DOCS RE-GATE** |
 | Public Health score | **NO-GO** |
 | Public Performance-Supporting score | **NO-GO** |
+| Consumer integration | **NOT AUTHORIZED** |
 | Persistence | None |
 | UI | None |
 | API | None |
@@ -169,9 +182,13 @@ Score engines live only under `lib/data/body/evidence/scoring/` and are intentio
 
 ## 9. Next gate
 
-Open a **new independent** Cursor Agent for exact-math implementation re-gate against the Mathematical Truth Freeze (knots, ±epsilon, A–I, 179/180/181, 89/90/91, age/leap-day, methods, Resolver fail-closed, synthetic grids, privacy/determinism, no UI/API/persistence).
+Open a **new independent** Cursor Agent for a **docs-only** implementation truth-freeze re-gate against the exact new docs SHA.
 
-Do not expose scores publicly. Do not open a PR for public release.
+That review must prove: docs-only delta; approved implementation SHA exact; Mathematical Freeze SHA exact; Defects A/B closed accurately; architecture pure/unwired/non-persistent; test/gate evidence accurately attributed; no runtime drift; public scores remain NO-GO; consumer integration remains unauthorized.
+
+Only after independent docs PASS: decide the next **PRIVATE/internal** validation phase.
+
+Do **not** begin consumer UI integration.
 
 ---
 

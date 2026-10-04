@@ -51,8 +51,8 @@ A subsequent docs-only Resolver truth-freeze commit records this approved runtim
 |------------|--------|
 | Body Composition Evidence Resolver V1 | **IMPLEMENTED** · independent scientific re-gate **PASS** · docs truth-freeze re-gate **PASS** |
 | Assessment Confidence | **implementation PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`) |
-| Health Composition score (0–100) | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze edge cases A/B/C closed · READY FOR INDEPENDENT RE-GATE) |
-| Performance-Supporting Composition score (0–100) | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze edge cases A/B/C closed · READY FOR INDEPENDENT RE-GATE) |
+| Health Composition score (0–100) | Internal draft engine **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** · Implementation truth freeze **PENDING INDEPENDENT DOCS RE-GATE** · Consumer integration **NOT AUTHORIZED** · Public **NO-GO** |
+| Performance-Supporting Composition score (0–100) | Internal draft engine **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** · Implementation truth freeze **PENDING INDEPENDENT DOCS RE-GATE** · Consumer integration **NOT AUTHORIZED** · Public **NO-GO** |
 | Public numeric scores | **NO-GO** |
 | Resolver UI | **NOT IMPLEMENTED** |
 | Resolver persistence | **NOT IMPLEMENTED** |
@@ -75,7 +75,7 @@ EVIDENCE RESOLVER V1  ← this freeze
        ↓
 ASSESSMENT CONFIDENCE          (implementation PASS · docs truth-freeze re-gate PASS at d2b0b3ab…)
        ↓
-FUTURE Health / Performance score engines  (STILL BLOCKED)
+Health / Performance score engines  (internal draft PASS @ d940b161… · Re-Gate V2 PASS · unwired · public NO-GO)
 ```
 
 | Property | Rule |
@@ -493,11 +493,13 @@ CONFIDENCE DOCS TRUTH FREEZE — PASS at d2b0b3abba958c9ac80ec5401f90ad5227a1a0a
         ↓
 SCORE-ENGINE PLANNING — AUTHORIZED · Dual Score scientific correction at 6fa8cb22… · Re-Gate V2 PASS
         ↓
-FINAL MATHEMATICAL TRUTH FREEZE — CREATED / PENDING INDEPENDENT REVIEW
+FINAL MATHEMATICAL TRUTH FREEZE — PASS (e258267d…)
         ↓
-INDEPENDENT MATHEMATICAL/DOCS FREEZE RE-GATE — REQUIRED before any score code
+INTERNAL DRAFT ENGINES PASS @ d940b161… · Exact-Math Implementation Re-Gate V2 PASS
         ↓
-DRAFT HEALTH / PERFORMANCE-SUPPORTING SCORE ENGINES — STILL BLOCKED
+IMPLEMENTATION TRUTH FREEZE — CREATED / PENDING INDEPENDENT DOCS RE-GATE
+        ↓
+CONSUMER INTEGRATION — NOT AUTHORIZED · PUBLIC SCORES — NO-GO
 ```
 
 ---

@@ -52,8 +52,8 @@ A subsequent docs-only Confidence truth-freeze commit records this approved impl
 | Assessment Confidence implementation | **PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` |
 | Assessment Confidence independent policy/data/value re-gate | **PASS** |
 | Assessment Confidence docs-only truth freeze | **THIS DOCUMENT** · independent docs re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` |
-| Health Composition score (0–100) | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze edge cases A/B/C closed · READY FOR INDEPENDENT RE-GATE) |
-| Performance-Supporting Composition score (0–100) | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze edge cases A/B/C closed · READY FOR INDEPENDENT RE-GATE) |
+| Health Composition score (0–100) | Internal draft engine **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** · Implementation truth freeze **PENDING INDEPENDENT DOCS RE-GATE** · Consumer integration **NOT AUTHORIZED** · Public **NO-GO** |
+| Performance-Supporting Composition score (0–100) | Internal draft engine **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** · Implementation truth freeze **PENDING INDEPENDENT DOCS RE-GATE** · Consumer integration **NOT AUTHORIZED** · Public **NO-GO** |
 | Public numeric scores | **NO-GO** |
 | Confidence UI | **NOT IMPLEMENTED** |
 | Confidence persistence | **NOT IMPLEMENTED** |
@@ -104,7 +104,7 @@ EVIDENCE RESOLVER
        ↓
 ASSESSMENT CONFIDENCE V1  ← this freeze
        ↓
-FUTURE Health / Performance score engines  (STILL BLOCKED)
+Health / Performance score engines  (internal draft PASS @ d940b161… · Re-Gate V2 PASS · unwired · public NO-GO)
 ```
 
 | Property | Rule |
@@ -499,13 +499,14 @@ Confidence is runtime-derived.
 
 | Capability | Status |
 |------------|--------|
-| Health Composition score | **NOT IMPLEMENTED** · **STILL BLOCKED** |
-| Performance-Supporting Composition score | **NOT IMPLEMENTED** · **STILL BLOCKED** |
+| Health Composition score | Internal draft engine **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** · unwired / non-public |
+| Performance-Supporting Composition score | Internal draft engine **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** · unwired / non-public |
 | Public numeric scores | **NO-GO** |
+| Consumer integration | **NOT AUTHORIZED** |
 
-No: construct score · score weights · transforms · dampening · thresholds · cut points · 0–100 · public score UI · disease-risk probability · performance classification.
+Confidence does not invent Dual Score construct weights, transforms, dampening, thresholds, cut points, public 0–100 UI, disease-risk probability, or performance classification.
 
-Score-engine planning is **AUTHORIZED**. Dual Score scientific correction **PASS** at `6fa8cb22…` (Independent Scientific Re-Gate V2 **PASS**). Final mathematical truth freeze: `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md` — **CREATED / PENDING INDEPENDENT REVIEW**. Score **implementation** remains **STILL BLOCKED** until mathematical freeze re-gate PASS.
+Dual Score scientific specification **PASS** at `6fa8cb22…` (Independent Scientific Re-Gate V2 **PASS**). Mathematical Truth Freeze **PASS** (`e258267d…`). Implementation truth freeze: `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_ENGINE_IMPLEMENTATION_TRUTH_FREEZE_V1.md` — **CREATED / PENDING INDEPENDENT DOCS RE-GATE**.
 
 ---
 
@@ -591,11 +592,13 @@ ASSESSMENT CONFIDENCE DOCS-ONLY TRUTH FREEZE RE-GATE PASS (d2b0b3ab…)
         ↓
 SCORE-ENGINE PLANNING — AUTHORIZED · Dual Score scientific correction at 6fa8cb22… · Re-Gate V2 PASS
         ↓
-FINAL MATHEMATICAL TRUTH FREEZE — CREATED / PENDING INDEPENDENT REVIEW
+FINAL MATHEMATICAL TRUTH FREEZE — PASS (e258267d…)
         ↓
-INDEPENDENT MATHEMATICAL/DOCS FREEZE RE-GATE — REQUIRED before any score code
+INTERNAL DRAFT ENGINES PASS @ d940b161… · Exact-Math Implementation Re-Gate V2 PASS
         ↓
-HEALTH / PERFORMANCE-SUPPORTING COMPOSITION SCORE IMPLEMENTATION — STILL BLOCKED
+IMPLEMENTATION TRUTH FREEZE — CREATED / PENDING INDEPENDENT DOCS RE-GATE
+        ↓
+CONSUMER INTEGRATION — NOT AUTHORIZED · PUBLIC SCORES — NO-GO
 ```
 
 ---

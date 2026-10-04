@@ -26,7 +26,10 @@ Knots, weights, methods, windows, age function, leap-day rule, and public NO-GO 
 If this freeze and any older prose conflict, **this freeze wins** for draft_v1 engine math.
 No TBD. No tune-later. No implementation-time scientific choice.
 
-**Runtime implementation:** **BLOCKED** until independent mathematical/docs freeze re-gate PASS.
+**Mathematical authority:** this file remains the algorithm / eligibility / policy authority for draft_v1.
+**Runtime implementation (current):** **PASS** @ `d940b1616b341e98b19e82f2cd6a6242dfe41691` · Independent Exact-Math Implementation Re-Gate V2 **PASS**.
+**Implementation truth freeze:** `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_ENGINE_IMPLEMENTATION_TRUTH_FREEZE_V1.md` — **CREATED / PENDING INDEPENDENT DOCS RE-GATE**.
+**Consumer integration:** **NOT AUTHORIZED**.
 **Public Health / Public Performance-Supporting:** **NO-GO**.
 **Production:** UNTOUCHED.
 

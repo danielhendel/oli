@@ -12,7 +12,10 @@
 > Draft_v1 constants below are frozen so engineers need not invent them.
 > They remain **DRAFT PRODUCT POLICY**, not clinical coefficients.
 > Independent Scientific Re-Gate V2: **PASS**.
-> Implementation is **STILL BLOCKED** until independent mathematical/docs freeze re-gate PASS.
+> Mathematical Truth-Freeze Re-Gate V3: **PASS** (`e258267d…`).
+> Internal draft engines: **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS**.
+> Implementation truth freeze: **CREATED / PENDING INDEPENDENT DOCS RE-GATE**.
+> Consumer integration: **NOT AUTHORIZED**. Public: **NO-GO**.
 
 ---
 
@@ -25,10 +28,12 @@
 | Independent Scientific Re-Gate V2 | **PASS** |
 | Mathematical freeze re-gate at 995e400f | **FAIL** on defects A/B/C only (historical) |
 | Edge-case correction (future evidence / age / reason precedence) | **CLOSED** in mathematical freeze |
-| Final mathematical truth freeze | **READY FOR INDEPENDENT RE-GATE** |
-| Score implementation | **STILL BLOCKED** until mathematical freeze re-gate PASS |
+| Final mathematical truth freeze | **PASS** (`e258267d…`) |
+| Score implementation | **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** |
+| Implementation truth freeze | **CREATED / PENDING INDEPENDENT DOCS RE-GATE** |
+| Consumer integration | **NOT AUTHORIZED** |
 | Public scores | **NO-GO** |
-| Next | Independent mathematical/docs freeze re-gate against correction SHA |
+| Next | Independent docs-only implementation truth-freeze re-gate |
 
 ---
 
@@ -42,7 +47,7 @@
 | Scale | 0–100 versioned product index; higher = more favorable | **LOCKED** |
 | 100 / 0 | Model saturation / lower modeled bound | **LOCKED** |
 | Single Body score / averaging | Forbidden | **LOCKED** |
-| Public numeric | STAGED / NOT READY | **LOCKED** |
+| Public numeric | **NO-GO** (not STAGED / not READY / not authorized) | **LOCKED** |
 | Public category cut points | Not frozen | **LOCKED** (open for public; not needed for internal draft) |
 | Model status | `evidence_informed` | **LOCKED** |
 
@@ -216,12 +221,14 @@ DRAFT PRODUCT POLICY, not physiologic half-life.
 | Defects 1–8 | **CLOSED** |
 | Independent Scientific Re-Gate V2 | **PASS** |
 | Mathematical freeze defects A/B/C | **CLOSED** |
-| Final mathematical truth freeze | **READY FOR INDEPENDENT RE-GATE** |
-| HEALTH SCORE ENGINE IMPLEMENTATION | **STILL BLOCKED** until mathematical freeze re-gate PASS |
-| PERFORMANCE-SUPPORTING SCORE ENGINE IMPLEMENTATION | **STILL BLOCKED** until mathematical freeze re-gate PASS |
+| Final mathematical truth freeze | **PASS** (`e258267d…`) |
+| HEALTH SCORE ENGINE IMPLEMENTATION | **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** |
+| PERFORMANCE-SUPPORTING SCORE ENGINE IMPLEMENTATION | **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** |
+| Implementation truth freeze | **CREATED / PENDING INDEPENDENT DOCS RE-GATE** |
+| Consumer integration | **NOT AUTHORIZED** |
 | Public either | **NO-GO** |
 
-Do not implement until the mathematical truth freeze (`BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md`) receives independent re-gate PASS.
+Internal draft engines are implemented and independently re-gated. Consumer integration and public scores remain unauthorized / NO-GO.
 
 ---
 

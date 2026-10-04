@@ -11,7 +11,7 @@
 **Not:** clinically validated · production calibrated · score validated
 **Independent implementation re-gate:** **PASS**
 **Confidence docs truth freeze:** **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8`
-**Health / Performance-Supporting Composition scores:** internal draft engines **IMPLEMENTED / PENDING INDEPENDENT IMPLEMENTATION RE-GATE**; Scientific Re-Gate V2 **PASS**; Mathematical Truth-Freeze Re-Gate V3 **PASS**; public scores **NO-GO** (`BODY_COMPOSITION_DUAL_SCORE_ENGINE_IMPLEMENTATION_V1.md`)
+**Health / Performance-Supporting Composition scores:** Internal draft engines **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** · Implementation truth freeze **CREATED / PENDING INDEPENDENT DOCS RE-GATE** (`BODY_COMPOSITION_DUAL_SCORE_ENGINE_IMPLEMENTATION_TRUTH_FREEZE_V1.md`) · Consumer integration **NOT AUTHORIZED**
 **Public numeric scores:** **NO-GO**
 
 ---
@@ -54,7 +54,7 @@ EVIDENCE RESOLVER
        ↓
 ASSESSMENT CONFIDENCE  ← this document (implementation PASS · docs truth-freeze re-gate PASS at d2b0b3ab…)
        ↓
-FUTURE Health / Performance score engines  (STILL BLOCKED)
+Health / Performance score engines  (internal draft PASS @ d940b161… · Re-Gate V2 PASS · unwired · public NO-GO)
 ```
 
 Confidence consumes Resolver output and evidence metadata.
@@ -291,9 +291,9 @@ Runtime output may retain refs needed for in-memory provenance.
 | Firestore / AsyncStorage / snapshots | **none** |
 | API routes / Cloud Functions | **none** |
 | Consumer Confidence UI | **none** |
-| Health Composition score | **STILL BLOCKED** |
-| Performance-Supporting Composition score | **STILL BLOCKED** |
-| 0–100 / weights / transforms / cut points | **forbidden** until mathematical freeze re-gate PASS |
+| Health Composition score | Internal draft engine **PASS** @ `d940b161…` · unwired · Consumer integration **NOT AUTHORIZED** |
+| Performance-Supporting Composition score | Internal draft engine **PASS** @ `d940b161…` · unwired · Consumer integration **NOT AUTHORIZED** |
+| Public 0–100 / consumer score UI | **NO-GO** / **NOT AUTHORIZED** |
 
 ---
 
@@ -333,10 +333,10 @@ Current phase status:
 | Implementation | **PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` |
 | Independent implementation re-gate | **PASS** |
 | Confidence docs truth freeze | **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`) |
-| Health / Performance-Supporting Composition score planning | **PASS** (scientific) · mathematical freeze edge cases A/B/C closed · READY FOR INDEPENDENT RE-GATE |
-| Health / Performance-Supporting Composition score implementation | **STILL BLOCKED** until mathematical freeze re-gate PASS |
+| Health / Performance-Supporting Composition score planning | **PASS** (scientific) · Mathematical Truth Freeze **PASS** (`e258267d…`) |
+| Health / Performance-Supporting Composition score implementation | **PASS** @ `d940b161…` · Independent Exact-Math Implementation Re-Gate V2 **PASS** |
+| Implementation truth freeze | **CREATED / PENDING INDEPENDENT DOCS RE-GATE** |
+| Consumer integration | **NOT AUTHORIZED** |
 | Public numeric scores | **NO-GO** |
 
-Confidence docs truth-freeze re-gate already **PASS**. Dual Score Scientific Re-Gate V2 **PASS**. Final mathematical truth freeze is created and pending independent review.
-
-Do **not** implement score engines before mathematical freeze re-gate PASS.
+Confidence docs truth-freeze re-gate already **PASS**. Dual Score Scientific Re-Gate V2 **PASS**. Mathematical Truth-Freeze Re-Gate V3 **PASS**. Internal draft engines independently re-gated **PASS**. Consumer integration remains unauthorized.
