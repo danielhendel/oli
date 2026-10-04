@@ -52,8 +52,8 @@ A subsequent docs-only Confidence truth-freeze commit records this approved impl
 | Assessment Confidence implementation | **PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` |
 | Assessment Confidence independent policy/data/value re-gate | **PASS** |
 | Assessment Confidence docs-only truth freeze | **THIS DOCUMENT** · independent docs re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` |
-| Health Composition score (0–100) | **STILL BLOCKED** (implementation; planning freeze written) |
-| Performance Composition score (0–100) | **STILL BLOCKED** (implementation; planning freeze written) |
+| Health Composition score (0–100) | **STILL BLOCKED** (READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2) |
+| Performance-Supporting Composition score (0–100) | **STILL BLOCKED** (READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2) |
 | Public numeric scores | **NOT READY** |
 | Confidence UI | **NOT IMPLEMENTED** |
 | Confidence persistence | **NOT IMPLEMENTED** |
@@ -505,7 +505,7 @@ Confidence is runtime-derived.
 
 No: construct score · score weights · transforms · dampening · thresholds · cut points · 0–100 · public score UI · disease-risk probability · performance classification.
 
-Score-engine planning is **AUTHORIZED** after this Confidence docs truth-freeze re-gate **PASS**. Dual Score scientific spec + decision freeze: `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_SPEC_V1.md` · `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_DECISION_FREEZE_V1.md`. Score **implementation** remains **STILL BLOCKED** until independent planning/spec PASS.
+Score-engine planning is **AUTHORIZED**. Dual Score math freeze is **CORRECTED** after independent review FAIL (`93f5960b…`): `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_SPEC_V1.md` · `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_DECISION_FREEZE_V1.md` · `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_REVIEW_RESPONSE_V1.md`. Score **implementation** remains **STILL BLOCKED** until independent scientific re-gate V2 PASS.
 
 ---
 
@@ -589,11 +589,11 @@ ASSESSMENT CONFIDENCE INDEPENDENT RE-GATE PASS
         ↓
 ASSESSMENT CONFIDENCE DOCS-ONLY TRUTH FREEZE RE-GATE PASS (d2b0b3ab…)
         ↓
-SCORE-ENGINE PLANNING — AUTHORIZED · Dual Score scientific spec + decision freeze WRITTEN
+SCORE-ENGINE PLANNING — AUTHORIZED · Dual Score math freeze CORRECTED after review FAIL (93f5960b)
         ↓
-INDEPENDENT PLANNING/SPEC REVIEW — REQUIRED before any score code
+INDEPENDENT SCIENTIFIC RE-GATE V2 — REQUIRED before any score code
         ↓
-HEALTH / PERFORMANCE COMPOSITION SCORE IMPLEMENTATION — STILL BLOCKED (CONDITIONAL GO after planning PASS; draft flag only)
+HEALTH / PERFORMANCE-SUPPORTING COMPOSITION SCORE IMPLEMENTATION — STILL BLOCKED
 ```
 
 ---

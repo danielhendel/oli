@@ -6,7 +6,7 @@
 
 **Base:** `5835051715ceea5e1a1cece12f28a9af53e206e7` (Stage 3C merge), docs-only commit `6c17349e`.
 
-**Foundation truth freeze:** `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md` — physically approved runtime SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); initial docs-only freeze SHA `0fabe4721c311a1a6a8f77a72cc600683e659224`. Evidence Resolver **IMPLEMENTED** (scientific re-gate PASS at `3ae4737b…`; docs freeze re-gate **PASS** at `49751716…` — `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md`); Assessment Confidence **implementation PASS** at `dc506bbe…` · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`); Dual Score scientific spec + decision freeze **WRITTEN**; engines **CONDITIONAL GO** pending independent planning/spec PASS; composition score implementation **STILL BLOCKED**; public numeric scores **NOT READY**.
+**Foundation truth freeze:** `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md` — physically approved runtime SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); initial docs-only freeze SHA `0fabe4721c311a1a6a8f77a72cc600683e659224`. Evidence Resolver **IMPLEMENTED** (scientific re-gate PASS at `3ae4737b…`; docs freeze re-gate **PASS** at `49751716…` — `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md`); Assessment Confidence **implementation PASS** at `dc506bbe…` · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`); Dual Score scientific spec + decision freeze **CORRECTED** after independent review FAIL at `93f5960b…` — **READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2**; composition score implementation **STILL BLOCKED**; public numeric scores **NOT READY**.
 
 ---
 
@@ -76,7 +76,7 @@ warning absent without suppression (**B-BODY-SCAN-SCROLL-CONTAINMENT-01**
 PHYSICALLY CLOSED).
 
 Evidence Resolver is **IMPLEMENTED** elsewhere (scientific re-gate PASS at
-`3ae4737b…`; docs freeze re-gate **PASS** at `49751716…` — `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md`). Assessment Confidence: **implementation PASS** at `dc506bbe…` · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8`; Dual Score planning freeze **WRITTEN**; engines **CONDITIONAL GO** pending independent planning/spec PASS; composition score implementation remains **STILL BLOCKED**; public numeric scores **NOT READY**.
+`3ae4737b…`; docs freeze re-gate **PASS** at `49751716…` — `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md`). Assessment Confidence: **implementation PASS** at `dc506bbe…` · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8`; Dual Score planning freeze **CORRECTED** after independent review FAIL at `93f5960b…` — **READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2**; composition score implementation remains **STILL BLOCKED**; public numeric scores **NOT READY**.
 
 ---
 
@@ -266,7 +266,7 @@ Audit events (`body_scan_created`, `body_scan_extraction_completed`, `body_scan_
 - Export coverage / scalability **OPEN**.
 - Controlled physical **real** personal DXA PDF into Git remains **forbidden**.
 - Stage 3E branch **not merged**; no PR from the foundation freeze alone.
-- Assessment Confidence **implementation PASS** at `dc506bbe…` · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`); Dual Score scientific spec + decision freeze **WRITTEN**; engines **CONDITIONAL GO** pending independent planning/spec PASS; Health / Performance Composition score implementation remains **STILL BLOCKED**; public numeric scores **NOT READY**.
+- Assessment Confidence **implementation PASS** at `dc506bbe…` · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`); Dual Score scientific spec + decision freeze **CORRECTED** after independent review FAIL at `93f5960b…` — **READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2**; Health / Performance-Supporting score implementation remains **STILL BLOCKED**; public numeric scores **NOT READY**.
 - Evidence Resolver: **IMPLEMENTED** (scientific PASS `3ae4737b…`; docs freeze re-gate **PASS** `49751716…`) — see `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md` (not implemented in this Body Scans document).
 
 ### Closed foundation defects (current truth — not open)

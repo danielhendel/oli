@@ -11,7 +11,7 @@
 **Not:** clinically validated · production calibrated · score validated
 **Independent implementation re-gate:** **PASS**
 **Confidence docs truth freeze:** **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8`
-**Health / Performance Composition scores:** implementation **STILL BLOCKED**; Dual Score planning freeze **WRITTEN** (engines CONDITIONAL GO pending independent planning/spec PASS)
+**Health / Performance-Supporting Composition scores:** implementation **STILL BLOCKED**; Dual Score math freeze **CORRECTED** (READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2; no implementation authorization)
 **Public numeric scores:** **NOT READY**
 
 ---

@@ -1,300 +1,218 @@
 # Body Composition Dual Score — Decision Freeze V1
 
-**Document type:** Decision freeze (planning / truth layer)
+**Document type:** Decision freeze (draft_v1 scientific policy)
 **Date:** 2026-10-04
-**Branch:** `feat/body-composition-stage3e-body-scans-v1`
-**Preflight SHA:** `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8`
+**Corrects independent review FAIL at:** `93f5960b98326b2de4116f08d2eb15564b321dc5`
 **Scientific spec:** `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_SPEC_V1.md`
-**Kind:** Docs-only planning freeze. **No runtime score engine. No UI. No persistence. No public 0–100.**
+**Review response:** `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_REVIEW_RESPONSE_V1.md`
+**Kind:** Docs-only. **No runtime score engine. No UI. No persistence. No public 0–100.**
 
-> This freeze locks architecture, eligibility, claim boundaries, and channel policy.
-> It does **not** freeze exact production transform coefficients, dampening constants, or status bands.
-> Those remain **PROVISIONAL / NEEDS VALIDATION**.
+> Draft_v1 constants below are frozen so engineers need not invent them.
+> They remain **DRAFT PRODUCT POLICY**, not clinical coefficients.
+> Implementation is **STILL BLOCKED** until independent scientific re-gate V2 PASS.
 
 ---
 
-## 0. Preflight
-
-| Check | Result |
-|-------|--------|
-| Path | `/Users/danielhendel/oli-stage3e-body-scans` |
-| Branch | `feat/body-composition-stage3e-body-scans-v1` |
-| HEAD | `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` |
-| origin | same SHA |
-| left-right | `0 0` |
-| tree at start | clean |
-
-Upstream gates (user-authorized context for this planning pass):
+## 0. Status
 
 | Gate | Status |
 |------|--------|
-| Assessment Confidence implementation | PASS |
-| Assessment Confidence independent re-gate | PASS |
-| Assessment Confidence docs truth-freeze re-gate | PASS |
-| Evidence Resolver | PASS + truth-frozen |
-| Canonical Evidence Bridge | PASS + truth-frozen |
-| Waist / deterministic indices | PASS + truth-frozen |
-| Body Scan canonical registry/navigation | PASS + truth-frozen |
-| Score planning | **AUTHORIZED** (this document) |
-| Score implementation | **STILL BLOCKED** until independent planning/spec PASS |
+| Independent scientific review at 93f5960b | **FAIL** (8 blocking defects) |
+| This correction | Defects 1–8 closed at policy layer |
+| Score implementation | **STILL BLOCKED** |
 | Public scores | **NOT READY** |
+| Next | Independent scientific re-gate V2 of exact math |
 
 ---
 
-## 1. Executive decisions
+## 1. Names and scale
 
 | Item | Decision | Status |
 |------|----------|--------|
-| Health Composition aggregate | Authorize as constrained wellness composition assessment | **LOCKED** (design) |
-| Performance Composition aggregate | Authorize General-only composition assessment | **LOCKED** (design) |
-| Public names | Health Composition · Performance Composition | **LOCKED** (design; ADR amendment still required for production) |
-| Scale | 0–100; higher = more favorable | **LOCKED** |
-| 100 / 0 meaning | Model saturation / lower modeled bound — not zero risk / certain disease | **LOCKED** |
-| Single Body score | Forbidden | **LOCKED** |
-| Average Health + Performance | Forbidden | **LOCKED** |
-| Public numeric V1 | STAGED / NOT READY | **LOCKED** |
+| Health public name | Health Composition | **LOCKED** |
+| Second index public name | **Performance-Supporting Composition** (replaces Performance Composition) | **LOCKED** |
+| Internal ids | `health_protection` / `performance_support` | **LOCKED** |
+| Scale | 0–100 versioned product index; higher = more favorable | **LOCKED** |
+| 100 / 0 | Model saturation / lower modeled bound | **LOCKED** |
+| Single Body score / averaging | Forbidden | **LOCKED** |
+| Public numeric | STAGED / NOT READY | **LOCKED** |
+| Public category cut points | Not frozen | **LOCKED** (open for public; not needed for internal draft) |
 | Model status | `evidence_informed` | **LOCKED** |
-| Exact transforms | Draft in scientific spec only | **PROVISIONAL / NEEDS VALIDATION** |
-| Category cut points | Not ready; numeric-only when eventually shown | **LOCKED** |
 
 ---
 
-## 2. Construct framework (do not silently replace)
+## 2. Constructs
 
-| ID | Construct | Role | Numeric V1 |
-|----|-----------|------|------------|
-| H1 | Central Adiposity | CORE | Yes |
-| H2 | Total Adiposity | CORE | Yes |
-| H3 | Lean Reserve | CORE | Yes |
-| H4 | Fat Distribution | Explanatory | **0%** (display-only) |
-| P1 | Muscularity | CORE | Yes |
-| P2 | Regional Lean | Optional informational | **0%** (OPTION C amendment) |
-| P3 | Performance Adiposity | CORE | Yes |
-| P4 | Lean Balance | Deferred V1.1 | 0% |
-
-### ADR amendment (proposed; not accepted in this pass)
-
-Human acceptance still required before unflagged production aggregates. Proposed content remains as in 2026-09-28 Dual Score Decision Freeze §2 (rename; authorize composition aggregates; General-only Performance; Health severity dampening; no Body average).
+| ID | Role | Numeric draft_v1 |
+|----|------|------------------|
+| H1 Central Adiposity | CORE | WHtR |
+| H2 Total Adiposity | CORE | DXA FMI only |
+| H3 Lean Reserve (adequacy) | CORE | DXA ALMI or DXA FFMI |
+| H4 Fat Distribution | Explanatory | **0%** |
+| P1 Muscularity | CORE | DXA FFMI only |
+| P2 Regional Lean | Informational | **0%** |
+| P3 Performance-supporting adiposity | CORE | DXA FMI only |
+| P4 Lean Balance | Deferred V1.1 | 0% |
 
 ---
 
-## 3. Metric channels (LOCKED precedence)
+## 3. Transform family
 
-| Construct | Primary | Secondary | Non-scoring / explanatory |
-|-----------|---------|-----------|---------------------------|
-| H1 | Standardized WHtR | — | VAT mass/volume (staged); BIA visceral |
-| H2 / P3 | FMI | BF% | Fat Mass; BMI forbidden as driver |
-| H3 | ALMI | FFMI | FFM / total Lean |
-| P1 | FFMI | — | FFM / total Lean insufficient alone |
-| P2 | — | — | ALMI / limb lean informational only V1 |
-| H4 | — | — | A/G, android%, gynoid% display-only |
-
-**Forbidden conversions:** VAT mass ↔ volume; unknown Waist protocol → WHO midpoint; Gallagher → score coefficients; skeletal muscle inferred from total Lean.
+**LOCKED:** continuous piecewise linear + `lerp`. No discontinuities. No implementation-time family choice.
 
 ---
 
-## 4. Transform shapes (LOCKED) vs coefficients (OPEN)
+## 4. Exact draft_v1 constants
 
-| Construct | Shape LOCKED | Exact transform |
-|-----------|--------------|-----------------|
-| H1 | Monotonic ↓ with low-side plateau; 0.5 = boundary not “zero risk” | PROVISIONAL draft in scientific spec |
-| H2 | Soft U; forbid lower-always-better | PROVISIONAL |
-| H3 | Increasing → plateau; no upper Health penalty | PROVISIONAL |
-| H4 | N/A numeric V1 | Deferred |
-| P1 | Increasing → saturation; no infinite reward | PROVISIONAL |
-| P2 | N/A numeric V1 | Deferred |
-| P3 | Soft U; not bodybuilding leanness | PROVISIONAL |
+All y-values = **DRAFT PRODUCT POLICY**. x screening/descriptive locations = **EVIDENCE-DERIVED REFERENCE** as labeled in the spec.
 
-Normalization: reference-distance / piecewise against anchors — **not** raw percentiles as the score.
+### H1 WHtR
 
----
+| Symbol | Value |
+|--------|-------|
+| LOW_PLATEAU | 0.40 → 100 |
+| SCORE_AT_050 | 80 |
+| SCORE_AT_060 | 50 |
+| UPPER_SATURATION | 0.80 → 0 |
+| VAT | NON-SCORING |
 
-## 5. Weights
+Low-side: plateau; no extra reward below 0.40; no low-WHtR penalty.
 
-### Health (PROVISIONAL product policy — reviewed, retained)
+### H2 FMI (sex-specific)
 
-| H1 | H2 | H3 | H4 |
-|----|----|----|----|
-| 45% | 35% | 20% | 0% |
+Male knots x: 2.0, 3.5, 5.5, 9.0, 15.0 → y: 80, 92, 92, 50, 10 then plateau 10.
+Female knots x: 3.5, 5.5, 8.5, 13.0, 21.0 → y: 80, 92, 92, 50, 10 then plateau 10.
 
-Compared 50/30/20 and 40/40/20; retained 45/35/20 for central priority without over-dominating total adiposity.
+BF%: **not eligible**.
 
-### Performance (LOCKED V1 amendment)
+### H3 ALMI
 
-| P1 | P3 | P2 |
-|----|----|----|
-| 50% | 50% | **0% numeric** |
+Male: 6.0/15, 7.0/55 (EWGSOP2 floor), 8.0/92 then plateau 92.
+Female: 4.5/15, 5.5/55 (EWGSOP2 floor), 6.3/92 then plateau 92.
 
-**OPTION C frozen:** optional P2 must not change score meaning by appearing/disappearing. Prior provisional 40/40/20 **superseded** for V1 numeric engines.
+### H3 FFMI (only if Resolver primary)
 
-Missing ≠ 0. Renormalize among available **required** cores only under eligibility rules.
+Male: 16.0/15, 16.7/55, 18.5/92 then plateau.
+Female: 14.0/15, 14.6/55, 16.0/92 then plateau.
 
----
+### P1 FFMI
 
-## 6. Bottleneck / dampening
+Male: 16.0/10, 16.7/40, 19.0/90, 20.5/95 then plateau 95.
+Female: 14.0/10, 14.6/40, 16.5/90, 17.5/95 then plateau 95.
 
-| Score | Architecture | Numeric constants |
-|-------|--------------|-------------------|
-| Health | Hybrid weighted mean + continuous severity dampening on severe H1 (H2 reserved) | PROVISIONAL |
-| Performance | Weighted mean + soft dampening on extreme P3 | PROVISIONAL |
+### P3 FMI
 
-Invariant: excellent lean/muscularity must not fully mask severe central / extreme performance adiposity.
+Male: 2.0/80, 3.0/92, 7.0/92, 10.0/45, 16.0/8 then plateau 8.
+Female: 3.5/80, 5.0/92, 10.0/92, 14.0/45, 22.0/8 then plateau 8.
+
+Exact piecewise code is in the scientific spec. If spec and this table conflict, **spec formulas win**.
 
 ---
 
-## 7. Confidence interaction — LOCKED architecture
+## 5. Weights and dampening
 
-**OPTION C + public gate A**
-
-1. Score **calculation eligibility** uses score-specific evidence minima — independent of qualitative Confidence labels.
-2. Null Confidence labels do **not** block draft calculation.
-3. Factual Resolver/Confidence states (`conflict`, `insufficient`, `policy_not_frozen`, etc.) fail closed for affected constructs.
-4. Qualitative labels remain unfrozen (0 assignment rules) — **do not manufacture** labels for scores.
-5. **Public** scores withheld until Confidence display policy and other public gates pass.
-
-**Reject OPTION B** as a hard block on draft engine work after independent planning/spec PASS.
+| Item | Value | Status |
+|------|-------|--------|
+| Health weights | 45 / 35 / 20 | **LOCKED** as DRAFT PRODUCT POLICY — DRAFT V1 |
+| Health dampening | **Removed** | **LOCKED** V1 |
+| Performance-Supporting weights | 50 / 50 | **LOCKED** as DRAFT PRODUCT POLICY — DRAFT V1 |
+| P3 extra dampening | **Removed** | **LOCKED** V1 |
 
 ---
 
-## 8. Recency — LOCKED architecture
+## 6. Missing data
 
-**OPTION C (public) + B (draft)**
+| Score | Full aggregate requires | If missing a core |
+|-------|-------------------------|-------------------|
+| Health | H1 + H2 + H3 | Withhold 0–100; `incomplete_health_composition` |
+| Performance-Supporting | P1 + P3 | Withhold |
 
-- Draft/harness may calculate from latest resolved evidence with `recency_policy_not_frozen` marking.
-- Public scores blocked until recency thresholds are governed.
-- Years-old DXA ≠ current Waist for public “current” claims.
-- Exact half-lives remain OPEN.
-
----
-
-## 9. Missing data / eligibility — LOCKED
-
-### Health
-
-| Mode | Rule |
-|------|------|
-| Minimum demographics | Adult age, sex, height |
-| H1 required for any Health aggregate path | Standardized WHtR channel preferred |
-| Non-preliminary calculation | **H1 + H2** (H3 preferred; renormalize if absent) |
-| H1-only | Preliminary internal only — **not public** |
-| BMI-only | Forbidden |
-| One-construct public aggregate | Forbidden |
-
-### Performance
-
-| Mode | Rule |
-|------|------|
-| Required | Sex, height, weight, method-labeled BF or lean/FFM sufficient for **P1 and P3** |
-| Both P1 and P3 | Required |
-| P2 substitutes for P1 | Forbidden |
-| BMI-only | Forbidden |
-| Preliminary single-construct | Forbidden |
+**No silent renormalization** of the same score id.
 
 ---
 
-## 10. Resolver statuses — LOCKED score behavior
+## 7. Method
 
-| Status | Behavior |
-|--------|----------|
-| `resolved` / `resolved_with_supporting` | Use primary channel |
-| `multiple_valid` | No new winner; public fail-closed if combination unfrozen |
-| `policy_not_frozen` | Fail closed for public; draft only frozen-policy constructs |
-| `conflict` | Withhold affected construct / aggregate |
-| `insufficient` / `undated_only` / `unsupported` | Construct unavailable |
+**Option A DXA-only** for FMI / ALMI / FFMI.
 
-**Same-day DXA/BIA:** requires separate measurement-day ADR before score reliance. Inactive until then.
+H1: standardized WHO-midpoint WHtR independent channel.
+
+BIA and mixed-method aggregates: `unsupported_method`.
 
 ---
 
-## 11. Demographics — LOCKED
+## 8. Same-era
 
-| Factor | Rule |
-|--------|------|
-| Sex | Required for H2/H3/P1/P3; withhold if missing; no mixed-sex thresholds |
-| Age | Absolute favorability; adult gate; low-lean floor context only; no age-percentile score |
-| Ethnicity | Not used in V1 scoring; document limitations; fairness audit still required |
+| Rule | Value |
+|------|-------|
+| Max input age | 180 days inclusive |
+| Max pairwise gap | 90 days inclusive |
+| Same Body Scan `sourceEventId` | H2/H3 gap 0 |
+| Waist + scan | Waist within 90 days of scan |
+| Undated | Fail closed |
 
----
-
-## 12. Method / trend / smoothing — LOCKED
-
-- Consume Resolver output only.
-- No device quality coefficients until Device Model Registry frozen.
-- Score = current state only; trends separate.
-- No hidden smoothing/averaging.
+DRAFT PRODUCT POLICY, not physiologic half-life.
 
 ---
 
-## 13. Precision / categories / versioning — LOCKED
+## 9. Resolver / Confidence / P1
 
 | Topic | Decision |
 |-------|----------|
-| Display precision | Integer 0–100 |
-| Internal | Float |
-| Categories | None for V1 public; cut points NOT READY |
-| Draft version IDs | `body_composition_health_score_draft_v1` · `body_composition_performance_score_draft_v1` |
-| Production IDs | Reserved until math freeze |
-| Persistence | Prefer versioned snapshots if user-visible later; none now |
+| resolved / resolved_with_supporting | Use primary |
+| H1 WHtR + VAT multiple_valid | WHtR numeric; VAT explanatory (frozen) |
+| Other multiple_valid | Fail closed |
+| policy_not_frozen / conflict / insufficient / undated_only / unsupported | Fail closed |
+| P1 numeric | **FFMI only**; no Resolver precedence added |
+| FFM / Lean | Explanatory |
+| Confidence labels | Not required for internal calc; matrix still 0 rules |
+| Same-day ADR | Still deferred; fail closed if Resolver says policy_not_frozen |
 
 ---
 
-## 14. Regulatory — LOCKED forbidden claims
+## 10. Demographics / trend
 
-Not a diagnosis · not disease probability · not mortality predictor · not strength/VO₂/fitness test · not sport ranking · not “perfect/elite body” · not clinically validated without separate pathway.
-
----
-
-## 15. Final decision matrix
-
-| DECISION | HEALTH | PERFORMANCE | EVIDENCE | PRODUCT POLICY | STATUS |
-|----------|--------|-------------|----------|----------------|--------|
-| Constructs | H1–H3 core; H4 display | P1+P3 core; P2 info; P4 defer | A/B/C mix | Dual-score doctrine | **LOCKED** |
-| Primary metrics | WHtR; FMI; ALMI | FFMI; FMI | Guidelines + refs | Channel precedence | **LOCKED** |
-| Transform shape | ↓ / U / ↑plateau | ↑plateau / U | Conceptual | — | **LOCKED** |
-| Exact anchors→slopes | Draft WHtR/FMI/ALMI | Draft FFMI/FMI | Partial | Mapping | **NEEDS VALIDATION** |
-| Weights | 45/35/20 | 50/50 | Weak for exact % | Yes | **PROVISIONAL** (H) / **LOCKED** (P split) |
-| Bottleneck | Continuous H1 dampen | Soft P3 dampen | Doctrine | Caps numeric | **LOCKED** arch / **PROVISIONAL** nums |
-| Missing data | H1+H2 standard | P1+P3 | — | Yes | **LOCKED** |
-| Confidence labels | Not required for draft calc | Same | — | C+A | **LOCKED** |
-| Recency | Public blocked | Public blocked | — | C+B | **LOCKED** arch |
-| Sex | Required sex-specific | Required | Strong | — | **LOCKED** |
-| Age | Absolute | Absolute | — | Yes | **LOCKED** |
-| Ethnicity | Unused | Unused | WC disagreement | Yes | **LOCKED** |
-| Method coeffs | None | None | — | Yes | **LOCKED** |
-| Rounding | Integer display | Integer display | — | Yes | **LOCKED** |
-| Categories | None | None | — | Yes | **LOCKED** |
-| Public release | STAGED | STAGED | Validation pending | Yes | **LOCKED** |
-| VAT scoring | Staged/explanatory | N/A | Device-bound | Yes | **DEFERRED** |
-| P2 numeric | N/A | Deferred | Weak | OPTION C | **DEFERRED** |
-| H4 refine | Deferred | N/A | Weak | Simplicity | **DEFERRED** |
+| Topic | Decision |
+|-------|----------|
+| Sex | Required H2/H3/P1/P3; H1 sex-independent |
+| Age | Adult ≥ 20; no age slope; fairness limitation; public blocked pending age-fairness |
+| Ethnicity | Unused in math; audit required |
+| Trend / smoothing | Forbidden in score |
 
 ---
 
-## 16. GO / NO-GO
+## 11. Decision matrix
+
+| Decision | Health | Performance-Supporting | Status |
+|----------|--------|------------------------|--------|
+| Constructs | H1–H3 core; H4 0% | P1+P3; P2 0%; P4 defer | **LOCKED** |
+| Primary metrics | WHtR; DXA FMI; DXA ALMI/FFMI | DXA FFMI; DXA FMI | **LOCKED** |
+| Transform family | Continuous piecewise linear | Same | **LOCKED** |
+| Exact knots | Spec §4–6 | Spec §9–11 | **LOCKED** draft_v1 |
+| Weights | 45/35/20 | 50/50 | **LOCKED** draft_v1 PRODUCT POLICY |
+| Dampening | None | None | **LOCKED** V1 |
+| Missing data | All three cores | Both cores | **LOCKED** |
+| Method | DXA indices + protocol WHtR | DXA only | **LOCKED** |
+| Recency | 180d / 90d | 180d / 90d | **LOCKED** draft_v1 PRODUCT POLICY |
+| Confidence labels | Not required | Not required | **LOCKED** |
+| Ethnicity | Unused | Unused | **LOCKED** |
+| Public release | NO-GO | NO-GO | **LOCKED** |
+| VAT / H4 refine / P2 numeric / P4 / same-day ADR / ethnicity WC | Deferred | Deferred | **DEFERRED** |
+| Age-fairness validation / calibration / public cut points | Needs validation | Needs validation | **NEEDS VALIDATION** |
+
+---
+
+## 12. GO / NO-GO
 
 | Gate | Verdict |
 |------|---------|
-| HEALTH SCORE ENGINE IMPLEMENTATION | **CONDITIONAL GO** |
-| PERFORMANCE SCORE ENGINE IMPLEMENTATION | **CONDITIONAL GO** |
-| PUBLIC HEALTH SCORE | **NO-GO / STAGED** |
-| PUBLIC PERFORMANCE SCORE | **NO-GO / STAGED** |
+| HEALTH SCORE ENGINE IMPLEMENTATION | **STILL BLOCKED** |
+| PERFORMANCE-SUPPORTING SCORE ENGINE IMPLEMENTATION | **STILL BLOCKED** |
+| Public either | **NO-GO** |
+| Scientific readiness | **READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2** |
 
-### Implementation authorization
-
-| Domain | Authorization |
-|--------|---------------|
-| Health | **NOT YET** — requires independent planning/spec PASS, then draft behind non-public flag only |
-| Performance | **NOT YET** — same |
-
-**NEXT ACTION:** Open a **new independent scientific review agent** of this scientific spec + decision freeze before any score code is written. Only after that PASS may a separate implementation agent build `draft_v1` engines behind a non-public development flag.
+Do not implement from this freeze. A new independent agent must recalculate formulas and sensitivity first.
 
 ---
 
-## 17. Scope of this freeze commit (when committed)
-
-Allowed: `docs/` planning/truth documentation only.
-Forbidden: `app/` · `lib/` · services · APIs · Firebase · tests · native · production config · score UI · persistence.
-
----
-
-END OF DECISION FREEZE V1
+END OF DECISION FREEZE V1 (blocker correction)
