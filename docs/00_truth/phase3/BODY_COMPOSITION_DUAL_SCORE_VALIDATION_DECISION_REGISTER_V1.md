@@ -4,14 +4,14 @@
 **Date:** 2026-10-04
 **Branch:** `feat/body-composition-stage3e-body-scans-v1`
 **Kind:** Documentation only. Records validation-gate state. **Does not** authorize consumer release, change score math, or start validation execution.
-**Wave 1 zero-ambiguity correction:** closes methodology re-gate V2 residual Blocker 7 ambiguities against SHA `c9962e24f6632565da261feb55a706d63fa1ac06`.
+**Wave 1 final protocol closure:** closes residual protocol ambiguities against SHA `a59299ff430e3dca583e39133e6dbe0a2951bd3e`.
 
 | Identity | Value |
 |----------|-------|
 | Implementation truth-freeze SHA | `3bed6aa6012690737bb5f7455a4397ca6a3bfe64` |
 | Approved runtime implementation SHA | `d940b1616b341e98b19e82f2cd6a6242dfe41691` |
 | Mathematical truth-freeze SHA | `e258267d109d1d05e20270f205e5fdb29ae2aca6` |
-| Prior methodology correction SHA | `c9962e24f6632565da261feb55a706d63fa1ac06` |
+| Prior Wave 1 zero-ambiguity SHA | `a59299ff430e3dca583e39133e6dbe0a2951bd3e` |
 | Validation plan | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_PRIVATE_VALIDATION_PLAN_V1.md` |
 | Health version | `body_composition_health_score_draft_v1` |
 | Performance-Supporting version | `body_composition_performance_supporting_score_draft_v1` |
@@ -28,10 +28,9 @@
 | Internal engine (Performance-Supporting) | **PASS** |
 | Implementation truth freeze | **PASS** @ `3bed6aa…` |
 | Independent docs re-gate | **PASS** |
-| Validation plan methodology (at `6f97bb6e…`) | **FAIL** (10 blockers) — historical |
-| Validation plan methodology correction (at `c9962e24…`) | **FAIL** on residual Wave 1 zero-ambiguity (Blocker 7) — historical |
-| Validation plan methodology (this correction) | **COMPLETE / PENDING INDEPENDENT RE-GATE** |
-| Wave 1 synthetic validation | **NOT AUTHORIZED** (pending independent re-gate + explicit WAVE 1 AUTHORIZED) |
+| Validation plan methodology | **COMPLETE / PENDING INDEPENDENT RE-GATE** |
+| Wave 1 protocol zero-ambiguity (docs) | **CLOSED** (pending independent confirmation) |
+| Wave 1 synthetic validation | **NOT AUTHORIZED** |
 | Wave 1 execution | **NOT STARTED** |
 | Tier B de-identified / real-user validation | **NOT AUTHORIZED** |
 | Validation execution | **NOT STARTED** |
@@ -52,24 +51,20 @@
 | Executable subprotocols | **2** (BCV-032A, BCV-032B) |
 | Wave 1 executable protocols | **16** (includes BCV-032A; excludes BCV-032B) |
 
-Do **not** state “33 BCVs”. Do **not** count 032A/032B as additional parent BCVs.
-
 ---
 
-## 3. Methodology FAIL → correction map
+## 3. Final protocol-closure targets
 
-| Blocker | Topic | Status after this correction |
-|---------|-------|------------------------------|
-| 1 | Correlated measurement error | Conceptually closed; Wave 1 Model A+B + ρ grid frozen |
-| 2 | Uncertainty propagation | Conceptually closed; intervals/quantiles/threshold grid frozen |
-| 3 | Intersectional fairness | Conceptually closed; structural procedure frozen |
-| 4 | Change triad | Conceptually closed; **BCV-032A P0 Wave 1** / **BCV-032B P1 later** |
-| 5 | Outcome claim controls | Conceptually closed |
-| 6 | Misinterpretation battery | Conceptually closed (P1; not Wave 1) |
-| 7 | Experiment catalog / Wave 1 zero-ambiguity | **Target of this correction** — execution contracts frozen |
-| 8 | De-identification / Tier B limits | Conceptually closed; Tier B still NOT AUTHORIZED |
-| 9 | Acute-state lean confounds | Conceptually closed; BCV-034 scenario matrix frozen |
-| 10 | Circularity hardening | Conceptually closed |
+| Residual ambiguity | Status in plan |
+|--------------------|----------------|
+| BCV-029 Model B pairs / rho / draws | **Frozen** (FM↔FFM, FFM↔ALM; common ρ; Marsaglia construction) |
+| Monte Carlo quantile SE / tolerances | **Frozen** (20-batch SE; two consecutive checkpoints) |
+| PRNG stream codes / Gaussian / draw order | **Frozen** |
+| BCV-001 geometry / held-fixed companions | **Frozen** (1D + specified 2D; no 3D cube) |
+| BCV-012 centers / normalization / signs | **Frozen** |
+| BCV-007/031 anchors / label sets | **Frozen** (`group_a/b/c` etc.) |
+| BCV-034 scenario→delta / Waist | **Frozen** (no optional Waist) |
+| BCV-013 plateaus / BCV-018 companions | **Frozen** |
 
 ---
 
@@ -78,9 +73,8 @@ Do **not** state “33 BCVs”. Do **not** count 032A/032B as additional parent 
 | Item | Value |
 |------|-------|
 | Current claim level | **Level 0 — internal experimental index** |
-| Next possible level | Level 1 — descriptive wellness index (**not authorized**) |
-| Synthetic validation alone | **Cannot** advance to Level 1 |
-| Clinical / diagnostic (Level 4) | **Not authorized; not draft_v1 intent** |
+| Synthetic alone | **Cannot** advance to Level 1 |
+| Clinical / diagnostic | **Not authorized** |
 
 ---
 
@@ -88,38 +82,26 @@ Do **not** state “33 BCVs”. Do **not** count 032A/032B as additional parent 
 
 | Wave | Authorization |
 |------|---------------|
-| Wave 1 synthetic | **NOT AUTHORIZED** — requires independent methodology re-gate **PASS** + explicit **WAVE 1 AUTHORIZED** |
-| Tier B de-identified / real-user | **NOT AUTHORIZED** |
+| Wave 1 synthetic | **NOT AUTHORIZED** — requires independent re-gate **PASS** + explicit **WAVE 1 AUTHORIZED** |
+| Tier B | **NOT AUTHORIZED** |
 | Consumer pilot | **NOT AUTHORIZED** |
 | Public scores | **NO-GO** |
 
 ---
 
-## 6. Hard blockers (active)
-
-All hard public-release blockers in the private validation plan remain **ACTIVE**. Any one is sufficient to maintain **NO-GO**.
-
----
-
-## 7. Next gate
+## 6. Next gate
 
 ```text
-WAVE 1 ZERO-AMBIGUITY CORRECTION (this phase)
+WAVE 1 FINAL PROTOCOL CLOSURE (this phase)
         ↓
-independent validation-methodology re-gate
+independent validation-methodology re-gate (narrow)
         ↓
 (only if PASS) explicit WAVE 1 AUTHORIZED
         ↓
 Wave 1 synthetic execution under frozen contract
-        ↓
-Tier B empirical / de-identified validation (privacy-gated)
-        ↓
-scientific release review
-        ↓
-only then possible consumer integration decision
 ```
 
-**Public Health / Public Performance-Supporting remain NO-GO until a later explicit authorization.**
+**Public Health / Public Performance-Supporting remain NO-GO.**
 
 ---
 

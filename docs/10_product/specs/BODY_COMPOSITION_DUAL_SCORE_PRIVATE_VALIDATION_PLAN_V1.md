@@ -15,7 +15,7 @@
 | Health version | `body_composition_health_score_draft_v1` |
 | Performance-Supporting version | `body_composition_performance_supporting_score_draft_v1` |
 | Companion decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_VALIDATION_DECISION_REGISTER_V1.md` |
-| Methodology status | **COMPLETE / PENDING INDEPENDENT RE-GATE** (Wave 1 zero-ambiguity correction) |
+| Methodology status | **COMPLETE / PENDING INDEPENDENT RE-GATE** (Wave 1 final protocol closure) |
 | Wave 1 execution | **NOT AUTHORIZED** |
 | Tier B | **NOT AUTHORIZED** |
 
@@ -57,7 +57,7 @@ If validation later suggests the formula should change: **document evidence** an
 | Implementation truth freeze | **PASS** @ `3bed6aa…` |
 | Independent docs re-gate | **PASS** |
 | Validation plan methodology (at `6f97bb6e…`) | **FAIL** (10 blockers) — historical |
-| Validation plan methodology (Wave 1 zero-ambiguity correction) | **COMPLETE / PENDING INDEPENDENT RE-GATE** |
+| Validation plan methodology (Wave 1 final protocol closure) | **COMPLETE / PENDING INDEPENDENT RE-GATE** |
 | Wave 1 synthetic execution | **NOT AUTHORIZED** |
 | Tier B de-identified / real-user | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
@@ -1307,42 +1307,101 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 
 ---
 
-### 23.2 Randomness / seed contract
+### 23.2 Randomness / seed / PRNG / Gaussian contract
 
 | Item | Frozen rule |
 |------|-------------|
 | Canonical seed | `20261004` |
-| PRNG | IEEE-754 double arithmetic; **mulberry32** (or bit-identical port) when a PRNG is required in JS/TS; document exact library/path in artifact manifest |
-| Experiment seed | `seed_exp = (canonical_seed * 1_000_003 + experiment_numeric_id) mod 2^32` |
-| Experiment numeric IDs | 001→1 … 034→34; **032A→3201**; **032B→3202** |
-| Stream derivation | For substreams (Model A/B, σ multiplier, persona, schedule): `seed_stream = (seed_exp * 1_000_033 + stream_code) mod 2^32` with stream_code documented in manifest |
-| Reproducibility | Same code SHA + same manifest + same seeds ⇒ bit-identical numeric tables (within IEEE-754). No arbitrary seeds. |
+| PRNG | **mulberry32** only (bit-identical port permitted; no platform RNG; no library Normal) |
+| Uniform draw | mulberry32 → `u ∈ (0,1)` via `(x + 1) * 2^-32` style mapping documented in execution code comments; never expose 0 or 1 to `ln` |
+| Gaussian transform | **Marsaglia polar method only** (Box–Muller forbidden; library normals forbidden) |
+| Polar rejection | Draw `u,v` uniform on `(-1,1)`; `s = u² + v²`; reject if `s == 0` or `s >= 1`; else `m = sqrt(-2 * ln(s) / s)`; emit `u*m` then `v*m` |
+| Second-normal cache | Always consume/cache the second polar normal in deterministic draw order before requesting a new polar pair |
+| Reproducibility | Same code SHA + same manifest + same seeds ⇒ bit-identical tables (IEEE-754). No arbitrary seeds. |
+
+#### 23.2.1 Frozen stream-code table
+
+| Protocol | streamCode |
+|----------|------------|
+| BCV-001 | 1 |
+| BCV-002 | 2 |
+| BCV-006 | 6 |
+| BCV-007 | 7 |
+| BCV-012 | 12 |
+| BCV-013 | 13 |
+| BCV-014 | 14 |
+| BCV-015 | 15 |
+| BCV-016 | 16 |
+| BCV-017 | 17 |
+| BCV-018 | 18 |
+| BCV-029 | 29 |
+| BCV-030 | 30 |
+| BCV-031 | 31 |
+| BCV-032A | 3201 |
+| BCV-034 | 34 |
+
+#### 23.2.2 Seed derivation (integer arithmetic only)
+
+```text
+derivedSeed =
+  canonicalSeed
+  + experimentStreamCode * 1_000_000
+  + personaIndex * 10_000
+  + sigmaIndex * 1_000
+  + rhoIndex * 100
+  + modelIndex * 10
+  + substreamIndex
+```
+
+Index ordering (0-based unless noted):
+
+| Index | Order |
+|-------|-------|
+| `personaIndex` | P-01→0 … P-12→11; structural-only runs use `0` |
+| `sigmaIndex` | `0.5×→0`, `1.0×→1`, `1.5×→2`, `2.0×→3`; non-noise runs use `0` |
+| `rhoIndex` | Model A uses `0`; Model B uses ρ grid order `{-0.75,-0.50,-0.25,0,+0.25,+0.50,+0.75}` → `0…6` |
+| `modelIndex` | Model A→0; Model B→1; non-noise→0 |
+| `substreamIndex` | Health→0; Perf→1; other fixed substreams as declared per BCV (default `0`) |
+
+No hashed/string-derived seeds.
+
+#### 23.2.3 Monte Carlo draw order (noise BCVs)
+
+For each draw, generate standardized normals in this exact order:
+
+1. `z_Height`
+2. `z_Waist`
+3. `z_FM` (Pair-1 base)
+4. `z_FFM_indep` (Pair-1 independent leg)
+5. construct `z_FFM` (see §23.7)
+6. `z_ALM_indep` (Pair-2 independent leg)
+7. construct `z_ALM` (see §23.7)
+
+Then scale by active σ\* × multiplier and apply shared-Height propagation into indices.
 
 ---
 
-### 23.3 Monte Carlo contract (BCV-002, BCV-029, BCV-030, and any Wave 1 MC)
-
-Deterministic convergence-based Monte Carlo (independent of clinical acceptance):
+### 23.3 Monte Carlo contract (BCV-002, BCV-029, BCV-030)
 
 | Parameter | Frozen value |
 |-----------|--------------|
 | Minimum draws | `100_000` |
 | Checkpoint interval | every `10_000` draws after minimum |
 | Hard maximum | `1_000_000` |
-| Monitored statistics | median(\|Δscore\|), p95(\|Δscore\|), and for BCV-030 also p05/p95 of score and exploratory threshold-crossing rates at {10,50,90} |
-| Convergence rule | At checkpoint *k*, for each monitored statistic *s*: `|s_k − s_{k−1}| ≤ tol_s` **and** estimated Monte Carlo SE for that statistic ≤ `se_tol_s` |
-| `tol_median` | `1e-3` score points |
-| `tol_p95` | `5e-3` score points |
-| `tol_quantile` (BCV-030 score quantiles) | `5e-3` score points |
-| `tol_rate` (threshold-crossing rates) | `1e-3` absolute probability |
-| `se_tol_median` | `5e-3` |
-| `se_tol_p95` | `1e-2` |
-| `se_tol_rate` | `2e-3` |
-| SE estimator | Batch-means SE using non-overlapping blocks of 10_000 draws |
-| Stop | First checkpoint after minimum where **all** monitored stats for that BCV meet tol + se_tol; else continue to hard max and mark `converged=false` |
-| Health vs Perf | Run separately with independent streams; both must satisfy their own convergence |
+| Monitored statistics | `median(|Δscore|)`, `p95(|Δscore|)`, and **each** exploratory threshold-crossing probability at `{10,20,30,40,50,60,70,80,90}` (Health and Perf separately) |
+| Batch-means scheme | At each checkpoint, take the largest prefix of accumulated draws divisible by 20; split into **exactly 20** contiguous equal batches; compute each monitored statistic per batch |
+| SE estimator | `sd(batch estimates) / sqrt(20)` |
+| `tol_median` (checkpoint change) | `0.01` score points |
+| `tol_p95` (checkpoint change) | `0.02` score points |
+| `se_tol_median` | `0.02` score points |
+| `se_tol_p95` | `0.05` score points |
+| `tol_rate` | `0.001` absolute probability |
+| `se_tol_rate` | `0.001` absolute probability |
+| Stop rule | **Two consecutive checkpoints** must satisfy all tol + SE criteria for all monitored stats |
+| Hard-max behavior | stop; `converged=false`; report final estimates and SEs |
+| Health vs Perf | separate streams (`substreamIndex` 0/1); each must converge independently |
 
-These tolerances are **simulation-estimate precision** rules only — **not** clinical acceptance thresholds.
+These are **numerical simulation convergence tolerances only** — not clinical thresholds, release criteria, or meaningful-change cutoffs.
 
 ---
 
@@ -1353,48 +1412,37 @@ Reuse repository score-test numerical convention (`1e-9` in piecewise-linear sco
 | Symbol | Value | Use |
 |--------|-------|-----|
 | `EPS_NUM` | `1e-9` | Exact floating-point knot/boundary continuity tests |
-| `EPS_SURF` | `1e-4` | Practical surface / finite-difference step on index units (WHtR/FMI/ALMI/FFMI) |
-| `EPS_CM` | `1e-3` cm | Practical anthropometry finite-difference on Waist/Height when needed |
-
-Distinguish:
-
-- **numerical epsilon** (`EPS_NUM`) — implementation continuity
-- **surface epsilon** (`EPS_SURF` / `EPS_CM`) — local sensitivity geometry
-- **physiologic perturbation** — measurement-error / acute-state models (not epsilons)
+| `EPS_SURF` | `1e-4` | Practical surface / finite-difference step on index units |
+| `EPS_CM` | `1e-3` cm | Practical anthropometry finite-difference when needed |
 
 ---
 
-### 23.5 Canonical synthetic domains & grids (BCV-001 / shared)
+### 23.5 Canonical synthetic domains (shared)
 
 Synthetic ranges are **computational domains**, not clinical ranges.
 
-#### 23.5.1 Domains
+| Variable | Sex | min | max | DOMAIN_RANGE |
+|----------|-----|-----|-----|--------------|
+| WHtR | both | 0.30 | 0.95 | 0.65 |
+| FMI | male | 0.5 | 25.0 | 24.5 |
+| FMI | female | 1.0 | 30.0 | 29.0 |
+| ALMI | male | 4.0 | 12.0 | 8.0 |
+| ALMI | female | 3.0 | 10.0 | 7.0 |
+| FFMI | male | 14.0 | 24.0 | 10.0 |
+| FFMI | female | 12.0 | 21.0 | 9.0 |
+| Height_cm | both | 140.0 | 210.0 | 70.0 |
+| Waist_cm | both | 50.0 | 160.0 | 110.0 |
 
-| Variable | Sex | min | max | Notes |
-|----------|-----|-----|-----|-------|
-| WHtR | both | 0.30 | 0.95 | covers ≤0.40 plateau, knots 0.50/0.60/0.80, upper tail |
-| FMI | male | 0.5 | 25.0 | covers H2/P3 male knots |
-| FMI | female | 1.0 | 30.0 | covers H2/P3 female knots |
-| ALMI | male | 4.0 | 12.0 | covers H3 ALMI male knots |
-| ALMI | female | 3.0 | 10.0 | covers H3 ALMI female knots |
-| FFMI | male | 14.0 | 24.0 | covers H3/P1 male knots |
-| FFMI | female | 12.0 | 21.0 | covers H3/P1 female knots |
-| Height_cm | both | 140.0 | 210.0 | structural/size studies |
-| Waist_cm | both | 50.0 | 160.0 | with Height ⇒ WHtR domain |
-| Age_years (completed) | both | 20 | 90 | adult gate only; no age slope |
-| Sex | — | `male` \| `female` | only governed values |
-
-#### 23.5.2 Grid steps
+#### 23.5.1 Grid steps (1D sweeps / knot neighborhoods)
 
 | Region | Step |
 |--------|------|
 | Coarse global | WHtR `0.01`; FMI `0.25`; ALMI `0.10`; FFMI `0.10` |
-| Dense local around every frozen knot | ±`0.05` in index units at step `0.005` (WHtR) or `0.05` (FMI/ALMI/FFMI) |
-| Exact knot inclusion | **mandatory** — every frozen knot x must appear exactly |
-| Exact ±`EPS_NUM` | include `knot ± EPS_NUM` for continuity |
-| Exact ±`EPS_SURF` | include `knot ± EPS_SURF` for practical neighborhood |
+| Dense local around every frozen knot | ±`0.05` at step `0.005` (WHtR) or `0.05` (FMI/ALMI/FFMI) |
+| Exact knot inclusion | mandatory |
+| Exact ±`EPS_NUM` / ±`EPS_SURF` | mandatory |
 
-#### 23.5.3 Frozen knots (from mathematical / implementation freeze; do not alter)
+#### 23.5.2 Frozen knots
 
 | Construct | Sex | Knot x values |
 |-----------|-----|---------------|
@@ -1410,35 +1458,45 @@ Synthetic ranges are **computational domains**, not clinical ranges.
 | P3 FMI | male | 2.0, 3.0, 7.0, 10.0, 16.0 |
 | P3 FMI | female | 3.5, 5.0, 10.0, 14.0, 22.0 |
 
-#### 23.5.4 Default eligible demographics for surface grids
+#### 23.5.3 BCV-001 geometry (NOT full factorial)
 
-Unless a BCV overrides:
+BCV-001 is:
 
-- `sex` as grid factor
-- `dateOfBirth` such that completed UTC years = 30 at `asOf`
-- `asOf` = `2026-10-04T12:00:00.000Z`
-- all scoring `measuredAt` = `asOf` (same-day eligible)
-- Resolver constructs/channels: `resolved` with DXA primary as required; H1 WHtR `who_midpoint_v1` v1
-- H3 primary: ALMI when ALMI is the swept lean index; FFMI when FFMI is swept (never invent score-layer fallback)
+1. **Independent 1D sweeps** through each scoring transform (vary ONE input; hold companions at §23.5.4 references)
+2. **Deterministic 2D aggregate surfaces** only:
+   - Health: H1×H2, H1×H3, H2×H3 (non-varied construct fixed at reference)
+   - Performance: P1×P3
+3. **No 3D Health cube** in Wave 1
+
+H3 ALMI sweep ⇒ Resolver primary ALMI. H3 FFMI sweep ⇒ Resolver primary FFMI. Perf requires P1 FFMI.
+
+#### 23.5.4 BCV-001 companion reference anchors (validation-only)
+
+| Sex | WHtR | FMI | ALMI | FFMI |
+|-----|------|-----|------|------|
+| male | 0.50 | 5.5 | 8.0 | 19.0 |
+| female | 0.50 | 8.5 | 6.3 | 16.5 |
+
+Not normative targets.
+
+Default demographics unless overridden: completed age 30 at `asOf=2026-10-04T12:00:00.000Z`; all `measuredAt=asOf`; Resolver `resolved`; Waist protocol `who_midpoint_v1` v1.
 
 ---
 
 ### 23.6 Parameter fallback when ER σ/ρ unavailable
 
-Do **not** invent σ. If ER-BC-01/02/16/17 have not frozen magnitudes at execution start:
-
 | Parameter | Fallback |
 |-----------|----------|
-| Base σ placeholders | Use **unit-normalized exploratory σ\*** labeled `exploratory_normalized_not_empirical` in manifest |
+| Label | `exploratory_normalized_not_empirical` |
 | σ\* Waist | `1.0` cm |
 | σ\* Height | `0.5` cm |
 | σ\* FM | `0.25` kg |
 | σ\* FFM | `0.25` kg |
 | σ\* ALM | `0.20` kg |
-| Multipliers (always run) | `0.5×`, `1.0×`, `1.5×`, `2.0×` of the active σ vector |
-| ρ grid (Model B) | `{-0.75,-0.50,-0.25,0,+0.25,+0.50,+0.75}` exploratory — **not** empirical estimates |
+| Multipliers | `0.5×`, `1.0×`, `1.5×`, `2.0×` |
+| ρ grid (Model B) | `{-0.75,-0.50,-0.25,0,+0.25,+0.50,+0.75}` exploratory — **not** empirical |
 
-If ER later supplies magnitudes, re-run with ER values and mark `parameterSource=ER`; keep exploratory runs archived.
+If ER later supplies magnitudes, re-run with `parameterSource=ER`; archive exploratory runs.
 
 ---
 
@@ -1448,73 +1506,76 @@ If ER later supplies magnitudes, re-run with ER values and mark `parameterSource
 
 | Model | Definition | Wave 1 |
 |-------|------------|--------|
-| **Model A** | Shared Height error; Waist independent; DXA FM/FFM/ALM independent Gaussian (zero-mean) after Height coupling | **REQUIRED** |
-| **Model B** | Model A + DXA covariance: apply ρ from frozen ρ grid to (FM,FFM) and (LM/FFM,ALM) pairs as specified in manifest; if ER-BC-17 supplies a covariance, use it **in addition to** the ρ-grid sensitivity labeled exploratory | **REQUIRED** |
+| **Model A** | Shared Height; Waist independent; FM/FFM/ALM independent Gaussians | **REQUIRED** |
+| **Model B** | Model A + **exactly two** correlated DXA pairs (below) with **one common ρ** per run | **REQUIRED** |
 
-Wave 1 runs **both** Model A and Model B. Engineer may not choose only one.
+#### 23.7.1 Model B correlated pairs (ONLY these)
+
+| Pair | Variables |
+|------|-----------|
+| Pair 1 | **Fat Mass (FM) ↔ Fat-Free Mass (FFM)** |
+| Pair 2 | **Fat-Free Mass (FFM) ↔ Appendicular Lean Mass (ALM)** |
+
+**Forbidden alternate:** LM↔ALM as a Wave 1 pair.
+
+Other error terms remain independent except shared Height.
+
+#### 23.7.2 Rho application
+
+- One Model-B run = `persona × sigmaMultiplier × one rho`
+- The **same** ρ is applied to **both** pairs
+- Do **not** choose independent `rho_pair1` / `rho_pair2`
+- ρ sweep is exploratory, not empirical covariance
+
+#### 23.7.3 Exact correlated-draw construction
+
+For standardized independent normals from §23.2.3:
+
+```text
+z_FM = z_FM_base
+z_FFM = rho * z_FM + sqrt(1 - rho^2) * z_FFM_indep
+z_ALM = rho * z_FFM + sqrt(1 - rho^2) * z_ALM_indep   # reuses SAME z_FFM
+```
+
+Expected consequence: implied secondary correlation
+
+```text
+corr(FM, ALM) = rho^2
+```
+
+(document in artifacts; not an engineer choice).
+
+Wave 1 runs **both** Model A and Model B.
 
 ---
 
 ### 23.8 BCV-030 interval & threshold contract
 
-**No authorized consumer score bands exist.** Do not use product bands.
+Report **all** of: central 50/80/90/95%; mean; SD; p05,p10,p25,p50,p75,p90,p95; median; directional-reversal probability; construct uncertainty share; exploratory threshold-crossing at `{10,20,…,90}`.
 
-Report **all** of:
-
-- central 50%, central 80%, central 90%, central 95% intervals
-- mean, SD
-- quantiles: p05, p10, p25, p50, p75, p90, p95
-- median
-- directional-reversal probability (sign of Δscore under noise)
-- construct-level contribution to total uncertainty (variance share or absolute |Δ| share)
-- **exploratory internal threshold-crossing** at thresholds `{10,20,30,40,50,60,70,80,90}`
-
-These thresholds are **NOT** product bands, health categories, or release thresholds.
+**No product bands.** Thresholds are not health categories or release thresholds.
 
 ---
 
-### 23.9 Artifact + parameter manifest contract
+### 23.9 Artifact + manifest + root contract
 
-Every Wave 1 BCV MUST emit:
+Every Wave 1 protocol MUST output:
 
-1. Machine-readable results: `JSON` and/or `CSV`
-2. Human-readable: Markdown summary
-3. Optional plots for surface/grid studies
+1. `results.json`
+2. `summary.md`
+3. `manifest.json` (one per experiment execution; all canonical fields)
 
-Every artifact MUST include:
+Additionally, grid/surface/table protocols MUST output `results.csv`.
 
-| Field | Required |
-|-------|----------|
-| experimentId | yes |
-| engineVersion(s) | yes |
-| implementationSha | yes |
-| mathematicalFreezeSha | yes |
-| seed / stream seeds | yes |
-| parameterManifest | yes |
-| runTimestampUtc | yes |
-| codeSha | yes |
-| resultSummary | yes |
-| phi | must be `none` |
+Plots (PNG/SVG) MAY be emitted but are **not** source of truth.
 
-#### Canonical parameter manifest schema (planning only — do not implement code yet)
+**Future artifact root (planning only — do not create now):**
 
 ```text
-experimentId
-engineVersion
-implementationSha
-mathematicalFreezeSha
-seed
-inputDomains
-gridSteps
-epsilon { EPS_NUM, EPS_SURF, EPS_CM }
-monteCarloProtocol { min, checkpoint, max, tol*, se_tol*, converged }
-noiseParameters { source, sigmaStar?, multipliers, modelA, modelB }
-covarianceParameters { rhoGrid?, erSource? }
-scheduleId?
-personaId?
-provenance
-notes
+validation/body-composition/dual-score/wave1/<experiment-id>/<run-id>/
 ```
+
+Every artifact identity fields: experimentId, engineVersion(s), implementationSha, mathematicalFreezeSha, seeds, parameterManifest, runTimestampUtc, codeSha, resultSummary, `phi=none`.
 
 ---
 
@@ -1581,21 +1642,43 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 
 ### 23.12 Structural fairness procedure (BCV-006 / 007 / 031)
 
-**Rule:** hold scoring composition inputs identical; vary only the demographic/context dimension under test.
+**Rule:** hold scoring composition inputs identical; vary only the demographic/context dimension under test. Distinguish structural demographic invariance from correlated-measurement propagation (BCV-029).
 
-| Study | Hold constant | Vary | Expected structural result |
-|-------|---------------|------|----------------------------|
-| BCV-006 age | P-01 composition inputs | completed ages {20,30,40,50,60,70,80,90} via DOB | identical scores (adult-eligible) |
-| BCV-007 sex | sex-appropriate matched index *z*-positions near mid knots + cross-sex identical raw indices where defined | male/female | document transform differences; not assumed fair |
-| BCV-031 age×sex | composition | ages × sexes grid | report cells; adult identity within sex |
-| BCV-031 height×sex | FMI/ALMI/FFMI/WHtR fixed; recompute Waist=WHtR×Height | heights {150,160,170,180,190,200} × sex | scores identical when indices fixed |
-| BCV-031 BMI-proxy×sex | indices fixed; label BMI bands only as metadata | labels underweight/normal/overweight/obese | **score invariant** (BMI unused) |
-| BCV-031 athletic×sex | indices fixed; athletic label metadata | athletic/non-athletic × sex | **score invariant** (label unused) |
-| BCV-031 menopause×age | female indices fixed; menopause label metadata | pre/post × ages | **score invariant** (label unused) |
-| BCV-031 ethnicity label | indices fixed; ethnicity metadata | label variants | **score invariant** (unused) |
-| BCV-031 vendor×site hidden-path | indices fixed; vendor/site metadata only | Hologic/GE × site A/B | **score invariant** (no hidden code-path dependence). Empirical vendor bias = later Tier B/C |
+#### 23.12.1 Sex-matched structural anchors (BCV-007 / BCV-031)
 
-**Outputs:** pairwise score deltas; max |Δ|; invariance pass/fail at `EPS_NUM` for unused-factor tests; tables for sex-transform exploratory contrasts.
+| Sex | Height | Waist | WHtR | FMI | ALMI | FFMI |
+|-----|--------|-------|------|-----|------|------|
+| male | 175 cm | 87.5 cm | 0.50 | 5.5 | 8.0 | 19.0 |
+| female | 165 cm | 82.5 cm | 0.50 | 8.5 | 6.3 | 16.5 |
+
+Structural-test anchors only — **not** claims of biological sex equivalence.
+
+#### 23.12.2 Frozen factor levels
+
+| Factor | Levels |
+|--------|--------|
+| Age (completed years) | `{20,40,60,80}` |
+| Height | short `155`, medium `175`, tall `195` cm — hold WHtR/FMI/FFMI/ALMI constant as derived scoring inputs |
+| BMI-proxy (metadata only) | labels `low/mid/high` with synthetic BMI `{18.5,25.0,35.0}`; score inputs identical ⇒ no score change |
+| Athletic status | `["sedentary","recreational","trained"]` |
+| Menopause | `["pre","peri","post"]` |
+| Ethnicity structural labels | `["group_a","group_b","group_c"]` — **non-real** Tier A code-path labels only; do **not** use named races/ethnicities |
+| Vendor | `["vendor_a","vendor_b"]` |
+| Site | `["site_1","site_2"]` |
+
+| Study | Hold constant | Vary | Expected |
+|-------|---------------|------|----------|
+| BCV-006 | male or female structural anchors | ages `{20,40,60,80}` | identical scores |
+| BCV-007 | §23.12.1 anchors | sex | document transform differences; not assumed fair |
+| BCV-031 age×sex | anchors | ages × sexes | adult identity within sex |
+| BCV-031 height×sex | indices fixed | heights × sex | scores identical when indices fixed |
+| BCV-031 BMI-proxy×sex | score inputs fixed | BMI labels/values metadata | **invariant** |
+| BCV-031 athletic×sex | score inputs fixed | athletic labels | **invariant** |
+| BCV-031 menopause×age | female anchors | menopause × ages | **invariant** |
+| BCV-031 ethnicity | score inputs fixed | group_a/b/c | **invariant** |
+| BCV-031 vendor×site | score inputs fixed | vendor×site labels | **invariant** (hidden-path). Empirical vendor bias later |
+
+**Outputs:** pairwise Δ; max \|Δ\|; invariance pass/fail at `EPS_NUM` for unused-factor tests.
 
 ---
 
@@ -1605,28 +1688,22 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 
 | Item | Frozen |
 |------|--------|
-| Domain/grid | §23.5 |
-| Method | Evaluate Health and Perf on coarse+dense+knot±EPS grids by sex; H3 ALMI and H3 FFMI sweeps separate |
+| Geometry | §23.5.3–23.5.4 (1D sweeps + specified 2D surfaces; no 3D cube) |
 | Epsilon | EPS_NUM + EPS_SURF |
-| Noise | none |
-| Seed | N/A (deterministic grid) |
-| Outputs | continuity flags; max jump off withhold boundaries; local slopes; floor/ceiling occupancy; NaN/OOR counts (must be 0 for finite eligible inputs) |
-| Artifacts | CSV grids + MD summary + optional plots |
-| Class | structural invariant (continuity/NaN/OOR); exploratory (maps) |
+| Outputs | continuity; max jump; local slopes; occupancy; NaN/OOR=0 |
+| Artifacts | `results.json`, `results.csv`, `summary.md`, `manifest.json` (+ optional plots) |
+| Class | structural + exploratory |
 | PHI | none |
 
 #### BCV-002 — Measurement perturbation
 
 | Item | Frozen |
 |------|--------|
-| Baseline cases | P-01…P-12 |
-| Noise | §23.6–23.7; multipliers 0.5/1/1.5/2.0× |
-| Shared Height | mandatory |
-| Models | A and B |
-| MC | §23.3 |
-| Seed | §23.2 |
-| Outputs | MAE/median/p90/p95 \|Δ\|; threshold-crossing on exploratory grid; construct contribution |
-| Artifacts | JSON/CSV + MD |
+| Baselines | P-01…P-12 |
+| Noise | §23.6–23.7; multipliers 0.5/1/1.5/2.0×; Models A+B |
+| MC / seed | §23.3 / §23.2 |
+| Outputs | MAE/median/p90/p95 \|Δ\|; exploratory threshold crossings; construct contribution |
+| Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | exploratory / evidence-dependent |
 | PHI | none |
 
@@ -1634,12 +1711,15 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 
 | Item | Frozen |
 |------|--------|
-| Domains | §23.5 around personas P-01…P-12 and mid-knot centers |
-| One-at-a-time | perturb each of WHtR,FMI,ALMI,FFMI by ±EPS_SURF and ±0.01 / ±0.1 as secondary practical steps `{EPS_SURF, 0.01, 0.1}` for WHtR; `{EPS_SURF, 0.1, 0.5}` for FMI/ALMI/FFMI |
-| Joint cases | simultaneous ±EPS_SURF on all indices; Model A unit noise single draw set seed-fixed n=10_000 diagnostic (non-convergent diagnostic stream `stream_code=12`) |
-| Finite difference | central difference where possible: `(f(x+h)-f(x-h))/(2h)` |
-| Outputs | local slope; normalized sensitivity `\|slope\|·scale`; dominant construct; aggregate delta |
-| Artifacts | CSV + MD + optional heatmaps |
+| Centers | explicit midpoints of adjacent knot pairs: H1 `{0.45,0.55,0.70}`; H2 male `{2.75,4.50,7.25,12.00}`; H2 female `{4.50,7.00,10.75,17.00}`; H3 ALMI male `{6.50,7.50}`; H3 ALMI female `{5.00,5.90}`; H3 FFMI male `{16.35,17.60}`; H3 FFMI female `{14.30,15.30}`; P1 male `{16.35,17.85,19.75}`; P1 female `{14.30,15.55,17.00}`; P3 male `{2.50,5.00,8.50,13.00}`; P3 female `{4.25,7.50,12.00,18.00}` |
+| Also evaluate | personas P-01…P-12 |
+| OAT steps | WHtR `{EPS_SURF,0.01,0.1}`; FMI/ALMI/FFMI `{EPS_SURF,0.1,0.5}` |
+| Normalized sensitivity | `\|dScore/dx\| * DOMAIN_RANGE` from §23.5 (no SD-/data-derived normalization) |
+| Joint FD pairs | Health H1/H2, H1/H3, H2/H3; Perf P1/P3 |
+| Joint signs | exactly `(+,+) (+,-) (-,+) (-,-)` with `EPS_SURF` on both |
+| FD formula | central difference `(f(x+h)-f(x-h))/(2h)` where defined |
+| Outputs | local slope; normalized sensitivity; dominant construct; aggregate Δ |
+| Artifacts | `results.json`, `results.csv`, `summary.md`, `manifest.json` |
 | Class | exploratory |
 | PHI | none |
 
@@ -1647,10 +1727,13 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 
 | Item | Frozen |
 |------|--------|
-| Knots/plateaus | §23.5.3; H1 plateau x≤0.40; FMI mid plateaus per freeze |
-| Epsilon | left/right at knot±EPS_NUM and knot±EPS_SURF |
-| Outputs | left value; knot value; right value; left slope; right slope; discontinuity delta (`|left-right|` across EPS_NUM); plateau width |
-| Continuity invariant | discontinuity delta ≤ 1e-6 score points at EPS_NUM neighborhood for continuous transforms |
+| Knots | §23.5.2 |
+| Plateaus (exact) | H2 male score-92: FMI `[3.5,5.5]`; H2 female score-92: `[5.5,8.5]`; P3 male score-92: `[3.0,7.0]`; P3 female score-92: `[5.0,10.0]`; H1 left plateau: WHtR `≤0.40` |
+| plateauWidth | `upperBoundary - lowerBoundary` in input units; inclusive both ends where transform exactly flat |
+| Tails | report `left_tail` / `right_tail` as unbounded vs synthetic domain; separately report synthetic-domain occupancy — do not invent finite biological tail widths |
+| Epsilon | knot±EPS_NUM and knot±EPS_SURF |
+| Outputs | left/knot/right values; left/right slopes; discontinuity delta; plateauWidth |
+| Continuity invariant | discontinuity delta ≤ `1e-6` score points at EPS_NUM neighborhood |
 | Class | structural invariant |
 | PHI | none |
 
@@ -1658,13 +1741,10 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 
 | Item | Frozen |
 |------|--------|
-| Sampling | full §23.5 coarse grids by sex for Health and Perf |
-| Exact floor | score `== 0` |
-| Exact ceiling | score `== 100` |
-| Near floor | `0 < score ≤ 5` |
-| Near ceiling | `95 ≤ score < 100` |
-| Outputs | % exact floor; % near floor; % exact ceiling; % near ceiling; histogram edges `[0,5,10,…,100]` + quantiles p05…p95 |
-| Note | near band width 5 is exploratory analysis only — **not** a release threshold |
+| Sampling | §23.5 coarse 1D/2D BCV-001 geometry by sex |
+| Exact floor/ceiling | `==0` / `==100` |
+| Near | `(0,5]` / `[95,100)` exploratory only |
+| Artifacts | `results.json`, `results.csv`, `summary.md`, `manifest.json` |
 | Class | exploratory |
 | PHI | none |
 
@@ -1672,18 +1752,18 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 
 | Item | Frozen |
 |------|--------|
-| Matrix | each core construct missing alone + all pairs + all three (Health) / both (Perf); Resolver statuses `{resolved, resolved_with_supporting, multiple_valid, policy_not_frozen, conflict, insufficient, undated_only, unsupported}` applied per construct |
-| Outputs | status; primaryReason; constructReasons; match to freeze precedence |
-| Class | structural invariant on reasons; exploratory on rates |
+| Matrix | each core missing alone + all pairs + all Health triples / Perf both; Resolver statuses `{resolved, resolved_with_supporting, multiple_valid, policy_not_frozen, conflict, insufficient, undated_only, unsupported}` |
+| Artifacts | `results.json`, `summary.md`, `manifest.json` |
+| Class | structural + exploratory |
 | PHI | none |
 
 #### BCV-016 — Schedules
 
 | Item | Frozen |
 |------|--------|
-| Catalog | S-01…S-15 exact (§23.11) |
-| Outputs | eligibility; reasons; gate flags |
-| Class | structural invariant |
+| Catalog | S-01…S-15 (§23.11) |
+| Artifacts | `results.json`, `summary.md`, `manifest.json` |
+| Class | structural |
 | PHI | none |
 
 #### BCV-017 — Personas
@@ -1691,7 +1771,7 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 | Item | Frozen |
 |------|--------|
 | Table | P-01…P-12 (§23.10) |
-| Outputs | scores; contributions; pattern audit |
+| Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | exploratory |
 | PHI | none |
 
@@ -1699,8 +1779,14 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 
 | Item | Frozen |
 |------|--------|
-| Cases | P-01…P-12 + synthetic adverse-hide set: each construct set to low-tail while others mid-plateau (exact index picks: H1=0.70, H2 male FMI=12 / female=16, H3 ALMI male=6.2 / female=4.7, with other constructs at mid favorable knots) |
-| Metrics | absolute contribution; marginal contribution; dominant; adverse-hide boolean if any construct < 40 while aggregate ≥ 70 |
+| Also evaluate | P-01…P-12 |
+| Health favorable companions | WHtR `0.40`; FMI male `5.5` / female `8.5`; ALMI male `8.0` / female `6.3` |
+| Health adverse | WHtR `0.80`; FMI male `15.0` / female `21.0`; ALMI male `6.0` / female `4.5` |
+| Perf favorable | FFMI male `20.5` / female `17.5`; FMI male `7.0` / female `10.0` |
+| Perf adverse | FFMI male `16.0` / female `14.0`; FMI male `16.0` / female `22.0` |
+| Exact combinations | (1) each single adverse construct + all other companions favorable; (2) dual adverse pairs for Health H1+H2, H1+H3, H2+H3 and Perf P1+P3 |
+| Metrics | absolute/marginal/dominant contribution; adverse-hide if any construct `<40` while aggregate `≥70` |
+| Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | exploratory |
 | PHI | none |
 
@@ -1708,11 +1794,14 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 
 | Item | Frozen |
 |------|--------|
-| Models | A and B required |
-| ρ grid | §23.6 |
-| MC | §23.3 |
+| Models | A + B (§23.7) |
+| Pairs | FM↔FFM and FFM↔ALM only |
+| ρ | common ρ per run; grid §23.6 |
+| Construction | §23.7.3 |
+| MC / seed / draw order | §23.3 / §23.2 |
 | Baselines | P-01…P-12 |
-| Outputs | joint vs independent-height ablation (independent-height ablation is diagnostic only and must be labeled non-compliant vs production methodology); p90/p95; construct shares |
+| Outputs | tails; construct shares; document `corr(FM,ALM)=rho^2`; optional labeled non-compliant independent-height ablation |
+| Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | exploratory / evidence-dependent |
 | PHI | none |
 
@@ -1721,10 +1810,9 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 | Item | Frozen |
 |------|--------|
 | Chain | measurement→index→construct→aggregate |
-| Intervals/quantiles/thresholds | §23.8 |
-| MC | §23.3 |
-| Models | A and B |
-| Product bands | **none** |
+| Intervals/thresholds | §23.8 |
+| Models / MC | A+B / §23.3 |
+| Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | exploratory / evidence-dependent |
 | PHI | none |
 
@@ -1732,30 +1820,52 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 
 | Item | Frozen |
 |------|--------|
-| Procedure | §23.12 |
-| Outputs | invariance tables; max \|Δ\| |
-| Class | structural invariant |
+| Procedure / levels | §23.12 |
+| Artifacts | `results.json`, `results.csv`, `summary.md`, `manifest.json` |
+| Class | structural |
 | PHI | none |
 
 #### BCV-032A — Change-triad methodology audit
 
 | Item | Frozen |
 |------|--------|
-| Method | Docs/analysis using BCV-029/030 envelopes; define candidate SDC formulas; assert triad non-equivalence in text+tables |
-| Must produce | triad checklist; candidate SDC from SEM-style mapping; explicit unresolved flags for clinical and user-perceived thresholds |
-| Must not | freeze acceptance numbers; run Tier B |
-| Class | structural invariant (definitions) + exploratory (candidates) |
+| Method | analysis of BCV-029/030 envelopes; triad non-equivalence checklist; candidate SDC formulas; unresolved clinical/user-perceived flags |
+| Artifacts | `results.json`, `summary.md`, `manifest.json` |
+| Class | structural + exploratory |
 | PHI | none |
 
 #### BCV-034 — Acute-state simulation
 
 | Item | Frozen |
 |------|--------|
-| Baseline | P-01, P-08, P-11, P-12 |
-| Scenario matrix (multipliers on ER-BC-16 placeholders; if unavailable use normalized exploratory deltas below) | see table |
-| Exploratory default deltas (labeled non-empirical) | FFM ±{0.5,1.0,1.5} kg; ALM ±{0.3,0.6,0.9} kg; optional Waist ±{1,2} cm; Weight metadata only (non-scoring) ±{0.5,1.0,1.5} kg |
-| Scenarios | hydration↑; hydration↓; glycogen↑; glycogen↓; recent exercise; illness/inflammation; edema; menstrual-phase (female baselines only); morning vs evening TOD label (metadata + apply TOD delta set = hydration↓ exploratory) |
-| Outputs | construct/aggregate Δ; false-improvement rate vs baseline; artifact-vs-biology label column |
+| Baselines | P-01, P-08, P-11, P-12 |
+| Waist | included **only** when scenario ΔWaist ≠ 0 below; otherwise unchanged — **no optional Waist** |
+| Weight | metadata only; do not infer FM from FFM; do not alter FMI unless FM explicitly changed (Wave 1 matrix does not change FM) |
+| Label | synthetic fallback perturbations — **not** empirical; ER-BC-16 may later replace |
+
+Exact scenario → delta matrix:
+
+| Scenario | ΔFFM (kg) | ΔALM (kg) | ΔWaist (cm) |
+|----------|-----------|-----------|-------------|
+| BASE | 0 | 0 | 0 |
+| HYDRATION_DOWN | -1.0 | -0.6 | -1.0 |
+| HYDRATION_UP | +1.0 | +0.6 | +1.0 |
+| GLYCOGEN_DOWN | -0.5 | -0.3 | 0 |
+| GLYCOGEN_UP | +0.5 | +0.3 | 0 |
+| RECENT_EXERCISE | +0.5 | +0.3 | 0 |
+| ILLNESS_INFLAMMATION | +1.0 | +0.6 | +1.0 |
+| EDEMA | +1.5 | +0.9 | +2.0 |
+| MENSTRUAL_PHASE_LOW | 0 | 0 | 0 |
+| MENSTRUAL_PHASE_HIGH | +0.5 | +0.3 | +1.0 |
+| TOD_MORNING | 0 | 0 | 0 |
+| TOD_EVENING | +0.5 | +0.3 | +1.0 |
+
+Menstrual scenarios: female baselines only (P-11, P-12). Recompute FFMI/ALMI from perturbed FFM/ALM with Height held fixed; recompute WHtR when ΔWaist ≠ 0.
+
+| Item | Frozen |
+|------|--------|
+| Outputs | construct/aggregate Δ; false-improvement vs BASE; artifact-vs-biology label |
+| Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | exploratory / evidence-dependent |
 | PHI | none |
 
@@ -1763,24 +1873,24 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 
 ### 23.14 Zero-ambiguity table (Wave 1 P0)
 
-| BCV | Exact input domain | Grid/MC | Epsilon | Noise model | Seed | Dependencies | Outputs | Artifact | Interpretation class | PHI |
-|-----|--------------------|---------|---------|-------------|------|--------------|---------|----------|----------------------|-----|
-| 001 | §23.5 | grid | NUM+SURF | none | N/A | freeze SHAs | continuity/slopes/occupancy | CSV+MD(+plots) | structural+exploratory | none |
-| 002 | personas | MC §23.3 | n/a | A+B + σ multipliers | §23.2 | ER-01/02/17 or fallback | \|Δ\| quantiles; crossings | JSON/CSV+MD | exploratory/evid-dep | none |
-| 006 | P-01 ages | grid ages | NUM | none | N/A | adult gate | invariance Δ | CSV+MD | structural | none |
-| 007 | sex grids | grid | NUM+SURF | none | N/A | sex transforms | dist/floor/sens | CSV+MD | structural+exploratory | none |
-| 012 | personas+knots | FD steps | SURF | diagnostic n=10k | §23.2 | 001 | slopes/sens/dominant | CSV+MD(+plots) | exploratory | none |
-| 013 | knots | knot±eps | NUM+SURF | none | N/A | freeze knots | L/K/R values&slopes | CSV+MD | structural | none |
-| 014 | §23.5 coarse | grid | n/a | none | N/A | 001 | floor/near/ceil % | CSV+MD | exploratory | none |
-| 015 | missing×status | combinatorial | n/a | none | N/A | reason freeze | reasons/status | JSON+MD | structural+exploratory | none |
-| 016 | S-01…S-15 | schedule catalog | n/a | none | N/A | recency freeze | eligibility/reasons | JSON+MD | structural | none |
-| 017 | P-01…P-12 | persona table | n/a | none | N/A | — | scores/patterns | JSON+MD | exploratory | none |
-| 018 | personas+hide set | fixed cases | n/a | none | N/A | weights freeze | contributions/hide | JSON+MD | exploratory | none |
-| 029 | personas | MC §23.3 | n/a | A+B + ρ grid | §23.2 | ER-17 or fallback | joint vs ablation; tails | JSON/CSV+MD | exploratory/evid-dep | none |
-| 030 | personas | MC §23.3 | n/a | A+B | §23.2 | 029 | intervals/quantiles/thresholds | JSON/CSV+MD | exploratory/evid-dep | none |
-| 031 | §23.12 | structural grids | NUM | none | N/A | 006/007 | invariance tables | CSV+MD | structural | none |
-| 032A | 029/030 outputs | analysis | n/a | inherited | inherits | ER-13 | triad checklist+candidates | MD+JSON | structural+exploratory | none |
-| 034 | P-01/08/11/12 | scenario matrix | n/a | acute deltas | §23.2 | ER-16 or fallback | Δscore; false-improve | JSON+MD | exploratory/evid-dep | none |
+| BCV | Domain | Grid/MC | Epsilon | Noise | Seed | Outputs | Artifacts | Class | PHI |
+|-----|--------|---------|---------|-------|------|---------|-----------|-------|-----|
+| 001 | §23.5.3–4 | 1D+2D | NUM+SURF | none | N/A | continuity/slopes | json+csv+md+manifest | structural+expl | none |
+| 002 | personas | MC §23.3 | n/a | A+B | §23.2 | \|Δ\|/rates | json+md+manifest | expl/evid | none |
+| 006 | ages | grid | NUM | none | N/A | invariance | json+csv+md+manifest | structural | none |
+| 007 | sex anchors | grid | NUM | none | N/A | transform contrasts | json+csv+md+manifest | structural+expl | none |
+| 012 | centers+personas | FD+signs | SURF | n/a | §23.2 | sens/norm sens | json+csv+md+manifest | expl | none |
+| 013 | knots/plateaus | ±eps | NUM+SURF | none | N/A | L/K/R/width | json+csv+md+manifest | structural | none |
+| 014 | §23.5 coarse | grid | n/a | none | N/A | floor/ceil % | json+csv+md+manifest | expl | none |
+| 015 | missing×status | combo | n/a | none | N/A | reasons | json+md+manifest | structural+expl | none |
+| 016 | S-01…S-15 | catalog | n/a | none | N/A | eligibility | json+md+manifest | structural | none |
+| 017 | P-01…P-12 | table | n/a | none | N/A | patterns | json+md+manifest | expl | none |
+| 018 | companion anchors | fixed combos | n/a | none | N/A | hide flags | json+md+manifest | expl | none |
+| 029 | personas | MC | n/a | A+B pairs | §23.2 | tails/corr | json+md+manifest | expl/evid | none |
+| 030 | personas | MC | n/a | A+B | §23.2 | intervals/rates | json+md+manifest | expl/evid | none |
+| 031 | §23.12 | levels | NUM | none | N/A | invariance | json+csv+md+manifest | structural | none |
+| 032A | 029/030 | analysis | n/a | inherits | inherits | triad checklist | json+md+manifest | structural+expl | none |
+| 034 | P-01/08/11/12 | scenario matrix | n/a | §23.13 | §23.2 | Δscore | json+md+manifest | expl/evid | none |
 
 ---
 
@@ -1788,20 +1898,18 @@ Base eligible subject: P-01 demographics/indices with construct inputs as listed
 
 | Choice | Remaining? |
 |--------|------------|
-| N / stopping rule | **NO** — §23.3 |
-| Seed / PRNG | **NO** — §23.2 |
-| Domain / grid / step | **NO** — §23.5 |
-| Epsilon | **NO** — §23.4 |
-| Persona values | **NO** — §23.10 |
-| Schedules | **NO** — §23.11 |
-| Covariance mode | **NO** — both A and B + ρ grid |
-| Interval set | **NO** — §23.8 |
-| Threshold set | **NO** — exploratory 10…90; no product bands |
-| Output metrics | **NO** — per-BCV |
-| Artifacts / manifest | **NO** — §23.9 |
+| MC N / convergence / quantile SE | **NO** — §23.3 |
+| Seed / PRNG / Gaussian / stream / draw order | **NO** — §23.2 |
+| Grid geometry / held-fixed anchors | **NO** — §23.5 |
+| Sensitivity centers / normalization / signs | **NO** — BCV-012 |
+| Plateau bounds / widths | **NO** — BCV-013 |
+| Sex-matched / fairness labels | **NO** — §23.12 |
+| Covariance pairs / rho application / construction | **NO** — §23.7 |
+| Acute-state deltas / Waist inclusion | **NO** — BCV-034 |
+| Artifacts / manifest / root | **NO** — §23.9 |
 | Parameter fallback | **NO** — §23.6 |
 
-If any answer becomes YES after review, Wave 1 zero-ambiguity is **not** closed.
+**Total material methodology choices remaining for Wave 1 execution engineer: 0.**
 
 ---
 
@@ -1880,7 +1988,7 @@ No path auto-authorizes consumer integration or public scores. Synthetic alone c
 | Item | Status |
 |------|--------|
 | Private validation plan methodology | **COMPLETE / PENDING INDEPENDENT RE-GATE** |
-| Wave 1 zero-ambiguity | **CLOSED in docs** (pending independent confirmation) |
+| Wave 1 protocol zero-ambiguity | **CLOSED in docs** (pending independent confirmation) |
 | Wave 1 execution | **NOT AUTHORIZED** |
 | Tier B | **NOT AUTHORIZED** |
 | Validation execution | **NOT STARTED** |
@@ -1888,7 +1996,7 @@ No path auto-authorizes consumer integration or public scores. Synthetic alone c
 | Consumer integration | **NOT AUTHORIZED** |
 | Public Health / Performance-Supporting | **NO-GO** |
 
-**Next action:** open a **new independent methodology reviewer** against the new SHA focusing on Wave 1 zero-ambiguity, catalog consistency, decision-register count, numeric personas, schedules, MC/grid/epsilon, covariance default, interval/threshold handling, and BCV-032A/B membership. Only after **PASS** + explicit **WAVE 1 AUTHORIZED** may synthetic execution begin.
+**Next action:** open a **new independent methodology reviewer** against the new SHA focusing on the previously remaining 8 protocol ambiguities (Model B pairs/rho/draws; MC quantile SE; PRNG/Gaussian/streams; BCV-001 geometry; BCV-012 centers/normalization/signs; BCV-007/031 anchors/labels; BCV-034 scenario matrix; BCV-013/018 plateaus/companions), plus no new ambiguity and catalog/count consistency. Only after **PASS** + explicit **WAVE 1 AUTHORIZED** may synthetic execution begin.
 
 ---
 
