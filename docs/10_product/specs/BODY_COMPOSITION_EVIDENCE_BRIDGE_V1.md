@@ -24,7 +24,7 @@ EXPLICIT DETERMINISTIC INDEX HELPERS (BMI / WHtR / FMI / FFMI / ALMI)
         ↓
 Evidence Resolver               ← implemented separately (draft v1; scientific re-gate PASS at 3ae4737b…; docs freeze pending; not in this bridge module)
         ↓
-FUTURE Assessment Confidence    ← BLOCKED
+ASSESSMENT CONFIDENCE           ← implemented · pending independent re-gate
         ↓
 FUTURE Health / Performance Composition scores ← BLOCKED
 ```
@@ -147,7 +147,7 @@ The bridge **does not** auto-select cross-source inputs or emit these indices au
 ## Boundaries (forbidden in this module)
 
 - Evidence Resolver / best-current selector (**IMPLEMENTED** as a separate pure-domain module at approved SHA `3ae4737b…`; must not be smuggled into this bridge module)
-- Assessment Confidence results (**BLOCKED**)
+- Assessment Confidence results (separate pure domain; see `BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1.md`)
 - Health Composition / Performance Composition scores (**BLOCKED**)
 - Weights, thresholds, status bands
 - Writing scan facts into Weight / Body Fat / Lean continuous trends or `dailyFacts`

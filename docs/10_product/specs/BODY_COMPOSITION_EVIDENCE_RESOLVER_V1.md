@@ -4,7 +4,8 @@
 **Resolver version:** `body_composition_resolver_draft_v1`
 **Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze + Resolver V1 truth freeze
 **Not:** clinically validated · production calibrated · score validated
-**Assessment Confidence / composition scores:** **BLOCKED**
+**Assessment Confidence:** implementation completed / pending independent re-gate (`BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1.md`)
+**Composition scores:** **STILL BLOCKED** · public numeric scores **NOT READY**
 
 ---
 
@@ -30,9 +31,9 @@ CANONICAL EVIDENCE BRIDGE
        ↓
 EVIDENCE RESOLVER  ← this document
        ↓
-FUTURE Assessment Confidence   (BLOCKED)
+ASSESSMENT CONFIDENCE          (implemented · pending independent re-gate)
        ↓
-FUTURE Health / Performance score engines  (BLOCKED)
+FUTURE Health / Performance score engines  (STILL BLOCKED)
 ```
 
 ---
@@ -261,8 +262,8 @@ Resolver returns `policy_not_frozen` / `multiple_valid` / `threshold_not_frozen`
 
 | Capability | State |
 |------------|-------|
-| Evidence Resolver | **IMPLEMENTED** · scientific re-gate **PASS** · docs freeze **pending independent docs review** |
-| Assessment Confidence | **BLOCKED** until Resolver docs freeze re-gate PASS |
+| Evidence Resolver | **IMPLEMENTED** · scientific re-gate **PASS** · docs freeze re-gate **PASS** |
+| Assessment Confidence | **implementation completed / pending independent re-gate** |
 | Health Composition score | **STILL BLOCKED** |
 | Performance Composition score | **STILL BLOCKED** |
 | Public numeric scores | **NOT READY** |

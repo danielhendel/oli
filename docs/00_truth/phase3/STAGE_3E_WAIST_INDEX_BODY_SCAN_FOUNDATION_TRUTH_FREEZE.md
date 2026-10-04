@@ -144,7 +144,7 @@ Pagination honesty: physical confirmation covers history list scroll, footer/end
 | Phase | Status |
 |-------|--------|
 | **Evidence Resolver** | **IMPLEMENTED** · scientific re-gate **PASS** at `3ae4737b8212fa5479fa1f621028e32ad7ab5757` · docs freeze pending independent review — `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md` |
-| Assessment Confidence | **BLOCKED** until Resolver docs freeze re-gate PASS |
+| Assessment Confidence | **implementation completed / pending independent re-gate** |
 | Health Composition score (0–100) | **STILL BLOCKED** |
 | Performance Composition score (0–100) | **STILL BLOCKED** |
 

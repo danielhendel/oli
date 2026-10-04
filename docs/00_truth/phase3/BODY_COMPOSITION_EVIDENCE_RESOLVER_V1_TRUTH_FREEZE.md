@@ -50,7 +50,7 @@ A subsequent docs-only Resolver truth-freeze commit records this approved runtim
 | Capability | Status |
 |------------|--------|
 | Body Composition Evidence Resolver V1 | **IMPLEMENTED** · independent scientific re-gate **PASS** · docs truth freeze **pending independent docs review** |
-| Assessment Confidence | **BLOCKED** until this docs freeze passes independent review |
+| Assessment Confidence | **implementation completed / pending independent re-gate** (authorized after this Resolver docs freeze re-gate PASS) |
 | Health Composition score (0–100) | **STILL BLOCKED** |
 | Performance Composition score (0–100) | **STILL BLOCKED** |
 | Public numeric scores | **NOT READY** |
@@ -73,7 +73,7 @@ CANONICAL EVIDENCE BRIDGE
        ↓
 EVIDENCE RESOLVER V1  ← this freeze
        ↓
-FUTURE Assessment Confidence   (BLOCKED)
+ASSESSMENT CONFIDENCE          (implemented · pending independent re-gate)
        ↓
 FUTURE Health / Performance score engines  (BLOCKED)
 ```
@@ -383,11 +383,11 @@ Resolver output is recomputed from current evidence. Source correction/deletion 
 
 ## 15. Assessment Confidence boundary (frozen)
 
-Assessment Confidence: **NOT IMPLEMENTED** · **BLOCKED** until this docs freeze passes independent review.
+Assessment Confidence: **implementation completed / pending independent re-gate** after this Resolver docs freeze re-gate PASS. Spec: `docs/10_product/specs/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1.md`.
 
-Resolver contains no Limited/Moderate/Good/Strong label, confidence number/percentage, quality coefficient, device coefficient, or method-quality result.
+Resolver itself contains no Limited/Moderate/Good/Strong label, confidence number/percentage, quality coefficient, device coefficient, or method-quality result.
 
-Resolver may provide factual selection metadata for a future Confidence phase without computing Confidence.
+Resolver provides factual selection metadata consumed by the separate Confidence domain layer; Resolver does not compute Confidence labels or scores.
 
 ---
 
