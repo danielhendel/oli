@@ -24,7 +24,7 @@ EXPLICIT DETERMINISTIC INDEX HELPERS (BMI / WHtR / FMI / FFMI / ALMI)
         ↓
 Evidence Resolver               ← implemented separately (draft v1; scientific re-gate PASS at 3ae4737b…; docs freeze re-gate PASS; not in this bridge module)
        ↓
-ASSESSMENT CONFIDENCE           ← implementation PASS · docs freeze pending independent docs review
+ASSESSMENT CONFIDENCE           ← implementation PASS · docs truth-freeze re-gate PASS at d2b0b3ab…
        ↓
 FUTURE Health / Performance Composition scores ← STILL BLOCKED
 ```

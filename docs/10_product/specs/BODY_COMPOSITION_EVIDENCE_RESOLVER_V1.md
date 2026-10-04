@@ -4,7 +4,7 @@
 **Resolver version:** `body_composition_resolver_draft_v1`
 **Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze + Resolver V1 truth freeze
 **Not:** clinically validated · production calibrated · score validated
-**Assessment Confidence:** implementation **PASS** at `dc506bbe…` · independent re-gate **PASS** · docs truth freeze **pending independent docs review** (`BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`)
+**Assessment Confidence:** implementation **PASS** at `dc506bbe…` · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`)
 **Composition scores:** **STILL BLOCKED** · public numeric scores **NOT READY**
 
 ---
@@ -31,7 +31,7 @@ CANONICAL EVIDENCE BRIDGE
        ↓
 EVIDENCE RESOLVER  ← this document
        ↓
-ASSESSMENT CONFIDENCE          (implementation PASS · docs freeze pending independent docs review)
+ASSESSMENT CONFIDENCE          (implementation PASS · docs truth-freeze re-gate PASS at d2b0b3ab…)
        ↓
 FUTURE Health / Performance score engines  (STILL BLOCKED)
 ```
@@ -263,7 +263,7 @@ Resolver returns `policy_not_frozen` / `multiple_valid` / `threshold_not_frozen`
 | Capability | State |
 |------------|-------|
 | Evidence Resolver | **IMPLEMENTED** · scientific re-gate **PASS** · docs freeze re-gate **PASS** |
-| Assessment Confidence | **implementation PASS** · independent re-gate **PASS** · docs truth freeze **pending independent docs review** |
+| Assessment Confidence | **implementation PASS** · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` |
 | Health Composition score | **STILL BLOCKED** |
 | Performance Composition score | **STILL BLOCKED** |
 | Public numeric scores | **NOT READY** |

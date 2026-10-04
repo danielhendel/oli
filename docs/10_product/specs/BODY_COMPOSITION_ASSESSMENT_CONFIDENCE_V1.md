@@ -1,6 +1,6 @@
 # Body Composition Assessment Confidence V1
 
-**Status:** Implementation **PASS** · independent policy/data/value re-gate **PASS** · docs-only truth freeze **pending independent docs review**
+**Status:** Implementation **PASS** · independent policy/data/value re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8`
 **Implementation SHA:** `dc506bbe6881637f8025af842974df41afdef3ab`
 **Docs-consistency SHA:** `caa9cb4336aebac0df3812705ecdf3d36a11fef0` (docs/whitespace only; runtime unchanged)
 **Confidence version:** `body_composition_assessment_confidence_draft_v1`
@@ -10,8 +10,8 @@
 **Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze + Resolver V1 truth freeze + Confidence V1 truth freeze
 **Not:** clinically validated · production calibrated · score validated
 **Independent implementation re-gate:** **PASS**
-**Confidence docs truth freeze:** **pending independent docs review**
-**Health / Performance Composition scores:** **STILL BLOCKED** (score-engine planning blocked until Confidence docs re-gate PASS)
+**Confidence docs truth freeze:** **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8`
+**Health / Performance Composition scores:** implementation **STILL BLOCKED**; Dual Score planning freeze **WRITTEN** (engines CONDITIONAL GO pending independent planning/spec PASS)
 **Public numeric scores:** **NOT READY**
 
 ---
@@ -52,7 +52,7 @@ CANONICAL EVIDENCE BRIDGE
        ↓
 EVIDENCE RESOLVER
        ↓
-ASSESSMENT CONFIDENCE  ← this document (implementation PASS · docs freeze pending independent docs review)
+ASSESSMENT CONFIDENCE  ← this document (implementation PASS · docs truth-freeze re-gate PASS at d2b0b3ab…)
        ↓
 FUTURE Health / Performance score engines  (STILL BLOCKED)
 ```
@@ -332,7 +332,7 @@ Current phase status:
 |------|-------|
 | Implementation | **PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` |
 | Independent implementation re-gate | **PASS** |
-| Confidence docs truth freeze | **pending independent docs review** (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`) |
+| Confidence docs truth freeze | **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`) |
 | Health / Performance Composition score planning | **BLOCKED** until Confidence docs re-gate PASS |
 | Health / Performance Composition score implementation | **STILL BLOCKED** |
 | Public numeric scores | **NOT READY** |

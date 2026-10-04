@@ -51,9 +51,9 @@ A subsequent docs-only Confidence truth-freeze commit records this approved impl
 | Body Composition Evidence Resolver V1 | **IMPLEMENTED** · scientific re-gate **PASS** · docs truth-freeze re-gate **PASS** |
 | Assessment Confidence implementation | **PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` |
 | Assessment Confidence independent policy/data/value re-gate | **PASS** |
-| Assessment Confidence docs-only truth freeze | **THIS DOCUMENT** · pending independent docs review |
-| Health Composition score (0–100) | **STILL BLOCKED** |
-| Performance Composition score (0–100) | **STILL BLOCKED** |
+| Assessment Confidence docs-only truth freeze | **THIS DOCUMENT** · independent docs re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` |
+| Health Composition score (0–100) | **STILL BLOCKED** (implementation; planning freeze written) |
+| Performance Composition score (0–100) | **STILL BLOCKED** (implementation; planning freeze written) |
 | Public numeric scores | **NOT READY** |
 | Confidence UI | **NOT IMPLEMENTED** |
 | Confidence persistence | **NOT IMPLEMENTED** |
@@ -505,7 +505,7 @@ Confidence is runtime-derived.
 
 No: construct score · score weights · transforms · dampening · thresholds · cut points · 0–100 · public score UI · disease-risk probability · performance classification.
 
-Score-engine planning remains **blocked until this Confidence docs truth-freeze re-gate PASS**.
+Score-engine planning is **AUTHORIZED** after this Confidence docs truth-freeze re-gate **PASS**. Dual Score scientific spec + decision freeze: `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_SPEC_V1.md` · `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_DECISION_FREEZE_V1.md`. Score **implementation** remains **STILL BLOCKED** until independent planning/spec PASS.
 
 ---
 
@@ -587,11 +587,13 @@ ASSESSMENT CONFIDENCE IMPLEMENTATION PASS (dc506bbe…)
         ↓
 ASSESSMENT CONFIDENCE INDEPENDENT RE-GATE PASS
         ↓
-ASSESSMENT CONFIDENCE DOCS-ONLY TRUTH FREEZE  ← this document (pending independent docs re-gate)
+ASSESSMENT CONFIDENCE DOCS-ONLY TRUTH FREEZE RE-GATE PASS (d2b0b3ab…)
         ↓
-SCORE-ENGINE PLANNING — BLOCKED until Confidence docs re-gate PASS
+SCORE-ENGINE PLANNING — AUTHORIZED · Dual Score scientific spec + decision freeze WRITTEN
         ↓
-HEALTH / PERFORMANCE COMPOSITION SCORE IMPLEMENTATION — STILL BLOCKED
+INDEPENDENT PLANNING/SPEC REVIEW — REQUIRED before any score code
+        ↓
+HEALTH / PERFORMANCE COMPOSITION SCORE IMPLEMENTATION — STILL BLOCKED (CONDITIONAL GO after planning PASS; draft flag only)
 ```
 
 ---

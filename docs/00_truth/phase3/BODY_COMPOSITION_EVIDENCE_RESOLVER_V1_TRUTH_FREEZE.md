@@ -50,7 +50,7 @@ A subsequent docs-only Resolver truth-freeze commit records this approved runtim
 | Capability | Status |
 |------------|--------|
 | Body Composition Evidence Resolver V1 | **IMPLEMENTED** · independent scientific re-gate **PASS** · docs truth-freeze re-gate **PASS** |
-| Assessment Confidence | **implementation PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` · independent re-gate **PASS** · docs truth freeze **pending independent docs review** (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`) |
+| Assessment Confidence | **implementation PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`) |
 | Health Composition score (0–100) | **STILL BLOCKED** |
 | Performance Composition score (0–100) | **STILL BLOCKED** |
 | Public numeric scores | **NOT READY** |
@@ -73,7 +73,7 @@ CANONICAL EVIDENCE BRIDGE
        ↓
 EVIDENCE RESOLVER V1  ← this freeze
        ↓
-ASSESSMENT CONFIDENCE          (implementation PASS · docs freeze pending independent docs review)
+ASSESSMENT CONFIDENCE          (implementation PASS · docs truth-freeze re-gate PASS at d2b0b3ab…)
        ↓
 FUTURE Health / Performance score engines  (STILL BLOCKED)
 ```
@@ -389,7 +389,7 @@ Resolver output is recomputed from current evidence. Source correction/deletion 
 
 - Assessment Confidence **implementation PASS** at `dc506bbe6881637f8025af842974df41afdef3ab`
 - Independent Confidence re-gate: **PASS**
-- Confidence docs truth freeze: **pending independent docs review** — `docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`
+- Confidence docs truth freeze: **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` — `docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`
 - Spec: `docs/10_product/specs/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1.md`
 
 Resolver itself contains no Limited/Moderate/Good/Strong label, confidence number/percentage, quality coefficient, device coefficient, or method-quality result.
@@ -489,11 +489,13 @@ ASSESSMENT CONFIDENCE IMPLEMENTATION — PASS (dc506bbe…)
         ↓
 ASSESSMENT CONFIDENCE INDEPENDENT RE-GATE — PASS
         ↓
-CONFIDENCE DOCS TRUTH FREEZE — pending independent docs review
+CONFIDENCE DOCS TRUTH FREEZE — PASS at d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8
         ↓
-SCORE-ENGINE PLANNING — BLOCKED until Confidence docs re-gate PASS
+SCORE-ENGINE PLANNING — AUTHORIZED · Dual Score scientific spec + decision freeze WRITTEN
         ↓
-DRAFT HEALTH / PERFORMANCE SCORE ENGINES — STILL BLOCKED
+INDEPENDENT PLANNING/SPEC REVIEW — REQUIRED before any score code
+        ↓
+DRAFT HEALTH / PERFORMANCE SCORE ENGINES — STILL BLOCKED (CONDITIONAL GO after planning PASS)
 ```
 
 ---
@@ -503,5 +505,7 @@ DRAFT HEALTH / PERFORMANCE SCORE ENGINES — STILL BLOCKED
 - Resolver product spec: `docs/10_product/specs/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1.md`
 - Evidence Bridge: `docs/10_product/specs/BODY_COMPOSITION_EVIDENCE_BRIDGE_V1.md`
 - Foundation freeze: `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md`
+- Dual Score scientific spec: `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_SPEC_V1.md`
+- Dual Score decision freeze: `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_DECISION_FREEZE_V1.md`
 - Progress map: `docs/00_truth/REPO_TRUTH_PROGRESS_MAP.md`
 - Roadmap: `docs/10_product/roadmap/ROADMAP_REALITY.md`
