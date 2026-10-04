@@ -10,8 +10,8 @@
 |----------|-------|
 | Health engine version | `body_composition_health_score_draft_v1` |
 | Performance-Supporting engine version | `body_composition_performance_supporting_score_draft_v1` |
-| Health internal draft engine | **IMPLEMENTED / PENDING INDEPENDENT IMPLEMENTATION RE-GATE** |
-| Performance-Supporting internal draft engine | **IMPLEMENTED / PENDING INDEPENDENT IMPLEMENTATION RE-GATE** |
+| Health internal draft engine | **READY FOR INDEPENDENT RE-GATE** (Defect A/B correction applied) |
+| Performance-Supporting internal draft engine | **READY FOR INDEPENDENT RE-GATE** (Defect A/B correction applied) |
 | Public Health | **NO-GO** |
 | Public Performance-Supporting | **NO-GO** |
 | Persistence | **None** |
@@ -124,6 +124,25 @@ Construct `primaryReason` preserves root cause. Aggregate `primaryReason` uses e
 
 `public_release_not_authorized` applies only to a public-surface gate after an otherwise-valid internal calculation. This phase has no public exposure path.
 
+### 6.1 Aggregate measuredAt integrity (§4.2 rank 3)
+
+Construct evaluation returns explicit `measuredAtIntegrity: "valid" | "invalid"`.
+
+- `"invalid"` when a required scoring observation for that construct has missing / malformed / non-finite `measuredAt`, or Resolver construct status is `undated_only`.
+- Aggregate rank 3 uses these flags mechanically — **not** by re-deriving from filtered finite timestamp arrays.
+- Rank 3 (`invalid_provenance`) wins before rank 7 missing-core reasons (`incomplete_health_composition` / `insufficient_core_constructs`).
+- Future / stale remain distinct (`future_evidence` / `evidence_too_old`) after rank 3 clears.
+
+### 6.2 H3 Resolver-primary-only (§12.1)
+
+Canonical primary representation: `construct.primaryEvidenceRefs[0]` on the approved Resolver construct result.
+
+- If that primary observation is ALMI and the ALMI channel is resolved → score ALMI.
+- If that primary observation is FFMI and the FFMI channel is resolved → score FFMI.
+- Otherwise → no H3 scoring channel (`unresolved_construct` unless a higher-precedence failure applies).
+
+The score layer must **not** search later refs, try ALMI then FFMI, or encode ALMI>FFMI.
+
 ---
 
 ## 7. Isolation mechanism
@@ -138,7 +157,7 @@ Score engines live only under `lib/data/body/evidence/scoring/` and are intentio
 
 | Topic | Status |
 |-------|--------|
-| Internal draft engines | Implemented (pending independent implementation re-gate) |
+| Internal draft engines | Defect A/B correction applied — **READY FOR INDEPENDENT RE-GATE** |
 | Public Health score | **NO-GO** |
 | Public Performance-Supporting score | **NO-GO** |
 | Persistence | None |

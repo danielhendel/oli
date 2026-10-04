@@ -90,4 +90,19 @@ describe("Dual Score invariants", () => {
       }
     }
   });
+
+  it("sources propagate measuredAtIntegrity and forbid H3 fallback selection", () => {
+    const dir = path.join(__dirname, "..");
+    const files = fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith(".ts") && !f.includes("__tests__") && f !== "testFixtures.ts");
+    const joined = files.map((f) => fs.readFileSync(path.join(dir, f), "utf8")).join("\n");
+    expect(joined).toMatch(/measuredAtIntegrity/);
+    expect(joined).toMatch(/MeasuredAtIntegrity/);
+    // H3 must read only primaryEvidenceRefs[0] — no ALMI-then-FFMI fallback blocks.
+    const channelLookup = fs.readFileSync(path.join(dir, "channelLookup.ts"), "utf8");
+    expect(channelLookup).toMatch(/primaryEvidenceRefs\[0\]/);
+    expect(channelLookup).not.toMatch(/primaryEvidenceRefs\.includes\(obs\.observationId\)/);
+    expect(channelLookup).not.toMatch(/try ALMI then FFMI|ALMI>FFMI|fallback/);
+  });
 });
