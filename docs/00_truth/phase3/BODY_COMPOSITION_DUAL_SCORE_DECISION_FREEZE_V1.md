@@ -182,7 +182,7 @@ DRAFT PRODUCT POLICY, not physiologic half-life.
 | Topic | Decision |
 |-------|----------|
 | Sex | Required H2/H3/P1/P3; H1 sex-independent |
-| Age | Adult ≥ 20; no age slope; fairness limitation; public blocked pending age-fairness |
+| Age | Adult ≥ 20 completed UTC years from DOB+asOf (math freeze §5.1; leap-day Mar 1); no age slope; fairness limitation; public blocked pending age-fairness |
 | Ethnicity | Unused in math; audit required |
 | Trend / smoothing | Forbidden in score |
 
