@@ -31,3 +31,10 @@ export {
   BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES,
   RESOLVER_POLICY_VERSION,
 } from "./resolver/policy";
+export { assessBodyCompositionConfidence } from "./confidence/assessBodyCompositionConfidence";
+export type { AssessBodyCompositionConfidenceInput } from "./confidence/assessBodyCompositionConfidence";
+export {
+  CONFIDENCE_POLICY_VERSION,
+  FROZEN_LABEL_RULE_COUNT,
+  LABEL_POLICY_STATE,
+} from "./confidence/policy";

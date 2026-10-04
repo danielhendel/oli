@@ -40,6 +40,9 @@ export * from "./bodyCompositionEvidence";
 // Body Composition Evidence Resolver (derived view; no confidence/scores)
 export * from "./bodyCompositionEvidenceResolver";
 
+// Body Composition Assessment Confidence (derived view; no scores / no UI)
+export * from "./bodyCompositionAssessmentConfidence";
+
 // Labs OS — extraction drafts, review, accepted structured results (Phase 3D-A)
 export * from "./labsOs";
 export * from "./labsVerification";
