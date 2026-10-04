@@ -1,10 +1,10 @@
 # Body Composition Evidence Resolver V1
 
-**Status:** Implementation completed · bounded defects R1–R5 closed · independent scientific/data-integrity re-gate **PASS** at `3ae4737b8212fa5479fa1f621028e32ad7ab5757` · docs truth freeze **pending independent docs review** (`docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md`)
+**Status:** Implementation completed · bounded defects R1–R5 closed · independent scientific/data-integrity re-gate **PASS** at `3ae4737b8212fa5479fa1f621028e32ad7ab5757` · docs truth freeze re-gate **PASS** at `49751716b450e6d05d607938e52624d29d680a1c` (`docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md`)
 **Resolver version:** `body_composition_resolver_draft_v1`
 **Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze + Resolver V1 truth freeze
 **Not:** clinically validated · production calibrated · score validated
-**Assessment Confidence:** implementation completed / pending independent re-gate (`BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1.md`)
+**Assessment Confidence:** implementation complete at `dc506bbe…` · **READY FOR NEW INDEPENDENT RE-GATE** (not PASS) · Confidence docs truth freeze **NOT STARTED** (`BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1.md`)
 **Composition scores:** **STILL BLOCKED** · public numeric scores **NOT READY**
 
 ---
@@ -31,7 +31,7 @@ CANONICAL EVIDENCE BRIDGE
        ↓
 EVIDENCE RESOLVER  ← this document
        ↓
-ASSESSMENT CONFIDENCE          (implemented · pending independent re-gate)
+ASSESSMENT CONFIDENCE          (implemented · READY FOR NEW INDEPENDENT RE-GATE · not PASS)
        ↓
 FUTURE Health / Performance score engines  (STILL BLOCKED)
 ```
@@ -263,7 +263,7 @@ Resolver returns `policy_not_frozen` / `multiple_valid` / `threshold_not_frozen`
 | Capability | State |
 |------------|-------|
 | Evidence Resolver | **IMPLEMENTED** · scientific re-gate **PASS** · docs freeze re-gate **PASS** |
-| Assessment Confidence | **implementation completed / pending independent re-gate** |
+| Assessment Confidence | **implementation complete** · **READY FOR NEW INDEPENDENT RE-GATE** · truth freeze **NOT STARTED** |
 | Health Composition score | **STILL BLOCKED** |
 | Performance Composition score | **STILL BLOCKED** |
 | Public numeric scores | **NOT READY** |

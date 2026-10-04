@@ -22,11 +22,11 @@ EXPLICIT DETERMINISTIC INDEX HELPERS (BMI / WHtR / FMI / FFMI / ALMI)
   — never auto-emitted by the bridge
   — legacy profile waist is not an automatic WHtR input
         ↓
-Evidence Resolver               ← implemented separately (draft v1; scientific re-gate PASS at 3ae4737b…; docs freeze pending; not in this bridge module)
-        ↓
-ASSESSMENT CONFIDENCE           ← implemented · pending independent re-gate
-        ↓
-FUTURE Health / Performance Composition scores ← BLOCKED
+Evidence Resolver               ← implemented separately (draft v1; scientific re-gate PASS at 3ae4737b…; docs freeze re-gate PASS; not in this bridge module)
+       ↓
+ASSESSMENT CONFIDENCE           ← implemented · READY FOR NEW INDEPENDENT RE-GATE · not PASS
+       ↓
+FUTURE Health / Performance Composition scores ← STILL BLOCKED
 ```
 
 ## Persistence strategy

@@ -1,11 +1,15 @@
 # Body Composition Assessment Confidence V1
 
-**Status:** Implementation completed on branch · pending independent Confidence re-gate  
-**Confidence version:** `body_composition_assessment_confidence_draft_v1`  
-**Resolver dependency:** `body_composition_resolver_draft_v1` (approved runtime ancestor `3ae4737b8212fa5479fa1f621028e32ad7ab5757`)  
-**Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze + Resolver V1 truth freeze  
-**Not:** clinically validated · production calibrated · score validated  
-**Health / Performance Composition scores:** **STILL BLOCKED**  
+**Status:** Implementation complete · **READY FOR NEW INDEPENDENT RE-GATE** (not PASS)
+**Implementation SHA:** `dc506bbe6881637f8025af842974df41afdef3ab`
+**Confidence version:** `body_composition_assessment_confidence_draft_v1`
+**Resolver dependency:** `body_composition_resolver_draft_v1` (approved runtime ancestor `3ae4737b8212fa5479fa1f621028e32ad7ab5757`)
+**Resolver docs truth-freeze SHA:** `49751716b450e6d05d607938e52624d29d680a1c` (**PASS**)
+**Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze + Resolver V1 truth freeze
+**Not:** clinically validated · production calibrated · score validated
+**Independent implementation re-gate:** prior report **FAIL** (documentation consistency + trailing whitespace only; no Confidence code/policy defect identified) · after docs correction = **READY FOR NEW INDEPENDENT RE-GATE** · independent PASS = **NOT YET**
+**Confidence docs truth freeze:** **NOT STARTED** · blocked until implementation re-gate PASS
+**Health / Performance Composition scores:** **STILL BLOCKED**
 **Public numeric scores:** **NOT READY**
 
 ---
@@ -30,7 +34,7 @@ Assessment Confidence does **not** answer:
 
 **Confidence in assessment ≠ favorable health result.**
 
-A poor future health result may have Strong Assessment Confidence.  
+A poor future health result may have Strong Assessment Confidence.
 A favorable-looking future result may have Limited or unassessable confidence.
 
 Parser/extraction candidate confidence is **not** Assessment Confidence and must never be reused as scientific confidence.
@@ -46,7 +50,7 @@ CANONICAL EVIDENCE BRIDGE
        ↓
 EVIDENCE RESOLVER
        ↓
-ASSESSMENT CONFIDENCE  ← this document
+ASSESSMENT CONFIDENCE  ← this document (implemented · READY FOR NEW INDEPENDENT RE-GATE · not PASS)
        ↓
 FUTURE Health / Performance score engines  (STILL BLOCKED)
 ```
@@ -194,7 +198,7 @@ Counts are factual metadata only. They must not be combined into an undisclosed 
 
 Input and output completeness remain `caller_supplied_partial`.
 
-Confidence must state that assessment is scoped to supplied evidence.  
+Confidence must state that assessment is scoped to supplied evidence.
 It must not claim all account evidence / all scans reviewed / account complete.
 
 Partial completeness does **not** automatically map to Limited (rule not frozen).
@@ -320,7 +324,17 @@ Fail closed where open.
 
 ## 19. Next gate
 
-Independent Confidence re-gate must review:
+Current phase status:
+
+| Gate | State |
+|------|-------|
+| Implementation | complete at `dc506bbe6881637f8025af842974df41afdef3ab` |
+| Independent implementation re-gate | prior FAIL (docs/whitespace only) · **READY FOR NEW INDEPENDENT RE-GATE** · PASS **NOT YET** |
+| Confidence docs truth freeze | **NOT STARTED** · blocked until implementation re-gate PASS |
+| Health / Performance Composition scores | **STILL BLOCKED** |
+| Public numeric scores | **NOT READY** |
+
+A new independent Confidence re-gate must review:
 
 - policy fidelity
 - label assignment / withholding
@@ -332,5 +346,8 @@ Independent Confidence re-gate must review:
 - duplicate/source-count behavior
 - no scoring
 - privacy / data integrity
+- docs consistency / `git diff --check`
 
-Only after independent Confidence PASS and its docs-only truth freeze may Health and Performance Composition score engines be separately planned.
+Do **not** create the Assessment Confidence truth-freeze document until that independent implementation re-gate returns PASS.
+
+Only after independent Confidence PASS and its subsequent docs-only truth freeze may Health and Performance Composition score engines be separately planned.

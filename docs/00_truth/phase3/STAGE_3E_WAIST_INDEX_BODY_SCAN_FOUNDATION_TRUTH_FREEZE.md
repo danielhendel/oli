@@ -120,9 +120,11 @@ Pagination honesty: physical confirmation covers history list scroll, footer/end
 
 ### C. Not exposed / not separately testable here
 
-- Public numeric Health / Performance Composition scores (not implemented)
-- Assessment Confidence (not implemented)
-- Evidence Resolver ranking / best-current selection (implemented at `3ae4737b…`; see Resolver truth freeze — not part of this foundation physical runtime)
+**Historical at foundation freeze SHA** (these were not part of the foundation physical runtime):
+
+- Public numeric Health / Performance Composition scores (not implemented at foundation freeze)
+- Assessment Confidence (not implemented at foundation freeze)
+- Evidence Resolver ranking / best-current selection (later implemented at `3ae4737b…`; see Resolver truth freeze — not part of this foundation physical runtime)
 - Controlled real personal DXA PDF committed to Git (forbidden)
 
 ---
@@ -134,25 +136,29 @@ Pagination honesty: physical confirmation covers history list scroll, footer/end
 - Controlled physical **real personal DXA PDF** into Git remains **forbidden**.
 - **RG-LEGAL-01** and **RG-SOURCE-PRIVACY-01** remain **OPEN**.
 - Export coverage / scalability gates remain **OPEN**.
-- Assessment Confidence remains **not implemented**.
-- Health Composition / Performance Composition scores remain **not implemented**.
+- Health Composition / Performance Composition scores remain **not implemented** / **STILL BLOCKED**.
+
+**Historical at foundation freeze:** Assessment Confidence was **not implemented** and remained blocked.
+
+**Current downstream status (supersedes historical Confidence/Resolver pending language below only where marked current):** see §5.
 
 ---
 
-## 5. Next-phase authorization
+## 5. Next-phase authorization (current)
 
 | Phase | Status |
 |-------|--------|
-| **Evidence Resolver** | **IMPLEMENTED** · scientific re-gate **PASS** at `3ae4737b8212fa5479fa1f621028e32ad7ab5757` · docs freeze pending independent review — `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md` |
-| Assessment Confidence | **implementation completed / pending independent re-gate** |
+| **Evidence Resolver** | **IMPLEMENTED** · scientific re-gate **PASS** at `3ae4737b8212fa5479fa1f621028e32ad7ab5757` · docs truth-freeze re-gate **PASS** at `49751716b450e6d05d607938e52624d29d680a1c` — `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md` |
+| Assessment Confidence | **implementation complete** at `dc506bbe6881637f8025af842974df41afdef3ab` · prior independent re-gate **FAIL** (docs consistency + whitespace only) · docs corrected in current descendant · **READY FOR NEW INDEPENDENT IMPLEMENTATION RE-GATE** · independent PASS **NOT YET** · Confidence docs truth freeze **NOT STARTED** |
 | Health Composition score (0–100) | **STILL BLOCKED** |
 | Performance Composition score (0–100) | **STILL BLOCKED** |
+| Public numeric scores | **NOT READY** |
 
-Foundation authorization remains: Resolver work must not reopen Waist protocol, deterministic index formulas, Evidence Bridge persistence strategy, Body Scan metric registry keys, category navigation order, filtered cursor pagination, mutation invalidation bus, or scroll-ownership architecture — unless a proven defect requires a bounded correction and a new physical gate.
+Foundation authorization remains: Resolver/Confidence work must not reopen Waist protocol, deterministic index formulas, Evidence Bridge persistence strategy, Body Scan metric registry keys, category navigation order, filtered cursor pagination, mutation invalidation bus, or scroll-ownership architecture — unless a proven defect requires a bounded correction and a new physical gate.
 
-The Evidence Resolver must **not** silently invent Assessment Confidence or either composition score.
+The Evidence Resolver must **not** silently invent Assessment Confidence or either composition score. Confidence must not invent scores.
 
-Phase sequence:
+Phase sequence (current):
 
 ```text
 FOUNDATION PHYSICALLY APPROVED (runtime e9397b35…)
@@ -161,11 +167,15 @@ DOCS TRUTH FREEZE (initial 0fabe472… + docs consistency corrections)
         ↓
 RESOLVER IMPLEMENTATION + SCIENTIFIC RE-GATE PASS (3ae4737b…)
         ↓
-RESOLVER DOCS-ONLY TRUTH FREEZE — pending independent docs re-gate
+RESOLVER DOCS-ONLY TRUTH FREEZE RE-GATE PASS (49751716…)
         ↓
-ASSESSMENT CONFIDENCE — BLOCKED until Resolver docs freeze PASS
+ASSESSMENT CONFIDENCE IMPLEMENTATION (dc506bbe…)
         ↓
-DRAFT HEALTH/PERFORMANCE SCORE ENGINES — BLOCKED
+ASSESSMENT CONFIDENCE — READY FOR NEW INDEPENDENT RE-GATE (not PASS)
+        ↓
+CONFIDENCE DOCS TRUTH FREEZE — NOT STARTED (blocked until implementation re-gate PASS)
+        ↓
+DRAFT HEALTH/PERFORMANCE SCORE ENGINES — STILL BLOCKED
 ```
 
 ---

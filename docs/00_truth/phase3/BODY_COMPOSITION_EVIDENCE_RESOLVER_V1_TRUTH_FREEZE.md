@@ -49,8 +49,8 @@ A subsequent docs-only Resolver truth-freeze commit records this approved runtim
 
 | Capability | Status |
 |------------|--------|
-| Body Composition Evidence Resolver V1 | **IMPLEMENTED** · independent scientific re-gate **PASS** · docs truth freeze **pending independent docs review** |
-| Assessment Confidence | **implementation completed / pending independent re-gate** (authorized after this Resolver docs freeze re-gate PASS) |
+| Body Composition Evidence Resolver V1 | **IMPLEMENTED** · independent scientific re-gate **PASS** · docs truth-freeze re-gate **PASS** |
+| Assessment Confidence | **implementation complete** at `dc506bbe6881637f8025af842974df41afdef3ab` · prior independent re-gate **FAIL** (docs/whitespace only) · **READY FOR NEW INDEPENDENT RE-GATE** · independent PASS **NOT YET** · Confidence docs truth freeze **NOT STARTED** |
 | Health Composition score (0–100) | **STILL BLOCKED** |
 | Performance Composition score (0–100) | **STILL BLOCKED** |
 | Public numeric scores | **NOT READY** |
@@ -73,9 +73,9 @@ CANONICAL EVIDENCE BRIDGE
        ↓
 EVIDENCE RESOLVER V1  ← this freeze
        ↓
-ASSESSMENT CONFIDENCE          (implemented · pending independent re-gate)
+ASSESSMENT CONFIDENCE          (implemented · READY FOR NEW INDEPENDENT RE-GATE · not PASS)
        ↓
-FUTURE Health / Performance score engines  (BLOCKED)
+FUTURE Health / Performance score engines  (STILL BLOCKED)
 ```
 
 | Property | Rule |
@@ -383,7 +383,15 @@ Resolver output is recomputed from current evidence. Source correction/deletion 
 
 ## 15. Assessment Confidence boundary (frozen)
 
-Assessment Confidence: **implementation completed / pending independent re-gate** after this Resolver docs freeze re-gate PASS. Spec: `docs/10_product/specs/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1.md`.
+**Historical at Resolver freeze SHA:** Assessment Confidence was authorized only after this Resolver docs freeze re-gate PASS and was not yet implemented in the Resolver freeze itself.
+
+**Current downstream status (superseded later progress):**
+
+- Assessment Confidence **implementation complete** at `dc506bbe6881637f8025af842974df41afdef3ab`
+- Prior independent Confidence re-gate **FAIL** (documentation consistency + trailing whitespace only; no Confidence code/policy defect identified)
+- After docs correction: **READY FOR NEW INDEPENDENT RE-GATE** · independent PASS **NOT YET**
+- Confidence docs truth freeze: **NOT STARTED** (blocked until implementation re-gate PASS)
+- Spec: `docs/10_product/specs/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1.md`
 
 Resolver itself contains no Limited/Moderate/Good/Strong label, confidence number/percentage, quality coefficient, device coefficient, or method-quality result.
 
@@ -461,6 +469,8 @@ Foundation physical runtime SHA `e9397b357642b45eef2a6a40c78217281b375d91` remai
 
 ## 20. Downstream authorization
 
+**Historical sequence at Resolver freeze authorship** (superseded by later phase progress where noted):
+
 ```text
 FOUNDATION PHYSICALLY APPROVED (runtime e9397b35…)
         ↓
@@ -468,11 +478,21 @@ FOUNDATION DOCS TRUTH FREEZE (ecbad2f0…)
         ↓
 RESOLVER IMPLEMENTATION + SCIENTIFIC RE-GATE PASS (3ae4737b…)
         ↓
-RESOLVER DOCS-ONLY TRUTH FREEZE  ← this document (pending independent docs re-gate)
+RESOLVER DOCS-ONLY TRUTH FREEZE  ← this document
+```
+
+**Current status (authoritative):**
+
+```text
+RESOLVER DOCS-ONLY TRUTH FREEZE RE-GATE — PASS (49751716…)
         ↓
-ASSESSMENT CONFIDENCE — BLOCKED until docs freeze re-gate PASS
+ASSESSMENT CONFIDENCE IMPLEMENTATION — complete (dc506bbe…)
         ↓
-DRAFT HEALTH / PERFORMANCE SCORE ENGINES — BLOCKED
+ASSESSMENT CONFIDENCE — READY FOR NEW INDEPENDENT RE-GATE (not PASS)
+        ↓
+CONFIDENCE DOCS TRUTH FREEZE — NOT STARTED
+        ↓
+DRAFT HEALTH / PERFORMANCE SCORE ENGINES — STILL BLOCKED
 ```
 
 ---
