@@ -3,10 +3,20 @@
 **Document type:** Scientific / product specification (draft_v1 math freeze)
 **Date:** 2026-10-04
 **Corrects independent review FAIL at:** `93f5960b98326b2de4116f08d2eb15564b321dc5`
+**Scientific blocker-correction SHA:** `6fa8cb22b5a90982057f27c68a27743c4103df47`
 **Companion freeze:** `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_DECISION_FREEZE_V1.md`
 **Review response:** `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_REVIEW_RESPONSE_V1.md`
+**Mathematical truth freeze:** `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md`
 **Model status:** `evidence_informed` — **not** `clinically_validated`
 **Scope:** Docs / scientific policy only. **No score engine. No UI. No persistence.**
+
+| Gate | Status |
+|------|--------|
+| Scientific specification | **PASS** |
+| Independent Scientific Re-Gate V2 | **PASS** |
+| Final mathematical truth freeze | **CURRENT** / pending independent freeze review |
+| Runtime implementation | **BLOCKED** until mathematical freeze re-gate PASS |
+| Public Health / Public Performance-Supporting | **NO-GO** |
 
 Version IDs:
 
@@ -14,6 +24,8 @@ Version IDs:
 - Performance-Supporting: `body_composition_performance_supporting_score_draft_v1`
 
 Every numeric constant below is either **EVIDENCE-DERIVED REFERENCE** (location/class only) or **DRAFT PRODUCT POLICY**. Score-space values are never medical fact.
+
+**Implementation authority:** after mathematical freeze re-gate PASS, implementers must follow `BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md` (if conflict, mathematical freeze wins for draft_v1 runtime math).
 
 ---
 
@@ -647,13 +659,16 @@ Run at correction time against the exact formulas above.
 
 | Gate | Verdict |
 |------|---------|
-| Health internal draft engine (code) | **STILL BLOCKED** — READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2 |
-| Performance-Supporting internal draft engine (code) | **STILL BLOCKED** — READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2 |
+| Scientific specification | **PASS** |
+| Independent Scientific Re-Gate V2 | **PASS** (SHA `6fa8cb22…`) |
+| Final mathematical truth freeze | **CREATED** — pending independent mathematical/docs freeze re-gate |
+| Health internal draft engine (code) | **STILL BLOCKED** until mathematical freeze re-gate PASS |
+| Performance-Supporting internal draft engine (code) | **STILL BLOCKED** until mathematical freeze re-gate PASS |
 | Public Health | **NO-GO** |
 | Public Performance-Supporting | **NO-GO** |
 
-Engineers may not implement until re-gate V2 PASS. This document freezes product-policy math so that a later implementation cannot invent it.
+Engineers may not implement until the mathematical truth freeze receives independent re-gate PASS. This document freezes product-policy science; `BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md` is the implementation-authority math freeze.
 
 ---
 
-END OF SCIENTIFIC SPECIFICATION V1 (blocker correction)
+END OF SCIENTIFIC SPECIFICATION V1 (blocker correction + mathematical freeze pointer)

@@ -2,15 +2,19 @@
 
 **Date:** 2026-10-04
 **Reviewed SHA:** `93f5960b98326b2de4116f08d2eb15564b321dc5`
-**Independent review verdict:** FAIL (Health/Performance internal engines NO-GO; public NO-GO)
-**This document:** maps Defects 1–8 to corrections. **No score code.**
+**Independent review verdict (V1):** FAIL (Health/Performance internal engines NO-GO; public NO-GO)
+**Scientific blocker-correction SHA:** `6fa8cb22b5a90982057f27c68a27743c4103df47`
+**Independent Scientific Re-Gate V2:** **PASS**
+**This document:** maps Defects 1–8 to corrections; records V2 PASS and non-blocking Defect 9. **No score code.**
 
 Companion:
 
 - `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_SPEC_V1.md`
 - `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_DECISION_FREEZE_V1.md`
+- `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md`
 
-Implementation remains **BLOCKED** until independent scientific re-gate V2 PASS.
+Defects 1–8: **CLOSED**. Independent Re-Gate V2: **PASS**.
+Implementation remains **BLOCKED** until independent mathematical/docs freeze re-gate PASS.
 
 ---
 
@@ -162,12 +166,22 @@ H3 reframed as **lean adequacy / reserve**, not young-adult high-lean optimizati
 
 ---
 
-## Implementation readiness (this pass)
+## Implementation readiness
 
-| Engine | Scientific readiness | Implementation |
-|--------|---------------------|----------------|
-| Health | READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2 | **STILL BLOCKED** |
-| Performance-Supporting | READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2 | **STILL BLOCKED** |
-| Public either | NOT READY | **NO-GO** |
+| Engine | Scientific Re-Gate V2 | Mathematical freeze | Implementation |
+|--------|----------------------|---------------------|----------------|
+| Health | **PASS** / SCIENTIFICALLY AUTHORIZED | CREATED / pending independent freeze review | **STILL BLOCKED** until freeze re-gate PASS |
+| Performance-Supporting | **PASS** / SCIENTIFICALLY AUTHORIZED | CREATED / pending independent freeze review | **STILL BLOCKED** until freeze re-gate PASS |
+| Public either | NO-GO | NO-GO | **NO-GO** |
 
-Do **not** authorize implementation from this correction alone.
+Do **not** authorize score runtime from scientific PASS alone. Mathematical freeze re-gate is required next.
+
+---
+
+## Defect 9 — Sibling naming lag (NON-BLOCKING)
+
+**Finding (Scientific Re-Gate V2):** some sibling current-status docs still said **Performance Composition** where they refer to the current renamed score.
+
+**Correction (mathematical-freeze docs pass):** current authoritative sibling status labels updated to **Performance-Supporting Composition** / **Performance-Supporting score** where they describe current state. Historical mentions of the old name remain when clearly historical (e.g. Defect 6 narrative).
+
+**Status:** **CLOSED** (NON-BLOCKING)

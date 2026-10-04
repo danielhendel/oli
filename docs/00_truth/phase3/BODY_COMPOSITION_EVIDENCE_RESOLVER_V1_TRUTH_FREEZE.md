@@ -51,9 +51,9 @@ A subsequent docs-only Resolver truth-freeze commit records this approved runtim
 |------------|--------|
 | Body Composition Evidence Resolver V1 | **IMPLEMENTED** · independent scientific re-gate **PASS** · docs truth-freeze re-gate **PASS** |
 | Assessment Confidence | **implementation PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`) |
-| Health Composition score (0–100) | **STILL BLOCKED** |
-| Performance Composition score (0–100) | **STILL BLOCKED** |
-| Public numeric scores | **NOT READY** |
+| Health Composition score (0–100) | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze pending independent review) |
+| Performance-Supporting Composition score (0–100) | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze pending independent review) |
+| Public numeric scores | **NO-GO** |
 | Resolver UI | **NOT IMPLEMENTED** |
 | Resolver persistence | **NOT IMPLEMENTED** |
 | PR / merge / production deploy | **NOT OPENED / UNTOUCHED** |
@@ -401,11 +401,11 @@ Resolver provides factual selection metadata consumed by the separate Confidence
 ## 16. Scoring boundary (frozen)
 
 Health Composition score: **NOT IMPLEMENTED**
-Performance Composition score: **NOT IMPLEMENTED**
+Performance-Supporting Composition score: **NOT IMPLEMENTED**
 
 Resolver contains no 0–100 result, construct score, weights, transforms, dampening, thresholds, status bands, targets, or consumer score UI.
 
-Public scores remain **NOT READY**.
+Public scores remain **NO-GO**.
 
 ---
 
@@ -491,9 +491,11 @@ ASSESSMENT CONFIDENCE INDEPENDENT RE-GATE — PASS
         ↓
 CONFIDENCE DOCS TRUTH FREEZE — PASS at d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8
         ↓
-SCORE-ENGINE PLANNING — AUTHORIZED · Dual Score math freeze CORRECTED after review FAIL (93f5960b)
+SCORE-ENGINE PLANNING — AUTHORIZED · Dual Score scientific correction at 6fa8cb22… · Re-Gate V2 PASS
         ↓
-INDEPENDENT SCIENTIFIC RE-GATE V2 — REQUIRED before any score code
+FINAL MATHEMATICAL TRUTH FREEZE — CREATED / PENDING INDEPENDENT REVIEW
+        ↓
+INDEPENDENT MATHEMATICAL/DOCS FREEZE RE-GATE — REQUIRED before any score code
         ↓
 DRAFT HEALTH / PERFORMANCE-SUPPORTING SCORE ENGINES — STILL BLOCKED
 ```

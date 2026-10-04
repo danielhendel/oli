@@ -3,13 +3,16 @@
 **Document type:** Decision freeze (draft_v1 scientific policy)
 **Date:** 2026-10-04
 **Corrects independent review FAIL at:** `93f5960b98326b2de4116f08d2eb15564b321dc5`
+**Scientific blocker-correction SHA:** `6fa8cb22b5a90982057f27c68a27743c4103df47`
 **Scientific spec:** `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_SPEC_V1.md`
 **Review response:** `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_REVIEW_RESPONSE_V1.md`
+**Mathematical truth freeze:** `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md`
 **Kind:** Docs-only. **No runtime score engine. No UI. No persistence. No public 0–100.**
 
 > Draft_v1 constants below are frozen so engineers need not invent them.
 > They remain **DRAFT PRODUCT POLICY**, not clinical coefficients.
-> Implementation is **STILL BLOCKED** until independent scientific re-gate V2 PASS.
+> Independent Scientific Re-Gate V2: **PASS**.
+> Implementation is **STILL BLOCKED** until independent mathematical/docs freeze re-gate PASS.
 
 ---
 
@@ -17,11 +20,13 @@
 
 | Gate | Status |
 |------|--------|
-| Independent scientific review at 93f5960b | **FAIL** (8 blocking defects) |
-| This correction | Defects 1–8 closed at policy layer |
-| Score implementation | **STILL BLOCKED** |
-| Public scores | **NOT READY** |
-| Next | Independent scientific re-gate V2 of exact math |
+| Independent scientific review at 93f5960b | **FAIL** (8 blocking defects) — historical |
+| Blocker correction at 6fa8cb22 | Defects 1–8 **CLOSED** |
+| Independent Scientific Re-Gate V2 | **PASS** |
+| Final mathematical truth freeze | **CREATED** — pending independent review |
+| Score implementation | **STILL BLOCKED** until mathematical freeze re-gate PASS |
+| Public scores | **NO-GO** |
+| Next | Independent mathematical/docs freeze re-gate |
 
 ---
 
@@ -206,13 +211,15 @@ DRAFT PRODUCT POLICY, not physiologic half-life.
 
 | Gate | Verdict |
 |------|---------|
-| HEALTH SCORE ENGINE IMPLEMENTATION | **STILL BLOCKED** |
-| PERFORMANCE-SUPPORTING SCORE ENGINE IMPLEMENTATION | **STILL BLOCKED** |
+| Defects 1–8 | **CLOSED** |
+| Independent Scientific Re-Gate V2 | **PASS** |
+| Final mathematical truth freeze | **PENDING INDEPENDENT REVIEW** |
+| HEALTH SCORE ENGINE IMPLEMENTATION | **STILL BLOCKED** until mathematical freeze re-gate PASS |
+| PERFORMANCE-SUPPORTING SCORE ENGINE IMPLEMENTATION | **STILL BLOCKED** until mathematical freeze re-gate PASS |
 | Public either | **NO-GO** |
-| Scientific readiness | **READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2** |
 
-Do not implement from this freeze. A new independent agent must recalculate formulas and sensitivity first.
+Do not implement until the mathematical truth freeze (`BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md`) receives independent re-gate PASS.
 
 ---
 
-END OF DECISION FREEZE V1 (blocker correction)
+END OF DECISION FREEZE V1 (blocker correction + mathematical freeze pointer)

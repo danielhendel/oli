@@ -164,7 +164,7 @@ Pure helpers do **not** call `Date.now()`. Callers may supply `calculatedAt` at 
 
 - Evidence Resolver implementation (separate phase at `3ae4737b…`; not part of this frozen Waist/index surface)
 - Assessment Confidence (implementation PASS · docs truth-freeze re-gate PASS at d2b0b3ab…; see `BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`)
-- Health / Performance Composition scores (**STILL BLOCKED**)
+- Health / Performance-Supporting Composition scores (**STILL BLOCKED**; Scientific Re-Gate V2 PASS; mathematical freeze pending independent review)
 - InBody / Evolt device integrations beyond Body Scan store + manual review
 - Production deploy / PR from this freeze alone
 

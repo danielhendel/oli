@@ -20,7 +20,7 @@ Select **which evidence represents each construct** from a Canonical Evidence Br
 - recency **metadata** (without Confidence)
 - transparent rationale codes
 
-This phase does **not** compute Assessment Confidence, Health Composition score, or Performance Composition score.
+This phase does **not** compute Assessment Confidence, Health Composition score, or Performance-Supporting Composition score.
 
 Architecture:
 
@@ -265,8 +265,8 @@ Resolver returns `policy_not_frozen` / `multiple_valid` / `threshold_not_frozen`
 | Evidence Resolver | **IMPLEMENTED** · scientific re-gate **PASS** · docs freeze re-gate **PASS** |
 | Assessment Confidence | **implementation PASS** · independent re-gate **PASS** · docs truth-freeze re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` |
 | Health Composition score | **STILL BLOCKED** |
-| Performance Composition score | **STILL BLOCKED** |
-| Public numeric scores | **NOT READY** |
+| Performance-Supporting Composition score | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze pending independent review) |
+| Public numeric scores | **NO-GO** |
 
 Approved Resolver runtime SHA: `3ae4737b8212fa5479fa1f621028e32ad7ab5757`.
 

@@ -52,9 +52,9 @@ A subsequent docs-only Confidence truth-freeze commit records this approved impl
 | Assessment Confidence implementation | **PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` |
 | Assessment Confidence independent policy/data/value re-gate | **PASS** |
 | Assessment Confidence docs-only truth freeze | **THIS DOCUMENT** · independent docs re-gate **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` |
-| Health Composition score (0–100) | **STILL BLOCKED** (READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2) |
-| Performance-Supporting Composition score (0–100) | **STILL BLOCKED** (READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2) |
-| Public numeric scores | **NOT READY** |
+| Health Composition score (0–100) | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze pending independent review) |
+| Performance-Supporting Composition score (0–100) | **STILL BLOCKED** (Scientific Re-Gate V2 **PASS**; mathematical freeze pending independent review) |
+| Public numeric scores | **NO-GO** |
 | Confidence UI | **NOT IMPLEMENTED** |
 | Confidence persistence | **NOT IMPLEMENTED** |
 | PR / merge / production deploy | **NOT OPENED / UNTOUCHED** |
@@ -82,7 +82,7 @@ Assessment Confidence does **not** mean:
 - strength
 - physiological performance
 - Health Composition score
-- Performance Composition score
+- Performance-Supporting Composition score
 
 **Confidence in assessment ≠ favorable health result.**
 
@@ -500,12 +500,12 @@ Confidence is runtime-derived.
 | Capability | Status |
 |------------|--------|
 | Health Composition score | **NOT IMPLEMENTED** · **STILL BLOCKED** |
-| Performance Composition score | **NOT IMPLEMENTED** · **STILL BLOCKED** |
-| Public numeric scores | **NOT READY** |
+| Performance-Supporting Composition score | **NOT IMPLEMENTED** · **STILL BLOCKED** |
+| Public numeric scores | **NO-GO** |
 
 No: construct score · score weights · transforms · dampening · thresholds · cut points · 0–100 · public score UI · disease-risk probability · performance classification.
 
-Score-engine planning is **AUTHORIZED**. Dual Score math freeze is **CORRECTED** after independent review FAIL (`93f5960b…`): `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_SPEC_V1.md` · `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_DECISION_FREEZE_V1.md` · `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_SCIENTIFIC_REVIEW_RESPONSE_V1.md`. Score **implementation** remains **STILL BLOCKED** until independent scientific re-gate V2 PASS.
+Score-engine planning is **AUTHORIZED**. Dual Score scientific correction **PASS** at `6fa8cb22…` (Independent Scientific Re-Gate V2 **PASS**). Final mathematical truth freeze: `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md` — **CREATED / PENDING INDEPENDENT REVIEW**. Score **implementation** remains **STILL BLOCKED** until mathematical freeze re-gate PASS.
 
 ---
 
@@ -589,9 +589,11 @@ ASSESSMENT CONFIDENCE INDEPENDENT RE-GATE PASS
         ↓
 ASSESSMENT CONFIDENCE DOCS-ONLY TRUTH FREEZE RE-GATE PASS (d2b0b3ab…)
         ↓
-SCORE-ENGINE PLANNING — AUTHORIZED · Dual Score math freeze CORRECTED after review FAIL (93f5960b)
+SCORE-ENGINE PLANNING — AUTHORIZED · Dual Score scientific correction at 6fa8cb22… · Re-Gate V2 PASS
         ↓
-INDEPENDENT SCIENTIFIC RE-GATE V2 — REQUIRED before any score code
+FINAL MATHEMATICAL TRUTH FREEZE — CREATED / PENDING INDEPENDENT REVIEW
+        ↓
+INDEPENDENT MATHEMATICAL/DOCS FREEZE RE-GATE — REQUIRED before any score code
         ↓
 HEALTH / PERFORMANCE-SUPPORTING COMPOSITION SCORE IMPLEMENTATION — STILL BLOCKED
 ```

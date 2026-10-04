@@ -11,8 +11,8 @@
 **Not:** clinically validated · production calibrated · score validated
 **Independent implementation re-gate:** **PASS**
 **Confidence docs truth freeze:** **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8`
-**Health / Performance-Supporting Composition scores:** implementation **STILL BLOCKED**; Dual Score math freeze **CORRECTED** (READY FOR INDEPENDENT SCIENTIFIC RE-GATE V2; no implementation authorization)
-**Public numeric scores:** **NOT READY**
+**Health / Performance-Supporting Composition scores:** implementation **STILL BLOCKED**; Scientific Re-Gate V2 **PASS**; final mathematical truth freeze **CREATED / PENDING INDEPENDENT REVIEW** (`BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md`); no implementation authorization until freeze re-gate PASS
+**Public numeric scores:** **NO-GO**
 
 ---
 
@@ -32,7 +32,7 @@ Assessment Confidence does **not** answer:
 - how low their disease risk is
 - how athletic or capable they are
 - how favorable their measurements are
-- what their Health or Performance Composition score is
+- what their Health or Performance-Supporting Composition score is
 
 **Confidence in assessment ≠ favorable health result.**
 
@@ -292,8 +292,8 @@ Runtime output may retain refs needed for in-memory provenance.
 | API routes / Cloud Functions | **none** |
 | Consumer Confidence UI | **none** |
 | Health Composition score | **STILL BLOCKED** |
-| Performance Composition score | **STILL BLOCKED** |
-| 0–100 / weights / transforms / cut points | **forbidden** |
+| Performance-Supporting Composition score | **STILL BLOCKED** |
+| 0–100 / weights / transforms / cut points | **forbidden** until mathematical freeze re-gate PASS |
 
 ---
 
@@ -333,10 +333,10 @@ Current phase status:
 | Implementation | **PASS** at `dc506bbe6881637f8025af842974df41afdef3ab` |
 | Independent implementation re-gate | **PASS** |
 | Confidence docs truth freeze | **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8` (`docs/00_truth/phase3/BODY_COMPOSITION_ASSESSMENT_CONFIDENCE_V1_TRUTH_FREEZE.md`) |
-| Health / Performance Composition score planning | **BLOCKED** until Confidence docs re-gate PASS |
-| Health / Performance Composition score implementation | **STILL BLOCKED** |
-| Public numeric scores | **NOT READY** |
+| Health / Performance-Supporting Composition score planning | **PASS** (scientific) · mathematical freeze pending independent review |
+| Health / Performance-Supporting Composition score implementation | **STILL BLOCKED** until mathematical freeze re-gate PASS |
+| Public numeric scores | **NO-GO** |
 
-Only after independent Confidence docs truth-freeze re-gate PASS may Health and Performance Composition score engines be separately planned.
+Confidence docs truth-freeze re-gate already **PASS**. Dual Score Scientific Re-Gate V2 **PASS**. Final mathematical truth freeze is created and pending independent review.
 
-Do **not** implement score engines before that authorization.
+Do **not** implement score engines before mathematical freeze re-gate PASS.
