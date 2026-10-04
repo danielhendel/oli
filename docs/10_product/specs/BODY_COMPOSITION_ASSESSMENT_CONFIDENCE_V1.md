@@ -11,7 +11,7 @@
 **Not:** clinically validated · production calibrated · score validated
 **Independent implementation re-gate:** **PASS**
 **Confidence docs truth freeze:** **PASS** at `d2b0b3abba958c9ac80ec5401f90ad5227a1a0a8`
-**Health / Performance-Supporting Composition scores:** implementation **STILL BLOCKED**; Scientific Re-Gate V2 **PASS**; final mathematical truth freeze edge cases A/B/C **CLOSED** · **READY FOR INDEPENDENT RE-GATE** (`BODY_COMPOSITION_DUAL_SCORE_MATHEMATICAL_TRUTH_FREEZE_V1.md`); no implementation authorization until freeze re-gate PASS
+**Health / Performance-Supporting Composition scores:** internal draft engines **IMPLEMENTED / PENDING INDEPENDENT IMPLEMENTATION RE-GATE**; Scientific Re-Gate V2 **PASS**; Mathematical Truth-Freeze Re-Gate V3 **PASS**; public scores **NO-GO** (`BODY_COMPOSITION_DUAL_SCORE_ENGINE_IMPLEMENTATION_V1.md`)
 **Public numeric scores:** **NO-GO**
 
 ---
