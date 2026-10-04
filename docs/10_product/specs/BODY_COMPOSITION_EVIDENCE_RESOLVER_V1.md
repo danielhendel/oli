@@ -1,9 +1,10 @@
 # Body Composition Evidence Resolver V1
 
-**Status:** Corrected on branch (draft policy) — **pending independent scientific re-gate**
+**Status:** Implementation completed · bounded defects R1–R5 closed · independent scientific/data-integrity re-gate **PASS** at `3ae4737b8212fa5479fa1f621028e32ad7ab5757` · docs truth freeze **pending independent docs review** (`docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md`)
 **Resolver version:** `body_composition_resolver_draft_v1`
-**Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze
+**Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze + Resolver V1 truth freeze
 **Not:** clinically validated · production calibrated · score validated
+**Assessment Confidence / composition scores:** **BLOCKED**
 
 ---
 
@@ -260,10 +261,14 @@ Resolver returns `policy_not_frozen` / `multiple_valid` / `threshold_not_frozen`
 
 | Capability | State |
 |------------|-------|
-| Evidence Resolver | **Corrected — pending independent re-gate** |
-| Assessment Confidence | **STILL BLOCKED** |
+| Evidence Resolver | **IMPLEMENTED** · scientific re-gate **PASS** · docs freeze **pending independent docs review** |
+| Assessment Confidence | **BLOCKED** until Resolver docs freeze re-gate PASS |
 | Health Composition score | **STILL BLOCKED** |
 | Performance Composition score | **STILL BLOCKED** |
 | Public numeric scores | **NOT READY** |
+
+Approved Resolver runtime SHA: `3ae4737b8212fa5479fa1f621028e32ad7ab5757`.
+
+Canonical freeze: `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md`.
 
 A future policy change requires a **new resolver version**, rationale, tests, and independent scientific gate.

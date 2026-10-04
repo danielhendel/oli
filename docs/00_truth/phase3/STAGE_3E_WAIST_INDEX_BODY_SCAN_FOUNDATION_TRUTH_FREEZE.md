@@ -122,7 +122,7 @@ Pagination honesty: physical confirmation covers history list scroll, footer/end
 
 - Public numeric Health / Performance Composition scores (not implemented)
 - Assessment Confidence (not implemented)
-- Evidence Resolver ranking / best-current selection (authorized next; not implemented)
+- Evidence Resolver ranking / best-current selection (implemented at `3ae4737b…`; see Resolver truth freeze — not part of this foundation physical runtime)
 - Controlled real personal DXA PDF committed to Git (forbidden)
 
 ---
@@ -143,8 +143,8 @@ Pagination honesty: physical confirmation covers history list scroll, footer/end
 
 | Phase | Status |
 |-------|--------|
-| **Evidence Resolver** | **Corrected / pending independent re-gate** (`body_composition_resolver_draft_v1`; spec `docs/10_product/specs/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1.md`) |
-| Assessment Confidence | **STILL BLOCKED** pending independent Resolver re-gate |
+| **Evidence Resolver** | **IMPLEMENTED** · scientific re-gate **PASS** at `3ae4737b8212fa5479fa1f621028e32ad7ab5757` · docs freeze pending independent review — `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md` |
+| Assessment Confidence | **BLOCKED** until Resolver docs freeze re-gate PASS |
 | Health Composition score (0–100) | **STILL BLOCKED** |
 | Performance Composition score (0–100) | **STILL BLOCKED** |
 
@@ -159,9 +159,11 @@ FOUNDATION PHYSICALLY APPROVED (runtime e9397b35…)
         ↓
 DOCS TRUTH FREEZE (initial 0fabe472… + docs consistency corrections)
         ↓
-EVIDENCE RESOLVER — CORRECTED / PENDING INDEPENDENT RE-GATE
+RESOLVER IMPLEMENTATION + SCIENTIFIC RE-GATE PASS (3ae4737b…)
         ↓
-ASSESSMENT CONFIDENCE — BLOCKED
+RESOLVER DOCS-ONLY TRUTH FREEZE — pending independent docs re-gate
+        ↓
+ASSESSMENT CONFIDENCE — BLOCKED until Resolver docs freeze PASS
         ↓
 DRAFT HEALTH/PERFORMANCE SCORE ENGINES — BLOCKED
 ```
@@ -174,7 +176,8 @@ DRAFT HEALTH/PERFORMANCE SCORE ENGINES — BLOCKED
 - Roadmap: `docs/10_product/roadmap/ROADMAP_REALITY.md`
 - Waist / index: `docs/10_product/specs/STANDARDIZED_WAIST_AND_DETERMINISTIC_INDEX_LAYER_V1.md`
 - Evidence Bridge: `docs/10_product/specs/BODY_COMPOSITION_EVIDENCE_BRIDGE_V1.md`
-- Evidence Resolver: `docs/10_product/specs/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1.md`
+- Evidence Resolver spec: `docs/10_product/specs/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1.md`
+- Evidence Resolver freeze: `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md`
 - Metric registry: `docs/10_product/specs/BODY_SCAN_CANONICAL_METRIC_REGISTRY_V1.md`
 - Body Scans product: `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md`
 - Body Scans implementation truth: `docs/00_truth/phase3/STAGE_3E_BODY_SCANS_IMPLEMENTATION_TRUTH.md`

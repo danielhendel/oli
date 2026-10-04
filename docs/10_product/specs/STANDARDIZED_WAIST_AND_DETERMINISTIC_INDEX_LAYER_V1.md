@@ -15,14 +15,14 @@ CANONICAL BODY COMPOSITION EVIDENCE BRIDGE
        ↓
 EXPLICIT DETERMINISTIC CALCULATIONS (BMI / WHtR / FMI / FFMI / ALMI)
        ↓
-FUTURE Evidence Resolver        ← AUTHORIZED NEXT (after independent docs freeze re-gate PASS; not implemented here)
+Evidence Resolver               ← IMPLEMENTED separately (scientific PASS 3ae4737b…; docs freeze pending; not in this Waist/index surface)
        ↓
 FUTURE Assessment Confidence    ← BLOCKED
        ↓
 FUTURE Health / Performance scores ← BLOCKED
 ```
 
-Waist capture + deterministic index helpers are **truth-frozen**. Evidence Resolver is the **authorized next** implementation phase and must not reopen Waist protocol or index formulas without a new physical gate.
+Waist capture + deterministic index helpers are **truth-frozen**. Evidence Resolver is **implemented** as a separate pure-domain phase and must not reopen Waist protocol or index formulas without a new physical gate.
 
 ## Waist source of truth
 
@@ -162,7 +162,7 @@ Pure helpers do **not** call `Date.now()`. Callers may supply `calculatedAt` at 
 
 ## Explicitly out of scope (this Waist/index phase)
 
-- Evidence Resolver implementation (authorized next; not part of this frozen Waist/index surface)
+- Evidence Resolver implementation (separate phase at `3ae4737b…`; not part of this frozen Waist/index surface)
 - Assessment Confidence (**BLOCKED**)
 - Health / Performance Composition scores (**BLOCKED**)
 - InBody / Evolt device integrations beyond Body Scan store + manual review

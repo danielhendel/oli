@@ -6,7 +6,7 @@
 
 **Base:** `5835051715ceea5e1a1cece12f28a9af53e206e7` (Stage 3C merge), docs-only commit `6c17349e`.
 
-**Foundation truth freeze:** `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md` — physically approved runtime SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); initial docs-only freeze SHA `0fabe4721c311a1a6a8f77a72cc600683e659224`. Evidence Resolver **AUTHORIZED** as next phase after independent docs re-gate PASS; Assessment Confidence and composition scores **STILL BLOCKED**.
+**Foundation truth freeze:** `docs/00_truth/phase3/STAGE_3E_WAIST_INDEX_BODY_SCAN_FOUNDATION_TRUTH_FREEZE.md` — physically approved runtime SHA `e9397b357642b45eef2a6a40c78217281b375d91` (**PASS**); initial docs-only freeze SHA `0fabe4721c311a1a6a8f77a72cc600683e659224`. Evidence Resolver **IMPLEMENTED** (scientific re-gate PASS at `3ae4737b…`; docs freeze pending — `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md`); Assessment Confidence **BLOCKED until Resolver docs freeze PASS**; composition scores **STILL BLOCKED**.
 
 ---
 
@@ -75,8 +75,8 @@ fix, `disableVirtualization`) is prohibited. Physical retest at
 warning absent without suppression (**B-BODY-SCAN-SCROLL-CONTAINMENT-01**
 PHYSICALLY CLOSED).
 
-Evidence Resolver is **AUTHORIZED** as the next implementation phase (not
-implemented here). Assessment Confidence and composition scores remain **BLOCKED**.
+Evidence Resolver is **IMPLEMENTED** elsewhere (scientific re-gate PASS at
+`3ae4737b…`; docs freeze pending — `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md`). Assessment Confidence remains **BLOCKED until Resolver docs freeze PASS**; composition scores remain **BLOCKED**.
 
 ---
 
@@ -266,8 +266,8 @@ Audit events (`body_scan_created`, `body_scan_extraction_completed`, `body_scan_
 - Export coverage / scalability **OPEN**.
 - Controlled physical **real** personal DXA PDF into Git remains **forbidden**.
 - Stage 3E branch **not merged**; no PR from the foundation freeze alone.
-- Assessment Confidence and Health / Performance Composition scores remain **BLOCKED**.
-- Evidence Resolver: **AUTHORIZED** next after independent docs truth-freeze re-gate PASS — see foundation truth freeze (not implemented in this document).
+- Assessment Confidence **BLOCKED until Resolver docs freeze PASS**; Health / Performance Composition scores remain **BLOCKED**.
+- Evidence Resolver: **IMPLEMENTED** (scientific PASS `3ae4737b…`; docs freeze pending independent review) — see `docs/00_truth/phase3/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1_TRUTH_FREEZE.md` (not implemented in this Body Scans document).
 
 ### Closed foundation defects (current truth — not open)
 

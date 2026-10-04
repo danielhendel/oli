@@ -22,7 +22,7 @@ EXPLICIT DETERMINISTIC INDEX HELPERS (BMI / WHtR / FMI / FFMI / ALMI)
   — never auto-emitted by the bridge
   — legacy profile waist is not an automatic WHtR input
         ↓
-Evidence Resolver               ← implemented separately (draft v1; pending independent re-gate; not in this bridge module)
+Evidence Resolver               ← implemented separately (draft v1; scientific re-gate PASS at 3ae4737b…; docs freeze pending; not in this bridge module)
         ↓
 FUTURE Assessment Confidence    ← BLOCKED
         ↓
@@ -146,7 +146,7 @@ The bridge **does not** auto-select cross-source inputs or emit these indices au
 
 ## Boundaries (forbidden in this module)
 
-- Evidence Resolver / best-current selector (**AUTHORIZED** as a separate next phase; must not be smuggled into this bridge module)
+- Evidence Resolver / best-current selector (**IMPLEMENTED** as a separate pure-domain module at approved SHA `3ae4737b…`; must not be smuggled into this bridge module)
 - Assessment Confidence results (**BLOCKED**)
 - Health Composition / Performance Composition scores (**BLOCKED**)
 - Weights, thresholds, status bands
