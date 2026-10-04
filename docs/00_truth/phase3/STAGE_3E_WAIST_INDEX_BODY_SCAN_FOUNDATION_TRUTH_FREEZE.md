@@ -143,7 +143,7 @@ Pagination honesty: physical confirmation covers history list scroll, footer/end
 
 | Phase | Status |
 |-------|--------|
-| **Evidence Resolver** | **Implemented / pending independent re-gate** (`body_composition_resolver_draft_v1`; spec `docs/10_product/specs/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1.md`) |
+| **Evidence Resolver** | **Corrected / pending independent re-gate** (`body_composition_resolver_draft_v1`; spec `docs/10_product/specs/BODY_COMPOSITION_EVIDENCE_RESOLVER_V1.md`) |
 | Assessment Confidence | **STILL BLOCKED** pending independent Resolver re-gate |
 | Health Composition score (0–100) | **STILL BLOCKED** |
 | Performance Composition score (0–100) | **STILL BLOCKED** |
@@ -159,7 +159,7 @@ FOUNDATION PHYSICALLY APPROVED (runtime e9397b35…)
         ↓
 DOCS TRUTH FREEZE (initial 0fabe472… + docs consistency corrections)
         ↓
-EVIDENCE RESOLVER — IMPLEMENTED / PENDING INDEPENDENT RE-GATE
+EVIDENCE RESOLVER — CORRECTED / PENDING INDEPENDENT RE-GATE
         ↓
 ASSESSMENT CONFIDENCE — BLOCKED
         ↓

@@ -6,7 +6,9 @@ import { BODY_COMPOSITION_RESOLVER_VERSION } from "@oli/contracts";
 
 import { resolveBodyCompositionEvidence } from "../resolveBodyCompositionEvidence";
 import { BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES } from "../policy";
+import { SAME_DAY_DXA_PRECEDENCE_ACTIVE_IN_DRAFT_V1 } from "../selection";
 import { AS_OF, baseObservation, bundleWith, emptyBundle } from "../testFixtures";
+import * as recency from "../recency";
 
 describe("body composition evidence resolver invariants", () => {
   it("uses draft resolver version only", () => {
@@ -66,19 +68,24 @@ describe("body composition evidence resolver invariants", () => {
       asOf: AS_OF,
     });
     const h2 = r.constructs.find((c) => c.constructId === "H2")!;
-    expect(h2.primaryEvidenceRefs).toEqual(["dxa_bf"]);
-    expect(h2.supportingEvidenceRefs).toContain("bia_bf");
+    expect(SAME_DAY_DXA_PRECEDENCE_ACTIVE_IN_DRAFT_V1).toBe(false);
+    expect(h2.status).toBe("policy_not_frozen");
+    expect(h2.primaryEvidenceRefs.sort()).toEqual(["bia_bf", "dxa_bf"].sort());
+    expect(h2.supportingEvidenceRefs).toEqual([]);
+    expect("utcDayKey" in recency).toBe(false);
   });
 
   it("keeps Lean / FFM / SMM and VAT mass / volume boundaries", () => {
     const policies = BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES;
     const h3 = policies.find((p) => p.constructId === "H3")!;
     const h1 = policies.find((p) => p.constructId === "H1")!;
-    expect(h3.channels.some((c) => c.metricKeys.includes("skeletal_muscle_mass"))).toBe(false);
-    expect(h1.channels.find((c) => c.channelId === "vat_mass")?.metricKeys).toEqual([
+    expect(h3.eligibleChannels.some((c) => c.metricKeys.includes("skeletal_muscle_mass"))).toBe(
+      false,
+    );
+    expect(h1.eligibleChannels.find((c) => c.channelId === "vat_mass")?.metricKeys).toEqual([
       "visceral_fat_mass",
     ]);
-    expect(h1.channels.find((c) => c.channelId === "vat_volume")?.metricKeys).toEqual([
+    expect(h1.eligibleChannels.find((c) => c.channelId === "vat_volume")?.metricKeys).toEqual([
       "visceral_fat_volume",
     ]);
   });
@@ -108,9 +115,10 @@ describe("body composition evidence resolver invariants", () => {
     const metrics = r.constructs.flatMap((c) => c.comparabilityMetadata.metricsPresent);
     expect(metrics).not.toContain("fat_mass");
     expect(metrics).not.toContain("almi");
-    expect(r.constructs.find((c) => c.constructId === "H3")!.channels.find((ch) => ch.channelId === "almi")?.status).toBe(
-      "insufficient",
-    );
+    expect(
+      r.constructs.find((c) => c.constructId === "H3")!.channels.find((ch) => ch.channelId === "almi")
+        ?.status,
+    ).toBe("insufficient");
   });
 
   it("forbids identity, confidence, and score fields on output", () => {

@@ -21,12 +21,11 @@ export function parseMeasuredAtMs(measuredAt: string): number | null {
   return Number.isFinite(ms) ? ms : null;
 }
 
-/** UTC calendar day key for same-day conflict rules (deterministic). */
-export function utcDayKey(isoOrMs: string | number): string | null {
-  const ms = typeof isoOrMs === "number" ? isoOrMs : parseMeasuredAtMs(isoOrMs);
-  if (ms == null) return null;
-  return new Date(ms).toISOString().slice(0, 10);
-}
+/**
+ * UTC day keys are intentionally NOT used for same-day DXA precedence in
+ * body_composition_resolver_draft_v1 — measurement-day boundary is unfrozen.
+ * Do not reintroduce utcDayKey into active selection without a day-boundary ADR.
+ */
 
 export function ageDays(measuredAtMs: number, asOfMs: number): number {
   return Math.max(0, (asOfMs - measuredAtMs) / MS_PER_DAY);

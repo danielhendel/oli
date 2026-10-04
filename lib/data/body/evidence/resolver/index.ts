@@ -8,4 +8,13 @@ export {
 } from "./policy";
 export { evaluateBaseEligibility, isConstructPolicyEligible, methodFamilyOf } from "./eligibility";
 export { areDirectlyComparable, groupIntoComparableSets } from "./comparability";
-export { selectChannelRepresentatives } from "./selection";
+export {
+  selectChannelRepresentatives,
+  SAME_DAY_DXA_PRECEDENCE_ACTIVE_IN_DRAFT_V1,
+} from "./selection";
+export {
+  CALCULATED_FORMULA_REGISTRY,
+  validateCalculatedProvenance,
+  hasStandardizedWhtrProvenance,
+} from "./formulaProvenance";
+export { frozenPrecedencePairsFor } from "./policy";

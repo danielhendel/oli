@@ -1,8 +1,8 @@
 # Body Composition Evidence Resolver V1
 
-**Status:** Implemented on branch (draft policy) — **pending independent scientific re-gate**  
-**Resolver version:** `body_composition_resolver_draft_v1`  
-**Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze  
+**Status:** Corrected on branch (draft policy) — **pending independent scientific re-gate**
+**Resolver version:** `body_composition_resolver_draft_v1`
+**Authority:** Dual Score scientific/decision freeze + Stage 3E foundation truth freeze
 **Not:** clinically validated · production calibrated · score validated
 
 ---
@@ -14,7 +14,6 @@ Select **which evidence represents each construct** from a Canonical Evidence Br
 - construct eligibility
 - comparable sets
 - deterministic representative selection
-- same-day DXA vs BIA conflict handling
 - supporting / alternate retention
 - recency **metadata** (without Confidence)
 - transparent rationale codes
@@ -75,60 +74,114 @@ Source observations remain authoritative. Resolver references them by `observati
 
 ---
 
-## Construct statuses
+## Construct status lattice
 
 | Status | Meaning |
 |--------|---------|
-| `resolved` | One eligible representative |
-| `resolved_with_supporting` | Frozen primary + supporting/alternates |
-| `multiple_valid` | Multiple valid channels/families; no frozen global winner |
-| `insufficient` | Required evidence missing |
-| `conflict` | Reserved for mutually incompatible claims needing future policy |
-| `undated_only` | Only undated context (not used for dated primary selection) |
-| `unsupported` | Construct not supported by policy |
-| `policy_not_frozen` | Evidence exists but precedence not authorized |
+| `conflict` | Genuine mutually incompatible claims (not ordinary multi-method variation) |
+| `policy_not_frozen` | Selection requires an open policy (day boundary, unranked channels) |
+| `multiple_valid` | Multiple valid complementary channels/families; no frozen global winner |
+| `resolved_with_supporting` | Exactly one **resolved** frozen primary + governed supporting/alternates |
+| `resolved` | Exactly one resolved primary; no additional valid supporting channel |
+| `undated_only` | Only undated context |
+| `insufficient` | No adequate eligible evidence |
+| `unsupported` | Only evidence outside supported policy |
 
-Ordinary multi-method variation is **`multiple_valid`**, not a medical conflict.
+**Hard rules:**
 
----
-
-## Channel architecture
-
-Constructs may have multiple scientifically distinct **channels**. Channels are not mathematically interchangeable.
-
-Examples:
-
-| Construct | Channels |
-|-----------|----------|
-| H1 | `whtr_standardized`, `vat_mass`, `vat_volume` |
-| H2 | `fmi`, `body_fat_percent`, `fat_mass` |
-| H3 | `almi`, `ffmi`, `fat_free_mass`, `lean_mass_total` |
-| H4 | `android_gynoid_ratio`, `android_fat_percent`, `gynoid_fat_percent` |
-| P1 | `ffmi`, `fat_free_mass`, `lean_mass_total` |
-| P2 | `almi`, limb lean by laterality |
-| P3 | `fmi`, `body_fat_percent`, `fat_mass` |
-
-**Cross-channel precedence (frozen only where Dual Score freeze authorizes):**
-
-- H2 / P3: FMI → BF% → Fat Mass
-- H3: ALMI → FFMI → FFM → total Lean (ALMI authorized for H3 by Dual Score freeze even when Bridge soft-tag is P2-only)
-- P1: FFMI → FFM → total Lean (ALMI is not a second P1 vote)
-- H1 / P2: complementary → `multiple_valid` when multiple channels resolve
-- H4: explanatory / optional soft refine — not an independent core score vote
+- Channel `multiple_valid` / `policy_not_frozen` **propagates** to the construct unless a frozen construct-level pair fully resolves it.
+- `resolved_with_supporting` must **not** be manufactured by placing unresolved method-family primaries into the supporting bucket.
+- Primary / supporting / alternate ref sets remain disjoint and deterministic.
 
 ---
 
-## Eligibility
+## Frozen precedence matrix (draft v1)
 
-Before selection, candidates fail closed on:
+Eligibility ≠ precedence. Array order is never priority.
+
+| Construct | Eligible channels | Frozen pairs | Multi-channel behavior |
+|-----------|-------------------|--------------|------------------------|
+| H1 | WHtR standardized, VAT mass, VAT volume | none | complementary → `multiple_valid` |
+| H2 | FMI, total BF%, Fat Mass | **FMI over BF% only** | BF%+Fat Mass (no FMI) → `policy_not_frozen`; Fat Mass alone may resolve; Fat Mass may be governed supporting when FMI is primary |
+| H3 | ALMI, FFMI, FFM, total Lean | **ALMI over FFMI only** | FFM+Lean (no index) → `policy_not_frozen`; lower-specificity may support when ALMI/FFMI primary |
+| H4 | A/G, Android %, Gynoid % | none | complementary explanatory → `multiple_valid` |
+| P1 | FFMI, FFM, total Lean | none | competing unranked → `policy_not_frozen`; sole channel may resolve |
+| P2 | ALMI + limb lean by laterality | none | complementary → `multiple_valid` |
+| P3 | FMI, total BF%, Fat Mass | **FMI over BF% only** | same as H2 |
+
+Never label an unfrozen selection with `selected_frozen_channel_precedence`.
+
+---
+
+## Same-day DXA precedence (inactive)
+
+Same-day DXA precedence is **authorized conceptually** by the Dual Score freeze but **inactive** in `body_composition_resolver_draft_v1` until the measurement-day boundary is separately frozen.
+
+**UTC is not the governed day boundary.** Draft v1 does not invent:
+
+- UTC calendar date
+- source-local / profile / facility timezone date
+- rolling 24-hour window
+
+When semantically matching DXA + consumer/segmental BIA representatives exist:
+
+- preserve both
+- no averaging
+- no most-favorable selection
+- no same-day DXA precedence
+- construct/channel status: `policy_not_frozen`
+- rationale includes `same_day_boundary_not_frozen` and `same_day_precedence_not_applied`
+
+A future Resolver version may apply same-day DXA primary once an ADR freezes day timezone, calendar boundary, required source timezone metadata, DST behavior, and missing-timezone behavior. The conceptual authorization is **deferred**, not cancelled.
+
+---
+
+## Calculated formula provenance
+
+Metric-specific formula versions (exact match required):
+
+| Metric | Version | Required input roles |
+|--------|---------|----------------------|
+| BMI | `bmi_v1` | body mass + height |
+| WHtR | `whtr_v1` | waist + height |
+| FMI | `fmi_v1` | total Fat Mass + height |
+| FFMI | `ffmi_v1` | total Fat-Free Mass + height |
+| ALMI | `almi_v1` | appendicular limb Lean (≥2 regions) + height |
+
+Rules:
+
+- all `inputObservationRefs` must resolve in the same bundle
+- no dangling / duplicate / self / wrong-metric refs
+- Height must be an in-bundle Height observation ref (subjectContext.height alone is insufficient)
+- Resolver never searches for or invents missing inputs
+- BMI is validated when present but is **not** an H2/P3 construct channel
+
+### Standardized WHtR path
+
+Requires:
+
+- metric = WHtR
+- `formulaVersion = whtr_v1`
+- governed Waist input with `protocolId = who_midpoint_v1` and `protocolVersion = 1`
+- governed Height input ref
+- valid dated units; no legacy profile Waist; no future Waist
+
+Unknown/missing protocol WHtR is not the standardized primary path.
+
+---
+
+## Eligibility (base)
+
+Fail closed on:
 
 - schema / finite value / unit / region
-- missing or unparseable `measuredAt` (dated selection)
+- missing or unparseable `measuredAt`
 - `measuredAt` later than `asOf`
-- calculated evidence missing `formulaVersion` or `inputObservationRefs`
+- unsupported / mismatched formula version
+- incomplete calculated input chains
 - metric not in construct policy
-- standardized Waist/WHtR path without WHO midpoint protocol on the waist input
-- duplicate `observationId` (deduped; first kept by stable id sort)
+- standardized WHtR without WHO Waist + Height provenance
+- duplicate `observationId`
 
 Legacy profile Waist in subject context is **not** dated evidence.
 
@@ -146,41 +199,15 @@ Directly comparable only when matching:
 - method family
 - formula version (calculated)
 
-**Not comparable (semantic boundaries):**
-
-- Lean Mass ≠ Fat-Free Mass ≠ Skeletal Muscle Mass
-- VAT mass ≠ VAT volume
-- BMC ≠ BMD
-- Body Fat % ≠ Fat Mass
-- total Lean ≠ appendicular Lean
-- total-body BMD ≠ hip/spine BMD
-- WHtR ≠ VAT mass
-
----
-
-## Same-day conflict
-
-Frozen: same-day DXA + consumer/segmental BIA for the **same metric / region / unit**:
-
-- DXA primary
-- BIA retained as supporting
-- no averaging
-- no most-favorable selection
-
-Different-day cross-method: newest per comparable family; no invented global winner → `multiple_valid` when families disagree.
+**Not comparable:** Lean ≠ FFM ≠ SMM; VAT mass ≠ volume; BMC ≠ BMD; BF% ≠ Fat Mass; total Lean ≠ appendicular Lean; WHtR ≠ VAT mass.
 
 ---
 
 ## Recency metadata
 
-Emitted:
+Emitted: `ageDays`, Bridge `recencyClass`, dated/undated/future counts, `recencyPolicyState = threshold_not_frozen`.
 
-- `ageDays` for dated primaries
-- `recencyClass` from Bridge labels
-- dated / undated / future-invalid counts
-- `recencyPolicyState = threshold_not_frozen`
-
-**Not emitted:** freshness %, stale penalties, hard expiry, Confidence reductions, invented current/aging/historical cutovers (exact thresholds remain OPEN).
+**Not emitted:** freshness %, stale penalties, hard expiry, Confidence reductions, invented current/aging/historical cutovers.
 
 ---
 
@@ -188,7 +215,7 @@ Emitted:
 
 Resolver preserves `evidenceBundleCompleteness.mode = caller_supplied_partial`.
 
-A construct may be `resolved` from supplied evidence while the bundle remains partial. Omitted source categories remain distinct from explicitly empty ones (Bridge contract).
+A construct may be `resolved` from supplied evidence while the bundle remains partial.
 
 ---
 
@@ -214,6 +241,7 @@ Presentation selectors (e.g. latest Waist for display) remain **outside** this R
 
 ## Open scientific policies (must remain open)
 
+- measurement-day boundary (timezone / calendar / DST / missing-timezone)
 - exact recency half-lives
 - device quality coefficients
 - Assessment Confidence coefficients / labels
@@ -221,6 +249,7 @@ Presentation selectors (e.g. latest Waist for display) remain **outside** this R
 - score weights / dampening caps / cut points
 - public status labels (Deficient / Healthy / Strong / Optimal / Elite)
 - clinical calibration
+- unranked secondary channel winners (BF% vs Fat Mass; FFM vs Lean; P1 multi-channel)
 - cross-channel H1 global winner when WHtR and VAT both current
 
 Resolver returns `policy_not_frozen` / `multiple_valid` / `threshold_not_frozen` rather than inventing these.
@@ -231,7 +260,7 @@ Resolver returns `policy_not_frozen` / `multiple_valid` / `threshold_not_frozen`
 
 | Capability | State |
 |------------|-------|
-| Evidence Resolver | **Implemented — pending independent re-gate** |
+| Evidence Resolver | **Corrected — pending independent re-gate** |
 | Assessment Confidence | **STILL BLOCKED** |
 | Health Composition score | **STILL BLOCKED** |
 | Performance Composition score | **STILL BLOCKED** |

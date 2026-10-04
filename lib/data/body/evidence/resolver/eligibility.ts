@@ -14,6 +14,10 @@ import {
 } from "@oli/contracts";
 
 import { BODY_COMPOSITION_EVIDENCE_METRIC_REGISTRY } from "../metricRegistry";
+import {
+  hasStandardizedWhtrProvenance,
+  validateCalculatedProvenance,
+} from "./formulaProvenance";
 import type { ResolverChannelDefinition } from "./policy";
 import { policyEligibleMetricsForConstruct } from "./policy";
 import { parseMeasuredAtMs } from "./recency";
@@ -55,6 +59,7 @@ export function isConstructPolicyEligible(
 export function evaluateBaseEligibility(
   observation: BodyCompositionEvidenceObservation,
   asOfMs: number,
+  bundle: BodyCompositionEvidenceBundle,
 ): EligibilityOutcome {
   const parsed = bodyCompositionEvidenceObservationSchema.safeParse(observation);
   if (!parsed.success) {
@@ -114,20 +119,13 @@ export function evaluateBaseEligibility(
   }
 
   if (obs.evidenceType === "calculated") {
-    if (!obs.provenance.formulaVersion) {
+    const calc = validateCalculatedProvenance({ observation: obs, bundle, asOfMs });
+    if (!calc.ok) {
       return {
         ok: false,
         observationId: obs.observationId,
         metricKey: obs.metricKey,
-        reasonCode: "excluded_missing_formula_provenance",
-      };
-    }
-    if (!obs.provenance.inputObservationRefs?.length) {
-      return {
-        ok: false,
-        observationId: obs.observationId,
-        metricKey: obs.metricKey,
-        reasonCode: "excluded_missing_formula_provenance",
+        reasonCode: calc.reasonCode,
       };
     }
   }
@@ -165,38 +163,12 @@ export function matchesChannel(
   }
 
   if (channel.requiresStandardizedWaistProtocol) {
-    const protocolOk = hasStandardizedWaistProtocol(observation, bundle);
-    if (!protocolOk) {
+    if (!hasStandardizedWhtrProvenance(observation, bundle)) {
       return { ok: false, reasonCode: "excluded_unknown_protocol_for_standardized_primary" };
     }
   }
 
   return { ok: true };
-}
-
-/**
- * WHtR standardized path: waist input observation must carry who_midpoint_v1.
- * Calculated WHtR itself does not invent protocol.
- */
-export function hasStandardizedWaistProtocol(
-  observation: BodyCompositionEvidenceObservation,
-  bundle: BodyCompositionEvidenceBundle,
-): boolean {
-  if (observation.metricKey === "waist_circumference") {
-    return observation.provenance.protocolId === "who_midpoint_v1";
-  }
-  if (observation.metricKey === "whtr") {
-    const refs = observation.provenance.inputObservationRefs ?? [];
-    for (const ref of refs) {
-      const input = bundle.observations.find((o) => o.observationId === ref);
-      if (input?.metricKey === "waist_circumference") {
-        return input.provenance.protocolId === "who_midpoint_v1";
-      }
-    }
-    // No waist input found with WHO protocol → fail closed.
-    return false;
-  }
-  return false;
 }
 
 export function methodFamilyOf(observation: BodyCompositionEvidenceObservation) {

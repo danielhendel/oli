@@ -141,6 +141,31 @@ export function bundleWith(
   });
 }
 
+export function heightObservation(args: {
+  id?: string;
+  valueCm?: number;
+  measuredAt?: string;
+} = {}): BodyCompositionEvidenceObservation {
+  return baseObservation({
+    observationId: args.id ?? "height1",
+    metricKey: "height",
+    value: args.valueCm ?? 180,
+    measuredAt: args.measuredAt ?? "2020-01-01T00:00:00.000Z",
+    canonicalUnit: "cm",
+    region: null,
+    constructEligibility: [],
+    redundancyGroup: "none",
+    comparabilityGroup: "profile_anthropometry",
+    recencyClass: "very_slow",
+    source: {
+      sourceSystem: "manual",
+      measurementMethod: "manual_anthropometry",
+      deviceFamily: null,
+      deviceModel: null,
+    },
+  });
+}
+
 export function whoWaist(args: {
   id: string;
   valueCm: number;

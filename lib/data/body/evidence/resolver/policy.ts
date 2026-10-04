@@ -1,8 +1,17 @@
 /**
  * Versioned Body Composition Evidence Resolver policy (draft v1).
  *
- * Encodes frozen Dual Score construct channels and authorized precedence only.
+ * Encodes ONLY frozen Dual Score relationships. Eligibility ≠ precedence.
  * Exact recency half-lives, confidence coefficients, and score transforms remain OPEN.
+ *
+ * Frozen matrix (draft v1):
+ * - H1 / P2 / H4: complementary channels (no ordered winner)
+ * - H2 / P3: FMI over total Body Fat % only
+ * - H3: ALMI over FFMI only
+ * - P1: no frozen ordered secondary chain (FFMI/FFM/Lean unranked when competing)
+ *
+ * Same-day DXA precedence is conceptually authorized but INACTIVE until a
+ * measurement-day boundary ADR freezes timezone/calendar rules.
  */
 
 import type {
@@ -13,44 +22,45 @@ import { BODY_COMPOSITION_RESOLVER_VERSION } from "@oli/contracts";
 
 export const RESOLVER_POLICY_VERSION = BODY_COMPOSITION_RESOLVER_VERSION;
 
-export type ResolverChannelPrecedenceMode =
-  | "sole_when_present"
-  | "frozen_primary_among_channels"
-  | "complementary_multiple_valid"
-  | "optional_explanatory";
-
 export type ResolverChannelDefinition = {
   channelId: string;
-  /** Metrics that may populate this channel. */
   metricKeys: readonly BodyCompositionEvidenceMetricKey[];
-  /**
-   * When true, waist/WHtR primary path requires WHO midpoint protocol on the
-   * waist observation (or a waist input ref that carries that protocol).
-   */
   requiresStandardizedWaistProtocol?: boolean;
-  /** Region constraint; omit = any region allowed by metric semantics. */
   allowedRegions?: readonly (string | null)[];
-  /**
-   * Total-body lean/FFM only (excludes limb regions) when set.
-   */
   requireTotalRegion?: boolean;
-  /**
-   * Limb/regional lean only.
-   */
   requireLimbRegion?: boolean;
+  /**
+   * When another channel is the frozen primary, this channel may be retained
+   * as governed supporting (lower-specificity / redundancy) — not as a
+   * frozen ordered tertiary primary.
+   */
+  governedSupportingWhenPrimary?: readonly string[];
+};
+
+/** Explicit frozen pair: primary beats supporting when both resolve. */
+export type FrozenPrecedencePair = {
+  primaryChannelId: string;
+  supportingChannelId: string;
 };
 
 export type ResolverConstructPolicy = {
   constructId: BodyCompositionConstructId;
   publicLabel: string;
   role: "core" | "explanatory" | "optional";
-  channels: readonly ResolverChannelDefinition[];
+  /** Eligible channels — presence ≠ preferred primary. */
+  eligibleChannels: readonly ResolverChannelDefinition[];
+  /** Only explicitly frozen primary→supporting pairs. */
+  frozenPrecedencePairs: readonly FrozenPrecedencePair[];
   /**
-   * Ordered channel ids for frozen primary selection across channels.
-   * Empty ⇒ complementary / multiple_valid when >1 channel resolves.
+   * When true, multiple resolved channels without a frozen pair are
+   * complementary → multiple_valid (not policy_not_frozen).
    */
-  frozenChannelPrecedence: readonly string[];
-  channelPrecedenceMode: ResolverChannelPrecedenceMode;
+  complementary: boolean;
+  /**
+   * Channel ids that compete without frozen ranking when 2+ are active
+   * and no frozen pair applies → policy_not_frozen.
+   */
+  openPrecedenceChannelIds: readonly string[];
 };
 
 /**
@@ -62,9 +72,10 @@ export const BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES: readonly ResolverCons
     constructId: "H1",
     publicLabel: "Central Adiposity",
     role: "core",
-    channelPrecedenceMode: "complementary_multiple_valid",
-    frozenChannelPrecedence: [],
-    channels: [
+    complementary: true,
+    frozenPrecedencePairs: [],
+    openPrecedenceChannelIds: [],
+    eligibleChannels: [
       {
         channelId: "whtr_standardized",
         metricKeys: ["whtr"],
@@ -87,10 +98,12 @@ export const BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES: readonly ResolverCons
     constructId: "H2",
     publicLabel: "Total Adiposity",
     role: "core",
-    channelPrecedenceMode: "frozen_primary_among_channels",
-    // FMI preferred when available; else BF%; fat mass is supporting channel only.
-    frozenChannelPrecedence: ["fmi", "body_fat_percent", "fat_mass"],
-    channels: [
+    complementary: false,
+    // Frozen: FMI over total Body Fat % only (Appendix B).
+    frozenPrecedencePairs: [{ primaryChannelId: "fmi", supportingChannelId: "body_fat_percent" }],
+    // Fat Mass vs BF% without FMI is open; Fat Mass alone may resolve.
+    openPrecedenceChannelIds: ["body_fat_percent", "fat_mass"],
+    eligibleChannels: [
       {
         channelId: "fmi",
         metricKeys: ["fmi"],
@@ -105,6 +118,8 @@ export const BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES: readonly ResolverCons
         channelId: "fat_mass",
         metricKeys: ["fat_mass"],
         requireTotalRegion: true,
+        // When FMI is primary, Fat Mass is redundant input — governed supporting.
+        governedSupportingWhenPrimary: ["fmi"],
       },
     ],
   },
@@ -112,10 +127,11 @@ export const BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES: readonly ResolverCons
     constructId: "H3",
     publicLabel: "Lean Reserve",
     role: "core",
-    channelPrecedenceMode: "frozen_primary_among_channels",
-    // ALMI primary when available (Dual Score freeze); else FFMI; then FFM; Lean supporting.
-    frozenChannelPrecedence: ["almi", "ffmi", "fat_free_mass", "lean_mass_total"],
-    channels: [
+    complementary: false,
+    // Frozen: ALMI over FFMI only.
+    frozenPrecedencePairs: [{ primaryChannelId: "almi", supportingChannelId: "ffmi" }],
+    openPrecedenceChannelIds: ["fat_free_mass", "lean_mass_total"],
+    eligibleChannels: [
       {
         channelId: "almi",
         metricKeys: ["almi"],
@@ -130,11 +146,13 @@ export const BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES: readonly ResolverCons
         channelId: "fat_free_mass",
         metricKeys: ["fat_free_mass"],
         requireTotalRegion: true,
+        governedSupportingWhenPrimary: ["almi", "ffmi"],
       },
       {
         channelId: "lean_mass_total",
         metricKeys: ["lean_mass"],
         requireTotalRegion: true,
+        governedSupportingWhenPrimary: ["almi", "ffmi"],
       },
     ],
   },
@@ -142,9 +160,10 @@ export const BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES: readonly ResolverCons
     constructId: "H4",
     publicLabel: "Fat Distribution",
     role: "explanatory",
-    channelPrecedenceMode: "optional_explanatory",
-    frozenChannelPrecedence: ["android_gynoid_ratio", "android_fat_percent", "gynoid_fat_percent"],
-    channels: [
+    complementary: true,
+    frozenPrecedencePairs: [],
+    openPrecedenceChannelIds: [],
+    eligibleChannels: [
       {
         channelId: "android_gynoid_ratio",
         metricKeys: ["android_gynoid_ratio"],
@@ -166,10 +185,11 @@ export const BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES: readonly ResolverCons
     constructId: "P1",
     publicLabel: "Muscularity",
     role: "core",
-    channelPrecedenceMode: "frozen_primary_among_channels",
-    // FFMI primary for muscularity; ALMI is not a second P1 vote (P2 owns appendicular).
-    frozenChannelPrecedence: ["ffmi", "fat_free_mass", "lean_mass_total"],
-    channels: [
+    complementary: false,
+    // No frozen FFMI → FFM → Lean chain in draft v1.
+    frozenPrecedencePairs: [],
+    openPrecedenceChannelIds: ["ffmi", "fat_free_mass", "lean_mass_total"],
+    eligibleChannels: [
       {
         channelId: "ffmi",
         metricKeys: ["ffmi"],
@@ -191,9 +211,10 @@ export const BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES: readonly ResolverCons
     constructId: "P2",
     publicLabel: "Regional Lean",
     role: "optional",
-    channelPrecedenceMode: "complementary_multiple_valid",
-    frozenChannelPrecedence: [],
-    channels: [
+    complementary: true,
+    frozenPrecedencePairs: [],
+    openPrecedenceChannelIds: [],
+    eligibleChannels: [
       {
         channelId: "almi",
         metricKeys: ["almi"],
@@ -225,9 +246,10 @@ export const BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES: readonly ResolverCons
     constructId: "P3",
     publicLabel: "Performance Adiposity",
     role: "core",
-    channelPrecedenceMode: "frozen_primary_among_channels",
-    frozenChannelPrecedence: ["fmi", "body_fat_percent", "fat_mass"],
-    channels: [
+    complementary: false,
+    frozenPrecedencePairs: [{ primaryChannelId: "fmi", supportingChannelId: "body_fat_percent" }],
+    openPrecedenceChannelIds: ["body_fat_percent", "fat_mass"],
+    eligibleChannels: [
       {
         channelId: "fmi",
         metricKeys: ["fmi"],
@@ -242,6 +264,7 @@ export const BODY_COMPOSITION_RESOLVER_CONSTRUCT_POLICIES: readonly ResolverCons
         channelId: "fat_mass",
         metricKeys: ["fat_mass"],
         requireTotalRegion: true,
+        governedSupportingWhenPrimary: ["fmi"],
       },
     ],
   },
@@ -265,8 +288,15 @@ export function policyEligibleMetricsForConstruct(
 ): ReadonlySet<BodyCompositionEvidenceMetricKey> {
   const policy = resolverConstructPolicy(constructId);
   const keys = new Set<BodyCompositionEvidenceMetricKey>();
-  for (const ch of policy.channels) {
+  for (const ch of policy.eligibleChannels) {
     for (const k of ch.metricKeys) keys.add(k);
   }
   return keys;
+}
+
+/** Frozen precedence pairs only — never inferred from array order. */
+export function frozenPrecedencePairsFor(
+  constructId: BodyCompositionConstructId,
+): readonly FrozenPrecedencePair[] {
+  return resolverConstructPolicy(constructId).frozenPrecedencePairs;
 }

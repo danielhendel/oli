@@ -169,7 +169,7 @@ export function resolveBodyCompositionEvidence(
     }
     seenIds.add(obs.observationId);
 
-    const eligibility = evaluateBaseEligibility(obs, asOfMs);
+    const eligibility = evaluateBaseEligibility(obs, asOfMs, bundle);
     if (!eligibility.ok) {
       exclusions.push({
         observationId: eligibility.observationId,

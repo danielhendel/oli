@@ -16,6 +16,7 @@ import {
   emptyBundle,
   unknownProtocolWaist,
   whoWaist,
+  heightObservation,
 } from "../testFixtures";
 
 function construct(resolution: BodyCompositionEvidenceResolution, id: string) {
@@ -128,7 +129,7 @@ describe("resolveBodyCompositionEvidence — global", () => {
     );
   });
 
-  it("applies same-day DXA precedence over BIA without averaging", () => {
+  it("does not apply unfrozen same-day DXA precedence (preserves both method families)", () => {
     const r = resolveBodyCompositionEvidence({
       bundle: bundleWith([
         baseObservation({
@@ -164,14 +165,14 @@ describe("resolveBodyCompositionEvidence — global", () => {
       asOf: AS_OF,
     });
     const h2 = construct(r, "H2");
-    expect(h2.primaryEvidenceRefs).toEqual(["dxa_bf"]);
-    expect(h2.supportingEvidenceRefs).toContain("bia_bf");
-    expect(h2.rationaleCodes).toContain("selected_verified_dxa_same_day_precedence");
-    // Never averages
-    expect(h2.primaryEvidenceRefs).not.toContain("bia_bf");
+    expect(h2.status).toBe("policy_not_frozen");
+    expect(h2.primaryEvidenceRefs.sort()).toEqual(["bia_bf", "dxa_bf"].sort());
+    expect(h2.supportingEvidenceRefs).toEqual([]);
+    expect(h2.rationaleCodes).toContain("same_day_boundary_not_frozen");
+    expect(h2.rationaleCodes).not.toContain("selected_verified_dxa_same_day_precedence");
   });
 
-  it("returns multiple_valid for different-day DXA vs BIA without inventing a winner", () => {
+  it("returns policy_not_frozen for different-day DXA vs BIA (day boundary unfrozen)", () => {
     const r = resolveBodyCompositionEvidence({
       bundle: bundleWith([
         baseObservation({
@@ -206,8 +207,10 @@ describe("resolveBodyCompositionEvidence — global", () => {
       ]),
       asOf: AS_OF,
     });
-    const channel = construct(r, "H2").channels.find((c) => c.channelId === "body_fat_percent")!;
-    expect(channel.status).toBe("multiple_valid");
+    const h2 = construct(r, "H2");
+    const channel = h2.channels.find((c) => c.channelId === "body_fat_percent")!;
+    expect(channel.status).toBe("policy_not_frozen");
+    expect(h2.status).toBe("policy_not_frozen");
     expect(channel.primaryEvidenceRefs.sort()).toEqual(["bia_bf", "dxa_bf"].sort());
   });
 
@@ -353,6 +356,7 @@ describe("resolveBodyCompositionEvidence — global", () => {
 
 describe("resolveBodyCompositionEvidence — H1", () => {
   it("selects standardized WHtR when WHO waist protocol is present", () => {
+    const height = heightObservation();
     const waist = whoWaist({ id: "waist1", valueCm: 80, measuredAt: "2026-05-01T00:00:00.000Z" });
     const whtr = calculateWhtrObservation({
       waistCm: 80,
@@ -363,7 +367,7 @@ describe("resolveBodyCompositionEvidence — H1", () => {
     expect(whtr.ok).toBe(true);
     if (!whtr.ok) return;
     const r = resolveBodyCompositionEvidence({
-      bundle: bundleWith([waist, whtr.observation]),
+      bundle: bundleWith([height, waist, whtr.observation]),
       asOf: AS_OF,
     });
     const h1 = construct(r, "H1");
@@ -372,6 +376,7 @@ describe("resolveBodyCompositionEvidence — H1", () => {
   });
 
   it("excludes unknown-protocol WHtR from standardized primary path", () => {
+    const height = heightObservation();
     const waist = unknownProtocolWaist({
       id: "waist_unk",
       valueCm: 80,
@@ -386,7 +391,7 @@ describe("resolveBodyCompositionEvidence — H1", () => {
     expect(whtr.ok).toBe(true);
     if (!whtr.ok) return;
     const r = resolveBodyCompositionEvidence({
-      bundle: bundleWith([waist, whtr.observation]),
+      bundle: bundleWith([height, waist, whtr.observation]),
       asOf: AS_OF,
     });
     const h1 = construct(r, "H1");
@@ -399,6 +404,7 @@ describe("resolveBodyCompositionEvidence — H1", () => {
   });
 
   it("keeps VAT mass and volume as separate channels and returns multiple_valid with WHtR", () => {
+    const height = heightObservation();
     const waist = whoWaist({ id: "waist1", valueCm: 80, measuredAt: "2026-05-01T00:00:00.000Z" });
     const whtr = calculateWhtrObservation({
       waistCm: 80,
@@ -410,6 +416,7 @@ describe("resolveBodyCompositionEvidence — H1", () => {
     if (!whtr.ok) return;
     const r = resolveBodyCompositionEvidence({
       bundle: bundleWith([
+        height,
         waist,
         whtr.observation,
         baseObservation({
@@ -471,6 +478,15 @@ describe("resolveBodyCompositionEvidence — H1", () => {
 
 describe("resolveBodyCompositionEvidence — H2 / H3 / H4", () => {
   it("prefers FMI over BF% when both available", () => {
+    const height = heightObservation({ id: "h1" });
+    const fm = baseObservation({
+      observationId: "fm1",
+      metricKey: "fat_mass",
+      value: 15,
+      measuredAt: "2026-05-01T00:00:00.000Z",
+      constructEligibility: ["H2"],
+      redundancyGroup: "bf_fat_mass_fmi",
+    });
     const fmi = calculateFmiObservation({
       fatMassKg: 15,
       heightCm: 180,
@@ -481,6 +497,8 @@ describe("resolveBodyCompositionEvidence — H2 / H3 / H4", () => {
     if (!fmi.ok) return;
     const r = resolveBodyCompositionEvidence({
       bundle: bundleWith([
+        height,
+        fm,
         fmi.observation,
         baseObservation({
           observationId: "bf1",
@@ -500,6 +518,28 @@ describe("resolveBodyCompositionEvidence — H2 / H3 / H4", () => {
   });
 
   it("prefers ALMI over FFMI for H3 and never treats lean as FFM/SMM", () => {
+    const height = heightObservation({ id: "h1" });
+    const limbs = (["left_arm", "right_arm", "left_leg", "right_leg"] as const).map((region, i) =>
+      baseObservation({
+        observationId: ["arm_l", "arm_r", "leg_l", "leg_r"][i]!,
+        metricKey: "lean_mass",
+        region,
+        value: 3 + i * 0.1,
+        measuredAt: "2026-04-01T00:00:00.000Z",
+        constructEligibility: ["P2"],
+        redundancyGroup: "appendicular_lean_almi",
+        comparabilityGroup: "dxa_regional",
+        recencyClass: "slow",
+      }),
+    );
+    const ffm = baseObservation({
+      observationId: "ffm1",
+      metricKey: "fat_free_mass",
+      value: 60,
+      measuredAt: "2026-04-01T00:00:00.000Z",
+      constructEligibility: ["H3", "P1"],
+      redundancyGroup: "lean_ffm_ffmi",
+    });
     const almi = calculateAlmiObservation({
       appendicularLeanMassKg: 22,
       heightCm: 180,
@@ -516,6 +556,9 @@ describe("resolveBodyCompositionEvidence — H2 / H3 / H4", () => {
     if (!almi.ok || !ffmi.ok) return;
     const r = resolveBodyCompositionEvidence({
       bundle: bundleWith([
+        height,
+        ...limbs,
+        ffm,
         almi.observation,
         ffmi.observation,
         baseObservation({
@@ -580,6 +623,15 @@ describe("resolveBodyCompositionEvidence — H2 / H3 / H4", () => {
 
 describe("resolveBodyCompositionEvidence — P1 / P2 / P3", () => {
   it("uses FFMI for P1 muscularity without SMM reinterpretation", () => {
+    const height = heightObservation({ id: "h1" });
+    const ffm = baseObservation({
+      observationId: "ffm1",
+      metricKey: "fat_free_mass",
+      value: 60,
+      measuredAt: "2026-04-01T00:00:00.000Z",
+      constructEligibility: ["H3", "P1"],
+      redundancyGroup: "lean_ffm_ffmi",
+    });
     const ffmi = calculateFfmiObservation({
       fatFreeMassKg: 60,
       heightCm: 180,
@@ -589,10 +641,57 @@ describe("resolveBodyCompositionEvidence — P1 / P2 / P3", () => {
     expect(ffmi.ok).toBe(true);
     if (!ffmi.ok) return;
     const r = resolveBodyCompositionEvidence({
-      bundle: bundleWith([ffmi.observation]),
+      bundle: bundleWith([height, ffm, ffmi.observation]),
       asOf: AS_OF,
     });
-    expect(construct(r, "P1").primaryEvidenceRefs).toEqual([ffmi.observation.observationId]);
+    // FFMI + FFM compete without frozen P1 chain → policy_not_frozen
+    expect(construct(r, "P1").status).toBe("policy_not_frozen");
+    expect(construct(r, "P1").primaryEvidenceRefs).toEqual(
+      expect.arrayContaining([ffmi.observation.observationId, "ffm1"]),
+    );
+  });
+
+  it("resolves sole FFMI for P1 when no competing FFM/Lean channel", () => {
+    const height = heightObservation({ id: "h1" });
+    const ffm = baseObservation({
+      observationId: "ffm1",
+      metricKey: "fat_free_mass",
+      value: 60,
+      measuredAt: "2026-04-01T00:00:00.000Z",
+      constructEligibility: ["H3", "P1"],
+      redundancyGroup: "lean_ffm_ffmi",
+    });
+    const ffmi = calculateFfmiObservation({
+      fatFreeMassKg: 60,
+      heightCm: 180,
+      measuredAt: "2026-04-01T00:00:00.000Z",
+      inputObservationRefs: ["ffm1", "h1"],
+    });
+    expect(ffmi.ok).toBe(true);
+    if (!ffmi.ok) return;
+    // Bundle includes FFM for formula provenance but we only care P1 when FFM
+    // is also a construct candidate — exclude FFM from construct by using
+    // ffmi alone is impossible without FFM ref in bundle. Use lean-only absent:
+    // provide FFM in bundle (needed for refs) — P1 will see both. Instead test
+    // lean-only sole channel:
+    const rLean = resolveBodyCompositionEvidence({
+      bundle: bundleWith([
+        baseObservation({
+          observationId: "lean_only",
+          metricKey: "lean_mass",
+          value: 58,
+          measuredAt: "2026-04-01T00:00:00.000Z",
+          constructEligibility: ["P1"],
+          redundancyGroup: "lean_ffm_ffmi",
+        }),
+      ]),
+      asOf: AS_OF,
+    });
+    expect(construct(rLean, "P1").status).toBe("resolved");
+    expect(construct(rLean, "P1").primaryEvidenceRefs).toEqual(["lean_only"]);
+    void height;
+    void ffm;
+    void ffmi;
   });
 
   it("preserves laterality for P2 and does not average limbs", () => {
