@@ -15,7 +15,7 @@
 | Health version | `body_composition_health_score_draft_v1` |
 | Performance-Supporting version | `body_composition_performance_supporting_score_draft_v1` |
 | Companion decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_VALIDATION_DECISION_REGISTER_V1.md` |
-| Methodology status | **COMPLETE / PENDING INDEPENDENT RE-GATE** (Wave 1 final protocol closure) |
+| Methodology status | **COMPLETE / PENDING FINAL INDEPENDENT AUTHORIZATION RE-GATE** |
 | Wave 1 execution | **NOT AUTHORIZED** |
 | Tier B | **NOT AUTHORIZED** |
 
@@ -57,7 +57,7 @@ If validation later suggests the formula should change: **document evidence** an
 | Implementation truth freeze | **PASS** @ `3bed6aa…` |
 | Independent docs re-gate | **PASS** |
 | Validation plan methodology (at `6f97bb6e…`) | **FAIL** (10 blockers) — historical |
-| Validation plan methodology (Wave 1 final protocol closure) | **COMPLETE / PENDING INDEPENDENT RE-GATE** |
+| Validation plan methodology | **COMPLETE / PENDING FINAL INDEPENDENT AUTHORIZATION RE-GATE** |
 | Wave 1 synthetic execution | **NOT AUTHORIZED** |
 | Tier B de-identified / real-user | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
@@ -131,7 +131,7 @@ Quantify score movement from measurement noise with **joint** error propagation.
 |-------|---------------------------------------------------------|
 | Waist | Repeated-measure protocol error |
 | Height | Shared measurement variation / rounding |
-| DXA FM / FFM / LM / ALM | Test–retest; optional covariances where justified |
+| DXA FM / FFM / ALM | Test–retest; Wave 1 covariance pairs frozen in §23.7 (FM↔FFM, FFM↔ALM only) |
 | FMI / ALMI / FFMI / WHtR | **Propagated** from raw errors — not independently noised as if raw |
 
 Exact σ / ρ values: **ER-BC-01, ER-BC-02, ER-BC-17**. Do not fabricate.
@@ -155,7 +155,7 @@ Where evidence justifies, include covariance among:
 | Pair / structure | Intent |
 |------------------|--------|
 | FM ↔ FFM | Partition / total-mass constraints |
-| LM ↔ ALM | Regional lean coupling |
+| FFM ↔ ALM | Wave 1 Model B Pair 2 (canonical; LM↔ALM forbidden) |
 | Repeated-scan components | Same-session component correlation |
 
 Covariance magnitudes remain **evidence-review dependent** (ER-BC-17). Methodology requires the joint model; numbers are not frozen here.
@@ -164,7 +164,7 @@ Covariance magnitudes remain **evidence-review dependent** (ER-BC-17). Methodolo
 
 For each synthetic subject (biology fixed):
 
-1. Draw joint measurement-error vector (shared Height; Waist; DXA components ± optional cov).
+1. Draw joint measurement-error vector per §23.2–§23.7 (shared Height; Model A independent DXA components; Model B FM↔FFM and FFM↔ALM only).
 2. Recompute indices → eligible score inputs → Health + Performance-Supporting aggregates.
 3. Record |Δ|, signed Δ, threshold/band crossings, construct-level Δ contributions.
 
@@ -1109,10 +1109,10 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 | Priority | **P0** |
 | Tier | A |
 | Wave | **Wave 1** |
-| Objective | Enforce shared Height error into WHtR/FMI/FFMI/ALMI; optional DXA cov |
-| Hypothesis | Independent-per-index height noise **underestimates** aggregate uncertainty |
+| Objective | Enforce shared Height error into WHtR/FMI/FFMI/ALMI; run Model A (independent DXA) and Model B (FM↔FFM + FFM↔ALM only) |
+| Hypothesis | Independent-per-index height noise **underestimates** aggregate uncertainty; Model A ≠ Model B@ρ=0 |
 | Inputs | Joint error vector; candidate σ/ρ from ER-BC-17 (placeholders marked unresolved) |
-| Method | Monte Carlo with **one ε_H** applied to all height-indexed metrics; optional FM↔FFM, LM↔ALM |
+| Method | Monte Carlo with **one ε_H**; Model A independent FM/FFM/ALM; Model B exact §23.7 correlated construction |
 | Metrics | Joint vs independent-noise Δ comparison; p90/p95; construct contributions |
 | Dependencies | ER-BC-17; BCV-002; BCV-012 |
 | Acceptance type | exploratory / evidence-dependent |
@@ -1313,10 +1313,12 @@ Each entry includes: ID; title; layer; priority; dataset tier; objective; hypoth
 |------|-------------|
 | Canonical seed | `20261004` |
 | PRNG | **mulberry32** only (bit-identical port permitted; no platform RNG; no library Normal) |
-| Uniform draw | mulberry32 → `u ∈ (0,1)` via `(x + 1) * 2^-32` style mapping documented in execution code comments; never expose 0 or 1 to `ln` |
-| Gaussian transform | **Marsaglia polar method only** (Box–Muller forbidden; library normals forbidden) |
-| Polar rejection | Draw `u,v` uniform on `(-1,1)`; `s = u² + v²`; reject if `s == 0` or `s >= 1`; else `m = sqrt(-2 * ln(s) / s)`; emit `u*m` then `v*m` |
-| Second-normal cache | Always consume/cache the second polar normal in deterministic draw order before requesting a new polar pair |
+| uint32 → (0,1) map | If mulberry32 emits unsigned 32-bit `x ∈ {0,…,2^32−1}`, then **`u = (x + 0.5) / 4294967296`** ⇒ always `0 < u < 1` |
+| Forbidden maps | `x/2^32`, `(x+1)/2^32`, `Math.random()`, library-specific normalization |
+| Gaussian transform | **Marsaglia polar method only** |
+| Polar input map | For each open-unit `u`: `p = 2*u − 1` ⇒ `−1 < p < 1` |
+| Polar rejection | `p1=2*u1−1`, `p2=2*u2−1`, `s=p1²+p2²`; reject if `s==0` OR `s>=1`; else `m=sqrt(−2*ln(s)/s)`; `z1=p1*m`, `z2=p2*m` |
+| Cache order | Return `z1` first; cache `z2`; next Gaussian request consumes cached `z2` **before** drawing any new uniforms |
 | Reproducibility | Same code SHA + same manifest + same seeds ⇒ bit-identical tables (IEEE-754). No arbitrary seeds. |
 
 #### 23.2.1 Frozen stream-code table
@@ -1353,8 +1355,6 @@ derivedSeed =
   + substreamIndex
 ```
 
-Index ordering (0-based unless noted):
-
 | Index | Order |
 |-------|-------|
 | `personaIndex` | P-01→0 … P-12→11; structural-only runs use `0` |
@@ -1365,17 +1365,18 @@ Index ordering (0-based unless noted):
 
 No hashed/string-derived seeds.
 
-#### 23.2.3 Monte Carlo draw order (noise BCVs)
+#### 23.2.3 Canonical per-observation Gaussian draw order
 
-For each draw, generate standardized normals in this exact order:
+Unless an experiment does not require a variable, every Monte Carlo observation draws standardized normals in this exact order (cached Marsaglia values remain in the **same** stream and are consumed before new uniforms):
 
-1. `z_Height`
-2. `z_Waist`
-3. `z_FM` (Pair-1 base)
-4. `z_FFM_indep` (Pair-1 independent leg)
-5. construct `z_FFM` (see §23.7)
-6. `z_ALM_indep` (Pair-2 independent leg)
-7. construct `z_ALM` (see §23.7)
+1. Height error (`z_Height`)
+2. FM error source (`z_FM`)
+3. FFM independent/error source (`z_FFM_ind` for Model B; independent `z_FFM` for Model A)
+4. ALM independent/error source (`z_ALM_ind` for Model B; independent `z_ALM` for Model A)
+5. Waist error (`z_Waist`)
+6. Any experiment-specific additional stochastic term only if that experiment’s protocol explicitly lists a substream order
+
+Do **not** skip a required canonical draw conditionally based on outcome.
 
 Then scale by active σ\* × multiplier and apply shared-Height propagation into indices.
 
@@ -1390,9 +1391,13 @@ Then scale by active σ\* × multiplier and apply shared-Height propagation into
 | Hard maximum | `1_000_000` |
 | Monitored statistics | `median(|Δscore|)`, `p95(|Δscore|)`, and **each** exploratory threshold-crossing probability at `{10,20,30,40,50,60,70,80,90}` (Health and Perf separately) |
 | Batch-means scheme | At each checkpoint, take the largest prefix of accumulated draws divisible by 20; split into **exactly 20** contiguous equal batches; compute each monitored statistic per batch |
-| SE estimator | `sd(batch estimates) / sqrt(20)` |
-| `tol_median` (checkpoint change) | `0.01` score points |
-| `tol_p95` (checkpoint change) | `0.02` score points |
+| Batch sample SD | With batch estimates `y_1…y_20`: `y_bar = sum(y_i)/20`; variance `= sum((y_i−y_bar)²)/(20−1)` ⇒ divisor **19**; `sampleSD = sqrt(variance)` |
+| Batch-means SE | `sampleSD / sqrt(20)` — **not** population divisor 20 |
+| Quantile estimator | **Hyndman–Fan Type 7** for all of median/p05/p10/p25/p50/p75/p90/p95 and batch-level quantiles (see §23.3.1) |
+| Median | `Q(0.5)` via the **same** Type 7 function |
+| Checkpoint delta | Absolute difference vs **immediately preceding** checkpoint estimate only (no moving average): `|Q_t(0.5)−Q_{t−1}(0.5)|`, `|Q_t(0.95)−Q_{t−1}(0.95)|`, and absolute rate deltas |
+| `tol_median` | `0.01` score points |
+| `tol_p95` | `0.02` score points |
 | `se_tol_median` | `0.02` score points |
 | `se_tol_p95` | `0.05` score points |
 | `tol_rate` | `0.001` absolute probability |
@@ -1403,11 +1408,25 @@ Then scale by active σ\* × multiplier and apply shared-Height propagation into
 
 These are **numerical simulation convergence tolerances only** — not clinical thresholds, release criteria, or meaningful-change cutoffs.
 
+#### 23.3.1 Hyndman–Fan Type 7 (authoritative)
+
+For sorted zero-based values `x[0] ≤ … ≤ x[n−1]` and `p ∈ [0,1]`:
+
+```text
+h = (n - 1) * p
+j = floor(h)
+g = h - j
+if j >= n - 1:
+  Q(p) = x[n - 1]
+else:
+  Q(p) = (1 - g) * x[j] + g * x[j + 1]
+```
+
+Forbidden: nearest-rank; Type 1; library-default quantile ambiguity.
+
 ---
 
 ### 23.4 Canonical epsilon policy
-
-Reuse repository score-test numerical convention (`1e-9` in piecewise-linear score tests).
 
 | Symbol | Value | Use |
 |--------|-------|-----|
@@ -1463,12 +1482,22 @@ Synthetic ranges are **computational domains**, not clinical ranges.
 BCV-001 is:
 
 1. **Independent 1D sweeps** through each scoring transform (vary ONE input; hold companions at §23.5.4 references)
-2. **Deterministic 2D aggregate surfaces** only:
-   - Health: H1×H2, H1×H3, H2×H3 (non-varied construct fixed at reference)
-   - Performance: P1×P3
+2. **Deterministic 2D aggregate surfaces** with **both** governed H3 pathways (do not collapse H3):
+
+| Surface ID | Axes | H3 Resolver primary | Non-varied construct |
+|------------|------|---------------------|----------------------|
+| `HEALTH_H1_H2` | H1 × H2 | n/a | H3 at sex reference (ALMI primary) |
+| `HEALTH_H1_H3_ALMI` | H1 × H3 | **ALMI** | H2 at sex reference |
+| `HEALTH_H1_H3_FFMI` | H1 × H3 | **FFMI** | H2 at sex reference |
+| `HEALTH_H2_H3_ALMI` | H2 × H3 | **ALMI** | H1 at sex reference |
+| `HEALTH_H2_H3_FFMI` | H2 × H3 | **FFMI** | H1 at sex reference |
+| `PERFORMANCE_P1_P3` | P1 × P3 | n/a | n/a |
+
 3. **No 3D Health cube** in Wave 1
 
-H3 ALMI sweep ⇒ Resolver primary ALMI. H3 FFMI sweep ⇒ Resolver primary FFMI. Perf requires P1 FFMI.
+These Surface IDs **must** appear in future artifacts.
+
+1D: H3 ALMI sweep ⇒ Resolver primary ALMI; H3 FFMI sweep ⇒ Resolver primary FFMI. Perf requires P1 FFMI.
 
 #### 23.5.4 BCV-001 companion reference anchors (validation-only)
 
@@ -1504,56 +1533,64 @@ If ER later supplies magnitudes, re-run with `parameterSource=ER`; archive explo
 
 **Critical joint-Height rule:** one shared `ε_H` per draw applied simultaneously to WHtR, FMI, FFMI, ALMI recomputation.
 
-| Model | Definition | Wave 1 |
-|-------|------------|--------|
-| **Model A** | Shared Height; Waist independent; FM/FFM/ALM independent Gaussians | **REQUIRED** |
-| **Model B** | Model A + **exactly two** correlated DXA pairs (below) with **one common ρ** per run | **REQUIRED** |
+Wave 1 runs **both** Model A and Model B. They are **conceptually and operationally distinct**.
 
-#### 23.7.1 Model B correlated pairs (ONLY these)
+#### 23.7.1 Model A — independent DXA component errors
+
+| Rule | Frozen |
+|------|--------|
+| Shared Height | yes — applies across WHtR/FMI/FFMI/ALMI |
+| FM | independent `z_FM` |
+| FFM | independent `z_FFM` |
+| ALM | independent `z_ALM` |
+| Waist | independent unless another frozen Wave 1 rule applies |
+| DXA covariance | **none** |
+| Synthetic correlations | `corr(FM,FFM)=0`, `corr(FFM,ALM)=0` by construction |
+
+**Do NOT implement Model A as Model B with `rho=0`.**
+
+#### 23.7.2 Model B — correlated pairs (ONLY these)
 
 | Pair | Variables |
 |------|-----------|
-| Pair 1 | **Fat Mass (FM) ↔ Fat-Free Mass (FFM)** |
-| Pair 2 | **Fat-Free Mass (FFM) ↔ Appendicular Lean Mass (ALM)** |
+| Pair 1 | **FM ↔ FFM** |
+| Pair 2 | **FFM ↔ ALM** |
 
-**Forbidden alternate:** LM↔ALM as a Wave 1 pair.
+**Forbidden:** LM↔ALM; optional/free-form pair lists; alternate covariance matrices.
 
-Other error terms remain independent except shared Height.
-
-#### 23.7.2 Rho application
+Rho application:
 
 - One Model-B run = `persona × sigmaMultiplier × one rho`
-- The **same** ρ is applied to **both** pairs
-- Do **not** choose independent `rho_pair1` / `rho_pair2`
-- ρ sweep is exploratory, not empirical covariance
+- The **same** ρ applies to **both** pairs
+- ρ sweep is exploratory, not empirical
 
-#### 23.7.3 Exact correlated-draw construction
-
-For standardized independent normals from §23.2.3:
+Exact construction:
 
 ```text
-z_FM = z_FM_base
-z_FFM = rho * z_FM + sqrt(1 - rho^2) * z_FFM_indep
-z_ALM = rho * z_FFM + sqrt(1 - rho^2) * z_ALM_indep   # reuses SAME z_FFM
+z_FM = independent standard normal
+z_FFM_ind = independent standard normal
+z_ALM_ind = independent standard normal
+z_FFM = rho * z_FM + sqrt(1 - rho^2) * z_FFM_ind
+z_ALM = rho * z_FFM + sqrt(1 - rho^2) * z_ALM_ind
 ```
 
-Expected consequence: implied secondary correlation
+Expected:
 
 ```text
-corr(FM, ALM) = rho^2
+corr(FM,FFM) = rho
+corr(FFM,ALM) = rho
+corr(FM,ALM) = rho^2
 ```
 
-(document in artifacts; not an engineer choice).
-
-Wave 1 runs **both** Model A and Model B.
+Document `corr(FM,ALM)=rho^2` in artifacts.
 
 ---
 
 ### 23.8 BCV-030 interval & threshold contract
 
-Report **all** of: central 50/80/90/95%; mean; SD; p05,p10,p25,p50,p75,p90,p95; median; directional-reversal probability; construct uncertainty share; exploratory threshold-crossing at `{10,20,…,90}`.
+Report **all** of: central 50/80/90/95%; mean; SD; p05,p10,p25,p50,p75,p90,p95 via Type 7; median=`Q(0.5)`; directional-reversal probability; construct uncertainty share; exploratory threshold-crossing at `{10,20,…,90}`.
 
-**No product bands.** Thresholds are not health categories or release thresholds.
+**No product bands.**
 
 ---
 
@@ -1563,11 +1600,11 @@ Every Wave 1 protocol MUST output:
 
 1. `results.json`
 2. `summary.md`
-3. `manifest.json` (one per experiment execution; all canonical fields)
+3. `manifest.json` (one per experiment execution)
 
 Additionally, grid/surface/table protocols MUST output `results.csv`.
 
-Plots (PNG/SVG) MAY be emitted but are **not** source of truth.
+Plots (PNG/SVG) MAY be emitted but are **not** source of truth; if generated they must be listed in `artifactFiles`.
 
 **Future artifact root (planning only — do not create now):**
 
@@ -1575,7 +1612,118 @@ Plots (PNG/SVG) MAY be emitted but are **not** source of truth.
 validation/body-composition/dual-score/wave1/<experiment-id>/<run-id>/
 ```
 
-Every artifact identity fields: experimentId, engineVersion(s), implementationSha, mathematicalFreezeSha, seeds, parameterManifest, runTimestampUtc, codeSha, resultSummary, `phi=none`.
+#### 23.9.1 Required top-level `manifest.json` schema
+
+All keys are **REQUIRED**. Values may be `null` only where the experiment does not use that field. **Do not omit keys.**
+
+```text
+schemaVersion
+experimentId
+protocolId
+runId
+engineVersion
+implementationSha
+mathematicalFreezeSha
+validationPlanSha
+validationCodeSha
+createdAtUtc
+seed
+streamCode
+inputDomains
+gridSteps
+epsilon
+monteCarloProtocol
+noiseParameters
+covarianceParameters
+scheduleId
+personaId
+parameterProvenance
+artifactFiles
+interpretationClass
+phiStatus
+notes
+```
+
+#### 23.9.2 Fixed / enum values
+
+| Field | Frozen value / rule |
+|-------|---------------------|
+| `schemaVersion` | `"body_composition_dual_score_wave1_manifest_v1"` |
+| `phiStatus` | `"synthetic_no_phi"` |
+| `interpretationClass` | exactly one of `"structural_invariant"` \| `"exploratory"` \| `"evidence_dependent_acceptance"` |
+| `createdAtUtc` | informational artifact-generation timestamp only — **must not** influence analysis or reproducibility |
+
+#### 23.9.3 `monteCarloProtocol` object
+
+If Monte Carlo unused: `monteCarloProtocol = null`.
+
+If used, require **exactly**:
+
+```json
+{
+  "minimumDraws": 100000,
+  "maximumDraws": 1000000,
+  "checkpointEvery": 10000,
+  "batchCount": 20,
+  "requiredConsecutivePasses": 2,
+  "medianDeltaTolerance": 0.01,
+  "p95DeltaTolerance": 0.02,
+  "medianSeTolerance": 0.02,
+  "p95SeTolerance": 0.05,
+  "rateDeltaTolerance": 0.001,
+  "rateSeTolerance": 0.001,
+  "quantileEstimator": "hyndman_fan_type_7",
+  "batchSd": "sample_n_minus_1",
+  "prng": "mulberry32",
+  "gaussianTransform": "marsaglia_polar"
+}
+```
+
+#### 23.9.4 `covarianceParameters` object
+
+Model A:
+
+```json
+{
+  "model": "A_independent_dxa",
+  "sharedHeightError": true,
+  "correlatedPairs": [],
+  "rho": null
+}
+```
+
+Model B:
+
+```json
+{
+  "model": "B_correlated_dxa",
+  "sharedHeightError": true,
+  "correlatedPairs": [["FM","FFM"],["FFM","ALM"]],
+  "rho": <one value from frozen rho grid>
+}
+```
+
+No free-form pair lists.
+
+#### 23.9.5 `parameterProvenance`
+
+Object mapping every empirical or fallback parameter to:
+
+| Subfield | Rule |
+|----------|------|
+| `sourceType` | one of `"mathematical_freeze"` \| `"validation_plan"` \| `"evidence_review"` \| `"synthetic_fallback"` |
+| `sourceId` | exact document / ER-BC / protocol identifier |
+| `value` | exact value used |
+
+No unprovenanced noise/covariance parameter is allowed.
+
+#### 23.9.6 `artifactFiles`
+
+Enumerate all generated files relative to the run root.
+
+Required every run: `manifest.json`, `results.json`, `summary.md`.
+Grid/surface/table: also `results.csv`.
+Optional plots must be listed if generated.
 
 ---
 
@@ -1688,7 +1836,7 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 
 | Item | Frozen |
 |------|--------|
-| Geometry | §23.5.3–23.5.4 (1D sweeps + specified 2D surfaces; no 3D cube) |
+| Geometry | §23.5.3–23.5.4 (1D sweeps + HEALTH_H1_H2 / H1×H3-ALMI / H1×H3-FFMI / H2×H3-ALMI / H2×H3-FFMI / PERFORMANCE_P1_P3; no 3D cube) |
 | Epsilon | EPS_NUM + EPS_SURF |
 | Outputs | continuity; max jump; local slopes; occupancy; NaN/OOR=0 |
 | Artifacts | `results.json`, `results.csv`, `summary.md`, `manifest.json` (+ optional plots) |
@@ -1715,7 +1863,7 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 | Also evaluate | personas P-01…P-12 |
 | OAT steps | WHtR `{EPS_SURF,0.01,0.1}`; FMI/ALMI/FFMI `{EPS_SURF,0.1,0.5}` |
 | Normalized sensitivity | `\|dScore/dx\| * DOMAIN_RANGE` from §23.5 (no SD-/data-derived normalization) |
-| Joint FD pairs | Health H1/H2, H1/H3, H2/H3; Perf P1/P3 |
+| Joint FD pairs | Health H1/H2, H1/H3-ALMI, H1/H3-FFMI, H2/H3-ALMI, H2/H3-FFMI; Perf P1/P3 |
 | Joint signs | exactly `(+,+) (+,-) (-,+) (-,-)` with `EPS_SURF` on both |
 | FD formula | central difference `(f(x+h)-f(x-h))/(2h)` where defined |
 | Outputs | local slope; normalized sensitivity; dominant construct; aggregate Δ |
@@ -1794,10 +1942,10 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 
 | Item | Frozen |
 |------|--------|
-| Models | A + B (§23.7) |
-| Pairs | FM↔FFM and FFM↔ALM only |
-| ρ | common ρ per run; grid §23.6 |
-| Construction | §23.7.3 |
+| Models | A independent DXA (§23.7.1) + B correlated (§23.7.2) — A ≠ B@ρ=0 |
+| Pairs | Model B only: FM↔FFM and FFM↔ALM |
+| ρ | common ρ per Model-B run; grid §23.6 |
+| Construction | §23.7.1 / §23.7.2 |
 | MC / seed / draw order | §23.3 / §23.2 |
 | Baselines | P-01…P-12 |
 | Outputs | tails; construct shares; document `corr(FM,ALM)=rho^2`; optional labeled non-compliant independent-height ablation |
@@ -1987,8 +2135,8 @@ No path auto-authorizes consumer integration or public scores. Synthetic alone c
 
 | Item | Status |
 |------|--------|
-| Private validation plan methodology | **COMPLETE / PENDING INDEPENDENT RE-GATE** |
-| Wave 1 protocol zero-ambiguity | **CLOSED in docs** (pending independent confirmation) |
+| Private validation plan methodology | **COMPLETE / PENDING FINAL INDEPENDENT AUTHORIZATION RE-GATE** |
+| Wave 1 computational determinism | **CLOSED in docs** (pending independent confirmation) |
 | Wave 1 execution | **NOT AUTHORIZED** |
 | Tier B | **NOT AUTHORIZED** |
 | Validation execution | **NOT STARTED** |
@@ -1996,7 +2144,7 @@ No path auto-authorizes consumer integration or public scores. Synthetic alone c
 | Consumer integration | **NOT AUTHORIZED** |
 | Public Health / Performance-Supporting | **NO-GO** |
 
-**Next action:** open a **new independent methodology reviewer** against the new SHA focusing on the previously remaining 8 protocol ambiguities (Model B pairs/rho/draws; MC quantile SE; PRNG/Gaussian/streams; BCV-001 geometry; BCV-012 centers/normalization/signs; BCV-007/031 anchors/labels; BCV-034 scenario matrix; BCV-013/018 plateaus/companions), plus no new ambiguity and catalog/count consistency. Only after **PASS** + explicit **WAVE 1 AUTHORIZED** may synthetic execution begin.
+**Next action:** open a **new independent methodology reviewer** against the new SHA focusing on the six computational residuals (uint32/polar mapping; Model A path; batch SD + Type 7 quantiles; BCV-001 H3 ALMI/FFMI 2D coverage; manifest schema; BCV-029 catalog identity with §23), contradiction search, and zero material execution choices. Only an explicit **FINAL RE-GATE PASS** plus **WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED** may open the execution agent.
 
 ---
 

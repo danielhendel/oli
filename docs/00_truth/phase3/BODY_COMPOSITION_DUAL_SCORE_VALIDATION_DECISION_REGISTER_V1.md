@@ -4,14 +4,14 @@
 **Date:** 2026-10-04
 **Branch:** `feat/body-composition-stage3e-body-scans-v1`
 **Kind:** Documentation only. Records validation-gate state. **Does not** authorize consumer release, change score math, or start validation execution.
-**Wave 1 final protocol closure:** closes residual protocol ambiguities against SHA `a59299ff430e3dca583e39133e6dbe0a2951bd3e`.
+**Wave 1 computational determinism closure:** closes six residual computational ambiguities against SHA `30862d78eb228999672d03d26a0140515237a9a1`.
 
 | Identity | Value |
 |----------|-------|
 | Implementation truth-freeze SHA | `3bed6aa6012690737bb5f7455a4397ca6a3bfe64` |
 | Approved runtime implementation SHA | `d940b1616b341e98b19e82f2cd6a6242dfe41691` |
 | Mathematical truth-freeze SHA | `e258267d109d1d05e20270f205e5fdb29ae2aca6` |
-| Prior Wave 1 zero-ambiguity SHA | `a59299ff430e3dca583e39133e6dbe0a2951bd3e` |
+| Prior final protocol-closure SHA | `30862d78eb228999672d03d26a0140515237a9a1` |
 | Validation plan | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_PRIVATE_VALIDATION_PLAN_V1.md` |
 | Health version | `body_composition_health_score_draft_v1` |
 | Performance-Supporting version | `body_composition_performance_supporting_score_draft_v1` |
@@ -28,8 +28,8 @@
 | Internal engine (Performance-Supporting) | **PASS** |
 | Implementation truth freeze | **PASS** @ `3bed6aa…` |
 | Independent docs re-gate | **PASS** |
-| Validation plan methodology | **COMPLETE / PENDING INDEPENDENT RE-GATE** |
-| Wave 1 protocol zero-ambiguity (docs) | **CLOSED** (pending independent confirmation) |
+| Validation plan methodology | **COMPLETE / PENDING FINAL INDEPENDENT AUTHORIZATION RE-GATE** |
+| Wave 1 computational determinism (docs) | **CLOSED** (pending independent confirmation) |
 | Wave 1 synthetic validation | **NOT AUTHORIZED** |
 | Wave 1 execution | **NOT STARTED** |
 | Tier B de-identified / real-user validation | **NOT AUTHORIZED** |
@@ -53,18 +53,16 @@
 
 ---
 
-## 3. Final protocol-closure targets
+## 3. Computational residuals closed in this pass
 
-| Residual ambiguity | Status in plan |
-|--------------------|----------------|
-| BCV-029 Model B pairs / rho / draws | **Frozen** (FM↔FFM, FFM↔ALM; common ρ; Marsaglia construction) |
-| Monte Carlo quantile SE / tolerances | **Frozen** (20-batch SE; two consecutive checkpoints) |
-| PRNG stream codes / Gaussian / draw order | **Frozen** |
-| BCV-001 geometry / held-fixed companions | **Frozen** (1D + specified 2D; no 3D cube) |
-| BCV-012 centers / normalization / signs | **Frozen** |
-| BCV-007/031 anchors / label sets | **Frozen** (`group_a/b/c` etc.) |
-| BCV-034 scenario→delta / Waist | **Frozen** (no optional Waist) |
-| BCV-013 plateaus / BCV-018 companions | **Frozen** |
+| Residual | Freeze |
+|----------|--------|
+| uint32 → (0,1) + polar mapping | `u=(x+0.5)/4294967296`; `p=2u−1`; Marsaglia cache order |
+| Model A path | Independent FM/FFM/ALM; **≠** Model B@ρ=0 |
+| Batch SD + quantiles | divisor 19; Hyndman–Fan Type 7; adjacent checkpoint deltas |
+| BCV-001 H3 2D coverage | H1×H3-ALMI, H1×H3-FFMI, H2×H3-ALMI, H2×H3-FFMI + surface IDs |
+| Manifest schema | required keys/enums/MC/cov/provenance objects |
+| BCV-029 catalog ≡ §23 | Model A independent; Model B FM↔FFM + FFM↔ALM only |
 
 ---
 
@@ -82,23 +80,27 @@
 
 | Wave | Authorization |
 |------|---------------|
-| Wave 1 synthetic | **NOT AUTHORIZED** — requires independent re-gate **PASS** + explicit **WAVE 1 AUTHORIZED** |
+| Wave 1 synthetic | **NOT AUTHORIZED** — requires **FINAL RE-GATE PASS** + explicit **WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED** |
 | Tier B | **NOT AUTHORIZED** |
 | Consumer pilot | **NOT AUTHORIZED** |
 | Public scores | **NO-GO** |
+
+This register does **not** self-authorize Wave 1.
 
 ---
 
 ## 6. Next gate
 
 ```text
-WAVE 1 FINAL PROTOCOL CLOSURE (this phase)
+WAVE 1 COMPUTATIONAL DETERMINISM CLOSURE (this phase)
         ↓
-independent validation-methodology re-gate (narrow)
+final independent authorization re-gate (narrow)
         ↓
-(only if PASS) explicit WAVE 1 AUTHORIZED
+FINAL RE-GATE PASS
         ↓
-Wave 1 synthetic execution under frozen contract
+WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED
+        ↓
+only then may the execution agent open
 ```
 
 **Public Health / Public Performance-Supporting remain NO-GO.**
