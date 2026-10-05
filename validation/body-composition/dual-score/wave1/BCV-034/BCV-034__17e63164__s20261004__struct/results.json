@@ -1,0 +1,3588 @@
+{
+  "protocolId": "BCV-034",
+  "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved",
+  "scenarioMatrix": [
+    {
+      "id": "BASE",
+      "dFfmKg": 0,
+      "dAlmKg": 0,
+      "dWaistCm": 0,
+      "femaleOnly": false
+    },
+    {
+      "id": "HYDRATION_DOWN",
+      "dFfmKg": -1,
+      "dAlmKg": -0.6,
+      "dWaistCm": -1,
+      "femaleOnly": false
+    },
+    {
+      "id": "HYDRATION_UP",
+      "dFfmKg": 1,
+      "dAlmKg": 0.6,
+      "dWaistCm": 1,
+      "femaleOnly": false
+    },
+    {
+      "id": "GLYCOGEN_DOWN",
+      "dFfmKg": -0.5,
+      "dAlmKg": -0.3,
+      "dWaistCm": 0,
+      "femaleOnly": false
+    },
+    {
+      "id": "GLYCOGEN_UP",
+      "dFfmKg": 0.5,
+      "dAlmKg": 0.3,
+      "dWaistCm": 0,
+      "femaleOnly": false
+    },
+    {
+      "id": "RECENT_EXERCISE",
+      "dFfmKg": 0.5,
+      "dAlmKg": 0.3,
+      "dWaistCm": 0,
+      "femaleOnly": false
+    },
+    {
+      "id": "ILLNESS_INFLAMMATION",
+      "dFfmKg": 1,
+      "dAlmKg": 0.6,
+      "dWaistCm": 1,
+      "femaleOnly": false
+    },
+    {
+      "id": "EDEMA",
+      "dFfmKg": 1.5,
+      "dAlmKg": 0.9,
+      "dWaistCm": 2,
+      "femaleOnly": false
+    },
+    {
+      "id": "MENSTRUAL_PHASE_LOW",
+      "dFfmKg": 0,
+      "dAlmKg": 0,
+      "dWaistCm": 0,
+      "femaleOnly": true
+    },
+    {
+      "id": "MENSTRUAL_PHASE_HIGH",
+      "dFfmKg": 0.5,
+      "dAlmKg": 0.3,
+      "dWaistCm": 1,
+      "femaleOnly": true
+    },
+    {
+      "id": "TOD_MORNING",
+      "dFfmKg": 0,
+      "dAlmKg": 0,
+      "dWaistCm": 0,
+      "femaleOnly": false
+    },
+    {
+      "id": "TOD_EVENING",
+      "dFfmKg": 0.5,
+      "dAlmKg": 0.3,
+      "dWaistCm": 1,
+      "femaleOnly": false
+    }
+  ],
+  "rows": [
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "scenarioId": "BASE",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0,
+        "dAlmKg": 0,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19,
+        "almi": 8.2,
+        "waistCm": 78
+      },
+      "baseIndices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19,
+        "almi": 8.2,
+        "waistCm": 78
+      },
+      "health": {
+        "constructScores": {
+          "H1": 92.35955056179775,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 92.16179775280898,
+        "baseAggregate": 92.16179775280898,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 90,
+          "P3": 92
+        },
+        "aggregate": 91,
+        "baseAggregate": 91,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "scenarioId": "HYDRATION_DOWN",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": -1,
+        "dAlmKg": -0.6,
+        "dWaistCm": -1
+      },
+      "indices": {
+        "whtr": 0.43258426966292135,
+        "fmi": 4.5,
+        "ffmi": 18.68438328493877,
+        "almi": 8.010629970963262,
+        "waistCm": 77
+      },
+      "baseIndices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19,
+        "almi": 8.2,
+        "waistCm": 78
+      },
+      "health": {
+        "constructScores": {
+          "H1": 93.48314606741573,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 92.66741573033708,
+        "baseAggregate": 92.16179775280898,
+        "aggregateDelta": 0.5056179775281038,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0.5056179775280931
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0.5056179775280931
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 83.13876706388635,
+          "P3": 92
+        },
+        "aggregate": 87.56938353194317,
+        "baseAggregate": 91,
+        "aggregateDelta": -3.430616468056826,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": -3.430616468056826
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -3.430616468056826
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "scenarioId": "HYDRATION_UP",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 1,
+        "dAlmKg": 0.6,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.4438202247191011,
+        "fmi": 4.5,
+        "ffmi": 19.315616715061232,
+        "almi": 8.389370029036737,
+        "waistCm": 79
+      },
+      "baseIndices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19,
+        "almi": 8.2,
+        "waistCm": 78
+      },
+      "health": {
+        "constructScores": {
+          "H1": 91.23595505617979,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 91.65617977528092,
+        "baseAggregate": 92.16179775280898,
+        "aggregateDelta": -0.5056179775280611,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.5056179775280804
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -0.5056179775280804
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 91.05205571687077,
+          "P3": 92
+        },
+        "aggregate": 91.52602785843538,
+        "baseAggregate": 91,
+        "aggregateDelta": 0.5260278584353841,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0.5260278584353841
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0.5260278584353841
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "scenarioId": "GLYCOGEN_DOWN",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": -0.5,
+        "dAlmKg": -0.3,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 18.842191642469384,
+        "almi": 8.10531498548163,
+        "waistCm": 78
+      },
+      "baseIndices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19,
+        "almi": 8.2,
+        "waistCm": 78
+      },
+      "health": {
+        "constructScores": {
+          "H1": 92.35955056179775,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 92.16179775280898,
+        "baseAggregate": 92.16179775280898,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 86.56938353194313,
+          "P3": 92
+        },
+        "aggregate": 89.28469176597156,
+        "baseAggregate": 91,
+        "aggregateDelta": -1.7153082340284413,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": -1.7153082340284342
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -1.7153082340284342
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "scenarioId": "GLYCOGEN_UP",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19.157808357530616,
+        "almi": 8.294685014518368,
+        "waistCm": 78
+      },
+      "baseIndices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19,
+        "almi": 8.2,
+        "waistCm": 78
+      },
+      "health": {
+        "constructScores": {
+          "H1": 92.35955056179775,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 92.16179775280898,
+        "baseAggregate": 92.16179775280898,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 90.52602785843538,
+          "P3": 92
+        },
+        "aggregate": 91.26301392921769,
+        "baseAggregate": 91,
+        "aggregateDelta": 0.26301392921769207,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0.26301392921769207
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0.26301392921769207
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "scenarioId": "RECENT_EXERCISE",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19.157808357530616,
+        "almi": 8.294685014518368,
+        "waistCm": 78
+      },
+      "baseIndices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19,
+        "almi": 8.2,
+        "waistCm": 78
+      },
+      "health": {
+        "constructScores": {
+          "H1": 92.35955056179775,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 92.16179775280898,
+        "baseAggregate": 92.16179775280898,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 90.52602785843538,
+          "P3": 92
+        },
+        "aggregate": 91.26301392921769,
+        "baseAggregate": 91,
+        "aggregateDelta": 0.26301392921769207,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0.26301392921769207
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0.26301392921769207
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "scenarioId": "ILLNESS_INFLAMMATION",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 1,
+        "dAlmKg": 0.6,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.4438202247191011,
+        "fmi": 4.5,
+        "ffmi": 19.315616715061232,
+        "almi": 8.389370029036737,
+        "waistCm": 79
+      },
+      "baseIndices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19,
+        "almi": 8.2,
+        "waistCm": 78
+      },
+      "health": {
+        "constructScores": {
+          "H1": 91.23595505617979,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 91.65617977528092,
+        "baseAggregate": 92.16179775280898,
+        "aggregateDelta": -0.5056179775280611,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.5056179775280804
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -0.5056179775280804
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 91.05205571687077,
+          "P3": 92
+        },
+        "aggregate": 91.52602785843538,
+        "baseAggregate": 91,
+        "aggregateDelta": 0.5260278584353841,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0.5260278584353841
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0.5260278584353841
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "scenarioId": "EDEMA",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 1.5,
+        "dAlmKg": 0.9,
+        "dWaistCm": 2
+      },
+      "indices": {
+        "whtr": 0.449438202247191,
+        "fmi": 4.5,
+        "ffmi": 19.473425072591844,
+        "almi": 8.484055043555106,
+        "waistCm": 80
+      },
+      "baseIndices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19,
+        "almi": 8.2,
+        "waistCm": 78
+      },
+      "health": {
+        "constructScores": {
+          "H1": 90.1123595505618,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 91.15056179775281,
+        "baseAggregate": 92.16179775280898,
+        "aggregateDelta": -1.011235955056165,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -1.0112359550561736
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -1.0112359550561736
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 91.57808357530615,
+          "P3": 92
+        },
+        "aggregate": 91.78904178765308,
+        "baseAggregate": 91,
+        "aggregateDelta": 0.7890417876530762,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0.7890417876530762
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0.7890417876530762
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "scenarioId": "MENSTRUAL_PHASE_LOW",
+      "applicable": false,
+      "reason": "menstrual scenarios apply to female baselines only"
+    },
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "scenarioId": "MENSTRUAL_PHASE_HIGH",
+      "applicable": false,
+      "reason": "menstrual scenarios apply to female baselines only"
+    },
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "scenarioId": "TOD_MORNING",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0,
+        "dAlmKg": 0,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19,
+        "almi": 8.2,
+        "waistCm": 78
+      },
+      "baseIndices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19,
+        "almi": 8.2,
+        "waistCm": 78
+      },
+      "health": {
+        "constructScores": {
+          "H1": 92.35955056179775,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 92.16179775280898,
+        "baseAggregate": 92.16179775280898,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 90,
+          "P3": 92
+        },
+        "aggregate": 91,
+        "baseAggregate": 91,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "scenarioId": "TOD_EVENING",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.4438202247191011,
+        "fmi": 4.5,
+        "ffmi": 19.157808357530616,
+        "almi": 8.294685014518368,
+        "waistCm": 79
+      },
+      "baseIndices": {
+        "whtr": 0.43820224719101125,
+        "fmi": 4.5,
+        "ffmi": 19,
+        "almi": 8.2,
+        "waistCm": 78
+      },
+      "health": {
+        "constructScores": {
+          "H1": 91.23595505617979,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 91.65617977528092,
+        "baseAggregate": 92.16179775280898,
+        "aggregateDelta": -0.5056179775280611,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.5056179775280804
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -0.5056179775280804
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 90.52602785843538,
+          "P3": 92
+        },
+        "aggregate": 91.26301392921769,
+        "baseAggregate": 91,
+        "aggregateDelta": 0.26301392921769207,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0.26301392921769207
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0.26301392921769207
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "scenarioId": "BASE",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0,
+        "dAlmKg": 0,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16,
+        "almi": 6.1,
+        "waistCm": 108
+      },
+      "baseIndices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16,
+        "almi": 6.1,
+        "waistCm": 108
+      },
+      "health": {
+        "constructScores": {
+          "H1": 43.02325581395348,
+          "H2": 33.33333333333332,
+          "H3": 18.999999999999986
+        },
+        "aggregate": 34.82713178294573,
+        "baseAggregate": 34.82713178294573,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 10,
+          "P3": 35.749999999999986
+        },
+        "aggregate": 22.874999999999993,
+        "baseAggregate": 22.874999999999993,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "scenarioId": "HYDRATION_DOWN",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": -1,
+        "dAlmKg": -0.6,
+        "dWaistCm": -1
+      },
+      "indices": {
+        "whtr": 0.622093023255814,
+        "fmi": 11.500000000000002,
+        "ffmi": 15.66197944835046,
+        "almi": 5.897187669010275,
+        "waistCm": 107
+      },
+      "baseIndices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16,
+        "almi": 6.1,
+        "waistCm": 108
+      },
+      "health": {
+        "constructScores": {
+          "H1": 44.47674418604651,
+          "H2": 33.33333333333332,
+          "H3": 15
+        },
+        "aggregate": 34.68120155038759,
+        "baseAggregate": 34.82713178294573,
+        "aggregateDelta": -0.1459302325581362,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0.6540697674418621
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": -0.7999999999999972
+            }
+          ],
+          "aggregateChange": -0.1459302325581351
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 10,
+          "P3": 35.749999999999986
+        },
+        "aggregate": 22.874999999999993,
+        "baseAggregate": 22.874999999999993,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "scenarioId": "HYDRATION_UP",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 1,
+        "dAlmKg": 0.6,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.6337209302325582,
+        "fmi": 11.500000000000002,
+        "ffmi": 16.33802055164954,
+        "almi": 6.302812330989725,
+        "waistCm": 109
+      },
+      "baseIndices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16,
+        "almi": 6.1,
+        "waistCm": 108
+      },
+      "health": {
+        "constructScores": {
+          "H1": 41.569767441860456,
+          "H2": 33.33333333333332,
+          "H3": 27.112493239588993
+        },
+        "aggregate": 35.79556066342167,
+        "baseAggregate": 34.82713178294573,
+        "aggregateDelta": 0.9684288804759404,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.6540697674418621
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 1.6224986479178014
+            }
+          ],
+          "aggregateChange": 0.9684288804759393
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 24.48659507069453,
+          "P3": 35.749999999999986
+        },
+        "aggregate": 30.11829753534726,
+        "baseAggregate": 22.874999999999993,
+        "aggregateDelta": 7.243297535347267,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 7.243297535347265
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 7.243297535347265
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "scenarioId": "GLYCOGEN_DOWN",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": -0.5,
+        "dAlmKg": -0.3,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 15.83098972417523,
+        "almi": 5.9985938345051375,
+        "waistCm": 108
+      },
+      "baseIndices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16,
+        "almi": 6.1,
+        "waistCm": 108
+      },
+      "health": {
+        "constructScores": {
+          "H1": 43.02325581395348,
+          "H2": 33.33333333333332,
+          "H3": 15
+        },
+        "aggregate": 34.02713178294573,
+        "baseAggregate": 34.82713178294573,
+        "aggregateDelta": -0.7999999999999972,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": -0.7999999999999972
+            }
+          ],
+          "aggregateChange": -0.7999999999999972
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 10,
+          "P3": 35.749999999999986
+        },
+        "aggregate": 22.874999999999993,
+        "baseAggregate": 22.874999999999993,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "scenarioId": "GLYCOGEN_UP",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16.16901027582477,
+        "almi": 6.201406165494862,
+        "waistCm": 108
+      },
+      "baseIndices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16,
+        "almi": 6.1,
+        "waistCm": 108
+      },
+      "health": {
+        "constructScores": {
+          "H1": 43.02325581395348,
+          "H2": 33.33333333333332,
+          "H3": 23.05624661979447
+        },
+        "aggregate": 35.638381106904625,
+        "baseAggregate": 34.82713178294573,
+        "aggregateDelta": 0.8112493239588972,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0.8112493239588972
+            }
+          ],
+          "aggregateChange": 0.8112493239588972
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 17.24329753534734,
+          "P3": 35.749999999999986
+        },
+        "aggregate": 26.496648767673662,
+        "baseAggregate": 22.874999999999993,
+        "aggregateDelta": 3.621648767673669,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 3.621648767673671
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 3.621648767673671
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "scenarioId": "RECENT_EXERCISE",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16.16901027582477,
+        "almi": 6.201406165494862,
+        "waistCm": 108
+      },
+      "baseIndices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16,
+        "almi": 6.1,
+        "waistCm": 108
+      },
+      "health": {
+        "constructScores": {
+          "H1": 43.02325581395348,
+          "H2": 33.33333333333332,
+          "H3": 23.05624661979447
+        },
+        "aggregate": 35.638381106904625,
+        "baseAggregate": 34.82713178294573,
+        "aggregateDelta": 0.8112493239588972,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0.8112493239588972
+            }
+          ],
+          "aggregateChange": 0.8112493239588972
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 17.24329753534734,
+          "P3": 35.749999999999986
+        },
+        "aggregate": 26.496648767673662,
+        "baseAggregate": 22.874999999999993,
+        "aggregateDelta": 3.621648767673669,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 3.621648767673671
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 3.621648767673671
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "scenarioId": "ILLNESS_INFLAMMATION",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 1,
+        "dAlmKg": 0.6,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.6337209302325582,
+        "fmi": 11.500000000000002,
+        "ffmi": 16.33802055164954,
+        "almi": 6.302812330989725,
+        "waistCm": 109
+      },
+      "baseIndices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16,
+        "almi": 6.1,
+        "waistCm": 108
+      },
+      "health": {
+        "constructScores": {
+          "H1": 41.569767441860456,
+          "H2": 33.33333333333332,
+          "H3": 27.112493239588993
+        },
+        "aggregate": 35.79556066342167,
+        "baseAggregate": 34.82713178294573,
+        "aggregateDelta": 0.9684288804759404,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.6540697674418621
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 1.6224986479178014
+            }
+          ],
+          "aggregateChange": 0.9684288804759393
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 24.48659507069453,
+          "P3": 35.749999999999986
+        },
+        "aggregate": 30.11829753534726,
+        "baseAggregate": 22.874999999999993,
+        "aggregateDelta": 7.243297535347267,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 7.243297535347265
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 7.243297535347265
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "scenarioId": "EDEMA",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 1.5,
+        "dAlmKg": 0.9,
+        "dWaistCm": 2
+      },
+      "indices": {
+        "whtr": 0.6395348837209303,
+        "fmi": 11.500000000000002,
+        "ffmi": 16.50703082747431,
+        "almi": 6.404218496484585,
+        "waistCm": 110
+      },
+      "baseIndices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16,
+        "almi": 6.1,
+        "waistCm": 108
+      },
+      "health": {
+        "constructScores": {
+          "H1": 40.11627906976743,
+          "H2": 33.33333333333332,
+          "H3": 31.168739859383408
+        },
+        "aggregate": 35.95274021993869,
+        "baseAggregate": 34.82713178294573,
+        "aggregateDelta": 1.1256084369929624,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -1.3081395348837241
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 2.4337479718766843
+            }
+          ],
+          "aggregateChange": 1.1256084369929602
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 31.729892606041872,
+          "P3": 35.749999999999986
+        },
+        "aggregate": 33.73994630302093,
+        "baseAggregate": 22.874999999999993,
+        "aggregateDelta": 10.864946303020936,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 10.864946303020936
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 10.864946303020936
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "scenarioId": "MENSTRUAL_PHASE_LOW",
+      "applicable": false,
+      "reason": "menstrual scenarios apply to female baselines only"
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "scenarioId": "MENSTRUAL_PHASE_HIGH",
+      "applicable": false,
+      "reason": "menstrual scenarios apply to female baselines only"
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "scenarioId": "TOD_MORNING",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0,
+        "dAlmKg": 0,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16,
+        "almi": 6.1,
+        "waistCm": 108
+      },
+      "baseIndices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16,
+        "almi": 6.1,
+        "waistCm": 108
+      },
+      "health": {
+        "constructScores": {
+          "H1": 43.02325581395348,
+          "H2": 33.33333333333332,
+          "H3": 18.999999999999986
+        },
+        "aggregate": 34.82713178294573,
+        "baseAggregate": 34.82713178294573,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 10,
+          "P3": 35.749999999999986
+        },
+        "aggregate": 22.874999999999993,
+        "baseAggregate": 22.874999999999993,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "scenarioId": "TOD_EVENING",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.6337209302325582,
+        "fmi": 11.500000000000002,
+        "ffmi": 16.16901027582477,
+        "almi": 6.201406165494862,
+        "waistCm": 109
+      },
+      "baseIndices": {
+        "whtr": 0.627906976744186,
+        "fmi": 11.500000000000002,
+        "ffmi": 16,
+        "almi": 6.1,
+        "waistCm": 108
+      },
+      "health": {
+        "constructScores": {
+          "H1": 41.569767441860456,
+          "H2": 33.33333333333332,
+          "H3": 23.05624661979447
+        },
+        "aggregate": 34.984311339462764,
+        "baseAggregate": 34.82713178294573,
+        "aggregateDelta": 0.1571795565170362,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.6540697674418621
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0.8112493239588972
+            }
+          ],
+          "aggregateChange": 0.15717955651703508
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 17.24329753534734,
+          "P3": 35.749999999999986
+        },
+        "aggregate": 26.496648767673662,
+        "baseAggregate": 22.874999999999993,
+        "aggregateDelta": 3.621648767673669,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 3.621648767673671
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 3.621648767673671
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "scenarioId": "BASE",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0,
+        "dAlmKg": 0,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "baseIndices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "health": {
+        "constructScores": {
+          "H1": 95.15151515151516,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 93.41818181818182,
+        "baseAggregate": 93.41818181818182,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 82.10526315789471,
+          "P3": 92
+        },
+        "aggregate": 87.05263157894736,
+        "baseAggregate": 87.05263157894736,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "scenarioId": "HYDRATION_DOWN",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": -1,
+        "dAlmKg": -0.6,
+        "dWaistCm": -1
+      },
+      "indices": {
+        "whtr": 0.41818181818181815,
+        "fmi": 6.5,
+        "ffmi": 15.832690541781451,
+        "almi": 6.27961432506887,
+        "waistCm": 69
+      },
+      "baseIndices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "health": {
+        "constructScores": {
+          "H1": 96.36363636363637,
+          "H2": 92,
+          "H3": 91.05716253443525
+        },
+        "aggregate": 93.77506887052341,
+        "baseAggregate": 93.41818181818182,
+        "aggregateDelta": 0.356887052341591,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0.5454545454545482
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": -0.18856749311295007
+            }
+          ],
+          "aggregateChange": 0.3568870523415981
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 72.43922478372241,
+          "P3": 92
+        },
+        "aggregate": 82.2196123918612,
+        "baseAggregate": 87.05263157894736,
+        "aggregateDelta": -4.833019187086151,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": -4.833019187086151
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -4.833019187086151
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "scenarioId": "HYDRATION_UP",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 1,
+        "dAlmKg": 0.6,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.4303030303030303,
+        "fmi": 6.5,
+        "ffmi": 16.56730945821855,
+        "almi": 6.720385674931131,
+        "waistCm": 71
+      },
+      "baseIndices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "health": {
+        "constructScores": {
+          "H1": 93.93939393939394,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 92.87272727272727,
+        "baseAggregate": 93.41818181818182,
+        "aggregateDelta": -0.5454545454545467,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.5454545454545482
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -0.5454545454545482
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 90.33654729109274,
+          "P3": 92
+        },
+        "aggregate": 91.16827364554638,
+        "baseAggregate": 87.05263157894736,
+        "aggregateDelta": 4.1156420665990225,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 4.115642066599015
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 4.115642066599015
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "scenarioId": "GLYCOGEN_DOWN",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": -0.5,
+        "dAlmKg": -0.3,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.016345270890724,
+        "almi": 6.389807162534435,
+        "waistCm": 70
+      },
+      "baseIndices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "health": {
+        "constructScores": {
+          "H1": 95.15151515151516,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 93.41818181818182,
+        "baseAggregate": 93.41818181818182,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 77.27224397080855,
+          "P3": 92
+        },
+        "aggregate": 84.63612198540427,
+        "baseAggregate": 87.05263157894736,
+        "aggregateDelta": -2.4165095935430827,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": -2.4165095935430827
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -2.4165095935430827
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "scenarioId": "GLYCOGEN_UP",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.383654729109274,
+        "almi": 6.610192837465566,
+        "waistCm": 70
+      },
+      "baseIndices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "health": {
+        "constructScores": {
+          "H1": 95.15151515151516,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 93.41818181818182,
+        "baseAggregate": 93.41818181818182,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 86.9382823449809,
+          "P3": 92
+        },
+        "aggregate": 89.46914117249045,
+        "baseAggregate": 87.05263157894736,
+        "aggregateDelta": 2.416509593543097,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 2.416509593543097
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 2.416509593543097
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "scenarioId": "RECENT_EXERCISE",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.383654729109274,
+        "almi": 6.610192837465566,
+        "waistCm": 70
+      },
+      "baseIndices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "health": {
+        "constructScores": {
+          "H1": 95.15151515151516,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 93.41818181818182,
+        "baseAggregate": 93.41818181818182,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 86.9382823449809,
+          "P3": 92
+        },
+        "aggregate": 89.46914117249045,
+        "baseAggregate": 87.05263157894736,
+        "aggregateDelta": 2.416509593543097,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 2.416509593543097
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 2.416509593543097
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "scenarioId": "ILLNESS_INFLAMMATION",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 1,
+        "dAlmKg": 0.6,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.4303030303030303,
+        "fmi": 6.5,
+        "ffmi": 16.56730945821855,
+        "almi": 6.720385674931131,
+        "waistCm": 71
+      },
+      "baseIndices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "health": {
+        "constructScores": {
+          "H1": 93.93939393939394,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 92.87272727272727,
+        "baseAggregate": 93.41818181818182,
+        "aggregateDelta": -0.5454545454545467,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.5454545454545482
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -0.5454545454545482
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 90.33654729109274,
+          "P3": 92
+        },
+        "aggregate": 91.16827364554638,
+        "baseAggregate": 87.05263157894736,
+        "aggregateDelta": 4.1156420665990225,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 4.115642066599015
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 4.115642066599015
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "scenarioId": "EDEMA",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 1.5,
+        "dAlmKg": 0.9,
+        "dWaistCm": 2
+      },
+      "indices": {
+        "whtr": 0.43636363636363634,
+        "fmi": 6.5,
+        "ffmi": 16.750964187327824,
+        "almi": 6.830578512396694,
+        "waistCm": 72
+      },
+      "baseIndices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "health": {
+        "constructScores": {
+          "H1": 92.72727272727273,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 92.32727272727274,
+        "baseAggregate": 93.41818181818182,
+        "aggregateDelta": -1.0909090909090793,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -1.09090909090909
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -1.09090909090909
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 91.25482093663912,
+          "P3": 92
+        },
+        "aggregate": 91.62741046831957,
+        "baseAggregate": 87.05263157894736,
+        "aggregateDelta": 4.574778889372212,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 4.574778889372205
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 4.574778889372205
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "scenarioId": "MENSTRUAL_PHASE_LOW",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0,
+        "dAlmKg": 0,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "baseIndices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "health": {
+        "constructScores": {
+          "H1": 95.15151515151516,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 93.41818181818182,
+        "baseAggregate": 93.41818181818182,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 82.10526315789471,
+          "P3": 92
+        },
+        "aggregate": 87.05263157894736,
+        "baseAggregate": 87.05263157894736,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "scenarioId": "MENSTRUAL_PHASE_HIGH",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.4303030303030303,
+        "fmi": 6.5,
+        "ffmi": 16.383654729109274,
+        "almi": 6.610192837465566,
+        "waistCm": 71
+      },
+      "baseIndices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "health": {
+        "constructScores": {
+          "H1": 93.93939393939394,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 92.87272727272727,
+        "baseAggregate": 93.41818181818182,
+        "aggregateDelta": -0.5454545454545467,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.5454545454545482
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -0.5454545454545482
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 86.9382823449809,
+          "P3": 92
+        },
+        "aggregate": 89.46914117249045,
+        "baseAggregate": 87.05263157894736,
+        "aggregateDelta": 2.416509593543097,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 2.416509593543097
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 2.416509593543097
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "scenarioId": "TOD_MORNING",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0,
+        "dAlmKg": 0,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "baseIndices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "health": {
+        "constructScores": {
+          "H1": 95.15151515151516,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 93.41818181818182,
+        "baseAggregate": 93.41818181818182,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 82.10526315789471,
+          "P3": 92
+        },
+        "aggregate": 87.05263157894736,
+        "baseAggregate": 87.05263157894736,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "scenarioId": "TOD_EVENING",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.4303030303030303,
+        "fmi": 6.5,
+        "ffmi": 16.383654729109274,
+        "almi": 6.610192837465566,
+        "waistCm": 71
+      },
+      "baseIndices": {
+        "whtr": 0.42424242424242425,
+        "fmi": 6.5,
+        "ffmi": 16.2,
+        "almi": 6.5,
+        "waistCm": 70
+      },
+      "health": {
+        "constructScores": {
+          "H1": 93.93939393939394,
+          "H2": 92,
+          "H3": 92
+        },
+        "aggregate": 92.87272727272727,
+        "baseAggregate": 93.41818181818182,
+        "aggregateDelta": -0.5454545454545467,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.5454545454545482
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -0.5454545454545482
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 86.9382823449809,
+          "P3": 92
+        },
+        "aggregate": 89.46914117249045,
+        "baseAggregate": 87.05263157894736,
+        "aggregateDelta": 2.416509593543097,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 2.416509593543097
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 2.416509593543097
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "scenarioId": "BASE",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0,
+        "dAlmKg": 0,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "baseIndices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "health": {
+        "constructScores": {
+          "H1": 54.07407407407405,
+          "H2": 45,
+          "H3": 43.00000000000001
+        },
+        "aggregate": 48.68333333333332,
+        "baseAggregate": 48.68333333333332,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 45.26315789473687,
+          "P3": 45
+        },
+        "aggregate": 45.13157894736844,
+        "baseAggregate": 45.13157894736844,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "scenarioId": "HYDRATION_DOWN",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": -1,
+        "dAlmKg": -0.6,
+        "dWaistCm": -1
+      },
+      "indices": {
+        "whtr": 0.5802469135802469,
+        "fmi": 14,
+        "ffmi": 14.41896052431032,
+        "almi": 4.971376314586191,
+        "waistCm": 94
+      },
+      "baseIndices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "health": {
+        "constructScores": {
+          "H1": 55.92592592592591,
+          "H2": 45,
+          "H3": 33.855052583447645
+        },
+        "aggregate": 47.687677183356186,
+        "baseAggregate": 48.68333333333332,
+        "aggregateDelta": -0.9956561499771368,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0.8333333333333378
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": -1.8289894833104725
+            }
+          ],
+          "aggregateChange": -0.9956561499771347
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 30.948026215516002,
+          "P3": 45
+        },
+        "aggregate": 37.974013107758,
+        "baseAggregate": 45.13157894736844,
+        "aggregateDelta": -7.157565839610442,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": -7.1575658396104345
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -7.1575658396104345
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "scenarioId": "HYDRATION_UP",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 1,
+        "dAlmKg": 0.6,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.5925925925925926,
+        "fmi": 14,
+        "ffmi": 15.181039475689683,
+        "almi": 5.428623685413809,
+        "waistCm": 96
+      },
+      "baseIndices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "health": {
+        "constructScores": {
+          "H1": 52.22222222222223,
+          "H2": 45,
+          "H3": 52.14494741655237
+        },
+        "aggregate": 49.678989483310474,
+        "baseAggregate": 48.68333333333332,
+        "aggregateDelta": 0.995656149977151,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.8333333333333187
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 1.8289894833104725
+            }
+          ],
+          "aggregateChange": 0.9956561499771538
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 55.29051251814957,
+          "P3": 45
+        },
+        "aggregate": 50.145256259074785,
+        "baseAggregate": 45.13157894736844,
+        "aggregateDelta": 5.013677311706346,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 5.013677311706349
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 5.013677311706349
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "scenarioId": "GLYCOGEN_DOWN",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": -0.5,
+        "dAlmKg": -0.3,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.609480262155161,
+        "almi": 5.085688157293095,
+        "waistCm": 95
+      },
+      "baseIndices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "health": {
+        "constructScores": {
+          "H1": 54.07407407407405,
+          "H2": 45,
+          "H3": 38.42752629172381
+        },
+        "aggregate": 47.76883859167808,
+        "baseAggregate": 48.68333333333332,
+        "aggregateDelta": -0.9144947416552398,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": -0.9144947416552398
+            }
+          ],
+          "aggregateChange": -0.9144947416552398
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 40.24948058303057,
+          "P3": 45
+        },
+        "aggregate": 42.62474029151528,
+        "baseAggregate": 45.13157894736844,
+        "aggregateDelta": -2.5068386558531586,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": -2.5068386558531515
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": -2.5068386558531515
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "scenarioId": "GLYCOGEN_UP",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.990519737844842,
+        "almi": 5.314311842706905,
+        "waistCm": 95
+      },
+      "baseIndices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "health": {
+        "constructScores": {
+          "H1": 54.07407407407405,
+          "H2": 45,
+          "H3": 47.572473708276206
+        },
+        "aggregate": 49.59782807498856,
+        "baseAggregate": 48.68333333333332,
+        "aggregateDelta": 0.9144947416552398,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0.9144947416552398
+            }
+          ],
+          "aggregateChange": 0.9144947416552398
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 50.27683520644322,
+          "P3": 45
+        },
+        "aggregate": 47.63841760322161,
+        "baseAggregate": 45.13157894736844,
+        "aggregateDelta": 2.506838655853173,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 2.506838655853173
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 2.506838655853173
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "scenarioId": "RECENT_EXERCISE",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.990519737844842,
+        "almi": 5.314311842706905,
+        "waistCm": 95
+      },
+      "baseIndices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "health": {
+        "constructScores": {
+          "H1": 54.07407407407405,
+          "H2": 45,
+          "H3": 47.572473708276206
+        },
+        "aggregate": 49.59782807498856,
+        "baseAggregate": 48.68333333333332,
+        "aggregateDelta": 0.9144947416552398,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0.9144947416552398
+            }
+          ],
+          "aggregateChange": 0.9144947416552398
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 50.27683520644322,
+          "P3": 45
+        },
+        "aggregate": 47.63841760322161,
+        "baseAggregate": 45.13157894736844,
+        "aggregateDelta": 2.506838655853173,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 2.506838655853173
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 2.506838655853173
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "scenarioId": "ILLNESS_INFLAMMATION",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 1,
+        "dAlmKg": 0.6,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.5925925925925926,
+        "fmi": 14,
+        "ffmi": 15.181039475689683,
+        "almi": 5.428623685413809,
+        "waistCm": 96
+      },
+      "baseIndices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "health": {
+        "constructScores": {
+          "H1": 52.22222222222223,
+          "H2": 45,
+          "H3": 52.14494741655237
+        },
+        "aggregate": 49.678989483310474,
+        "baseAggregate": 48.68333333333332,
+        "aggregateDelta": 0.995656149977151,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.8333333333333187
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 1.8289894833104725
+            }
+          ],
+          "aggregateChange": 0.9956561499771538
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 55.29051251814957,
+          "P3": 45
+        },
+        "aggregate": 50.145256259074785,
+        "baseAggregate": 45.13157894736844,
+        "aggregateDelta": 5.013677311706346,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 5.013677311706349
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 5.013677311706349
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "scenarioId": "EDEMA",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 1.5,
+        "dAlmKg": 0.9,
+        "dWaistCm": 2
+      },
+      "indices": {
+        "whtr": 0.5987654320987654,
+        "fmi": 14,
+        "ffmi": 15.371559213534523,
+        "almi": 5.542935528120713,
+        "waistCm": 97
+      },
+      "baseIndices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "health": {
+        "constructScores": {
+          "H1": 50.37037037037037,
+          "H2": 45,
+          "H3": 56.98576817558299
+        },
+        "aggregate": 49.81382030178327,
+        "baseAggregate": 48.68333333333332,
+        "aggregateDelta": 1.1304869684499437,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -1.6666666666666565
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 2.797153635116597
+            }
+          ],
+          "aggregateChange": 1.1304869684499403
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 60.30418982985587,
+          "P3": 45
+        },
+        "aggregate": 52.652094914927936,
+        "baseAggregate": 45.13157894736844,
+        "aggregateDelta": 7.520515967559497,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 7.520515967559501
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 7.520515967559501
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "scenarioId": "MENSTRUAL_PHASE_LOW",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0,
+        "dAlmKg": 0,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "baseIndices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "health": {
+        "constructScores": {
+          "H1": 54.07407407407405,
+          "H2": 45,
+          "H3": 43.00000000000001
+        },
+        "aggregate": 48.68333333333332,
+        "baseAggregate": 48.68333333333332,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 45.26315789473687,
+          "P3": 45
+        },
+        "aggregate": 45.13157894736844,
+        "baseAggregate": 45.13157894736844,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "scenarioId": "MENSTRUAL_PHASE_HIGH",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.5925925925925926,
+        "fmi": 14,
+        "ffmi": 14.990519737844842,
+        "almi": 5.314311842706905,
+        "waistCm": 96
+      },
+      "baseIndices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "health": {
+        "constructScores": {
+          "H1": 52.22222222222223,
+          "H2": 45,
+          "H3": 47.572473708276206
+        },
+        "aggregate": 48.76449474165524,
+        "baseAggregate": 48.68333333333332,
+        "aggregateDelta": 0.08116140832191832,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.8333333333333187
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0.9144947416552398
+            }
+          ],
+          "aggregateChange": 0.08116140832192109
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 50.27683520644322,
+          "P3": 45
+        },
+        "aggregate": 47.63841760322161,
+        "baseAggregate": 45.13157894736844,
+        "aggregateDelta": 2.506838655853173,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 2.506838655853173
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 2.506838655853173
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "scenarioId": "TOD_MORNING",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0,
+        "dAlmKg": 0,
+        "dWaistCm": 0
+      },
+      "indices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "baseIndices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "health": {
+        "constructScores": {
+          "H1": 54.07407407407405,
+          "H2": 45,
+          "H3": 43.00000000000001
+        },
+        "aggregate": 48.68333333333332,
+        "baseAggregate": 48.68333333333332,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 45.26315789473687,
+          "P3": 45
+        },
+        "aggregate": 45.13157894736844,
+        "baseAggregate": 45.13157894736844,
+        "aggregateDelta": 0,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 0
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 0
+        },
+        "falseImprovementIndicator": 0
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "scenarioId": "TOD_EVENING",
+      "applicable": true,
+      "deltas": {
+        "dFfmKg": 0.5,
+        "dAlmKg": 0.3,
+        "dWaistCm": 1
+      },
+      "indices": {
+        "whtr": 0.5925925925925926,
+        "fmi": 14,
+        "ffmi": 14.990519737844842,
+        "almi": 5.314311842706905,
+        "waistCm": 96
+      },
+      "baseIndices": {
+        "whtr": 0.5864197530864198,
+        "fmi": 14,
+        "ffmi": 14.8,
+        "almi": 5.2,
+        "waistCm": 95
+      },
+      "health": {
+        "constructScores": {
+          "H1": 52.22222222222223,
+          "H2": 45,
+          "H3": 47.572473708276206
+        },
+        "aggregate": 48.76449474165524,
+        "baseAggregate": 48.68333333333332,
+        "aggregateDelta": 0.08116140832191832,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "H1",
+              "changeContribution": -0.8333333333333187
+            },
+            {
+              "construct": "H2",
+              "changeContribution": 0
+            },
+            {
+              "construct": "H3",
+              "changeContribution": 0.9144947416552398
+            }
+          ],
+          "aggregateChange": 0.08116140832192109
+        },
+        "falseImprovementIndicator": 1
+      },
+      "performance": {
+        "constructScores": {
+          "P1": 50.27683520644322,
+          "P3": 45
+        },
+        "aggregate": 47.63841760322161,
+        "baseAggregate": 45.13157894736844,
+        "aggregateDelta": 2.506838655853173,
+        "changeContribution": {
+          "rows": [
+            {
+              "construct": "P1",
+              "changeContribution": 2.506838655853173
+            },
+            {
+              "construct": "P3",
+              "changeContribution": 0
+            }
+          ],
+          "aggregateChange": 2.506838655853173
+        },
+        "falseImprovementIndicator": 1
+      },
+      "label": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    }
+  ],
+  "falseImprovement": {
+    "excludes": "BASE",
+    "byPersona": [
+      {
+        "personaId": "P-01",
+        "health": {
+          "rate": 0.1111111111111111,
+          "numerator": 1,
+          "denominator": 9,
+          "unavailableCount": 0
+        },
+        "performance": {
+          "rate": 0.6666666666666666,
+          "numerator": 6,
+          "denominator": 9,
+          "unavailableCount": 0
+        }
+      },
+      {
+        "personaId": "P-08",
+        "health": {
+          "rate": 0.6666666666666666,
+          "numerator": 6,
+          "denominator": 9,
+          "unavailableCount": 0
+        },
+        "performance": {
+          "rate": 0.6666666666666666,
+          "numerator": 6,
+          "denominator": 9,
+          "unavailableCount": 0
+        }
+      },
+      {
+        "personaId": "P-11",
+        "health": {
+          "rate": 0.09090909090909091,
+          "numerator": 1,
+          "denominator": 11,
+          "unavailableCount": 0
+        },
+        "performance": {
+          "rate": 0.6363636363636364,
+          "numerator": 7,
+          "denominator": 11,
+          "unavailableCount": 0
+        }
+      },
+      {
+        "personaId": "P-12",
+        "health": {
+          "rate": 0.6363636363636364,
+          "numerator": 7,
+          "denominator": 11,
+          "unavailableCount": 0
+        },
+        "performance": {
+          "rate": 0.6363636363636364,
+          "numerator": 7,
+          "denominator": 11,
+          "unavailableCount": 0
+        }
+      }
+    ],
+    "overall": {
+      "health": {
+        "rate": 0.375,
+        "numerator": 15,
+        "denominator": 40,
+        "unavailableCount": 0
+      },
+      "performance": {
+        "rate": 0.65,
+        "numerator": 26,
+        "denominator": 40,
+        "unavailableCount": 0
+      }
+    }
+  },
+  "definition": "falseImprovementIndicator = 1 iff scenarioAggregate - baseAggregate > EPS_NUM; not a clinical false-positive rate."
+}

@@ -1,0 +1,300 @@
+{
+  "schemaVersion": "body_composition_dual_score_wave1_manifest_v1",
+  "experimentId": "BCV-012",
+  "protocolId": "BCV-012",
+  "runId": "BCV-012__17e63164__s20261004__struct",
+  "engineVersion": {
+    "health": "body_composition_health_score_draft_v1",
+    "performanceSupporting": "body_composition_performance_supporting_score_draft_v1"
+  },
+  "implementationSha": "d940b1616b341e98b19e82f2cd6a6242dfe41691",
+  "mathematicalFreezeSha": "e258267d109d1d05e20270f205e5fdb29ae2aca6",
+  "validationPlanSha": "4900f6e56f1eb83799513452cc4b5d2dcc20601d",
+  "validationCodeSha": "17e63164a55af7d1425196340831c7b9d3c06918",
+  "createdAtUtc": "2026-10-05T12:51:08.483Z",
+  "seed": 20261004,
+  "streamCode": 12,
+  "inputDomains": {
+    "centers": {
+      "H1": {
+        "male": [
+          0.45,
+          0.55,
+          0.7
+        ],
+        "female": [
+          0.45,
+          0.55,
+          0.7
+        ]
+      },
+      "H2": {
+        "male": [
+          2.75,
+          4.5,
+          7.25,
+          12
+        ],
+        "female": [
+          4.5,
+          7,
+          10.75,
+          17
+        ]
+      },
+      "H3_ALMI": {
+        "male": [
+          6.5,
+          7.5
+        ],
+        "female": [
+          5,
+          5.9
+        ]
+      },
+      "H3_FFMI": {
+        "male": [
+          16.35,
+          17.6
+        ],
+        "female": [
+          14.3,
+          15.3
+        ]
+      },
+      "P1": {
+        "male": [
+          16.35,
+          17.85,
+          19.75
+        ],
+        "female": [
+          14.3,
+          15.55,
+          17
+        ]
+      },
+      "P3": {
+        "male": [
+          2.5,
+          5,
+          8.5,
+          13
+        ],
+        "female": [
+          4.25,
+          7.5,
+          12,
+          18
+        ]
+      }
+    },
+    "personas": [
+      "P-01",
+      "P-02",
+      "P-03",
+      "P-04",
+      "P-05",
+      "P-06",
+      "P-07",
+      "P-08",
+      "P-09",
+      "P-10",
+      "P-11",
+      "P-12"
+    ]
+  },
+  "gridSteps": {
+    "oatSteps": {
+      "whtr": [
+        0.0001,
+        0.01,
+        0.1
+      ],
+      "fmi": [
+        0.0001,
+        0.1,
+        0.5
+      ],
+      "almi": [
+        0.0001,
+        0.1,
+        0.5
+      ],
+      "ffmi": [
+        0.0001,
+        0.1,
+        0.5
+      ]
+    },
+    "jointEps": 0.0001
+  },
+  "epsilon": {
+    "EPS_NUM": 1e-9,
+    "EPS_SURF": 0.0001,
+    "EPS_CM": 0.001
+  },
+  "monteCarloProtocol": null,
+  "noiseParameters": null,
+  "covarianceParameters": null,
+  "scheduleId": null,
+  "personaId": null,
+  "parameterProvenance": {
+    "canonicalSeed": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.2",
+      "value": 20261004
+    },
+    "implementationSha": {
+      "sourceType": "mathematical_freeze",
+      "sourceId": "§23.1",
+      "value": "d940b1616b341e98b19e82f2cd6a6242dfe41691"
+    },
+    "EPS_NUM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 1e-9
+    },
+    "EPS_SURF": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.0001
+    },
+    "EPS_CM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.001
+    },
+    "centers": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.13 BCV-012",
+      "value": {
+        "H1": {
+          "male": [
+            0.45,
+            0.55,
+            0.7
+          ],
+          "female": [
+            0.45,
+            0.55,
+            0.7
+          ]
+        },
+        "H2": {
+          "male": [
+            2.75,
+            4.5,
+            7.25,
+            12
+          ],
+          "female": [
+            4.5,
+            7,
+            10.75,
+            17
+          ]
+        },
+        "H3_ALMI": {
+          "male": [
+            6.5,
+            7.5
+          ],
+          "female": [
+            5,
+            5.9
+          ]
+        },
+        "H3_FFMI": {
+          "male": [
+            16.35,
+            17.6
+          ],
+          "female": [
+            14.3,
+            15.3
+          ]
+        },
+        "P1": {
+          "male": [
+            16.35,
+            17.85,
+            19.75
+          ],
+          "female": [
+            14.3,
+            15.55,
+            17
+          ]
+        },
+        "P3": {
+          "male": [
+            2.5,
+            5,
+            8.5,
+            13
+          ],
+          "female": [
+            4.25,
+            7.5,
+            12,
+            18
+          ]
+        }
+      }
+    },
+    "oatSteps": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.13 BCV-012",
+      "value": {
+        "whtr": [
+          0.0001,
+          0.01,
+          0.1
+        ],
+        "fmi": [
+          0.0001,
+          0.1,
+          0.5
+        ],
+        "almi": [
+          0.0001,
+          0.1,
+          0.5
+        ],
+        "ffmi": [
+          0.0001,
+          0.1,
+          0.5
+        ]
+      }
+    },
+    "referenceAnchors": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.5.4",
+      "value": {
+        "male": {
+          "whtr": 0.5,
+          "fmi": 5.5,
+          "almi": 8,
+          "ffmi": 19
+        },
+        "female": {
+          "whtr": 0.5,
+          "fmi": 8.5,
+          "almi": 6.3,
+          "ffmi": 16.5
+        }
+      }
+    }
+  },
+  "artifactFiles": [
+    "manifest.json",
+    "results.csv",
+    "results.json",
+    "summary.md"
+  ],
+  "interpretationClass": "exploratory",
+  "phiStatus": "synthetic_no_phi",
+  "notes": "Deterministic; no random draws."
+}

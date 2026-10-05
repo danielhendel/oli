@@ -1,0 +1,145 @@
+{
+  "schemaVersion": "body_composition_dual_score_wave1_manifest_v1",
+  "experimentId": "BCV-016",
+  "protocolId": "BCV-016",
+  "runId": "BCV-016__17e63164__s20261004__struct",
+  "engineVersion": {
+    "health": "body_composition_health_score_draft_v1",
+    "performanceSupporting": "body_composition_performance_supporting_score_draft_v1"
+  },
+  "implementationSha": "d940b1616b341e98b19e82f2cd6a6242dfe41691",
+  "mathematicalFreezeSha": "e258267d109d1d05e20270f205e5fdb29ae2aca6",
+  "validationPlanSha": "4900f6e56f1eb83799513452cc4b5d2dcc20601d",
+  "validationCodeSha": "17e63164a55af7d1425196340831c7b9d3c06918",
+  "createdAtUtc": "2026-10-05T12:51:08.612Z",
+  "seed": 20261004,
+  "streamCode": 16,
+  "inputDomains": {
+    "subject": "P-01",
+    "schedules": [
+      "S-01",
+      "S-02",
+      "S-03",
+      "S-04",
+      "S-05",
+      "S-06",
+      "S-07",
+      "S-08",
+      "S-09",
+      "S-10",
+      "S-11",
+      "S-12",
+      "S-13",
+      "S-14",
+      "S-15"
+    ]
+  },
+  "gridSteps": null,
+  "epsilon": null,
+  "monteCarloProtocol": null,
+  "noiseParameters": null,
+  "covarianceParameters": null,
+  "scheduleId": "S-01..S-15",
+  "personaId": "P-01",
+  "parameterProvenance": {
+    "canonicalSeed": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.2",
+      "value": 20261004
+    },
+    "implementationSha": {
+      "sourceType": "mathematical_freeze",
+      "sourceId": "§23.1",
+      "value": "d940b1616b341e98b19e82f2cd6a6242dfe41691"
+    },
+    "EPS_NUM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 1e-9
+    },
+    "EPS_SURF": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.0001
+    },
+    "EPS_CM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.001
+    },
+    "schedules": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.11",
+      "value": [
+        {
+          "id": "S-01",
+          "definition": "Same-day all constructs"
+        },
+        {
+          "id": "S-02",
+          "definition": "30d separation: H1=asOf; DXA=asOf-30d"
+        },
+        {
+          "id": "S-03",
+          "definition": "89d separation: H1=asOf; DXA=asOf-89d"
+        },
+        {
+          "id": "S-04",
+          "definition": "90d separation: H1=asOf; DXA=asOf-90d"
+        },
+        {
+          "id": "S-05",
+          "definition": "90d + 1ms: H1=asOf; DXA=asOf-(90d+1ms)"
+        },
+        {
+          "id": "S-06",
+          "definition": "91d: H1=asOf; DXA=asOf-91d"
+        },
+        {
+          "id": "S-07",
+          "definition": "one input age 179d: Waist=asOf-179d, others asOf"
+        },
+        {
+          "id": "S-08",
+          "definition": "180d: Waist=asOf-180d, others asOf"
+        },
+        {
+          "id": "S-09",
+          "definition": "180d + 1ms: Waist=asOf-(180d+1ms), others asOf"
+        },
+        {
+          "id": "S-10",
+          "definition": "H1 fresh + DXA old: H1=asOf; DXA=asOf-120d"
+        },
+        {
+          "id": "S-11",
+          "definition": "DXA fresh + H1 old: DXA=asOf; H1(Waist+Height)=asOf-120d"
+        },
+        {
+          "id": "S-12",
+          "definition": "rolling monthly waist + semiannual DXA: Waist=Height=asOf-30d; DXA=asOf-180d"
+        },
+        {
+          "id": "S-13",
+          "definition": "annual DXA + monthly waist: Waist=Height=asOf-30d; DXA=asOf-365d"
+        },
+        {
+          "id": "S-14",
+          "definition": "same sourceEventId scan constructs: DXA share sourceEventId scan-A at asOf-10d; Waist=asOf-10d different event"
+        },
+        {
+          "id": "S-15",
+          "definition": "same timestamp, different sourceEventId: all asOf-10d; Waist event w1, DXA scan-B (gap not forced 0)"
+        }
+      ]
+    }
+  },
+  "artifactFiles": [
+    "manifest.json",
+    "results.json",
+    "summary.md"
+  ],
+  "interpretationClass": "structural_invariant",
+  "phiStatus": "synthetic_no_phi",
+  "notes": "Eligibility vs independent oracle of the 180d input-age / 90d era-gap rules. P1 is normalized from the Resolver's natural policy_not_frozen (FFMI+FFM open precedence); see IMPLEMENTATION_SPEC.md."
+}

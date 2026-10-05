@@ -1,0 +1,2881 @@
+{
+  "protocolId": "BCV-018",
+  "companions": {
+    "HEALTH_FAVORABLE": {
+      "whtr": 0.4,
+      "fmi": {
+        "male": 5.5,
+        "female": 8.5
+      },
+      "almi": {
+        "male": 8,
+        "female": 6.3
+      }
+    },
+    "HEALTH_ADVERSE": {
+      "whtr": 0.8,
+      "fmi": {
+        "male": 15,
+        "female": 21
+      },
+      "almi": {
+        "male": 6,
+        "female": 4.5
+      }
+    },
+    "PERF_FAVORABLE": {
+      "ffmi": {
+        "male": 20.5,
+        "female": 17.5
+      },
+      "fmi": {
+        "male": 7,
+        "female": 10
+      }
+    },
+    "PERF_ADVERSE": {
+      "ffmi": {
+        "male": 16,
+        "female": 14
+      },
+      "fmi": {
+        "male": 16,
+        "female": 22
+      }
+    }
+  },
+  "combos": [
+    {
+      "family": "health",
+      "sex": "male",
+      "id": "H_all_favorable",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.4,
+        "fmi": 5.5,
+        "almi": 8
+      },
+      "constructScores": {
+        "H1": 100,
+        "H2": 92,
+        "H3": 92
+      },
+      "aggregate": 95.6,
+      "unclippedAggregate": 95.6,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 100,
+            "weight": 0.45,
+            "absoluteContribution": 45,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 0
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 95.6,
+        "dominantAdverseConstruct": "H2"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": 0
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "health",
+      "sex": "male",
+      "id": "H1_adverse",
+      "adverseConstructs": [
+        "H1"
+      ],
+      "inputs": {
+        "whtr": 0.8,
+        "fmi": 5.5,
+        "almi": 8
+      },
+      "constructScores": {
+        "H1": 0,
+        "H2": 92,
+        "H3": 92
+      },
+      "aggregate": 50.599999999999994,
+      "unclippedAggregate": 50.599999999999994,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 0,
+            "weight": 0.45,
+            "absoluteContribution": 0,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 50.599999999999994,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -45
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -45
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "health",
+      "sex": "male",
+      "id": "H2_adverse",
+      "adverseConstructs": [
+        "H2"
+      ],
+      "inputs": {
+        "whtr": 0.4,
+        "fmi": 15,
+        "almi": 8
+      },
+      "constructScores": {
+        "H1": 100,
+        "H2": 10,
+        "H3": 92
+      },
+      "aggregate": 66.9,
+      "unclippedAggregate": 66.9,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 100,
+            "weight": 0.45,
+            "absoluteContribution": 45,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 0
+          },
+          {
+            "construct": "H2",
+            "score": 10,
+            "weight": 0.35,
+            "absoluteContribution": 3.5,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 31.499999999999996
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 66.9,
+        "dominantAdverseConstruct": "H2"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H2",
+            "changeContribution": -28.7
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -28.7
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "health",
+      "sex": "male",
+      "id": "H3_adverse",
+      "adverseConstructs": [
+        "H3"
+      ],
+      "inputs": {
+        "whtr": 0.4,
+        "fmi": 5.5,
+        "almi": 6
+      },
+      "constructScores": {
+        "H1": 100,
+        "H2": 92,
+        "H3": 15
+      },
+      "aggregate": 80.19999999999999,
+      "unclippedAggregate": 80.19999999999999,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 100,
+            "weight": 0.45,
+            "absoluteContribution": 45,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 0
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 15,
+            "weight": 0.2,
+            "absoluteContribution": 3,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 17
+          }
+        ],
+        "unclippedAggregate": 80.19999999999999,
+        "dominantAdverseConstruct": "H3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -15.4
+          }
+        ],
+        "aggregateChange": -15.4
+      },
+      "adverseHide": true
+    },
+    {
+      "family": "health",
+      "sex": "male",
+      "id": "H1_H2_adverse",
+      "adverseConstructs": [
+        "H1",
+        "H2"
+      ],
+      "inputs": {
+        "whtr": 0.8,
+        "fmi": 15,
+        "almi": 8
+      },
+      "constructScores": {
+        "H1": 0,
+        "H2": 10,
+        "H3": 92
+      },
+      "aggregate": 21.900000000000002,
+      "unclippedAggregate": 21.900000000000002,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 0,
+            "weight": 0.45,
+            "absoluteContribution": 0,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "H2",
+            "score": 10,
+            "weight": 0.35,
+            "absoluteContribution": 3.5,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 31.499999999999996
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 21.900000000000002,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -45
+          },
+          {
+            "construct": "H2",
+            "changeContribution": -28.7
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -73.7
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "health",
+      "sex": "male",
+      "id": "H1_H3_adverse",
+      "adverseConstructs": [
+        "H1",
+        "H3"
+      ],
+      "inputs": {
+        "whtr": 0.8,
+        "fmi": 5.5,
+        "almi": 6
+      },
+      "constructScores": {
+        "H1": 0,
+        "H2": 92,
+        "H3": 15
+      },
+      "aggregate": 35.199999999999996,
+      "unclippedAggregate": 35.199999999999996,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 0,
+            "weight": 0.45,
+            "absoluteContribution": 0,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 15,
+            "weight": 0.2,
+            "absoluteContribution": 3,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 17
+          }
+        ],
+        "unclippedAggregate": 35.199999999999996,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -45
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -15.4
+          }
+        ],
+        "aggregateChange": -60.4
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "health",
+      "sex": "male",
+      "id": "H2_H3_adverse",
+      "adverseConstructs": [
+        "H2",
+        "H3"
+      ],
+      "inputs": {
+        "whtr": 0.4,
+        "fmi": 15,
+        "almi": 6
+      },
+      "constructScores": {
+        "H1": 100,
+        "H2": 10,
+        "H3": 15
+      },
+      "aggregate": 51.5,
+      "unclippedAggregate": 51.5,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 100,
+            "weight": 0.45,
+            "absoluteContribution": 45,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 0
+          },
+          {
+            "construct": "H2",
+            "score": 10,
+            "weight": 0.35,
+            "absoluteContribution": 3.5,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 31.499999999999996
+          },
+          {
+            "construct": "H3",
+            "score": 15,
+            "weight": 0.2,
+            "absoluteContribution": 3,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 17
+          }
+        ],
+        "unclippedAggregate": 51.5,
+        "dominantAdverseConstruct": "H2"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H2",
+            "changeContribution": -28.7
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -15.4
+          }
+        ],
+        "aggregateChange": -44.1
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "performance",
+      "sex": "male",
+      "id": "P_all_favorable",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 20.5,
+        "fmi": 7
+      },
+      "constructScores": {
+        "P1": 95,
+        "P3": 92
+      },
+      "aggregate": 93.5,
+      "unclippedAggregate": 93.5,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 95,
+            "weight": 0.5,
+            "absoluteContribution": 47.5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 2.5
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 93.5,
+        "dominantAdverseConstruct": "P3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "P3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": 0
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "performance",
+      "sex": "male",
+      "id": "P1_adverse",
+      "adverseConstructs": [
+        "P1"
+      ],
+      "inputs": {
+        "ffmi": 16,
+        "fmi": 7
+      },
+      "constructScores": {
+        "P1": 10,
+        "P3": 92
+      },
+      "aggregate": 51,
+      "unclippedAggregate": 51,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 10,
+            "weight": 0.5,
+            "absoluteContribution": 5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 51,
+        "dominantAdverseConstruct": "P1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -42.5
+          },
+          {
+            "construct": "P3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -42.5
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "performance",
+      "sex": "male",
+      "id": "P3_adverse",
+      "adverseConstructs": [
+        "P3"
+      ],
+      "inputs": {
+        "ffmi": 20.5,
+        "fmi": 16
+      },
+      "constructScores": {
+        "P1": 95,
+        "P3": 8
+      },
+      "aggregate": 51.5,
+      "unclippedAggregate": 51.5,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 95,
+            "weight": 0.5,
+            "absoluteContribution": 47.5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 2.5
+          },
+          {
+            "construct": "P3",
+            "score": 8,
+            "weight": 0.5,
+            "absoluteContribution": 4,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 46
+          }
+        ],
+        "unclippedAggregate": 51.5,
+        "dominantAdverseConstruct": "P3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "P3",
+            "changeContribution": -42
+          }
+        ],
+        "aggregateChange": -42
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "performance",
+      "sex": "male",
+      "id": "P1_P3_adverse",
+      "adverseConstructs": [
+        "P1",
+        "P3"
+      ],
+      "inputs": {
+        "ffmi": 16,
+        "fmi": 16
+      },
+      "constructScores": {
+        "P1": 10,
+        "P3": 8
+      },
+      "aggregate": 9,
+      "unclippedAggregate": 9,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 10,
+            "weight": 0.5,
+            "absoluteContribution": 5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "P3",
+            "score": 8,
+            "weight": 0.5,
+            "absoluteContribution": 4,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 46
+          }
+        ],
+        "unclippedAggregate": 9,
+        "dominantAdverseConstruct": "P3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -42.5
+          },
+          {
+            "construct": "P3",
+            "changeContribution": -42
+          }
+        ],
+        "aggregateChange": -84.5
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "health",
+      "sex": "female",
+      "id": "H_all_favorable",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.4,
+        "fmi": 8.5,
+        "almi": 6.3
+      },
+      "constructScores": {
+        "H1": 100,
+        "H2": 92,
+        "H3": 92
+      },
+      "aggregate": 95.6,
+      "unclippedAggregate": 95.6,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 100,
+            "weight": 0.45,
+            "absoluteContribution": 45,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 0
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 95.6,
+        "dominantAdverseConstruct": "H2"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": 0
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "health",
+      "sex": "female",
+      "id": "H1_adverse",
+      "adverseConstructs": [
+        "H1"
+      ],
+      "inputs": {
+        "whtr": 0.8,
+        "fmi": 8.5,
+        "almi": 6.3
+      },
+      "constructScores": {
+        "H1": 0,
+        "H2": 92,
+        "H3": 92
+      },
+      "aggregate": 50.599999999999994,
+      "unclippedAggregate": 50.599999999999994,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 0,
+            "weight": 0.45,
+            "absoluteContribution": 0,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 50.599999999999994,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -45
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -45
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "health",
+      "sex": "female",
+      "id": "H2_adverse",
+      "adverseConstructs": [
+        "H2"
+      ],
+      "inputs": {
+        "whtr": 0.4,
+        "fmi": 21,
+        "almi": 6.3
+      },
+      "constructScores": {
+        "H1": 100,
+        "H2": 10,
+        "H3": 92
+      },
+      "aggregate": 66.9,
+      "unclippedAggregate": 66.9,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 100,
+            "weight": 0.45,
+            "absoluteContribution": 45,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 0
+          },
+          {
+            "construct": "H2",
+            "score": 10,
+            "weight": 0.35,
+            "absoluteContribution": 3.5,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 31.499999999999996
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 66.9,
+        "dominantAdverseConstruct": "H2"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H2",
+            "changeContribution": -28.7
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -28.7
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "health",
+      "sex": "female",
+      "id": "H3_adverse",
+      "adverseConstructs": [
+        "H3"
+      ],
+      "inputs": {
+        "whtr": 0.4,
+        "fmi": 8.5,
+        "almi": 4.5
+      },
+      "constructScores": {
+        "H1": 100,
+        "H2": 92,
+        "H3": 15
+      },
+      "aggregate": 80.19999999999999,
+      "unclippedAggregate": 80.19999999999999,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 100,
+            "weight": 0.45,
+            "absoluteContribution": 45,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 0
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 15,
+            "weight": 0.2,
+            "absoluteContribution": 3,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 17
+          }
+        ],
+        "unclippedAggregate": 80.19999999999999,
+        "dominantAdverseConstruct": "H3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -15.4
+          }
+        ],
+        "aggregateChange": -15.4
+      },
+      "adverseHide": true
+    },
+    {
+      "family": "health",
+      "sex": "female",
+      "id": "H1_H2_adverse",
+      "adverseConstructs": [
+        "H1",
+        "H2"
+      ],
+      "inputs": {
+        "whtr": 0.8,
+        "fmi": 21,
+        "almi": 6.3
+      },
+      "constructScores": {
+        "H1": 0,
+        "H2": 10,
+        "H3": 92
+      },
+      "aggregate": 21.900000000000002,
+      "unclippedAggregate": 21.900000000000002,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 0,
+            "weight": 0.45,
+            "absoluteContribution": 0,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "H2",
+            "score": 10,
+            "weight": 0.35,
+            "absoluteContribution": 3.5,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 31.499999999999996
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 21.900000000000002,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -45
+          },
+          {
+            "construct": "H2",
+            "changeContribution": -28.7
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -73.7
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "health",
+      "sex": "female",
+      "id": "H1_H3_adverse",
+      "adverseConstructs": [
+        "H1",
+        "H3"
+      ],
+      "inputs": {
+        "whtr": 0.8,
+        "fmi": 8.5,
+        "almi": 4.5
+      },
+      "constructScores": {
+        "H1": 0,
+        "H2": 92,
+        "H3": 15
+      },
+      "aggregate": 35.199999999999996,
+      "unclippedAggregate": 35.199999999999996,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 0,
+            "weight": 0.45,
+            "absoluteContribution": 0,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 15,
+            "weight": 0.2,
+            "absoluteContribution": 3,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 17
+          }
+        ],
+        "unclippedAggregate": 35.199999999999996,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -45
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -15.4
+          }
+        ],
+        "aggregateChange": -60.4
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "health",
+      "sex": "female",
+      "id": "H2_H3_adverse",
+      "adverseConstructs": [
+        "H2",
+        "H3"
+      ],
+      "inputs": {
+        "whtr": 0.4,
+        "fmi": 21,
+        "almi": 4.5
+      },
+      "constructScores": {
+        "H1": 100,
+        "H2": 10,
+        "H3": 15
+      },
+      "aggregate": 51.5,
+      "unclippedAggregate": 51.5,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 100,
+            "weight": 0.45,
+            "absoluteContribution": 45,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 0
+          },
+          {
+            "construct": "H2",
+            "score": 10,
+            "weight": 0.35,
+            "absoluteContribution": 3.5,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 31.499999999999996
+          },
+          {
+            "construct": "H3",
+            "score": 15,
+            "weight": 0.2,
+            "absoluteContribution": 3,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 17
+          }
+        ],
+        "unclippedAggregate": 51.5,
+        "dominantAdverseConstruct": "H2"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H2",
+            "changeContribution": -28.7
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -15.4
+          }
+        ],
+        "aggregateChange": -44.1
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "performance",
+      "sex": "female",
+      "id": "P_all_favorable",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 17.5,
+        "fmi": 10
+      },
+      "constructScores": {
+        "P1": 95,
+        "P3": 92
+      },
+      "aggregate": 93.5,
+      "unclippedAggregate": 93.5,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 95,
+            "weight": 0.5,
+            "absoluteContribution": 47.5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 2.5
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 93.5,
+        "dominantAdverseConstruct": "P3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "P3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": 0
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "performance",
+      "sex": "female",
+      "id": "P1_adverse",
+      "adverseConstructs": [
+        "P1"
+      ],
+      "inputs": {
+        "ffmi": 14,
+        "fmi": 10
+      },
+      "constructScores": {
+        "P1": 10,
+        "P3": 92
+      },
+      "aggregate": 51,
+      "unclippedAggregate": 51,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 10,
+            "weight": 0.5,
+            "absoluteContribution": 5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 51,
+        "dominantAdverseConstruct": "P1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -42.5
+          },
+          {
+            "construct": "P3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -42.5
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "performance",
+      "sex": "female",
+      "id": "P3_adverse",
+      "adverseConstructs": [
+        "P3"
+      ],
+      "inputs": {
+        "ffmi": 17.5,
+        "fmi": 22
+      },
+      "constructScores": {
+        "P1": 95,
+        "P3": 8
+      },
+      "aggregate": 51.5,
+      "unclippedAggregate": 51.5,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 95,
+            "weight": 0.5,
+            "absoluteContribution": 47.5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 2.5
+          },
+          {
+            "construct": "P3",
+            "score": 8,
+            "weight": 0.5,
+            "absoluteContribution": 4,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 46
+          }
+        ],
+        "unclippedAggregate": 51.5,
+        "dominantAdverseConstruct": "P3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "P3",
+            "changeContribution": -42
+          }
+        ],
+        "aggregateChange": -42
+      },
+      "adverseHide": false
+    },
+    {
+      "family": "performance",
+      "sex": "female",
+      "id": "P1_P3_adverse",
+      "adverseConstructs": [
+        "P1",
+        "P3"
+      ],
+      "inputs": {
+        "ffmi": 14,
+        "fmi": 22
+      },
+      "constructScores": {
+        "P1": 10,
+        "P3": 8
+      },
+      "aggregate": 9,
+      "unclippedAggregate": 9,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 10,
+            "weight": 0.5,
+            "absoluteContribution": 5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "P3",
+            "score": 8,
+            "weight": 0.5,
+            "absoluteContribution": 4,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 46
+          }
+        ],
+        "unclippedAggregate": 9,
+        "dominantAdverseConstruct": "P3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -42.5
+          },
+          {
+            "construct": "P3",
+            "changeContribution": -42
+          }
+        ],
+        "aggregateChange": -84.5
+      },
+      "adverseHide": false
+    }
+  ],
+  "personas": [
+    {
+      "personaId": "P-01",
+      "family": "health",
+      "sex": "male",
+      "id": "P-01_health",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.438,
+        "fmi": 4.5,
+        "almi": 8.2
+      },
+      "constructScores": {
+        "H1": 92.4,
+        "H2": 92,
+        "H3": 92
+      },
+      "aggregate": 92.18,
+      "unclippedAggregate": 92.18,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 92.4,
+            "weight": 0.45,
+            "absoluteContribution": 41.580000000000005,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 3.4199999999999977
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 92.18,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -3.4199999999999977
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -3.4199999999999977
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-01",
+      "family": "performance",
+      "sex": "male",
+      "id": "P-01_performance",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 19,
+        "fmi": 4.5
+      },
+      "constructScores": {
+        "P1": 90,
+        "P3": 92
+      },
+      "aggregate": 91,
+      "unclippedAggregate": 91,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 90,
+            "weight": 0.5,
+            "absoluteContribution": 45,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 5
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 91,
+        "dominantAdverseConstruct": "P1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -2.5
+          },
+          {
+            "construct": "P3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -2.5
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-02",
+      "family": "health",
+      "sex": "male",
+      "id": "P-02_health",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.6,
+        "fmi": 5,
+        "almi": 8
+      },
+      "constructScores": {
+        "H1": 50,
+        "H2": 92,
+        "H3": 92
+      },
+      "aggregate": 73.1,
+      "unclippedAggregate": 73.1,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 50,
+            "weight": 0.45,
+            "absoluteContribution": 22.5,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 22.5
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 73.1,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -22.5
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -22.5
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-02",
+      "family": "performance",
+      "sex": "male",
+      "id": "P-02_performance",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 18.8,
+        "fmi": 5
+      },
+      "constructScores": {
+        "P1": 85.6521739130435,
+        "P3": 92
+      },
+      "aggregate": 88.82608695652175,
+      "unclippedAggregate": 88.82608695652175,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 85.6521739130435,
+            "weight": 0.5,
+            "absoluteContribution": 42.82608695652175,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 7.173913043478251
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 88.82608695652175,
+        "dominantAdverseConstruct": "P1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -4.673913043478251
+          },
+          {
+            "construct": "P3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -4.673913043478251
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-03",
+      "family": "health",
+      "sex": "male",
+      "id": "P-03_health",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.444,
+        "fmi": 4,
+        "almi": 6.2
+      },
+      "constructScores": {
+        "H1": 91.2,
+        "H2": 92,
+        "H3": 23.000000000000007
+      },
+      "aggregate": 77.84,
+      "unclippedAggregate": 77.84,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 91.2,
+            "weight": 0.45,
+            "absoluteContribution": 41.04,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 3.9599999999999986
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 23.000000000000007,
+            "weight": 0.2,
+            "absoluteContribution": 4.600000000000001,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 15.4
+          }
+        ],
+        "unclippedAggregate": 77.84,
+        "dominantAdverseConstruct": "H3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -3.9599999999999986
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -13.8
+          }
+        ],
+        "aggregateChange": -17.759999999999998
+      },
+      "adverseHide": true
+    },
+    {
+      "personaId": "P-03",
+      "family": "performance",
+      "sex": "male",
+      "id": "P-03_performance",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 16.2,
+        "fmi": 4
+      },
+      "constructScores": {
+        "P1": 18.571428571428548,
+        "P3": 92
+      },
+      "aggregate": 55.28571428571428,
+      "unclippedAggregate": 55.28571428571428,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 18.571428571428548,
+            "weight": 0.5,
+            "absoluteContribution": 9.285714285714274,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 40.71428571428572
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 55.28571428571428,
+        "dominantAdverseConstruct": "P1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -38.21428571428572
+          },
+          {
+            "construct": "P3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -38.21428571428572
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-04",
+      "family": "health",
+      "sex": "male",
+      "id": "P-04_health",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.505,
+        "fmi": 10,
+        "almi": 8.5
+      },
+      "constructScores": {
+        "H1": 78.5,
+        "H2": 43.333333333333336,
+        "H3": 92
+      },
+      "aggregate": 68.89166666666667,
+      "unclippedAggregate": 68.89166666666667,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 78.5,
+            "weight": 0.45,
+            "absoluteContribution": 35.325,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 9.675
+          },
+          {
+            "construct": "H2",
+            "score": 43.333333333333336,
+            "weight": 0.35,
+            "absoluteContribution": 15.166666666666666,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 19.833333333333332
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 68.89166666666667,
+        "dominantAdverseConstruct": "H2"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -9.675
+          },
+          {
+            "construct": "H2",
+            "changeContribution": -17.03333333333333
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -26.708333333333332
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-04",
+      "family": "performance",
+      "sex": "male",
+      "id": "P-04_performance",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 20.8,
+        "fmi": 10
+      },
+      "constructScores": {
+        "P1": 95,
+        "P3": 45
+      },
+      "aggregate": 70,
+      "unclippedAggregate": 70,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 95,
+            "weight": 0.5,
+            "absoluteContribution": 47.5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 2.5
+          },
+          {
+            "construct": "P3",
+            "score": 45,
+            "weight": 0.5,
+            "absoluteContribution": 22.5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 27.5
+          }
+        ],
+        "unclippedAggregate": 70,
+        "dominantAdverseConstruct": "P3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "P3",
+            "changeContribution": -23.5
+          }
+        ],
+        "aggregateChange": -23.5
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-05",
+      "family": "health",
+      "sex": "male",
+      "id": "P-05_health",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.447,
+        "fmi": 3,
+        "almi": 5.8
+      },
+      "constructScores": {
+        "H1": 90.6,
+        "H2": 88,
+        "H3": 15
+      },
+      "aggregate": 74.57,
+      "unclippedAggregate": 74.57,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 90.6,
+            "weight": 0.45,
+            "absoluteContribution": 40.769999999999996,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 4.230000000000003
+          },
+          {
+            "construct": "H2",
+            "score": 88,
+            "weight": 0.35,
+            "absoluteContribution": 30.799999999999997,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 4.199999999999999
+          },
+          {
+            "construct": "H3",
+            "score": 15,
+            "weight": 0.2,
+            "absoluteContribution": 3,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 17
+          }
+        ],
+        "unclippedAggregate": 74.57,
+        "dominantAdverseConstruct": "H3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -4.230000000000003
+          },
+          {
+            "construct": "H2",
+            "changeContribution": -1.4
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -15.4
+          }
+        ],
+        "aggregateChange": -21.03
+      },
+      "adverseHide": true
+    },
+    {
+      "personaId": "P-05",
+      "family": "performance",
+      "sex": "male",
+      "id": "P-05_performance",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 15.8,
+        "fmi": 3
+      },
+      "constructScores": {
+        "P1": 10,
+        "P3": 92
+      },
+      "aggregate": 51,
+      "unclippedAggregate": 51,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 10,
+            "weight": 0.5,
+            "absoluteContribution": 5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 51,
+        "dominantAdverseConstruct": "P1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -42.5
+          },
+          {
+            "construct": "P3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -42.5
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-06",
+      "family": "health",
+      "sex": "male",
+      "id": "P-06_health",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.58,
+        "fmi": 4.8,
+        "almi": 7.8
+      },
+      "constructScores": {
+        "H1": 56.00000000000001,
+        "H2": 92,
+        "H3": 84.6
+      },
+      "aggregate": 74.32,
+      "unclippedAggregate": 74.32,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 56.00000000000001,
+            "weight": 0.45,
+            "absoluteContribution": 25.200000000000003,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 19.799999999999997
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 84.6,
+            "weight": 0.2,
+            "absoluteContribution": 16.919999999999998,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 3.0800000000000014
+          }
+        ],
+        "unclippedAggregate": 74.32,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -19.799999999999997
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -1.4800000000000013
+          }
+        ],
+        "aggregateChange": -21.279999999999998
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-06",
+      "family": "performance",
+      "sex": "male",
+      "id": "P-06_performance",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 18.5,
+        "fmi": 4.8
+      },
+      "constructScores": {
+        "P1": 79.13043478260869,
+        "P3": 92
+      },
+      "aggregate": 85.56521739130434,
+      "unclippedAggregate": 85.56521739130434,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 79.13043478260869,
+            "weight": 0.5,
+            "absoluteContribution": 39.565217391304344,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 10.434782608695656
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 85.56521739130434,
+        "dominantAdverseConstruct": "P1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -7.934782608695656
+          },
+          {
+            "construct": "P3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -7.934782608695656
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-07",
+      "family": "health",
+      "sex": "male",
+      "id": "P-07_health",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.466,
+        "fmi": 12,
+        "almi": 7.6
+      },
+      "constructScores": {
+        "H1": 86.8,
+        "H2": 30,
+        "H3": 77.19999999999999
+      },
+      "aggregate": 65,
+      "unclippedAggregate": 65,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 86.8,
+            "weight": 0.45,
+            "absoluteContribution": 39.06,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 5.940000000000001
+          },
+          {
+            "construct": "H2",
+            "score": 30,
+            "weight": 0.35,
+            "absoluteContribution": 10.5,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 24.5
+          },
+          {
+            "construct": "H3",
+            "score": 77.19999999999999,
+            "weight": 0.2,
+            "absoluteContribution": 15.439999999999998,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 4.560000000000002
+          }
+        ],
+        "unclippedAggregate": 65,
+        "dominantAdverseConstruct": "H2"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -5.940000000000001
+          },
+          {
+            "construct": "H2",
+            "changeContribution": -21.7
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -2.9600000000000026
+          }
+        ],
+        "aggregateChange": -30.6
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-07",
+      "family": "performance",
+      "sex": "male",
+      "id": "P-07_performance",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 18.2,
+        "fmi": 12
+      },
+      "constructScores": {
+        "P1": 72.6086956521739,
+        "P3": 32.66666666666667
+      },
+      "aggregate": 52.63768115942029,
+      "unclippedAggregate": 52.63768115942029,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 72.6086956521739,
+            "weight": 0.5,
+            "absoluteContribution": 36.30434782608695,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 13.695652173913047
+          },
+          {
+            "construct": "P3",
+            "score": 32.66666666666667,
+            "weight": 0.5,
+            "absoluteContribution": 16.333333333333336,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 33.666666666666664
+          }
+        ],
+        "unclippedAggregate": 52.63768115942029,
+        "dominantAdverseConstruct": "P3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -11.195652173913047
+          },
+          {
+            "construct": "P3",
+            "changeContribution": -29.666666666666664
+          }
+        ],
+        "aggregateChange": -40.86231884057971
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-08",
+      "family": "health",
+      "sex": "male",
+      "id": "P-08_health",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.628,
+        "fmi": 11.5,
+        "almi": 6.1
+      },
+      "constructScores": {
+        "H1": 43,
+        "H2": 33.33333333333333,
+        "H3": 18.999999999999986
+      },
+      "aggregate": 34.81666666666666,
+      "unclippedAggregate": 34.81666666666666,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 43,
+            "weight": 0.45,
+            "absoluteContribution": 19.35,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 25.650000000000002
+          },
+          {
+            "construct": "H2",
+            "score": 33.33333333333333,
+            "weight": 0.35,
+            "absoluteContribution": 11.666666666666664,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 23.333333333333332
+          },
+          {
+            "construct": "H3",
+            "score": 18.999999999999986,
+            "weight": 0.2,
+            "absoluteContribution": 3.799999999999997,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 16.200000000000003
+          }
+        ],
+        "unclippedAggregate": 34.81666666666666,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -25.650000000000002
+          },
+          {
+            "construct": "H2",
+            "changeContribution": -20.533333333333335
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -14.600000000000003
+          }
+        ],
+        "aggregateChange": -60.78333333333334
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-08",
+      "family": "performance",
+      "sex": "male",
+      "id": "P-08_performance",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 16,
+        "fmi": 11.5
+      },
+      "constructScores": {
+        "P1": 10,
+        "P3": 35.75
+      },
+      "aggregate": 22.875,
+      "unclippedAggregate": 22.875,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 10,
+            "weight": 0.5,
+            "absoluteContribution": 5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "P3",
+            "score": 35.75,
+            "weight": 0.5,
+            "absoluteContribution": 17.875,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 32.125
+          }
+        ],
+        "unclippedAggregate": 22.875,
+        "dominantAdverseConstruct": "P1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -42.5
+          },
+          {
+            "construct": "P3",
+            "changeContribution": -28.125
+          }
+        ],
+        "aggregateChange": -70.625
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-09",
+      "family": "health",
+      "sex": "male",
+      "id": "P-09_health",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.541,
+        "fmi": 7.5,
+        "almi": 9
+      },
+      "constructScores": {
+        "H1": 67.69999999999999,
+        "H2": 68,
+        "H3": 92
+      },
+      "aggregate": 72.66499999999999,
+      "unclippedAggregate": 72.66499999999999,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 67.69999999999999,
+            "weight": 0.45,
+            "absoluteContribution": 30.464999999999996,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 14.535000000000005
+          },
+          {
+            "construct": "H2",
+            "score": 68,
+            "weight": 0.35,
+            "absoluteContribution": 23.799999999999997,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 11.2
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 72.66499999999999,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -14.535000000000005
+          },
+          {
+            "construct": "H2",
+            "changeContribution": -8.399999999999999
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -22.935000000000002
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-09",
+      "family": "performance",
+      "sex": "male",
+      "id": "P-09_performance",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 21,
+        "fmi": 7.5
+      },
+      "constructScores": {
+        "P1": 95,
+        "P3": 84.16666666666667
+      },
+      "aggregate": 89.58333333333334,
+      "unclippedAggregate": 89.58333333333334,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 95,
+            "weight": 0.5,
+            "absoluteContribution": 47.5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 2.5
+          },
+          {
+            "construct": "P3",
+            "score": 84.16666666666667,
+            "weight": 0.5,
+            "absoluteContribution": 42.083333333333336,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 7.916666666666664
+          }
+        ],
+        "unclippedAggregate": 89.58333333333334,
+        "dominantAdverseConstruct": "P3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": 0
+          },
+          {
+            "construct": "P3",
+            "changeContribution": -3.9166666666666643
+          }
+        ],
+        "aggregateChange": -3.9166666666666643
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-10",
+      "family": "health",
+      "sex": "male",
+      "id": "P-10_health",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.551,
+        "fmi": 5.2,
+        "almi": 7.5
+      },
+      "constructScores": {
+        "H1": 64.69999999999999,
+        "H2": 92,
+        "H3": 73.5
+      },
+      "aggregate": 76.01499999999999,
+      "unclippedAggregate": 76.01499999999999,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 64.69999999999999,
+            "weight": 0.45,
+            "absoluteContribution": 29.114999999999995,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 15.885000000000005
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 73.5,
+            "weight": 0.2,
+            "absoluteContribution": 14.700000000000001,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 5.300000000000001
+          }
+        ],
+        "unclippedAggregate": 76.01499999999999,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -15.885000000000005
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -3.7
+          }
+        ],
+        "aggregateChange": -19.585000000000004
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-10",
+      "family": "performance",
+      "sex": "male",
+      "id": "P-10_performance",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 18,
+        "fmi": 5.2
+      },
+      "constructScores": {
+        "P1": 68.2608695652174,
+        "P3": 92
+      },
+      "aggregate": 80.1304347826087,
+      "unclippedAggregate": 80.1304347826087,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 68.2608695652174,
+            "weight": 0.5,
+            "absoluteContribution": 34.1304347826087,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 15.869565217391298
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 80.1304347826087,
+        "dominantAdverseConstruct": "P1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -13.369565217391298
+          },
+          {
+            "construct": "P3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -13.369565217391298
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-11",
+      "family": "health",
+      "sex": "female",
+      "id": "P-11_health",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.424,
+        "fmi": 6.5,
+        "almi": 6.5
+      },
+      "constructScores": {
+        "H1": 95.2,
+        "H2": 92,
+        "H3": 92
+      },
+      "aggregate": 93.44,
+      "unclippedAggregate": 93.44,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 95.2,
+            "weight": 0.45,
+            "absoluteContribution": 42.84,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 2.159999999999999
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 93.44,
+        "dominantAdverseConstruct": "H2"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -2.159999999999999
+          },
+          {
+            "construct": "H2",
+            "changeContribution": 0
+          },
+          {
+            "construct": "H3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -2.159999999999999
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-11",
+      "family": "performance",
+      "sex": "female",
+      "id": "P-11_performance",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 16.2,
+        "fmi": 6.5
+      },
+      "constructScores": {
+        "P1": 82.10526315789471,
+        "P3": 92
+      },
+      "aggregate": 87.05263157894736,
+      "unclippedAggregate": 87.05263157894736,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 82.10526315789471,
+            "weight": 0.5,
+            "absoluteContribution": 41.052631578947356,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 8.947368421052644
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 87.05263157894736,
+        "dominantAdverseConstruct": "P1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -6.447368421052644
+          },
+          {
+            "construct": "P3",
+            "changeContribution": 0
+          }
+        ],
+        "aggregateChange": -6.447368421052644
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-12",
+      "family": "health",
+      "sex": "female",
+      "id": "P-12_health",
+      "adverseConstructs": [],
+      "inputs": {
+        "whtr": 0.586,
+        "fmi": 14,
+        "almi": 5.2
+      },
+      "constructScores": {
+        "H1": 54.2,
+        "H2": 45,
+        "H3": 43.00000000000001
+      },
+      "aggregate": 48.74,
+      "unclippedAggregate": 48.74,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 54.2,
+            "weight": 0.45,
+            "absoluteContribution": 24.39,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 20.61
+          },
+          {
+            "construct": "H2",
+            "score": 45,
+            "weight": 0.35,
+            "absoluteContribution": 15.749999999999998,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 19.25
+          },
+          {
+            "construct": "H3",
+            "score": 43.00000000000001,
+            "weight": 0.2,
+            "absoluteContribution": 8.600000000000001,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 11.399999999999999
+          }
+        ],
+        "unclippedAggregate": 48.74,
+        "dominantAdverseConstruct": "H1"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "H1",
+            "changeContribution": -20.61
+          },
+          {
+            "construct": "H2",
+            "changeContribution": -16.45
+          },
+          {
+            "construct": "H3",
+            "changeContribution": -9.799999999999999
+          }
+        ],
+        "aggregateChange": -46.86
+      },
+      "adverseHide": false
+    },
+    {
+      "personaId": "P-12",
+      "family": "performance",
+      "sex": "female",
+      "id": "P-12_performance",
+      "adverseConstructs": [],
+      "inputs": {
+        "ffmi": 14.8,
+        "fmi": 14
+      },
+      "constructScores": {
+        "P1": 45.26315789473687,
+        "P3": 45
+      },
+      "aggregate": 45.13157894736844,
+      "unclippedAggregate": 45.13157894736844,
+      "contribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 45.26315789473687,
+            "weight": 0.5,
+            "absoluteContribution": 22.631578947368435,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 27.368421052631565
+          },
+          {
+            "construct": "P3",
+            "score": 45,
+            "weight": 0.5,
+            "absoluteContribution": 22.5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 27.5
+          }
+        ],
+        "unclippedAggregate": 45.13157894736844,
+        "dominantAdverseConstruct": "P3"
+      },
+      "changeVsAllFavorable": {
+        "rows": [
+          {
+            "construct": "P1",
+            "changeContribution": -24.868421052631565
+          },
+          {
+            "construct": "P3",
+            "changeContribution": -23.5
+          }
+        ],
+        "aggregateChange": -48.36842105263156
+      },
+      "adverseHide": false
+    }
+  ],
+  "adverseHideRows": [
+    "male:H3_adverse",
+    "female:H3_adverse",
+    "male:P-03_health",
+    "male:P-05_health"
+  ]
+}

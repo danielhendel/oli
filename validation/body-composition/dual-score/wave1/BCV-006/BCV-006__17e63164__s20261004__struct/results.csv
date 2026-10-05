@@ -1,0 +1,9 @@
+sex,age,dateOfBirth,healthScore,H1,H2,H3,perfScore,P1,P3,healthStatus,perfStatus
+male,20,2006-10-04,86.6,80,92,92,91,90,92,calculated_internal_not_public,calculated_internal_not_public
+male,40,1986-10-04,86.6,80,92,92,91,90,92,calculated_internal_not_public,calculated_internal_not_public
+male,60,1966-10-04,86.6,80,92,92,91,90,92,calculated_internal_not_public,calculated_internal_not_public
+male,80,1946-10-04,86.6,80,92,92,91,90,92,calculated_internal_not_public,calculated_internal_not_public
+female,20,2006-10-04,86.59999999999998,80,92,91.99999999999996,91,90,92,calculated_internal_not_public,calculated_internal_not_public
+female,40,1986-10-04,86.59999999999998,80,92,91.99999999999996,91,90,92,calculated_internal_not_public,calculated_internal_not_public
+female,60,1966-10-04,86.59999999999998,80,92,91.99999999999996,91,90,92,calculated_internal_not_public,calculated_internal_not_public
+female,80,1946-10-04,86.59999999999998,80,92,91.99999999999996,91,90,92,calculated_internal_not_public,calculated_internal_not_public

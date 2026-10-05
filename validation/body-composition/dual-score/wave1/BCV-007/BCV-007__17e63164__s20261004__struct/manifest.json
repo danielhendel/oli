@@ -1,0 +1,180 @@
+{
+  "schemaVersion": "body_composition_dual_score_wave1_manifest_v1",
+  "experimentId": "BCV-007",
+  "protocolId": "BCV-007",
+  "runId": "BCV-007__17e63164__s20261004__struct",
+  "engineVersion": {
+    "health": "body_composition_health_score_draft_v1",
+    "performanceSupporting": "body_composition_performance_supporting_score_draft_v1"
+  },
+  "implementationSha": "d940b1616b341e98b19e82f2cd6a6242dfe41691",
+  "mathematicalFreezeSha": "e258267d109d1d05e20270f205e5fdb29ae2aca6",
+  "validationPlanSha": "4900f6e56f1eb83799513452cc4b5d2dcc20601d",
+  "validationCodeSha": "17e63164a55af7d1425196340831c7b9d3c06918",
+  "createdAtUtc": "2026-10-05T12:51:08.476Z",
+  "seed": 20261004,
+  "streamCode": 7,
+  "inputDomains": {
+    "anchors": {
+      "male": {
+        "heightCm": 175,
+        "waistCm": 87.5,
+        "whtr": 0.5,
+        "fmi": 5.5,
+        "almi": 8,
+        "ffmi": 19
+      },
+      "female": {
+        "heightCm": 165,
+        "waistCm": 82.5,
+        "whtr": 0.5,
+        "fmi": 8.5,
+        "almi": 6.3,
+        "ffmi": 16.5
+      }
+    },
+    "probes": {
+      "H1": [
+        0.4,
+        0.5,
+        0.6
+      ],
+      "H2": [
+        3.5,
+        5.5,
+        8.5,
+        13
+      ],
+      "H3_ALMI": [
+        4.5,
+        5.5,
+        6.3,
+        8
+      ],
+      "H3_FFMI": [
+        14,
+        16,
+        18.5
+      ],
+      "P1": [
+        14,
+        16.5,
+        19
+      ],
+      "P3": [
+        3.5,
+        7,
+        10,
+        14
+      ]
+    }
+  },
+  "gridSteps": null,
+  "epsilon": {
+    "EPS_NUM": 1e-9,
+    "EPS_SURF": 0.0001,
+    "EPS_CM": 0.001
+  },
+  "monteCarloProtocol": null,
+  "noiseParameters": null,
+  "covarianceParameters": null,
+  "scheduleId": null,
+  "personaId": null,
+  "parameterProvenance": {
+    "canonicalSeed": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.2",
+      "value": 20261004
+    },
+    "implementationSha": {
+      "sourceType": "mathematical_freeze",
+      "sourceId": "§23.1",
+      "value": "d940b1616b341e98b19e82f2cd6a6242dfe41691"
+    },
+    "EPS_NUM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 1e-9
+    },
+    "EPS_SURF": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.0001
+    },
+    "EPS_CM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.001
+    },
+    "anchors": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.12.1",
+      "value": {
+        "male": {
+          "heightCm": 175,
+          "waistCm": 87.5,
+          "whtr": 0.5,
+          "fmi": 5.5,
+          "almi": 8,
+          "ffmi": 19
+        },
+        "female": {
+          "heightCm": 165,
+          "waistCm": 82.5,
+          "whtr": 0.5,
+          "fmi": 8.5,
+          "almi": 6.3,
+          "ffmi": 16.5
+        }
+      }
+    },
+    "probes": {
+      "sourceType": "synthetic_fallback",
+      "sourceId": "BCV-007 probe values (knot-adjacent)",
+      "value": {
+        "H1": [
+          0.4,
+          0.5,
+          0.6
+        ],
+        "H2": [
+          3.5,
+          5.5,
+          8.5,
+          13
+        ],
+        "H3_ALMI": [
+          4.5,
+          5.5,
+          6.3,
+          8
+        ],
+        "H3_FFMI": [
+          14,
+          16,
+          18.5
+        ],
+        "P1": [
+          14,
+          16.5,
+          19
+        ],
+        "P3": [
+          3.5,
+          7,
+          10,
+          14
+        ]
+      }
+    }
+  },
+  "artifactFiles": [
+    "manifest.json",
+    "results.csv",
+    "results.json",
+    "summary.md"
+  ],
+  "interpretationClass": "structural_invariant",
+  "phiStatus": "synthetic_no_phi",
+  "notes": "Sex-specific transform differences documented; fairness not assumed. P1 is normalized from the Resolver's natural policy_not_frozen (FFMI+FFM open precedence); see IMPLEMENTATION_SPEC.md."
+}

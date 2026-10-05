@@ -1,0 +1,289 @@
+{
+  "protocolId": "BCV-006",
+  "ages": [
+    20,
+    40,
+    60,
+    80
+  ],
+  "epsilon": 1e-9,
+  "rows": [
+    {
+      "sex": "male",
+      "age": 20,
+      "dateOfBirth": "2006-10-04",
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "sex": "male",
+      "age": 40,
+      "dateOfBirth": "1986-10-04",
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "sex": "male",
+      "age": 60,
+      "dateOfBirth": "1966-10-04",
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "sex": "male",
+      "age": 80,
+      "dateOfBirth": "1946-10-04",
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "sex": "female",
+      "age": 20,
+      "dateOfBirth": "2006-10-04",
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "sex": "female",
+      "age": 40,
+      "dateOfBirth": "1986-10-04",
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "sex": "female",
+      "age": 60,
+      "dateOfBirth": "1966-10-04",
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "sex": "female",
+      "age": 80,
+      "dateOfBirth": "1946-10-04",
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    }
+  ],
+  "bySex": [
+    {
+      "sex": "male",
+      "anchors": {
+        "heightCm": 175,
+        "waistCm": 87.5,
+        "whtr": 0.5,
+        "fmi": 5.5,
+        "almi": 8,
+        "ffmi": 19
+      },
+      "referenceAge": 20,
+      "referenceScores": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "pairwise": [
+        {
+          "ageA": 20,
+          "ageB": 40,
+          "maxAbsDelta": 0
+        },
+        {
+          "ageA": 20,
+          "ageB": 60,
+          "maxAbsDelta": 0
+        },
+        {
+          "ageA": 20,
+          "ageB": 80,
+          "maxAbsDelta": 0
+        },
+        {
+          "ageA": 40,
+          "ageB": 60,
+          "maxAbsDelta": 0
+        },
+        {
+          "ageA": 40,
+          "ageB": 80,
+          "maxAbsDelta": 0
+        },
+        {
+          "ageA": 60,
+          "ageB": 80,
+          "maxAbsDelta": 0
+        }
+      ],
+      "maxAbsDelta": 0,
+      "allAvailable": true,
+      "invariancePass": true
+    },
+    {
+      "sex": "female",
+      "anchors": {
+        "heightCm": 165,
+        "waistCm": 82.5,
+        "whtr": 0.5,
+        "fmi": 8.5,
+        "almi": 6.3,
+        "ffmi": 16.5
+      },
+      "referenceAge": 20,
+      "referenceScores": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "pairwise": [
+        {
+          "ageA": 20,
+          "ageB": 40,
+          "maxAbsDelta": 0
+        },
+        {
+          "ageA": 20,
+          "ageB": 60,
+          "maxAbsDelta": 0
+        },
+        {
+          "ageA": 20,
+          "ageB": 80,
+          "maxAbsDelta": 0
+        },
+        {
+          "ageA": 40,
+          "ageB": 60,
+          "maxAbsDelta": 0
+        },
+        {
+          "ageA": 40,
+          "ageB": 80,
+          "maxAbsDelta": 0
+        },
+        {
+          "ageA": 60,
+          "ageB": 80,
+          "maxAbsDelta": 0
+        }
+      ],
+      "maxAbsDelta": 0,
+      "allAvailable": true,
+      "invariancePass": true
+    }
+  ],
+  "invariancePass": true
+}

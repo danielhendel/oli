@@ -1,0 +1,338 @@
+{
+  "schemaVersion": "body_composition_dual_score_wave1_manifest_v1",
+  "experimentId": "BCV-013",
+  "protocolId": "BCV-013",
+  "runId": "BCV-013__17e63164__s20261004__struct",
+  "engineVersion": {
+    "health": "body_composition_health_score_draft_v1",
+    "performanceSupporting": "body_composition_performance_supporting_score_draft_v1"
+  },
+  "implementationSha": "d940b1616b341e98b19e82f2cd6a6242dfe41691",
+  "mathematicalFreezeSha": "e258267d109d1d05e20270f205e5fdb29ae2aca6",
+  "validationPlanSha": "4900f6e56f1eb83799513452cc4b5d2dcc20601d",
+  "validationCodeSha": "17e63164a55af7d1425196340831c7b9d3c06918",
+  "createdAtUtc": "2026-10-05T12:51:08.484Z",
+  "seed": 20261004,
+  "streamCode": 13,
+  "inputDomains": {
+    "knots": {
+      "H1": {
+        "male": [
+          0.4,
+          0.5,
+          0.6,
+          0.8
+        ],
+        "female": [
+          0.4,
+          0.5,
+          0.6,
+          0.8
+        ]
+      },
+      "H2": {
+        "male": [
+          2,
+          3.5,
+          5.5,
+          9,
+          15
+        ],
+        "female": [
+          3.5,
+          5.5,
+          8.5,
+          13,
+          21
+        ]
+      },
+      "H3_ALMI": {
+        "male": [
+          6,
+          7,
+          8
+        ],
+        "female": [
+          4.5,
+          5.5,
+          6.3
+        ]
+      },
+      "H3_FFMI": {
+        "male": [
+          16,
+          16.7,
+          18.5
+        ],
+        "female": [
+          14,
+          14.6,
+          16
+        ]
+      },
+      "P1": {
+        "male": [
+          16,
+          16.7,
+          19,
+          20.5
+        ],
+        "female": [
+          14,
+          14.6,
+          16.5,
+          17.5
+        ]
+      },
+      "P3": {
+        "male": [
+          2,
+          3,
+          7,
+          10,
+          16
+        ],
+        "female": [
+          3.5,
+          5,
+          10,
+          14,
+          22
+        ]
+      }
+    },
+    "plateaus": [
+      {
+        "id": "H2_male_92",
+        "construct": "H2",
+        "sex": "male",
+        "lower": 3.5,
+        "upper": 5.5,
+        "value": 92
+      },
+      {
+        "id": "H2_female_92",
+        "construct": "H2",
+        "sex": "female",
+        "lower": 5.5,
+        "upper": 8.5,
+        "value": 92
+      },
+      {
+        "id": "P3_male_92",
+        "construct": "P3",
+        "sex": "male",
+        "lower": 3,
+        "upper": 7,
+        "value": 92
+      },
+      {
+        "id": "P3_female_92",
+        "construct": "P3",
+        "sex": "female",
+        "lower": 5,
+        "upper": 10,
+        "value": 92
+      },
+      {
+        "id": "H1_left",
+        "construct": "H1",
+        "sex": "both",
+        "lower": null,
+        "upper": 0.4,
+        "value": 100
+      }
+    ]
+  },
+  "gridSteps": {
+    "epsNum": 1e-9,
+    "epsSurf": 0.0001
+  },
+  "epsilon": {
+    "EPS_NUM": 1e-9,
+    "EPS_SURF": 0.0001,
+    "EPS_CM": 0.001
+  },
+  "monteCarloProtocol": null,
+  "noiseParameters": null,
+  "covarianceParameters": null,
+  "scheduleId": null,
+  "personaId": null,
+  "parameterProvenance": {
+    "canonicalSeed": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.2",
+      "value": 20261004
+    },
+    "implementationSha": {
+      "sourceType": "mathematical_freeze",
+      "sourceId": "§23.1",
+      "value": "d940b1616b341e98b19e82f2cd6a6242dfe41691"
+    },
+    "EPS_NUM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 1e-9
+    },
+    "EPS_SURF": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.0001
+    },
+    "EPS_CM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.001
+    },
+    "knots": {
+      "sourceType": "mathematical_freeze",
+      "sourceId": "§23.5.2",
+      "value": {
+        "H1": {
+          "male": [
+            0.4,
+            0.5,
+            0.6,
+            0.8
+          ],
+          "female": [
+            0.4,
+            0.5,
+            0.6,
+            0.8
+          ]
+        },
+        "H2": {
+          "male": [
+            2,
+            3.5,
+            5.5,
+            9,
+            15
+          ],
+          "female": [
+            3.5,
+            5.5,
+            8.5,
+            13,
+            21
+          ]
+        },
+        "H3_ALMI": {
+          "male": [
+            6,
+            7,
+            8
+          ],
+          "female": [
+            4.5,
+            5.5,
+            6.3
+          ]
+        },
+        "H3_FFMI": {
+          "male": [
+            16,
+            16.7,
+            18.5
+          ],
+          "female": [
+            14,
+            14.6,
+            16
+          ]
+        },
+        "P1": {
+          "male": [
+            16,
+            16.7,
+            19,
+            20.5
+          ],
+          "female": [
+            14,
+            14.6,
+            16.5,
+            17.5
+          ]
+        },
+        "P3": {
+          "male": [
+            2,
+            3,
+            7,
+            10,
+            16
+          ],
+          "female": [
+            3.5,
+            5,
+            10,
+            14,
+            22
+          ]
+        }
+      }
+    },
+    "plateaus": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.13 BCV-013",
+      "value": [
+        {
+          "id": "H2_male_92",
+          "construct": "H2",
+          "sex": "male",
+          "lower": 3.5,
+          "upper": 5.5,
+          "value": 92
+        },
+        {
+          "id": "H2_female_92",
+          "construct": "H2",
+          "sex": "female",
+          "lower": 5.5,
+          "upper": 8.5,
+          "value": 92
+        },
+        {
+          "id": "P3_male_92",
+          "construct": "P3",
+          "sex": "male",
+          "lower": 3,
+          "upper": 7,
+          "value": 92
+        },
+        {
+          "id": "P3_female_92",
+          "construct": "P3",
+          "sex": "female",
+          "lower": 5,
+          "upper": 10,
+          "value": 92
+        },
+        {
+          "id": "H1_left",
+          "construct": "H1",
+          "sex": "both",
+          "lower": null,
+          "upper": 0.4,
+          "value": 100
+        }
+      ]
+    },
+    "continuityTolerance": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.13 BCV-013",
+      "value": 0.000001
+    }
+  },
+  "artifactFiles": [
+    "manifest.json",
+    "results.csv",
+    "results.json",
+    "summary.md"
+  ],
+  "interpretationClass": "structural_invariant",
+  "phiStatus": "synthetic_no_phi",
+  "notes": "Deterministic structural invariant."
+}

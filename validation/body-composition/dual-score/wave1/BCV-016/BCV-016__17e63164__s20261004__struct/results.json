@@ -1,0 +1,562 @@
+{
+  "protocolId": "BCV-016",
+  "asOf": "2026-10-04T12:00:00.000Z",
+  "rows": [
+    {
+      "scheduleId": "S-01",
+      "definition": "Same-day all constructs",
+      "timestamps": {
+        "waistAt": "2026-10-04T12:00:00.000Z",
+        "heightAt": "2026-10-04T12:00:00.000Z",
+        "dxaAt": "2026-10-04T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": true,
+        "score": 92.18,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": true,
+          "reason": null
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-02",
+      "definition": "30d separation: H1=asOf; DXA=asOf-30d",
+      "timestamps": {
+        "waistAt": "2026-10-04T12:00:00.000Z",
+        "heightAt": "2026-10-04T12:00:00.000Z",
+        "dxaAt": "2026-09-04T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": true,
+        "score": 92.18,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": true,
+          "reason": null
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-03",
+      "definition": "89d separation: H1=asOf; DXA=asOf-89d",
+      "timestamps": {
+        "waistAt": "2026-10-04T12:00:00.000Z",
+        "heightAt": "2026-10-04T12:00:00.000Z",
+        "dxaAt": "2026-07-07T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": true,
+        "score": 92.18,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": true,
+          "reason": null
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-04",
+      "definition": "90d separation: H1=asOf; DXA=asOf-90d",
+      "timestamps": {
+        "waistAt": "2026-10-04T12:00:00.000Z",
+        "heightAt": "2026-10-04T12:00:00.000Z",
+        "dxaAt": "2026-07-06T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": true,
+        "score": 92.18,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": true,
+          "reason": null
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-05",
+      "definition": "90d + 1ms: H1=asOf; DXA=asOf-(90d+1ms)",
+      "timestamps": {
+        "waistAt": "2026-10-04T12:00:00.000Z",
+        "heightAt": "2026-10-04T12:00:00.000Z",
+        "dxaAt": "2026-07-06T11:59:59.999Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": false,
+        "score": null,
+        "primaryReason": "evidence_era_mismatch",
+        "ageGateHit": false,
+        "eraGateHit": true
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": false,
+          "reason": "evidence_era_mismatch"
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-06",
+      "definition": "91d: H1=asOf; DXA=asOf-91d",
+      "timestamps": {
+        "waistAt": "2026-10-04T12:00:00.000Z",
+        "heightAt": "2026-10-04T12:00:00.000Z",
+        "dxaAt": "2026-07-05T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": false,
+        "score": null,
+        "primaryReason": "evidence_era_mismatch",
+        "ageGateHit": false,
+        "eraGateHit": true
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": false,
+          "reason": "evidence_era_mismatch"
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-07",
+      "definition": "one input age 179d: Waist=asOf-179d, others asOf",
+      "timestamps": {
+        "waistAt": "2026-04-08T12:00:00.000Z",
+        "heightAt": "2026-10-04T12:00:00.000Z",
+        "dxaAt": "2026-10-04T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": false,
+        "score": null,
+        "primaryReason": "evidence_era_mismatch",
+        "ageGateHit": false,
+        "eraGateHit": true
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": false,
+          "reason": "evidence_era_mismatch"
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-08",
+      "definition": "180d: Waist=asOf-180d, others asOf",
+      "timestamps": {
+        "waistAt": "2026-04-07T12:00:00.000Z",
+        "heightAt": "2026-10-04T12:00:00.000Z",
+        "dxaAt": "2026-10-04T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": false,
+        "score": null,
+        "primaryReason": "evidence_era_mismatch",
+        "ageGateHit": false,
+        "eraGateHit": true
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": false,
+          "reason": "evidence_era_mismatch"
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-09",
+      "definition": "180d + 1ms: Waist=asOf-(180d+1ms), others asOf",
+      "timestamps": {
+        "waistAt": "2026-04-07T11:59:59.999Z",
+        "heightAt": "2026-10-04T12:00:00.000Z",
+        "dxaAt": "2026-10-04T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": false,
+        "score": null,
+        "primaryReason": "evidence_too_old",
+        "ageGateHit": true,
+        "eraGateHit": false
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": false,
+          "reason": "evidence_too_old"
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-10",
+      "definition": "H1 fresh + DXA old: H1=asOf; DXA=asOf-120d",
+      "timestamps": {
+        "waistAt": "2026-10-04T12:00:00.000Z",
+        "heightAt": "2026-10-04T12:00:00.000Z",
+        "dxaAt": "2026-06-06T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": false,
+        "score": null,
+        "primaryReason": "evidence_era_mismatch",
+        "ageGateHit": false,
+        "eraGateHit": true
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": false,
+          "reason": "evidence_era_mismatch"
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-11",
+      "definition": "DXA fresh + H1 old: DXA=asOf; H1(Waist+Height)=asOf-120d",
+      "timestamps": {
+        "waistAt": "2026-06-06T12:00:00.000Z",
+        "heightAt": "2026-06-06T12:00:00.000Z",
+        "dxaAt": "2026-10-04T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": false,
+        "score": null,
+        "primaryReason": "evidence_era_mismatch",
+        "ageGateHit": false,
+        "eraGateHit": true
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": false,
+          "reason": "evidence_era_mismatch"
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-12",
+      "definition": "rolling monthly waist + semiannual DXA: Waist=Height=asOf-30d; DXA=asOf-180d",
+      "timestamps": {
+        "waistAt": "2026-09-04T12:00:00.000Z",
+        "heightAt": "2026-09-04T12:00:00.000Z",
+        "dxaAt": "2026-04-07T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": false,
+        "score": null,
+        "primaryReason": "evidence_era_mismatch",
+        "ageGateHit": false,
+        "eraGateHit": true
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": false,
+          "reason": "evidence_era_mismatch"
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-13",
+      "definition": "annual DXA + monthly waist: Waist=Height=asOf-30d; DXA=asOf-365d",
+      "timestamps": {
+        "waistAt": "2026-09-04T12:00:00.000Z",
+        "heightAt": "2026-09-04T12:00:00.000Z",
+        "dxaAt": "2025-10-04T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan_1",
+      "waistSourceEventId": null,
+      "dxaSourceEventId": null,
+      "health": {
+        "eligible": false,
+        "score": null,
+        "primaryReason": "evidence_too_old",
+        "ageGateHit": true,
+        "eraGateHit": false
+      },
+      "performance": {
+        "eligible": false,
+        "score": null,
+        "primaryReason": "evidence_too_old",
+        "ageGateHit": true,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": false,
+          "reason": "evidence_too_old"
+        },
+        "performance": {
+          "eligible": false,
+          "reason": "evidence_too_old"
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-14",
+      "definition": "same sourceEventId scan constructs: DXA share sourceEventId scan-A at asOf-10d; Waist=asOf-10d different event",
+      "timestamps": {
+        "waistAt": "2026-09-24T12:00:00.000Z",
+        "heightAt": "2026-09-24T12:00:00.000Z",
+        "dxaAt": "2026-09-24T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan-A",
+      "waistSourceEventId": "waist-event-S14",
+      "dxaSourceEventId": "scan-A",
+      "health": {
+        "eligible": true,
+        "score": 92.18,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": true,
+          "reason": null
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    },
+    {
+      "scheduleId": "S-15",
+      "definition": "same timestamp, different sourceEventId: all asOf-10d; Waist event w1, DXA scan-B (gap not forced 0)",
+      "timestamps": {
+        "waistAt": "2026-09-24T12:00:00.000Z",
+        "heightAt": "2026-09-24T12:00:00.000Z",
+        "dxaAt": "2026-09-24T12:00:00.000Z"
+      },
+      "dxaScanRef": "scan-B",
+      "waistSourceEventId": "w1",
+      "dxaSourceEventId": "scan-B",
+      "health": {
+        "eligible": true,
+        "score": 92.18,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "performance": {
+        "eligible": true,
+        "score": 91,
+        "primaryReason": null,
+        "ageGateHit": false,
+        "eraGateHit": false
+      },
+      "expected": {
+        "health": {
+          "eligible": true,
+          "reason": null
+        },
+        "performance": {
+          "eligible": true,
+          "reason": null
+        }
+      },
+      "structuralPass": true
+    }
+  ],
+  "failing": []
+}

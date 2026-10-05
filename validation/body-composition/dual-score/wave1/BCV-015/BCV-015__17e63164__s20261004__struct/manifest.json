@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "body_composition_dual_score_wave1_manifest_v1",
+  "experimentId": "BCV-015",
+  "protocolId": "BCV-015",
+  "runId": "BCV-015__17e63164__s20261004__struct",
+  "engineVersion": {
+    "health": "body_composition_health_score_draft_v1",
+    "performanceSupporting": "body_composition_performance_supporting_score_draft_v1"
+  },
+  "implementationSha": "d940b1616b341e98b19e82f2cd6a6242dfe41691",
+  "mathematicalFreezeSha": "e258267d109d1d05e20270f205e5fdb29ae2aca6",
+  "validationPlanSha": "4900f6e56f1eb83799513452cc4b5d2dcc20601d",
+  "validationCodeSha": "17e63164a55af7d1425196340831c7b9d3c06918",
+  "createdAtUtc": "2026-10-05T12:51:08.604Z",
+  "seed": 20261004,
+  "streamCode": 15,
+  "inputDomains": {
+    "baselines": [
+      "P-01",
+      "P-11"
+    ],
+    "familyCount": 81
+  },
+  "gridSteps": null,
+  "epsilon": {
+    "EPS_NUM": 1e-9,
+    "EPS_SURF": 0.0001,
+    "EPS_CM": 0.001
+  },
+  "monteCarloProtocol": null,
+  "noiseParameters": null,
+  "covarianceParameters": null,
+  "scheduleId": null,
+  "personaId": null,
+  "parameterProvenance": {
+    "canonicalSeed": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.2",
+      "value": 20261004
+    },
+    "implementationSha": {
+      "sourceType": "mathematical_freeze",
+      "sourceId": "§23.1",
+      "value": "d940b1616b341e98b19e82f2cd6a6242dfe41691"
+    },
+    "EPS_NUM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 1e-9
+    },
+    "EPS_SURF": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.0001
+    },
+    "EPS_CM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.001
+    },
+    "matrix": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.17.4.8",
+      "value": {
+        "families": 81
+      }
+    }
+  },
+  "artifactFiles": [
+    "manifest.json",
+    "results.json",
+    "summary.md"
+  ],
+  "interpretationClass": "structural_invariant",
+  "phiStatus": "synthetic_no_phi",
+  "notes": "Fixture status patching for resolver states the Resolver cannot emit naturally is recorded per row; see summary."
+}

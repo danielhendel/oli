@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "body_composition_dual_score_wave1_manifest_v1",
+  "experimentId": "BCV-014",
+  "protocolId": "BCV-014",
+  "runId": "BCV-014__17e63164__s20261004__struct",
+  "engineVersion": {
+    "health": "body_composition_health_score_draft_v1",
+    "performanceSupporting": "body_composition_performance_supporting_score_draft_v1"
+  },
+  "implementationSha": "d940b1616b341e98b19e82f2cd6a6242dfe41691",
+  "mathematicalFreezeSha": "e258267d109d1d05e20270f205e5fdb29ae2aca6",
+  "validationPlanSha": "4900f6e56f1eb83799513452cc4b5d2dcc20601d",
+  "validationCodeSha": "17e63164a55af7d1425196340831c7b9d3c06918",
+  "createdAtUtc": "2026-10-05T12:51:08.520Z",
+  "seed": 20261004,
+  "streamCode": 14,
+  "inputDomains": {
+    "grid": "coarse by sex (§23.5.1)"
+  },
+  "gridSteps": {
+    "whtr": 0.01,
+    "fmi": 0.25,
+    "almi": 0.1,
+    "ffmi": 0.1
+  },
+  "epsilon": null,
+  "monteCarloProtocol": null,
+  "noiseParameters": null,
+  "covarianceParameters": null,
+  "scheduleId": null,
+  "personaId": null,
+  "parameterProvenance": {
+    "canonicalSeed": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.2",
+      "value": 20261004
+    },
+    "implementationSha": {
+      "sourceType": "mathematical_freeze",
+      "sourceId": "§23.1",
+      "value": "d940b1616b341e98b19e82f2cd6a6242dfe41691"
+    },
+    "EPS_NUM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 1e-9
+    },
+    "EPS_SURF": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.0001
+    },
+    "EPS_CM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.001
+    },
+    "coarseSteps": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.5.1",
+      "value": {
+        "whtr": 0.01,
+        "fmi": 0.25,
+        "almi": 0.1,
+        "ffmi": 0.1
+      }
+    }
+  },
+  "artifactFiles": [
+    "manifest.json",
+    "results.csv",
+    "results.json",
+    "summary.md"
+  ],
+  "interpretationClass": "exploratory",
+  "phiStatus": "synthetic_no_phi",
+  "notes": "Synthetic uniform-grid occupancy only."
+}

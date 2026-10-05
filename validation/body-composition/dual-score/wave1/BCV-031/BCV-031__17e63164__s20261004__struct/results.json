@@ -1,0 +1,2485 @@
+{
+  "protocolId": "BCV-031",
+  "epsilon": 1e-9,
+  "hardFail": false,
+  "hiddenPathDependenceDetected": false,
+  "groups": [
+    {
+      "study": "age_x_sex",
+      "sex": "male",
+      "nLevels": 4,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "age": 20
+          },
+          "b": {
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "age": 20
+          },
+          "b": {
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "age": 20
+          },
+          "b": {
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "age": 40
+          },
+          "b": {
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "age": 40
+          },
+          "b": {
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "age": 60
+          },
+          "b": {
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    },
+    {
+      "study": "height_x_sex",
+      "sex": "male",
+      "nLevels": 3,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "height": "short",
+            "heightCm": 155
+          },
+          "b": {
+            "height": "medium",
+            "heightCm": 175
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "height": "short",
+            "heightCm": 155
+          },
+          "b": {
+            "height": "tall",
+            "heightCm": 195
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "height": "medium",
+            "heightCm": 175
+          },
+          "b": {
+            "height": "tall",
+            "heightCm": 195
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    },
+    {
+      "study": "bmi_proxy_x_sex",
+      "sex": "male",
+      "nLevels": 3,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "bmiLabel": "low",
+            "bmiProxy": 18.5
+          },
+          "b": {
+            "bmiLabel": "mid",
+            "bmiProxy": 25
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "bmiLabel": "low",
+            "bmiProxy": 18.5
+          },
+          "b": {
+            "bmiLabel": "high",
+            "bmiProxy": 35
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "bmiLabel": "mid",
+            "bmiProxy": 25
+          },
+          "b": {
+            "bmiLabel": "high",
+            "bmiProxy": 35
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    },
+    {
+      "study": "athletic_x_sex",
+      "sex": "male",
+      "nLevels": 3,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "athleticStatus": "sedentary"
+          },
+          "b": {
+            "athleticStatus": "recreational"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "athleticStatus": "sedentary"
+          },
+          "b": {
+            "athleticStatus": "trained"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "athleticStatus": "recreational"
+          },
+          "b": {
+            "athleticStatus": "trained"
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    },
+    {
+      "study": "ethnicity_x_sex",
+      "sex": "male",
+      "nLevels": 3,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "ethnicityStructuralLabel": "group_a"
+          },
+          "b": {
+            "ethnicityStructuralLabel": "group_b"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "ethnicityStructuralLabel": "group_a"
+          },
+          "b": {
+            "ethnicityStructuralLabel": "group_c"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "ethnicityStructuralLabel": "group_b"
+          },
+          "b": {
+            "ethnicityStructuralLabel": "group_c"
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    },
+    {
+      "study": "vendor_x_site_x_sex",
+      "sex": "male",
+      "nLevels": 4,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "vendor": "vendor_a",
+            "site": "site_1"
+          },
+          "b": {
+            "vendor": "vendor_a",
+            "site": "site_2"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "vendor": "vendor_a",
+            "site": "site_1"
+          },
+          "b": {
+            "vendor": "vendor_b",
+            "site": "site_1"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "vendor": "vendor_a",
+            "site": "site_1"
+          },
+          "b": {
+            "vendor": "vendor_b",
+            "site": "site_2"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "vendor": "vendor_a",
+            "site": "site_2"
+          },
+          "b": {
+            "vendor": "vendor_b",
+            "site": "site_1"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "vendor": "vendor_a",
+            "site": "site_2"
+          },
+          "b": {
+            "vendor": "vendor_b",
+            "site": "site_2"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "vendor": "vendor_b",
+            "site": "site_1"
+          },
+          "b": {
+            "vendor": "vendor_b",
+            "site": "site_2"
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    },
+    {
+      "study": "age_x_sex",
+      "sex": "female",
+      "nLevels": 4,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "age": 20
+          },
+          "b": {
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "age": 20
+          },
+          "b": {
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "age": 20
+          },
+          "b": {
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "age": 40
+          },
+          "b": {
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "age": 40
+          },
+          "b": {
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "age": 60
+          },
+          "b": {
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    },
+    {
+      "study": "height_x_sex",
+      "sex": "female",
+      "nLevels": 3,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "height": "short",
+            "heightCm": 155
+          },
+          "b": {
+            "height": "medium",
+            "heightCm": 175
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "height": "short",
+            "heightCm": 155
+          },
+          "b": {
+            "height": "tall",
+            "heightCm": 195
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "height": "medium",
+            "heightCm": 175
+          },
+          "b": {
+            "height": "tall",
+            "heightCm": 195
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    },
+    {
+      "study": "bmi_proxy_x_sex",
+      "sex": "female",
+      "nLevels": 3,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "bmiLabel": "low",
+            "bmiProxy": 18.5
+          },
+          "b": {
+            "bmiLabel": "mid",
+            "bmiProxy": 25
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "bmiLabel": "low",
+            "bmiProxy": 18.5
+          },
+          "b": {
+            "bmiLabel": "high",
+            "bmiProxy": 35
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "bmiLabel": "mid",
+            "bmiProxy": 25
+          },
+          "b": {
+            "bmiLabel": "high",
+            "bmiProxy": 35
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    },
+    {
+      "study": "athletic_x_sex",
+      "sex": "female",
+      "nLevels": 3,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "athleticStatus": "sedentary"
+          },
+          "b": {
+            "athleticStatus": "recreational"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "athleticStatus": "sedentary"
+          },
+          "b": {
+            "athleticStatus": "trained"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "athleticStatus": "recreational"
+          },
+          "b": {
+            "athleticStatus": "trained"
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    },
+    {
+      "study": "ethnicity_x_sex",
+      "sex": "female",
+      "nLevels": 3,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "ethnicityStructuralLabel": "group_a"
+          },
+          "b": {
+            "ethnicityStructuralLabel": "group_b"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "ethnicityStructuralLabel": "group_a"
+          },
+          "b": {
+            "ethnicityStructuralLabel": "group_c"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "ethnicityStructuralLabel": "group_b"
+          },
+          "b": {
+            "ethnicityStructuralLabel": "group_c"
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    },
+    {
+      "study": "vendor_x_site_x_sex",
+      "sex": "female",
+      "nLevels": 4,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "vendor": "vendor_a",
+            "site": "site_1"
+          },
+          "b": {
+            "vendor": "vendor_a",
+            "site": "site_2"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "vendor": "vendor_a",
+            "site": "site_1"
+          },
+          "b": {
+            "vendor": "vendor_b",
+            "site": "site_1"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "vendor": "vendor_a",
+            "site": "site_1"
+          },
+          "b": {
+            "vendor": "vendor_b",
+            "site": "site_2"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "vendor": "vendor_a",
+            "site": "site_2"
+          },
+          "b": {
+            "vendor": "vendor_b",
+            "site": "site_1"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "vendor": "vendor_a",
+            "site": "site_2"
+          },
+          "b": {
+            "vendor": "vendor_b",
+            "site": "site_2"
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "vendor": "vendor_b",
+            "site": "site_1"
+          },
+          "b": {
+            "vendor": "vendor_b",
+            "site": "site_2"
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "nLevels": 12,
+      "maxAbsDelta": 0,
+      "statusConsistent": true,
+      "allAvailable": true,
+      "invariancePass": true,
+      "pairwise": [
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 20
+          },
+          "b": {
+            "menopause": "pre",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 20
+          },
+          "b": {
+            "menopause": "pre",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 20
+          },
+          "b": {
+            "menopause": "pre",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 20
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 20
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 20
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 20
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 20
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 20
+          },
+          "b": {
+            "menopause": "post",
+            "age": 20
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 20
+          },
+          "b": {
+            "menopause": "post",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 20
+          },
+          "b": {
+            "menopause": "post",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 20
+          },
+          "b": {
+            "menopause": "post",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 40
+          },
+          "b": {
+            "menopause": "pre",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 40
+          },
+          "b": {
+            "menopause": "pre",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 40
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 20
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 40
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 40
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 40
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 40
+          },
+          "b": {
+            "menopause": "post",
+            "age": 20
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 40
+          },
+          "b": {
+            "menopause": "post",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 40
+          },
+          "b": {
+            "menopause": "post",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 40
+          },
+          "b": {
+            "menopause": "post",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 60
+          },
+          "b": {
+            "menopause": "pre",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 60
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 20
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 60
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 60
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 60
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 60
+          },
+          "b": {
+            "menopause": "post",
+            "age": 20
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 60
+          },
+          "b": {
+            "menopause": "post",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 60
+          },
+          "b": {
+            "menopause": "post",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 60
+          },
+          "b": {
+            "menopause": "post",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 80
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 20
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 80
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 80
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 80
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 80
+          },
+          "b": {
+            "menopause": "post",
+            "age": 20
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 80
+          },
+          "b": {
+            "menopause": "post",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 80
+          },
+          "b": {
+            "menopause": "post",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "pre",
+            "age": 80
+          },
+          "b": {
+            "menopause": "post",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 20
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 20
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 20
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 20
+          },
+          "b": {
+            "menopause": "post",
+            "age": 20
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 20
+          },
+          "b": {
+            "menopause": "post",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 20
+          },
+          "b": {
+            "menopause": "post",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 20
+          },
+          "b": {
+            "menopause": "post",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 40
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 40
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 40
+          },
+          "b": {
+            "menopause": "post",
+            "age": 20
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 40
+          },
+          "b": {
+            "menopause": "post",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 40
+          },
+          "b": {
+            "menopause": "post",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 40
+          },
+          "b": {
+            "menopause": "post",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 60
+          },
+          "b": {
+            "menopause": "peri",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 60
+          },
+          "b": {
+            "menopause": "post",
+            "age": 20
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 60
+          },
+          "b": {
+            "menopause": "post",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 60
+          },
+          "b": {
+            "menopause": "post",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 60
+          },
+          "b": {
+            "menopause": "post",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 80
+          },
+          "b": {
+            "menopause": "post",
+            "age": 20
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 80
+          },
+          "b": {
+            "menopause": "post",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 80
+          },
+          "b": {
+            "menopause": "post",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "peri",
+            "age": 80
+          },
+          "b": {
+            "menopause": "post",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "post",
+            "age": 20
+          },
+          "b": {
+            "menopause": "post",
+            "age": 40
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "post",
+            "age": 20
+          },
+          "b": {
+            "menopause": "post",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "post",
+            "age": 20
+          },
+          "b": {
+            "menopause": "post",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "post",
+            "age": 40
+          },
+          "b": {
+            "menopause": "post",
+            "age": 60
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "post",
+            "age": 40
+          },
+          "b": {
+            "menopause": "post",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        },
+        {
+          "a": {
+            "menopause": "post",
+            "age": 60
+          },
+          "b": {
+            "menopause": "post",
+            "age": 80
+          },
+          "maxAbsDelta": 0
+        }
+      ]
+    }
+  ],
+  "failures": [],
+  "cases": [
+    {
+      "study": "age_x_sex",
+      "sex": "male",
+      "levels": {
+        "age": 20
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "age_x_sex",
+      "sex": "male",
+      "levels": {
+        "age": 40
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "age_x_sex",
+      "sex": "male",
+      "levels": {
+        "age": 60
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "age_x_sex",
+      "sex": "male",
+      "levels": {
+        "age": 80
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "height_x_sex",
+      "sex": "male",
+      "levels": {
+        "height": "short",
+        "heightCm": 155
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "height_x_sex",
+      "sex": "male",
+      "levels": {
+        "height": "medium",
+        "heightCm": 175
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "height_x_sex",
+      "sex": "male",
+      "levels": {
+        "height": "tall",
+        "heightCm": 195
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "bmi_proxy_x_sex",
+      "sex": "male",
+      "levels": {
+        "bmiLabel": "low",
+        "bmiProxy": 18.5
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "bmi_proxy_x_sex",
+      "sex": "male",
+      "levels": {
+        "bmiLabel": "mid",
+        "bmiProxy": 25
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "bmi_proxy_x_sex",
+      "sex": "male",
+      "levels": {
+        "bmiLabel": "high",
+        "bmiProxy": 35
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "athletic_x_sex",
+      "sex": "male",
+      "levels": {
+        "athleticStatus": "sedentary"
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "athletic_x_sex",
+      "sex": "male",
+      "levels": {
+        "athleticStatus": "recreational"
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "athletic_x_sex",
+      "sex": "male",
+      "levels": {
+        "athleticStatus": "trained"
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "ethnicity_x_sex",
+      "sex": "male",
+      "levels": {
+        "ethnicityStructuralLabel": "group_a"
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "ethnicity_x_sex",
+      "sex": "male",
+      "levels": {
+        "ethnicityStructuralLabel": "group_b"
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "ethnicity_x_sex",
+      "sex": "male",
+      "levels": {
+        "ethnicityStructuralLabel": "group_c"
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "vendor_x_site_x_sex",
+      "sex": "male",
+      "levels": {
+        "vendor": "vendor_a",
+        "site": "site_1"
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "vendor_x_site_x_sex",
+      "sex": "male",
+      "levels": {
+        "vendor": "vendor_a",
+        "site": "site_2"
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "vendor_x_site_x_sex",
+      "sex": "male",
+      "levels": {
+        "vendor": "vendor_b",
+        "site": "site_1"
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "vendor_x_site_x_sex",
+      "sex": "male",
+      "levels": {
+        "vendor": "vendor_b",
+        "site": "site_2"
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "age_x_sex",
+      "sex": "female",
+      "levels": {
+        "age": 20
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "age_x_sex",
+      "sex": "female",
+      "levels": {
+        "age": 40
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "age_x_sex",
+      "sex": "female",
+      "levels": {
+        "age": 60
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "age_x_sex",
+      "sex": "female",
+      "levels": {
+        "age": 80
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "height_x_sex",
+      "sex": "female",
+      "levels": {
+        "height": "short",
+        "heightCm": 155
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "height_x_sex",
+      "sex": "female",
+      "levels": {
+        "height": "medium",
+        "heightCm": 175
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "height_x_sex",
+      "sex": "female",
+      "levels": {
+        "height": "tall",
+        "heightCm": 195
+      },
+      "view": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "bmi_proxy_x_sex",
+      "sex": "female",
+      "levels": {
+        "bmiLabel": "low",
+        "bmiProxy": 18.5
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "bmi_proxy_x_sex",
+      "sex": "female",
+      "levels": {
+        "bmiLabel": "mid",
+        "bmiProxy": 25
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "bmi_proxy_x_sex",
+      "sex": "female",
+      "levels": {
+        "bmiLabel": "high",
+        "bmiProxy": 35
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "athletic_x_sex",
+      "sex": "female",
+      "levels": {
+        "athleticStatus": "sedentary"
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "athletic_x_sex",
+      "sex": "female",
+      "levels": {
+        "athleticStatus": "recreational"
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "athletic_x_sex",
+      "sex": "female",
+      "levels": {
+        "athleticStatus": "trained"
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "ethnicity_x_sex",
+      "sex": "female",
+      "levels": {
+        "ethnicityStructuralLabel": "group_a"
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "ethnicity_x_sex",
+      "sex": "female",
+      "levels": {
+        "ethnicityStructuralLabel": "group_b"
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "ethnicity_x_sex",
+      "sex": "female",
+      "levels": {
+        "ethnicityStructuralLabel": "group_c"
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "vendor_x_site_x_sex",
+      "sex": "female",
+      "levels": {
+        "vendor": "vendor_a",
+        "site": "site_1"
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "vendor_x_site_x_sex",
+      "sex": "female",
+      "levels": {
+        "vendor": "vendor_a",
+        "site": "site_2"
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "vendor_x_site_x_sex",
+      "sex": "female",
+      "levels": {
+        "vendor": "vendor_b",
+        "site": "site_1"
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "vendor_x_site_x_sex",
+      "sex": "female",
+      "levels": {
+        "vendor": "vendor_b",
+        "site": "site_2"
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "levels": {
+        "menopause": "pre",
+        "age": 20
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "levels": {
+        "menopause": "pre",
+        "age": 40
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "levels": {
+        "menopause": "pre",
+        "age": 60
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "levels": {
+        "menopause": "pre",
+        "age": 80
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "levels": {
+        "menopause": "peri",
+        "age": 20
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "levels": {
+        "menopause": "peri",
+        "age": 40
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "levels": {
+        "menopause": "peri",
+        "age": 60
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "levels": {
+        "menopause": "peri",
+        "age": 80
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "levels": {
+        "menopause": "post",
+        "age": 20
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "levels": {
+        "menopause": "post",
+        "age": 40
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "levels": {
+        "menopause": "post",
+        "age": 60
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "study": "menopause_x_age",
+      "sex": "female",
+      "levels": {
+        "menopause": "post",
+        "age": 80
+      },
+      "view": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    }
+  ],
+  "notes": "Empirical vendor/site/ethnicity/athletic bias is OUT OF SCOPE (structural code-path invariance only)."
+}

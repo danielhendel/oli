@@ -1,0 +1,172 @@
+{
+  "schemaVersion": "body_composition_dual_score_wave1_manifest_v1",
+  "experimentId": "BCV-031",
+  "protocolId": "BCV-031",
+  "runId": "BCV-031__17e63164__s20261004__struct",
+  "engineVersion": {
+    "health": "body_composition_health_score_draft_v1",
+    "performanceSupporting": "body_composition_performance_supporting_score_draft_v1"
+  },
+  "implementationSha": "d940b1616b341e98b19e82f2cd6a6242dfe41691",
+  "mathematicalFreezeSha": "e258267d109d1d05e20270f205e5fdb29ae2aca6",
+  "validationPlanSha": "4900f6e56f1eb83799513452cc4b5d2dcc20601d",
+  "validationCodeSha": "17e63164a55af7d1425196340831c7b9d3c06918",
+  "createdAtUtc": "2026-10-05T12:51:08.645Z",
+  "seed": 20261004,
+  "streamCode": 31,
+  "inputDomains": {
+    "ages": [
+      20,
+      40,
+      60,
+      80
+    ],
+    "heights": {
+      "short": 155,
+      "medium": 175,
+      "tall": 195
+    },
+    "bmiProxy": {
+      "low": 18.5,
+      "mid": 25,
+      "high": 35
+    },
+    "athletic": [
+      "sedentary",
+      "recreational",
+      "trained"
+    ],
+    "menopause": [
+      "pre",
+      "peri",
+      "post"
+    ],
+    "ethnicity": [
+      "group_a",
+      "group_b",
+      "group_c"
+    ],
+    "vendors": [
+      "vendor_a",
+      "vendor_b"
+    ],
+    "sites": [
+      "site_1",
+      "site_2"
+    ]
+  },
+  "gridSteps": null,
+  "epsilon": {
+    "EPS_NUM": 1e-9,
+    "EPS_SURF": 0.0001,
+    "EPS_CM": 0.001
+  },
+  "monteCarloProtocol": null,
+  "noiseParameters": null,
+  "covarianceParameters": null,
+  "scheduleId": null,
+  "personaId": null,
+  "parameterProvenance": {
+    "canonicalSeed": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.2",
+      "value": 20261004
+    },
+    "implementationSha": {
+      "sourceType": "mathematical_freeze",
+      "sourceId": "§23.1",
+      "value": "d940b1616b341e98b19e82f2cd6a6242dfe41691"
+    },
+    "EPS_NUM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 1e-9
+    },
+    "EPS_SURF": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.0001
+    },
+    "EPS_CM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.001
+    },
+    "levels": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.12.2",
+      "value": {
+        "AGES": [
+          20,
+          40,
+          60,
+          80
+        ],
+        "HEIGHTS": {
+          "short": 155,
+          "medium": 175,
+          "tall": 195
+        },
+        "BMI_PROXY": {
+          "low": 18.5,
+          "mid": 25,
+          "high": 35
+        },
+        "ATHLETIC": [
+          "sedentary",
+          "recreational",
+          "trained"
+        ],
+        "MENOPAUSE": [
+          "pre",
+          "peri",
+          "post"
+        ],
+        "ETHNICITY": [
+          "group_a",
+          "group_b",
+          "group_c"
+        ],
+        "VENDORS": [
+          "vendor_a",
+          "vendor_b"
+        ],
+        "SITES": [
+          "site_1",
+          "site_2"
+        ]
+      }
+    },
+    "anchors": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.12.1",
+      "value": {
+        "male": {
+          "heightCm": 175,
+          "waistCm": 87.5,
+          "whtr": 0.5,
+          "fmi": 5.5,
+          "almi": 8,
+          "ffmi": 19
+        },
+        "female": {
+          "heightCm": 165,
+          "waistCm": 82.5,
+          "whtr": 0.5,
+          "fmi": 8.5,
+          "almi": 6.3,
+          "ffmi": 16.5
+        }
+      }
+    }
+  },
+  "artifactFiles": [
+    "manifest.json",
+    "results.csv",
+    "results.json",
+    "summary.md"
+  ],
+  "interpretationClass": "structural_invariant",
+  "phiStatus": "synthetic_no_phi",
+  "notes": "Structural invariance only; hard fail on hidden-path dependence. P1 is normalized from the Resolver's natural policy_not_frozen (FFMI+FFM open precedence); see IMPLEMENTATION_SPEC.md."
+}

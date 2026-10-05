@@ -1,0 +1,1694 @@
+{
+  "protocolId": "BCV-017",
+  "references": {
+    "male": {
+      "healthScore": 86.6,
+      "H1": 80,
+      "H2": 92,
+      "H3": 92,
+      "healthStatus": "calculated_internal_not_public",
+      "healthReason": null,
+      "perfScore": 91,
+      "P1": 90,
+      "P3": 92,
+      "perfStatus": "calculated_internal_not_public",
+      "perfReason": null,
+      "p1Normalized": true
+    },
+    "female": {
+      "healthScore": 86.59999999999998,
+      "H1": 80,
+      "H2": 92,
+      "H3": 91.99999999999996,
+      "healthStatus": "calculated_internal_not_public",
+      "healthReason": null,
+      "perfScore": 91,
+      "P1": 90,
+      "P3": 92,
+      "perfStatus": "calculated_internal_not_public",
+      "perfReason": null,
+      "p1Normalized": true
+    }
+  },
+  "rows": [
+    {
+      "personaId": "P-01",
+      "sex": "male",
+      "notes": "Favorable all",
+      "view": {
+        "healthScore": 92.18,
+        "H1": 92.4,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "relations": [
+        {
+          "key": "H1",
+          "expectedRelation": "higher",
+          "personaScore": 92.4,
+          "referenceScore": 80,
+          "observedRelation": "higher",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H2",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H3",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "HealthAggregate",
+          "expectedRelation": "higher",
+          "personaScore": 92.18,
+          "referenceScore": 86.6,
+          "observedRelation": "higher",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P1",
+          "expectedRelation": "equal",
+          "personaScore": 90,
+          "referenceScore": 90,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P3",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "PerformanceAggregate",
+          "expectedRelation": "equal",
+          "personaScore": 91,
+          "referenceScore": 91,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        }
+      ],
+      "healthContribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 92.4,
+            "weight": 0.45,
+            "absoluteContribution": 41.580000000000005,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 3.4199999999999977
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 92.18,
+        "dominantAdverseConstruct": "H1"
+      },
+      "performanceContribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 90,
+            "weight": 0.5,
+            "absoluteContribution": 45,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 5
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 91,
+        "dominantAdverseConstruct": "P1"
+      },
+      "healthAdverseHide": false,
+      "performanceAdverseHide": false
+    },
+    {
+      "personaId": "P-02",
+      "sex": "male",
+      "notes": "High central + favorable lean",
+      "view": {
+        "healthScore": 73.1,
+        "H1": 50,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 88.82608695652175,
+        "P1": 85.6521739130435,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "relations": [
+        {
+          "key": "H1",
+          "expectedRelation": "lower",
+          "personaScore": 50,
+          "referenceScore": 80,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H2",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H3",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "HealthAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 73.1,
+          "referenceScore": 86.6,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P1",
+          "expectedRelation": "lower",
+          "personaScore": 85.6521739130435,
+          "referenceScore": 90,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P3",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "PerformanceAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 88.82608695652175,
+          "referenceScore": 91,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        }
+      ],
+      "healthContribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 50,
+            "weight": 0.45,
+            "absoluteContribution": 22.5,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 22.5
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 73.1,
+        "dominantAdverseConstruct": "H1"
+      },
+      "performanceContribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 85.6521739130435,
+            "weight": 0.5,
+            "absoluteContribution": 42.82608695652175,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 7.173913043478251
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 88.82608695652175,
+        "dominantAdverseConstruct": "P1"
+      },
+      "healthAdverseHide": false,
+      "performanceAdverseHide": false
+    },
+    {
+      "personaId": "P-03",
+      "sex": "male",
+      "notes": "Favorable adiposity + low lean",
+      "view": {
+        "healthScore": 77.84,
+        "H1": 91.2,
+        "H2": 92,
+        "H3": 23.000000000000007,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 55.28571428571428,
+        "P1": 18.571428571428548,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "relations": [
+        {
+          "key": "H1",
+          "expectedRelation": "higher",
+          "personaScore": 91.2,
+          "referenceScore": 80,
+          "observedRelation": "higher",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H2",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H3",
+          "expectedRelation": "lower",
+          "personaScore": 23.000000000000007,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "HealthAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 77.84,
+          "referenceScore": 86.6,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P1",
+          "expectedRelation": "lower",
+          "personaScore": 18.571428571428548,
+          "referenceScore": 90,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P3",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "PerformanceAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 55.28571428571428,
+          "referenceScore": 91,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        }
+      ],
+      "healthContribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 91.2,
+            "weight": 0.45,
+            "absoluteContribution": 41.04,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 3.9599999999999986
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 23.000000000000007,
+            "weight": 0.2,
+            "absoluteContribution": 4.600000000000001,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 15.4
+          }
+        ],
+        "unclippedAggregate": 77.84,
+        "dominantAdverseConstruct": "H3"
+      },
+      "performanceContribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 18.571428571428548,
+            "weight": 0.5,
+            "absoluteContribution": 9.285714285714274,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 40.71428571428572
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 55.28571428571428,
+        "dominantAdverseConstruct": "P1"
+      },
+      "healthAdverseHide": true,
+      "performanceAdverseHide": false
+    },
+    {
+      "personaId": "P-04",
+      "sex": "male",
+      "notes": "High FMI + high FFMI",
+      "view": {
+        "healthScore": 68.89166666666667,
+        "H1": 78.5,
+        "H2": 43.333333333333336,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 70,
+        "P1": 95,
+        "P3": 45,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "relations": [
+        {
+          "key": "H1",
+          "expectedRelation": "lower",
+          "personaScore": 78.5,
+          "referenceScore": 80,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H2",
+          "expectedRelation": "lower",
+          "personaScore": 43.333333333333336,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H3",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "HealthAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 68.89166666666667,
+          "referenceScore": 86.6,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P1",
+          "expectedRelation": "higher",
+          "personaScore": 95,
+          "referenceScore": 90,
+          "observedRelation": "higher",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P3",
+          "expectedRelation": "lower",
+          "personaScore": 45,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "PerformanceAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 70,
+          "referenceScore": 91,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        }
+      ],
+      "healthContribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 78.5,
+            "weight": 0.45,
+            "absoluteContribution": 35.325,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 9.675
+          },
+          {
+            "construct": "H2",
+            "score": 43.333333333333336,
+            "weight": 0.35,
+            "absoluteContribution": 15.166666666666666,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 19.833333333333332
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 68.89166666666667,
+        "dominantAdverseConstruct": "H2"
+      },
+      "performanceContribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 95,
+            "weight": 0.5,
+            "absoluteContribution": 47.5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 2.5
+          },
+          {
+            "construct": "P3",
+            "score": 45,
+            "weight": 0.5,
+            "absoluteContribution": 22.5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 27.5
+          }
+        ],
+        "unclippedAggregate": 70,
+        "dominantAdverseConstruct": "P3"
+      },
+      "healthAdverseHide": false,
+      "performanceAdverseHide": false
+    },
+    {
+      "personaId": "P-05",
+      "sex": "male",
+      "notes": "Low FMI + low ALMI",
+      "view": {
+        "healthScore": 74.57,
+        "H1": 90.60000000000001,
+        "H2": 88,
+        "H3": 15,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 51,
+        "P1": 10,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "relations": [
+        {
+          "key": "H1",
+          "expectedRelation": "higher",
+          "personaScore": 90.60000000000001,
+          "referenceScore": 80,
+          "observedRelation": "higher",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H2",
+          "expectedRelation": "lower",
+          "personaScore": 88,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H3",
+          "expectedRelation": "lower",
+          "personaScore": 15,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "HealthAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 74.57,
+          "referenceScore": 86.6,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P1",
+          "expectedRelation": "lower",
+          "personaScore": 10,
+          "referenceScore": 90,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P3",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "PerformanceAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 51,
+          "referenceScore": 91,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        }
+      ],
+      "healthContribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 90.60000000000001,
+            "weight": 0.45,
+            "absoluteContribution": 40.77,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 4.229999999999996
+          },
+          {
+            "construct": "H2",
+            "score": 88,
+            "weight": 0.35,
+            "absoluteContribution": 30.799999999999997,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 4.199999999999999
+          },
+          {
+            "construct": "H3",
+            "score": 15,
+            "weight": 0.2,
+            "absoluteContribution": 3,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 17
+          }
+        ],
+        "unclippedAggregate": 74.57,
+        "dominantAdverseConstruct": "H3"
+      },
+      "performanceContribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 10,
+            "weight": 0.5,
+            "absoluteContribution": 5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 51,
+        "dominantAdverseConstruct": "P1"
+      },
+      "healthAdverseHide": true,
+      "performanceAdverseHide": false
+    },
+    {
+      "personaId": "P-06",
+      "sex": "male",
+      "notes": "Discordant high WHtR / favorable FMI",
+      "view": {
+        "healthScore": 74.32,
+        "H1": 56.00000000000001,
+        "H2": 92,
+        "H3": 84.6,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 85.56521739130434,
+        "P1": 79.13043478260869,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "relations": [
+        {
+          "key": "H1",
+          "expectedRelation": "lower",
+          "personaScore": 56.00000000000001,
+          "referenceScore": 80,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H2",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H3",
+          "expectedRelation": "lower",
+          "personaScore": 84.6,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "HealthAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 74.32,
+          "referenceScore": 86.6,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P1",
+          "expectedRelation": "lower",
+          "personaScore": 79.13043478260869,
+          "referenceScore": 90,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P3",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "PerformanceAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 85.56521739130434,
+          "referenceScore": 91,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        }
+      ],
+      "healthContribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 56.00000000000001,
+            "weight": 0.45,
+            "absoluteContribution": 25.200000000000003,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 19.799999999999997
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 84.6,
+            "weight": 0.2,
+            "absoluteContribution": 16.919999999999998,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 3.0800000000000014
+          }
+        ],
+        "unclippedAggregate": 74.32,
+        "dominantAdverseConstruct": "H1"
+      },
+      "performanceContribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 79.13043478260869,
+            "weight": 0.5,
+            "absoluteContribution": 39.565217391304344,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 10.434782608695656
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 85.56521739130434,
+        "dominantAdverseConstruct": "P1"
+      },
+      "healthAdverseHide": false,
+      "performanceAdverseHide": false
+    },
+    {
+      "personaId": "P-07",
+      "sex": "male",
+      "notes": "Discordant favorable WHtR / high FMI",
+      "view": {
+        "healthScore": 65,
+        "H1": 86.8,
+        "H2": 30,
+        "H3": 77.19999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 52.63768115942029,
+        "P1": 72.6086956521739,
+        "P3": 32.66666666666667,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "relations": [
+        {
+          "key": "H1",
+          "expectedRelation": "higher",
+          "personaScore": 86.8,
+          "referenceScore": 80,
+          "observedRelation": "higher",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H2",
+          "expectedRelation": "lower",
+          "personaScore": 30,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H3",
+          "expectedRelation": "lower",
+          "personaScore": 77.19999999999996,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "HealthAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 65,
+          "referenceScore": 86.6,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P1",
+          "expectedRelation": "lower",
+          "personaScore": 72.6086956521739,
+          "referenceScore": 90,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P3",
+          "expectedRelation": "lower",
+          "personaScore": 32.66666666666667,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "PerformanceAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 52.63768115942029,
+          "referenceScore": 91,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        }
+      ],
+      "healthContribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 86.8,
+            "weight": 0.45,
+            "absoluteContribution": 39.06,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 5.940000000000001
+          },
+          {
+            "construct": "H2",
+            "score": 30,
+            "weight": 0.35,
+            "absoluteContribution": 10.5,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 24.5
+          },
+          {
+            "construct": "H3",
+            "score": 77.19999999999996,
+            "weight": 0.2,
+            "absoluteContribution": 15.439999999999992,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 4.5600000000000085
+          }
+        ],
+        "unclippedAggregate": 65,
+        "dominantAdverseConstruct": "H2"
+      },
+      "performanceContribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 72.6086956521739,
+            "weight": 0.5,
+            "absoluteContribution": 36.30434782608695,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 13.695652173913047
+          },
+          {
+            "construct": "P3",
+            "score": 32.66666666666667,
+            "weight": 0.5,
+            "absoluteContribution": 16.333333333333336,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 33.666666666666664
+          }
+        ],
+        "unclippedAggregate": 52.63768115942029,
+        "dominantAdverseConstruct": "P3"
+      },
+      "healthAdverseHide": false,
+      "performanceAdverseHide": false
+    },
+    {
+      "personaId": "P-08",
+      "sex": "male",
+      "notes": "Sarcopenic-obesity-like pattern",
+      "view": {
+        "healthScore": 34.81666666666666,
+        "H1": 43,
+        "H2": 33.33333333333332,
+        "H3": 18.999999999999986,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 22.874999999999993,
+        "P1": 10,
+        "P3": 35.749999999999986,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "relations": [
+        {
+          "key": "H1",
+          "expectedRelation": "lower",
+          "personaScore": 43,
+          "referenceScore": 80,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H2",
+          "expectedRelation": "lower",
+          "personaScore": 33.33333333333332,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H3",
+          "expectedRelation": "lower",
+          "personaScore": 18.999999999999986,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "HealthAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 34.81666666666666,
+          "referenceScore": 86.6,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P1",
+          "expectedRelation": "lower",
+          "personaScore": 10,
+          "referenceScore": 90,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P3",
+          "expectedRelation": "lower",
+          "personaScore": 35.749999999999986,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "PerformanceAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 22.874999999999993,
+          "referenceScore": 91,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        }
+      ],
+      "healthContribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 43,
+            "weight": 0.45,
+            "absoluteContribution": 19.35,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 25.650000000000002
+          },
+          {
+            "construct": "H2",
+            "score": 33.33333333333332,
+            "weight": 0.35,
+            "absoluteContribution": 11.666666666666663,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 23.33333333333334
+          },
+          {
+            "construct": "H3",
+            "score": 18.999999999999986,
+            "weight": 0.2,
+            "absoluteContribution": 3.799999999999997,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 16.200000000000003
+          }
+        ],
+        "unclippedAggregate": 34.81666666666666,
+        "dominantAdverseConstruct": "H1"
+      },
+      "performanceContribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 10,
+            "weight": 0.5,
+            "absoluteContribution": 5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 45
+          },
+          {
+            "construct": "P3",
+            "score": 35.749999999999986,
+            "weight": 0.5,
+            "absoluteContribution": 17.874999999999993,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 32.12500000000001
+          }
+        ],
+        "unclippedAggregate": 22.874999999999993,
+        "dominantAdverseConstruct": "P1"
+      },
+      "healthAdverseHide": false,
+      "performanceAdverseHide": false
+    },
+    {
+      "personaId": "P-09",
+      "sex": "male",
+      "notes": "High muscularity + high central adiposity",
+      "view": {
+        "healthScore": 72.66499999999999,
+        "H1": 67.69999999999999,
+        "H2": 68,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 89.58333333333334,
+        "P1": 95,
+        "P3": 84.16666666666667,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "relations": [
+        {
+          "key": "H1",
+          "expectedRelation": "lower",
+          "personaScore": 67.69999999999999,
+          "referenceScore": 80,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H2",
+          "expectedRelation": "lower",
+          "personaScore": 68,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H3",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "HealthAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 72.66499999999999,
+          "referenceScore": 86.6,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P1",
+          "expectedRelation": "higher",
+          "personaScore": 95,
+          "referenceScore": 90,
+          "observedRelation": "higher",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P3",
+          "expectedRelation": "lower",
+          "personaScore": 84.16666666666667,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "PerformanceAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 89.58333333333334,
+          "referenceScore": 91,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        }
+      ],
+      "healthContribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 67.69999999999999,
+            "weight": 0.45,
+            "absoluteContribution": 30.464999999999996,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 14.535000000000005
+          },
+          {
+            "construct": "H2",
+            "score": 68,
+            "weight": 0.35,
+            "absoluteContribution": 23.799999999999997,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 11.2
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 72.66499999999999,
+        "dominantAdverseConstruct": "H1"
+      },
+      "performanceContribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 95,
+            "weight": 0.5,
+            "absoluteContribution": 47.5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 2.5
+          },
+          {
+            "construct": "P3",
+            "score": 84.16666666666667,
+            "weight": 0.5,
+            "absoluteContribution": 42.083333333333336,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 7.916666666666664
+          }
+        ],
+        "unclippedAggregate": 89.58333333333334,
+        "dominantAdverseConstruct": "P3"
+      },
+      "healthAdverseHide": false,
+      "performanceAdverseHide": false
+    },
+    {
+      "personaId": "P-10",
+      "sex": "male",
+      "notes": "Low BMI-like composition + high central adiposity",
+      "view": {
+        "healthScore": 76.01499999999999,
+        "H1": 64.69999999999999,
+        "H2": 92,
+        "H3": 73.5,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 80.1304347826087,
+        "P1": 68.2608695652174,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "relations": [
+        {
+          "key": "H1",
+          "expectedRelation": "lower",
+          "personaScore": 64.69999999999999,
+          "referenceScore": 80,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H2",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H3",
+          "expectedRelation": "lower",
+          "personaScore": 73.5,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "HealthAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 76.01499999999999,
+          "referenceScore": 86.6,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P1",
+          "expectedRelation": "lower",
+          "personaScore": 68.2608695652174,
+          "referenceScore": 90,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P3",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "PerformanceAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 80.1304347826087,
+          "referenceScore": 91,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        }
+      ],
+      "healthContribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 64.69999999999999,
+            "weight": 0.45,
+            "absoluteContribution": 29.114999999999995,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 15.885000000000005
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 73.5,
+            "weight": 0.2,
+            "absoluteContribution": 14.700000000000001,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 5.300000000000001
+          }
+        ],
+        "unclippedAggregate": 76.01499999999999,
+        "dominantAdverseConstruct": "H1"
+      },
+      "performanceContribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 68.2608695652174,
+            "weight": 0.5,
+            "absoluteContribution": 34.1304347826087,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 15.869565217391298
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 80.1304347826087,
+        "dominantAdverseConstruct": "P1"
+      },
+      "healthAdverseHide": false,
+      "performanceAdverseHide": false
+    },
+    {
+      "personaId": "P-11",
+      "sex": "female",
+      "notes": "Female favorable pattern",
+      "view": {
+        "healthScore": 93.44,
+        "H1": 95.2,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 87.05263157894736,
+        "P1": 82.10526315789471,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "relations": [
+        {
+          "key": "H1",
+          "expectedRelation": "higher",
+          "personaScore": 95.2,
+          "referenceScore": 80,
+          "observedRelation": "higher",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H2",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H3",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 91.99999999999996,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "HealthAggregate",
+          "expectedRelation": "higher",
+          "personaScore": 93.44,
+          "referenceScore": 86.59999999999998,
+          "observedRelation": "higher",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P1",
+          "expectedRelation": "lower",
+          "personaScore": 82.10526315789471,
+          "referenceScore": 90,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P3",
+          "expectedRelation": "equal",
+          "personaScore": 92,
+          "referenceScore": 92,
+          "observedRelation": "equal",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "PerformanceAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 87.05263157894736,
+          "referenceScore": 91,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        }
+      ],
+      "healthContribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 95.2,
+            "weight": 0.45,
+            "absoluteContribution": 42.84,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 2.159999999999999
+          },
+          {
+            "construct": "H2",
+            "score": 92,
+            "weight": 0.35,
+            "absoluteContribution": 32.199999999999996,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 2.8
+          },
+          {
+            "construct": "H3",
+            "score": 92,
+            "weight": 0.2,
+            "absoluteContribution": 18.400000000000002,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 1.6
+          }
+        ],
+        "unclippedAggregate": 93.44,
+        "dominantAdverseConstruct": "H2"
+      },
+      "performanceContribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 82.10526315789471,
+            "weight": 0.5,
+            "absoluteContribution": 41.052631578947356,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 8.947368421052644
+          },
+          {
+            "construct": "P3",
+            "score": 92,
+            "weight": 0.5,
+            "absoluteContribution": 46,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 4
+          }
+        ],
+        "unclippedAggregate": 87.05263157894736,
+        "dominantAdverseConstruct": "P1"
+      },
+      "healthAdverseHide": false,
+      "performanceAdverseHide": false
+    },
+    {
+      "personaId": "P-12",
+      "sex": "female",
+      "notes": "Female adverse mixed pattern",
+      "view": {
+        "healthScore": 48.74,
+        "H1": 54.2,
+        "H2": 45,
+        "H3": 43.00000000000001,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 45.13157894736844,
+        "P1": 45.26315789473687,
+        "P3": 45,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      },
+      "relations": [
+        {
+          "key": "H1",
+          "expectedRelation": "lower",
+          "personaScore": 54.2,
+          "referenceScore": 80,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H2",
+          "expectedRelation": "lower",
+          "personaScore": 45,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "H3",
+          "expectedRelation": "lower",
+          "personaScore": 43.00000000000001,
+          "referenceScore": 91.99999999999996,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "HealthAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 48.74,
+          "referenceScore": 86.59999999999998,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P1",
+          "expectedRelation": "lower",
+          "personaScore": 45.26315789473687,
+          "referenceScore": 90,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "P3",
+          "expectedRelation": "lower",
+          "personaScore": 45,
+          "referenceScore": 92,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        },
+        {
+          "key": "PerformanceAggregate",
+          "expectedRelation": "lower",
+          "personaScore": 45.13157894736844,
+          "referenceScore": 91,
+          "observedRelation": "lower",
+          "applicable": true,
+          "pass": true
+        }
+      ],
+      "healthContribution": {
+        "rows": [
+          {
+            "construct": "H1",
+            "score": 54.2,
+            "weight": 0.45,
+            "absoluteContribution": 24.39,
+            "marginalContributionPerConstructPoint": 0.45,
+            "weightedDeficit": 20.61
+          },
+          {
+            "construct": "H2",
+            "score": 45,
+            "weight": 0.35,
+            "absoluteContribution": 15.749999999999998,
+            "marginalContributionPerConstructPoint": 0.35,
+            "weightedDeficit": 19.25
+          },
+          {
+            "construct": "H3",
+            "score": 43.00000000000001,
+            "weight": 0.2,
+            "absoluteContribution": 8.600000000000001,
+            "marginalContributionPerConstructPoint": 0.2,
+            "weightedDeficit": 11.399999999999999
+          }
+        ],
+        "unclippedAggregate": 48.74,
+        "dominantAdverseConstruct": "H1"
+      },
+      "performanceContribution": {
+        "rows": [
+          {
+            "construct": "P1",
+            "score": 45.26315789473687,
+            "weight": 0.5,
+            "absoluteContribution": 22.631578947368435,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 27.368421052631565
+          },
+          {
+            "construct": "P3",
+            "score": 45,
+            "weight": 0.5,
+            "absoluteContribution": 22.5,
+            "marginalContributionPerConstructPoint": 0.5,
+            "weightedDeficit": 27.5
+          }
+        ],
+        "unclippedAggregate": 45.13157894736844,
+        "dominantAdverseConstruct": "P3"
+      },
+      "healthAdverseHide": false,
+      "performanceAdverseHide": false
+    }
+  ],
+  "relationPass": 84,
+  "relationDenominator": 84,
+  "failures": []
+}

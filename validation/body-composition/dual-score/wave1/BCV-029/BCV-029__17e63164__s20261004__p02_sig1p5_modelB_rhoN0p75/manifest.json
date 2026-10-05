@@ -1,0 +1,167 @@
+{
+  "schemaVersion": "body_composition_dual_score_wave1_manifest_v1",
+  "experimentId": "BCV-029",
+  "protocolId": "BCV-029",
+  "runId": "BCV-029__17e63164__s20261004__p02_sig1p5_modelB_rhoN0p75",
+  "engineVersion": {
+    "health": "body_composition_health_score_draft_v1",
+    "performanceSupporting": "body_composition_performance_supporting_score_draft_v1"
+  },
+  "implementationSha": "d940b1616b341e98b19e82f2cd6a6242dfe41691",
+  "mathematicalFreezeSha": "e258267d109d1d05e20270f205e5fdb29ae2aca6",
+  "validationPlanSha": "4900f6e56f1eb83799513452cc4b5d2dcc20601d",
+  "validationCodeSha": "17e63164a55af7d1425196340831c7b9d3c06918",
+  "createdAtUtc": "2026-10-05T12:58:06.212Z",
+  "seed": 20261004,
+  "streamCode": 29,
+  "inputDomains": {
+    "personaId": "P-02",
+    "heightCm": 175,
+    "waistCm": 105,
+    "whtr": 0.6,
+    "fmi": 5,
+    "almi": 8,
+    "ffmi": 18.8
+  },
+  "gridSteps": null,
+  "epsilon": {
+    "EPS_NUM": 1e-9,
+    "EPS_SURF": 0.0001,
+    "EPS_CM": 0.001
+  },
+  "monteCarloProtocol": {
+    "minimumDraws": 100000,
+    "maximumDraws": 1000000,
+    "checkpointEvery": 10000,
+    "batchCount": 20,
+    "requiredConsecutivePasses": 2,
+    "medianDeltaTolerance": 0.01,
+    "p95DeltaTolerance": 0.02,
+    "medianSeTolerance": 0.02,
+    "p95SeTolerance": 0.05,
+    "rateDeltaTolerance": 0.001,
+    "rateSeTolerance": 0.001,
+    "quantileEstimator": "hyndman_fan_type_7",
+    "batchSd": "sample_n_minus_1",
+    "prng": "mulberry32",
+    "gaussianTransform": "marsaglia_polar"
+  },
+  "noiseParameters": {
+    "label": "exploratory_normalized_not_empirical",
+    "sigmaStar": {
+      "waistCm": 1,
+      "heightCm": 0.5,
+      "fmKg": 0.25,
+      "ffmKg": 0.25,
+      "almKg": 0.2
+    },
+    "sigmaMultiplier": 1.5,
+    "effectiveSigma": {
+      "waistCm": 1.5,
+      "heightCm": 0.75,
+      "fmKg": 0.375,
+      "ffmKg": 0.375,
+      "almKg": 0.30000000000000004
+    },
+    "sharedHeightError": true,
+    "drawOrder": [
+      "Height",
+      "FM",
+      "FFM",
+      "ALM",
+      "Waist"
+    ]
+  },
+  "covarianceParameters": {
+    "model": "B_correlated_dxa",
+    "sharedHeightError": true,
+    "correlatedPairs": [
+      [
+        "FM",
+        "FFM"
+      ],
+      [
+        "FFM",
+        "ALM"
+      ]
+    ],
+    "rho": -0.75
+  },
+  "scheduleId": null,
+  "personaId": "P-02",
+  "parameterProvenance": {
+    "canonicalSeed": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.2",
+      "value": 20261004
+    },
+    "implementationSha": {
+      "sourceType": "mathematical_freeze",
+      "sourceId": "§23.1",
+      "value": "d940b1616b341e98b19e82f2cd6a6242dfe41691"
+    },
+    "EPS_NUM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 1e-9
+    },
+    "EPS_SURF": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.0001
+    },
+    "EPS_CM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.001
+    },
+    "parameterLabel": {
+      "sourceType": "synthetic_fallback",
+      "sourceId": "§23.6",
+      "value": "exploratory_normalized_not_empirical"
+    },
+    "sigmaMultiplier": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.6",
+      "value": 1.5
+    },
+    "sigmaStar_waistCm": {
+      "sourceType": "synthetic_fallback",
+      "sourceId": "§23.6",
+      "value": 1
+    },
+    "sigmaStar_heightCm": {
+      "sourceType": "synthetic_fallback",
+      "sourceId": "§23.6",
+      "value": 0.5
+    },
+    "sigmaStar_fmKg": {
+      "sourceType": "synthetic_fallback",
+      "sourceId": "§23.6",
+      "value": 0.25
+    },
+    "sigmaStar_ffmKg": {
+      "sourceType": "synthetic_fallback",
+      "sourceId": "§23.6",
+      "value": 0.25
+    },
+    "sigmaStar_almKg": {
+      "sourceType": "synthetic_fallback",
+      "sourceId": "§23.6",
+      "value": 0.2
+    },
+    "rho": {
+      "sourceType": "synthetic_fallback",
+      "sourceId": "§23.6",
+      "value": -0.75
+    }
+  },
+  "artifactFiles": [
+    "manifest.json",
+    "results.json",
+    "summary.md"
+  ],
+  "interpretationClass": "exploratory",
+  "phiStatus": "synthetic_no_phi",
+  "notes": "Joint correlated measurement error propagation. Pure-transform scoring (approved transforms); summary statistics only."
+}

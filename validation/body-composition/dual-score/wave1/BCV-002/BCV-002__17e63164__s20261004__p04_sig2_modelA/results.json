@@ -1,0 +1,646 @@
+{
+  "protocolId": "BCV-002",
+  "paramSetId": "p04_sig2_modelA",
+  "personaId": "P-04",
+  "sex": "male",
+  "sigmaMultiplier": 2,
+  "model": {
+    "kind": "A"
+  },
+  "parameterLabel": "exploratory_normalized_not_empirical",
+  "expectedCorrelations": {
+    "corrFmFfm": 0,
+    "corrFfmAlm": 0,
+    "corrFmAlm": 0
+  },
+  "correlationNote": "corr(FM,ALM)=rho^2 for Model B; all zero for Model A (Model A is NOT Model B at rho=0).",
+  "health": {
+    "score": "health",
+    "constructs": [
+      "H1",
+      "H2",
+      "H3"
+    ],
+    "weights": [
+      0.45,
+      0.35,
+      0.2
+    ],
+    "seed": 22294004,
+    "substreamIndex": 0,
+    "s0": 68.82490842490843,
+    "baselineConstructScores": [
+      78.35164835164835,
+      43.333333333333336,
+      92
+    ],
+    "baselineContribution": {
+      "rows": [
+        {
+          "construct": "H1",
+          "score": 78.35164835164835,
+          "weight": 0.45,
+          "absoluteContribution": 35.25824175824176,
+          "marginalContributionPerConstructPoint": 0.45,
+          "weightedDeficit": 9.741758241758243
+        },
+        {
+          "construct": "H2",
+          "score": 43.333333333333336,
+          "weight": 0.35,
+          "absoluteContribution": 15.166666666666666,
+          "marginalContributionPerConstructPoint": 0.35,
+          "weightedDeficit": 19.833333333333332
+        },
+        {
+          "construct": "H3",
+          "score": 92,
+          "weight": 0.2,
+          "absoluteContribution": 18.400000000000002,
+          "marginalContributionPerConstructPoint": 0.2,
+          "weightedDeficit": 1.6
+        }
+      ],
+      "unclippedAggregate": 68.82490842490843,
+      "dominantAdverseConstruct": "H2"
+    },
+    "draws": 210000,
+    "converged": true,
+    "hardMaxReached": false,
+    "consecutivePasses": 2,
+    "checkpointLog": [
+      {
+        "draws": 110000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 120000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 130000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 140000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 150000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 160000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 170000,
+        "pass": true,
+        "failures": []
+      },
+      {
+        "draws": 180000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 190000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 200000,
+        "pass": true,
+        "failures": []
+      },
+      {
+        "draws": 210000,
+        "pass": true,
+        "failures": []
+      }
+    ],
+    "finalCheckpoint": {
+      "draws": 210000,
+      "prefix": 210000,
+      "medianAbs": 1.0524858674374897,
+      "p95Abs": 2.930660240212288,
+      "rates": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.20823809523809525,
+        0,
+        0
+      ],
+      "seMedianAbs": 0.002531650053858222,
+      "seP95Abs": 0.005200098638253884,
+      "seRates": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.0008559027509219047,
+        0,
+        0
+      ]
+    },
+    "noisyAggregate": {
+      "mean": 68.71485328041182,
+      "sd": 1.509262072647785,
+      "quantiles": {
+        "p05": 66.08044826182596,
+        "p10": 66.69348295720025,
+        "p25": 67.70503629558479,
+        "p50": 68.81924550448784,
+        "p75": 69.82332665248815,
+        "p90": 70.56443223464579,
+        "p95": 70.98756921859872
+      },
+      "centralIntervals": {
+        "c50": [
+          67.70503629558479,
+          69.82332665248815
+        ],
+        "c80": [
+          66.69348295720025,
+          70.56443223464579
+        ],
+        "c90": [
+          66.08044826182596,
+          70.98756921859872
+        ],
+        "c95": [
+          65.55671948613569,
+          71.35422998957688
+        ]
+      }
+    },
+    "absDelta": {
+      "mae": 1.2187445861631903,
+      "median": 1.0524858674374897,
+      "p90": 2.4474398884635,
+      "p95": 2.930660240212288
+    },
+    "thresholdCrossing": [
+      {
+        "threshold": 10,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 20,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 30,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 40,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 50,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 60,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 70,
+        "rate": 0.20823809523809525,
+        "se": 0.0008559027509219047
+      },
+      {
+        "threshold": 80,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 90,
+        "rate": 0,
+        "se": 0
+      }
+    ],
+    "meanChangeContribution": [
+      {
+        "construct": "H1",
+        "value": -0.10724188736770444
+      },
+      {
+        "construct": "H2",
+        "value": -0.0027036152696119586
+      },
+      {
+        "construct": "H3",
+        "value": -0.00010964185877639921
+      }
+    ],
+    "constructMean": [
+      78.11333304638678,
+      43.3256087182773,
+      91.99945179070612
+    ],
+    "constructCovariance": [
+      [
+        9.446921686346755,
+        0.5572247204474889,
+        -0.0010919814572385843
+      ],
+      [
+        0.5572247204474885,
+        1.5478805055261906,
+        -0.0008991002834960853
+      ],
+      [
+        -0.001091981457238545,
+        -0.0008991002834960858,
+        0.0012911070497777062
+      ]
+    ],
+    "varianceOfAggregate": 2.277872003933134,
+    "varianceContribution": [
+      2.0006662566245463,
+      0.27731531837759305,
+      -0.00010957106900508681
+    ],
+    "constructUncertaintyShare": [
+      0.8783049500455052,
+      0.12174315233637399,
+      -0.00004810238187918096
+    ],
+    "uncertaintyFlags": [],
+    "directionalReversalProbability": 0.4995952380952381,
+    "reversal": {
+      "nPairs": 210000,
+      "reversalCount": 104915,
+      "zeroDeltaPairs": 0,
+      "directionalReversalProbability": 0.4995952380952381,
+      "sdRepeatedDelta": 2.124400020966525,
+      "scoreBase": 100
+    }
+  },
+  "performance": {
+    "score": "perf",
+    "constructs": [
+      "P1",
+      "P3"
+    ],
+    "weights": [
+      0.5,
+      0.5
+    ],
+    "seed": 22294005,
+    "substreamIndex": 1,
+    "s0": 70,
+    "baselineConstructScores": [
+      95,
+      45
+    ],
+    "baselineContribution": {
+      "rows": [
+        {
+          "construct": "P1",
+          "score": 95,
+          "weight": 0.5,
+          "absoluteContribution": 47.5,
+          "marginalContributionPerConstructPoint": 0.5,
+          "weightedDeficit": 2.5
+        },
+        {
+          "construct": "P3",
+          "score": 45,
+          "weight": 0.5,
+          "absoluteContribution": 22.5,
+          "marginalContributionPerConstructPoint": 0.5,
+          "weightedDeficit": 27.5
+        }
+      ],
+      "unclippedAggregate": 70,
+      "dominantAdverseConstruct": "P3"
+    },
+    "draws": 290000,
+    "converged": true,
+    "hardMaxReached": false,
+    "consecutivePasses": 2,
+    "checkpointLog": [
+      {
+        "draws": 110000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 120000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 130000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 140000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 150000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 160000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 170000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 180000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 190000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 200000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 210000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 220000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 230000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 240000,
+        "pass": true,
+        "failures": []
+      },
+      {
+        "draws": 250000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 260000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 270000,
+        "pass": false,
+        "failures": [
+          "rate_se_70"
+        ]
+      },
+      {
+        "draws": 280000,
+        "pass": true,
+        "failures": []
+      },
+      {
+        "draws": 290000,
+        "pass": true,
+        "failures": []
+      }
+    ],
+    "finalCheckpoint": {
+      "draws": 290000,
+      "prefix": 290000,
+      "medianAbs": 0.5792886793789975,
+      "p95Abs": 2.2996707886204675,
+      "rates": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.5054724137931035,
+        0,
+        0
+      ],
+      "seMedianAbs": 0.0017673643928519617,
+      "seP95Abs": 0.005414637714047756,
+      "seRates": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.0009492705556882169,
+        0,
+        0
+      ]
+    },
+    "noisyAggregate": {
+      "mean": 70.31981742810359,
+      "sd": 1.0194552321402992,
+      "quantiles": {
+        "p05": 69.04140179548223,
+        "p10": 69.25286937600544,
+        "p25": 69.59991432910843,
+        "p50": 69.9916731103672,
+        "p75": 70.9445093746652,
+        "p90": 71.79741046242047,
+        "p95": 72.29899064693032
+      },
+      "centralIntervals": {
+        "c50": [
+          69.59991432910843,
+          70.9445093746652
+        ],
+        "c80": [
+          69.25286937600544,
+          71.79741046242047
+        ],
+        "c90": [
+          69.04140179548223,
+          72.29899064693032
+        ],
+        "c95": [
+          68.85597649965953,
+          72.72527491062405
+        ]
+      }
+    },
+    "absDelta": {
+      "mae": 0.7906883961375498,
+      "median": 0.5792886793789975,
+      "p90": 1.805605984408517,
+      "p95": 2.2996707886204675
+    },
+    "thresholdCrossing": [
+      {
+        "threshold": 10,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 20,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 30,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 40,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 50,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 60,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 70,
+        "rate": 0.5054724137931035,
+        "se": 0.0009492705556882169
+      },
+      {
+        "threshold": 80,
+        "rate": 0,
+        "se": 0
+      },
+      {
+        "threshold": 90,
+        "rate": 0,
+        "se": 0
+      }
+    ],
+    "meanChangeContribution": [
+      {
+        "construct": "P1",
+        "value": -0.030209827073178985
+      },
+      {
+        "construct": "P3",
+        "value": 0.3500272551758705
+      }
+    ],
+    "constructMean": [
+      94.93958034585364,
+      45.70005451035174
+    ],
+    "constructCovariance": [
+      [
+        0.043251651079675754,
+        -0.13147472303368324
+      ],
+      [
+        -0.13147472303368338,
+        4.376853676340653
+      ]
+    ],
+    "varianceOfAggregate": 1.0392889703382406,
+    "varianceContribution": [
+      -0.02205576798850187,
+      1.0613447383267425
+    ],
+    "constructUncertaintyShare": [
+      -0.02122197831207978,
+      1.0212219783120797
+    ],
+    "uncertaintyFlags": [],
+    "directionalReversalProbability": 0.5003068965517241,
+    "reversal": {
+      "nPairs": 290000,
+      "reversalCount": 145089,
+      "zeroDeltaPairs": 0,
+      "directionalReversalProbability": 0.5003068965517241,
+      "sdRepeatedDelta": 1.443564527735576,
+      "scoreBase": 200
+    }
+  }
+}

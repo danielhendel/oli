@@ -1,0 +1,210 @@
+{
+  "protocolId": "BCV-007",
+  "anchorScores": [
+    {
+      "sex": "male",
+      "anchors": {
+        "heightCm": 175,
+        "waistCm": 87.5,
+        "whtr": 0.5,
+        "fmi": 5.5,
+        "almi": 8,
+        "ffmi": 19
+      },
+      "engine": {
+        "healthScore": 86.6,
+        "H1": 80,
+        "H2": 92,
+        "H3": 92,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    },
+    {
+      "sex": "female",
+      "anchors": {
+        "heightCm": 165,
+        "waistCm": 82.5,
+        "whtr": 0.5,
+        "fmi": 8.5,
+        "almi": 6.3,
+        "ffmi": 16.5
+      },
+      "engine": {
+        "healthScore": 86.59999999999998,
+        "H1": 80,
+        "H2": 92,
+        "H3": 91.99999999999996,
+        "healthStatus": "calculated_internal_not_public",
+        "healthReason": null,
+        "perfScore": 91,
+        "P1": 90,
+        "P3": 92,
+        "perfStatus": "calculated_internal_not_public",
+        "perfReason": null,
+        "p1Normalized": true
+      }
+    }
+  ],
+  "transformContrasts": [
+    {
+      "construct": "H1",
+      "x": 0.4,
+      "male": 100,
+      "female": 100,
+      "delta": 0
+    },
+    {
+      "construct": "H1",
+      "x": 0.5,
+      "male": 80,
+      "female": 80,
+      "delta": 0
+    },
+    {
+      "construct": "H1",
+      "x": 0.6,
+      "male": 50,
+      "female": 50,
+      "delta": 0
+    },
+    {
+      "construct": "H2",
+      "x": 3.5,
+      "male": 92,
+      "female": 80,
+      "delta": -12
+    },
+    {
+      "construct": "H2",
+      "x": 5.5,
+      "male": 92,
+      "female": 92,
+      "delta": 0
+    },
+    {
+      "construct": "H2",
+      "x": 8.5,
+      "male": 56,
+      "female": 92,
+      "delta": 36
+    },
+    {
+      "construct": "H2",
+      "x": 13,
+      "male": 23.333333333333336,
+      "female": 50,
+      "delta": 26.666666666666664
+    },
+    {
+      "construct": "H3_ALMI",
+      "x": 4.5,
+      "male": 15,
+      "female": 15,
+      "delta": 0
+    },
+    {
+      "construct": "H3_ALMI",
+      "x": 5.5,
+      "male": 15,
+      "female": 55,
+      "delta": 40
+    },
+    {
+      "construct": "H3_ALMI",
+      "x": 6.3,
+      "male": 26.999999999999993,
+      "female": 92,
+      "delta": 65
+    },
+    {
+      "construct": "H3_ALMI",
+      "x": 8,
+      "male": 92,
+      "female": 92,
+      "delta": 0
+    },
+    {
+      "construct": "H3_FFMI",
+      "x": 14,
+      "male": 15,
+      "female": 15,
+      "delta": 0
+    },
+    {
+      "construct": "H3_FFMI",
+      "x": 16,
+      "male": 15,
+      "female": 92,
+      "delta": 77
+    },
+    {
+      "construct": "H3_FFMI",
+      "x": 18.5,
+      "male": 92,
+      "female": 92,
+      "delta": 0
+    },
+    {
+      "construct": "P1",
+      "x": 14,
+      "male": 10,
+      "female": 10,
+      "delta": 0
+    },
+    {
+      "construct": "P1",
+      "x": 16.5,
+      "male": 31.42857142857145,
+      "female": 90,
+      "delta": 58.571428571428555
+    },
+    {
+      "construct": "P1",
+      "x": 19,
+      "male": 90,
+      "female": 95,
+      "delta": 5
+    },
+    {
+      "construct": "P3",
+      "x": 3.5,
+      "male": 92,
+      "female": 80,
+      "delta": -12
+    },
+    {
+      "construct": "P3",
+      "x": 7,
+      "male": 92,
+      "female": 92,
+      "delta": 0
+    },
+    {
+      "construct": "P3",
+      "x": 10,
+      "male": 45,
+      "female": 92,
+      "delta": 47
+    },
+    {
+      "construct": "P3",
+      "x": 14,
+      "male": 20.333333333333336,
+      "female": 45,
+      "delta": 24.666666666666664
+    }
+  ],
+  "pairwise": {
+    "healthAggregate": -1.4210854715202004e-14,
+    "perfAggregate": 0,
+    "note": "female minus male at sex-matched structural anchors; not a claim of biological equivalence"
+  },
+  "assumedFair": false
+}

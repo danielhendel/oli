@@ -1,0 +1,166 @@
+{
+  "schemaVersion": "body_composition_dual_score_wave1_manifest_v1",
+  "experimentId": "BCV-034",
+  "protocolId": "BCV-034",
+  "runId": "BCV-034__17e63164__s20261004__struct",
+  "engineVersion": {
+    "health": "body_composition_health_score_draft_v1",
+    "performanceSupporting": "body_composition_performance_supporting_score_draft_v1"
+  },
+  "implementationSha": "d940b1616b341e98b19e82f2cd6a6242dfe41691",
+  "mathematicalFreezeSha": "e258267d109d1d05e20270f205e5fdb29ae2aca6",
+  "validationPlanSha": "4900f6e56f1eb83799513452cc4b5d2dcc20601d",
+  "validationCodeSha": "17e63164a55af7d1425196340831c7b9d3c06918",
+  "createdAtUtc": "2026-10-05T12:51:08.647Z",
+  "seed": 20261004,
+  "streamCode": 34,
+  "inputDomains": {
+    "baselines": [
+      "P-01",
+      "P-08",
+      "P-11",
+      "P-12"
+    ]
+  },
+  "gridSteps": null,
+  "epsilon": {
+    "EPS_NUM": 1e-9,
+    "EPS_SURF": 0.0001,
+    "EPS_CM": 0.001
+  },
+  "monteCarloProtocol": null,
+  "noiseParameters": null,
+  "covarianceParameters": null,
+  "scheduleId": null,
+  "personaId": null,
+  "parameterProvenance": {
+    "canonicalSeed": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.2",
+      "value": 20261004
+    },
+    "implementationSha": {
+      "sourceType": "mathematical_freeze",
+      "sourceId": "§23.1",
+      "value": "d940b1616b341e98b19e82f2cd6a6242dfe41691"
+    },
+    "EPS_NUM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 1e-9
+    },
+    "EPS_SURF": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.0001
+    },
+    "EPS_CM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.001
+    },
+    "scenarioMatrix": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.13 BCV-034",
+      "value": [
+        {
+          "id": "BASE",
+          "dFfmKg": 0,
+          "dAlmKg": 0,
+          "dWaistCm": 0,
+          "femaleOnly": false
+        },
+        {
+          "id": "HYDRATION_DOWN",
+          "dFfmKg": -1,
+          "dAlmKg": -0.6,
+          "dWaistCm": -1,
+          "femaleOnly": false
+        },
+        {
+          "id": "HYDRATION_UP",
+          "dFfmKg": 1,
+          "dAlmKg": 0.6,
+          "dWaistCm": 1,
+          "femaleOnly": false
+        },
+        {
+          "id": "GLYCOGEN_DOWN",
+          "dFfmKg": -0.5,
+          "dAlmKg": -0.3,
+          "dWaistCm": 0,
+          "femaleOnly": false
+        },
+        {
+          "id": "GLYCOGEN_UP",
+          "dFfmKg": 0.5,
+          "dAlmKg": 0.3,
+          "dWaistCm": 0,
+          "femaleOnly": false
+        },
+        {
+          "id": "RECENT_EXERCISE",
+          "dFfmKg": 0.5,
+          "dAlmKg": 0.3,
+          "dWaistCm": 0,
+          "femaleOnly": false
+        },
+        {
+          "id": "ILLNESS_INFLAMMATION",
+          "dFfmKg": 1,
+          "dAlmKg": 0.6,
+          "dWaistCm": 1,
+          "femaleOnly": false
+        },
+        {
+          "id": "EDEMA",
+          "dFfmKg": 1.5,
+          "dAlmKg": 0.9,
+          "dWaistCm": 2,
+          "femaleOnly": false
+        },
+        {
+          "id": "MENSTRUAL_PHASE_LOW",
+          "dFfmKg": 0,
+          "dAlmKg": 0,
+          "dWaistCm": 0,
+          "femaleOnly": true
+        },
+        {
+          "id": "MENSTRUAL_PHASE_HIGH",
+          "dFfmKg": 0.5,
+          "dAlmKg": 0.3,
+          "dWaistCm": 1,
+          "femaleOnly": true
+        },
+        {
+          "id": "TOD_MORNING",
+          "dFfmKg": 0,
+          "dAlmKg": 0,
+          "dWaistCm": 0,
+          "femaleOnly": false
+        },
+        {
+          "id": "TOD_EVENING",
+          "dFfmKg": 0.5,
+          "dAlmKg": 0.3,
+          "dWaistCm": 1,
+          "femaleOnly": false
+        }
+      ]
+    },
+    "label": {
+      "sourceType": "synthetic_fallback",
+      "sourceId": "§23.13 BCV-034",
+      "value": "synthetic_fallback_not_empirical_artifact_vs_biology_unresolved"
+    }
+  },
+  "artifactFiles": [
+    "manifest.json",
+    "results.json",
+    "summary.md"
+  ],
+  "interpretationClass": "evidence_dependent_acceptance",
+  "phiStatus": "synthetic_no_phi",
+  "notes": "Deterministic; weight metadata only; FM/FMI unchanged by the Wave 1 matrix."
+}

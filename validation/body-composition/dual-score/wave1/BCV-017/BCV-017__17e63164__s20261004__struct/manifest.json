@@ -1,0 +1,247 @@
+{
+  "schemaVersion": "body_composition_dual_score_wave1_manifest_v1",
+  "experimentId": "BCV-017",
+  "protocolId": "BCV-017",
+  "runId": "BCV-017__17e63164__s20261004__struct",
+  "engineVersion": {
+    "health": "body_composition_health_score_draft_v1",
+    "performanceSupporting": "body_composition_performance_supporting_score_draft_v1"
+  },
+  "implementationSha": "d940b1616b341e98b19e82f2cd6a6242dfe41691",
+  "mathematicalFreezeSha": "e258267d109d1d05e20270f205e5fdb29ae2aca6",
+  "validationPlanSha": "4900f6e56f1eb83799513452cc4b5d2dcc20601d",
+  "validationCodeSha": "17e63164a55af7d1425196340831c7b9d3c06918",
+  "createdAtUtc": "2026-10-05T12:51:08.619Z",
+  "seed": 20261004,
+  "streamCode": 17,
+  "inputDomains": {
+    "personas": [
+      "P-01",
+      "P-02",
+      "P-03",
+      "P-04",
+      "P-05",
+      "P-06",
+      "P-07",
+      "P-08",
+      "P-09",
+      "P-10",
+      "P-11",
+      "P-12"
+    ]
+  },
+  "gridSteps": null,
+  "epsilon": {
+    "EPS_NUM": 1e-9,
+    "EPS_SURF": 0.0001,
+    "EPS_CM": 0.001
+  },
+  "monteCarloProtocol": null,
+  "noiseParameters": null,
+  "covarianceParameters": null,
+  "scheduleId": null,
+  "personaId": null,
+  "parameterProvenance": {
+    "canonicalSeed": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.2",
+      "value": 20261004
+    },
+    "implementationSha": {
+      "sourceType": "mathematical_freeze",
+      "sourceId": "§23.1",
+      "value": "d940b1616b341e98b19e82f2cd6a6242dfe41691"
+    },
+    "EPS_NUM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 1e-9
+    },
+    "EPS_SURF": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.0001
+    },
+    "EPS_CM": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.4",
+      "value": 0.001
+    },
+    "personas": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.10",
+      "value": [
+        {
+          "id": "P-01",
+          "expected": {
+            "H1": "higher",
+            "H2": "equal",
+            "H3": "equal",
+            "HealthAggregate": "higher",
+            "P1": "equal",
+            "P3": "equal",
+            "PerformanceAggregate": "equal"
+          }
+        },
+        {
+          "id": "P-02",
+          "expected": {
+            "H1": "lower",
+            "H2": "equal",
+            "H3": "equal",
+            "HealthAggregate": "lower",
+            "P1": "lower",
+            "P3": "equal",
+            "PerformanceAggregate": "lower"
+          }
+        },
+        {
+          "id": "P-03",
+          "expected": {
+            "H1": "higher",
+            "H2": "equal",
+            "H3": "lower",
+            "HealthAggregate": "lower",
+            "P1": "lower",
+            "P3": "equal",
+            "PerformanceAggregate": "lower"
+          }
+        },
+        {
+          "id": "P-04",
+          "expected": {
+            "H1": "lower",
+            "H2": "lower",
+            "H3": "equal",
+            "HealthAggregate": "lower",
+            "P1": "higher",
+            "P3": "lower",
+            "PerformanceAggregate": "lower"
+          }
+        },
+        {
+          "id": "P-05",
+          "expected": {
+            "H1": "higher",
+            "H2": "lower",
+            "H3": "lower",
+            "HealthAggregate": "lower",
+            "P1": "lower",
+            "P3": "equal",
+            "PerformanceAggregate": "lower"
+          }
+        },
+        {
+          "id": "P-06",
+          "expected": {
+            "H1": "lower",
+            "H2": "equal",
+            "H3": "lower",
+            "HealthAggregate": "lower",
+            "P1": "lower",
+            "P3": "equal",
+            "PerformanceAggregate": "lower"
+          }
+        },
+        {
+          "id": "P-07",
+          "expected": {
+            "H1": "higher",
+            "H2": "lower",
+            "H3": "lower",
+            "HealthAggregate": "lower",
+            "P1": "lower",
+            "P3": "lower",
+            "PerformanceAggregate": "lower"
+          }
+        },
+        {
+          "id": "P-08",
+          "expected": {
+            "H1": "lower",
+            "H2": "lower",
+            "H3": "lower",
+            "HealthAggregate": "lower",
+            "P1": "lower",
+            "P3": "lower",
+            "PerformanceAggregate": "lower"
+          }
+        },
+        {
+          "id": "P-09",
+          "expected": {
+            "H1": "lower",
+            "H2": "lower",
+            "H3": "equal",
+            "HealthAggregate": "lower",
+            "P1": "higher",
+            "P3": "lower",
+            "PerformanceAggregate": "lower"
+          }
+        },
+        {
+          "id": "P-10",
+          "expected": {
+            "H1": "lower",
+            "H2": "equal",
+            "H3": "lower",
+            "HealthAggregate": "lower",
+            "P1": "lower",
+            "P3": "equal",
+            "PerformanceAggregate": "lower"
+          }
+        },
+        {
+          "id": "P-11",
+          "expected": {
+            "H1": "higher",
+            "H2": "equal",
+            "H3": "equal",
+            "HealthAggregate": "higher",
+            "P1": "lower",
+            "P3": "equal",
+            "PerformanceAggregate": "lower"
+          }
+        },
+        {
+          "id": "P-12",
+          "expected": {
+            "H1": "lower",
+            "H2": "lower",
+            "H3": "lower",
+            "HealthAggregate": "lower",
+            "P1": "lower",
+            "P3": "lower",
+            "PerformanceAggregate": "lower"
+          }
+        }
+      ]
+    },
+    "references": {
+      "sourceType": "validation_plan",
+      "sourceId": "§23.5.4",
+      "value": {
+        "male": {
+          "whtr": 0.5,
+          "fmi": 5.5,
+          "almi": 8,
+          "ffmi": 19
+        },
+        "female": {
+          "whtr": 0.5,
+          "fmi": 8.5,
+          "almi": 6.3,
+          "ffmi": 16.5
+        }
+      }
+    }
+  },
+  "artifactFiles": [
+    "manifest.json",
+    "results.json",
+    "summary.md"
+  ],
+  "interpretationClass": "exploratory",
+  "phiStatus": "synthetic_no_phi",
+  "notes": "Full resolver + engines at persona table indices (WHtR from table). P1 is normalized from the Resolver's natural policy_not_frozen (FFMI+FFM open precedence); see IMPLEMENTATION_SPEC.md."
+}
