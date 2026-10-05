@@ -15,8 +15,8 @@
 | Health version | `body_composition_health_score_draft_v1` |
 | Performance-Supporting version | `body_composition_performance_supporting_score_draft_v1` |
 | Companion decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_VALIDATION_DECISION_REGISTER_V1.md` |
-| Methodology status | **COMPLETE / PENDING INDEPENDENT EXECUTION-SEMANTICS RE-GATE** |
-| Wave 1 execution | **BLOCKED pending re-gate** |
+| Methodology status | **COMPLETE / PENDING FINAL BCV-015 RE-GATE** |
+| Wave 1 execution | **BLOCKED** |
 | Tier B | **NOT AUTHORIZED** |
 
 > **This document is a VALIDATION PROTOCOL.**
@@ -57,8 +57,8 @@ If validation later suggests the formula should change: **document evidence** an
 | Implementation truth freeze | **PASS** @ `3bed6aa…` |
 | Independent docs re-gate | **PASS** |
 | Validation plan methodology (at `6f97bb6e…`) | **FAIL** (10 blockers) — historical |
-| Validation plan methodology | **COMPLETE / PENDING INDEPENDENT EXECUTION-SEMANTICS RE-GATE** |
-| Wave 1 synthetic execution | **BLOCKED pending re-gate** |
+| Validation plan methodology | **COMPLETE / PENDING FINAL BCV-015 RE-GATE** |
+| Wave 1 synthetic execution | **BLOCKED** |
 | Tier B de-identified / real-user | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer validity | **NOT ESTABLISHED** |
@@ -1930,14 +1930,16 @@ Structural-test anchors only — **not** claims of biological sex equivalence.
 | Item | Frozen |
 |------|--------|
 | Baselines | Male **P-01**; female **P-11** only (§23.17.4) — no new numeric baselines |
-| Resolver statuses | exact fixture set §23.17.4.1 |
-| Missingness mutations | exact single-factor set §23.17.4.2; multi-factor only via frozen precedence matrix |
-| Matrix | each core missing alone + all pairs + all Health triples / Perf both; Resolver statuses `{resolved, resolved_with_supporting, multiple_valid, policy_not_frozen, conflict, insufficient, undated_only, unsupported}` |
-| Output fields | §23.17.4.3 (`fixtureId` … `observedPrimaryReason`) |
+| H1 multiple_valid | distinct fixtures `H1_MULTIPLE_VALID_NO_GOVERNED_WHTR` + `H1_MULTIPLE_VALID_GOVERNED_WHTR` (§23.17.4.1) |
+| Demographics | exact `MISSING_SEX` / `MISSING_HEIGHT` / `MISSING_DOB` only (§23.17.4.2) — soft `MISSING_REQUIRED_DEMOGRAPHIC` non-executable |
+| Conflict | same-channel value disagreement + `conflictDelta` (§23.17.4.3) |
+| Executable matrix | complete §23.17.4.8 (no TBD / as-applicable rows) |
+| Result fields | §23.17.4.6 |
 | Expected reasons | Mathematical Truth Freeze only — no new policy |
 | Artifacts | `results.json`, `summary.md`, `manifest.json` |
 | Class | structural + exploratory |
 | PHI | none |
+
 
 #### BCV-016 — Schedules
 
@@ -2074,7 +2076,7 @@ Menstrual scenarios: female baselines only (P-11, P-12). Recompute FFMI/ALMI fro
 | 012 | centers+personas | FD+signs | SURF | n/a | §23.2 | sens + §23.17.1 | json+csv+md+manifest | expl | none |
 | 013 | knots/plateaus | ±eps | NUM+SURF | none | N/A | L/K/R/width | json+csv+md+manifest | structural | none |
 | 014 | §23.5 coarse | grid | n/a | none | N/A | floor/ceil % | json+csv+md+manifest | expl | none |
-| 015 | P-01/P-11 fixtures | combo | n/a | none | N/A | reasons §23.17.4 | json+md+manifest | structural+expl | none |
+| 015 | P-01/P-11 §23.17.4.8 matrix | matrix | n/a | none | N/A | reasons §23.17.4 | json+md+manifest | structural+expl | none |
 | 016 | S-01…S-15 | catalog | n/a | none | N/A | eligibility | json+md+manifest | structural | none |
 | 017 | P-01…P-12 | table | NUM | none | N/A | relations §23.17.7 | json+md+manifest | expl | none |
 | 018 | companion anchors | fixed combos | n/a | none | N/A | §23.17.1 + hide | json+md+manifest | expl | none |
@@ -2105,6 +2107,7 @@ Menstrual scenarios: female baselines only (P-11, P-12). Recompute FFMI/ALMI fro
 | Uncertainty variance allocation / covariance / near-zero | **NO** — §23.17.3 |
 | False-improvement predicate / unavailable / rate | **NO** — §23.17.8 |
 | BCV-015 baseline / Resolver fixtures / missingness mutations | **NO** — §23.17.4 |
+| BCV-015 H1 multiple_valid branches / demographic enum / conflictDelta / matrix IDs | **NO** — §23.17.4.1–§23.17.4.9 |
 | BCV-001 2D axis grid | **NO** — §23.5.3 / §23.17.5 |
 | BCV-032A SEM / SDC95 / MDC95 / clinical / user-perceived | **NO** — §23.17.6 |
 | BCV-017 pattern comparator / aggregate reference | **NO** — §23.17.7 |
@@ -2116,7 +2119,7 @@ Menstrual scenarios: female baselines only (P-11, P-12). Recompute FFMI/ALMI fro
 ### 23.16 Wave 1 authorization gate
 
 ```text
-independent execution-semantics re-gate PASS
+independent FINAL BCV-015 re-gate PASS
         ↓
 explicit WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED (separate)
         ↓
@@ -2212,7 +2215,9 @@ Shares **may be negative** when negative covariance exists. **Do not clip** shar
 
 Report: raw `varianceContribution`, signed `constructUncertaintyShare`, `Var(A)`, and the construct-score covariance matrix. Estimate `Var`/`Cov` from the protocol’s Monte Carlo construct-score samples (batch SD divisor rules in §23.3 apply to reported aggregate SD; for this allocation use the same sample moments on construct scores / unclipped aggregate).
 
-#### 23.17.4 BCV-015 canonical fixture assembly
+#### 23.17.4 BCV-015 canonical fixture assembly (final)
+
+Closes the three residual BCV-015 executor choices from the independent execution-semantics re-gate at `cce4e201…`. **Does not** reopen other Wave 1 protocols.
 
 **Baselines (exact existing IDs; no new numeric values):**
 
@@ -2221,37 +2226,229 @@ Report: raw `varianceContribution`, signed `constructUncertaintyShare`, `Var(A)`
 | male | **P-01** |
 | female | **P-11** |
 
-Factory rule: start from the fully valid baseline; mutate **only** the target construct/status/missingness under test; all non-target constructs remain bit-for-bit equivalent to baseline.
+Every executable fixture in §23.17.4.8 is instantiated once for **P-01** and once for **P-11** (two artifact rows per `fixtureId`). Factory rule: start from the fully valid baseline; mutate **only** the target under test; all non-target constructs remain bit-for-bit equivalent to baseline.
 
-##### 23.17.4.1 Resolver-status fixtures (per target construct)
+##### 23.17.4.1 H1 `multiple_valid` — two distinct fixtures (NOT interchangeable)
 
-| Status | Fixture contents |
-|--------|------------------|
-| `resolved` | one valid governed primary observation; Resolver status `resolved`; one `primaryEvidenceRef` |
-| `resolved_with_supporting` | same primary as `resolved` + one additional valid supporting observation; status `resolved_with_supporting`; `primaryEvidenceRef` remains the governed primary |
-| `multiple_valid` | two independently valid candidate observations; status `multiple_valid`; **no** score-layer winner |
-| `policy_not_frozen` | status `policy_not_frozen`; do not repair downstream |
-| `conflict` | status `conflict`; two incompatible candidates sufficient to represent conflict; do not resolve downstream |
-| `insufficient` | status `insufficient`; no governed numeric scoring channel available |
-| `undated_only` | observation/value present; required `measuredAt` absent; status `undated_only` |
-| `unsupported` | status `unsupported`; method/source set to a frozen unsupported method (e.g. consumer BIA / unknown Waist protocol per Mathematical Truth Freeze) |
+H1 must separately test (A) general fail-closed and (B) the frozen Mathematical Truth Freeze §10.2 exception. **Do not** use one ambiguous H1 fixture for both.
 
-##### 23.17.4.2 Missingness fixtures (single-factor only)
+**A. `H1_MULTIPLE_VALID_NO_GOVERNED_WHTR`**
 
-| Mutation | Action |
-|----------|--------|
-| `MISSING_VALUE` | remove numeric value only |
-| `MISSING_MEASURED_AT` | retain numeric value; remove `measuredAt` |
-| `MISSING_REQUIRED_METHOD` | retain value/date; replace governed method with frozen unsupported method |
-| `MISSING_REQUIRED_DEMOGRAPHIC` | where applicable: `sex` missing **or** `height` missing **or** DOB/age context missing — **one** demographic dimension per fixture |
+| Item | Frozen |
+|------|--------|
+| Resolver status | `multiple_valid` |
+| Candidate count | **2** |
+| Candidate relationship | `two_non_whtr_valid_candidates` |
+| Candidate 1 | `channelKind=vat_mass_non_scoring`; `metricId=vat_mass_explanatory`; `method=dxa`; `measuredAt=baseline asOf`; `valueKg=0.40`; `sourceEventId="bcv015-h1-mv-vat-a"` |
+| Candidate 2 | `channelKind=vat_volume_non_scoring`; `metricId=vat_volume_explanatory`; `method=dxa`; `measuredAt=baseline asOf`; `valueL=1.20`; `sourceEventId="bcv015-h1-mv-vat-b"` |
+| Governed WHtR channel | **absent** — neither candidate is an independently governed/resolved `whtr_v1` scoring channel |
+| Score-layer winner | **forbidden** |
+| expectedAvailability | `unavailable` |
+| expectedPrimaryReason | `multiple_valid_unfrozen` |
 
-Only **one** missingness dimension may be mutated per single-factor fixture. Multi-factor cases are separately identified and use the already-frozen precedence matrix.
+**B. `H1_MULTIPLE_VALID_GOVERNED_WHTR`**
 
-##### 23.17.4.3 Fixture output fields (required every fixture)
+| Item | Frozen |
+|------|--------|
+| Resolver status | `multiple_valid` |
+| Candidate count | **2** |
+| Candidate relationship | `governed_whtr_plus_vat_mass_non_scoring` |
+| Candidate 1 (governed WHtR) | `metric/formula=whtr_v1`; Waist protocol `who_midpoint_v1` v1; governed Height present; `measuredAt=baseline asOf` valid/fresh; numeric WHtR = **baseline persona WHtR** (P-01:`0.438`, P-11:`0.424`); `sourceEventId="bcv015-h1-mv-whtr-primary"`; status of this channel `resolved` |
+| Candidate 2 (non-scoring) | `channelKind=vat_mass_non_scoring`; `metricId=vat_mass_explanatory`; `method=dxa`; `measuredAt=baseline asOf`; `valueKg=0.50`; `sourceEventId="bcv015-h1-mv-vat-support"`; **not** eligible as WHtR scoring channel |
+| Score-layer behavior | MAY score H1 **only** from the independently governed standardized WHtR channel per Mathematical Truth Freeze §10.2; must **not** choose between raw competing candidates |
+| expectedAvailability | `available` |
+| expectedPrimaryReason | `null` |
 
-`fixtureId`, `baselinePersonaId`, `targetConstruct`, `resolverStatus`, `missingnessMutation`, `expectedAvailability`, `expectedPrimaryReason`, `observedAvailability`, `observedPrimaryReason`.
+For **non-H1** constructs, `multiple_valid` uses exactly one general fixture family (§23.17.4.8): two otherwise-valid same-channel candidates, **identical** numeric value (= baseline), same method/measuredAt/era, different `sourceEventId`; expected `unavailable` / `multiple_valid_unfrozen`; no score-layer winner.
 
-`expectedAvailability` / `expectedPrimaryReason` **must** be obtained solely by applying the Mathematical Truth Freeze reason/precedence tables to the fixture. The execution engineer must not infer new policy.
+##### 23.17.4.2 Demographic fixtures (exact — replaces soft `MISSING_REQUIRED_DEMOGRAPHIC`)
+
+`MISSING_REQUIRED_DEMOGRAPHIC` remains only as a **conceptual category heading**. Executable fixtures are exactly:
+
+| fixtureId family | Target level | Exact applicable constructs / engines | Mutation | expectedPrimaryReason |
+|------------------|--------------|----------------------------------------|----------|----------------------|
+| `*_MISSING_SEX` | construct | **H2, H3-ALMI, H3-FFMI, P1, P3 only** | set required sex context to missing; all else baseline | `required_sex_missing` |
+| `*_MISSING_HEIGHT` | construct | **H1, H2, H3-ALMI, H3-FFMI, P1, P3** (all Wave-1 constructs — Height required whenever WHtR / FMI / FFMI / ALMI are used per Mathematical Truth Freeze §5 / §4.3–§4.4) | remove governed Height context; evidence/Resolver otherwise valid | `required_height_missing` |
+| `HEALTH_MISSING_DOB` / `PERF_MISSING_DOB` | **engine / aggregate** | Health aggregate; Performance-Supporting aggregate | remove DOB/age context required by aggregate engine; construct inputs otherwise valid | aggregate `required_age_missing` |
+
+**H1 / `MISSING_SEX`:** **not part of BCV-015** — H1 is sex-independent (Mathematical Truth Freeze §5).
+
+**MISSING_DOB:** engine-level only. No additional construct-level reason is invented merely because aggregate age context is missing. Run for Health and Performance-Supporting aggregates.
+
+##### 23.17.4.3 Conflict fixtures — value disagreement within the same governed construct
+
+Soft phrase “two incompatible candidates sufficient to represent conflict” is **non-operative**.
+
+| Item | Frozen |
+|------|--------|
+| Fixture ID format | `<CONSTRUCT>[_CHANNEL]_CONFLICT_VALUE_DISAGREEMENT` |
+| Conflict type | **VALUE DISAGREEMENT WITHIN THE SAME GOVERNED CONSTRUCT/CHANNEL** |
+| Candidate count | **exactly 2** |
+| Same fields | metric/construct identity; governed method class; required region where the construct uses region (none for these Wave-1 channels); `measuredAt`; source-event era; valid provenance; valid units |
+| Differing field | numeric value only |
+| Values | `baselineValue - conflictDelta` and `baselineValue + conflictDelta` |
+| Resolver status | `conflict` |
+| expectedAvailability | `unavailable` |
+| expectedPrimaryReason | `conflict_unresolved` |
+| Score-layer selection | **forbidden** |
+
+```text
+conflictDelta = max(EPS_SURF, 0.10 * abs(baselineValue))
+if baselineValue == 0: conflictDelta = EPS_SURF
+```
+
+`conflictDelta` is synthetic fixture-construction only — not a biological/clinical threshold and not a Resolver policy change.
+
+**H3 scope:** separate fixtures `H3_ALMI_CONFLICT_VALUE_DISAGREEMENT` and `H3_FFMI_CONFLICT_VALUE_DISAGREEMENT`. Resolver primary/channel fixed to the target channel. **No** ALMI↔FFMI cross-channel conflict fixture.
+
+Conflict fixtures required for: H1, H2, H3-ALMI, H3-FFMI, P1, P3.
+
+Aggregate behavior when a core construct is conflict-unavailable follows already-frozen Mathematical Truth Freeze §4.2 / missing-core consequences.
+
+##### 23.17.4.4 Other Resolver-status fixture shapes (non-choice)
+
+| Status | Candidate shape (all constructs/channels unless noted) | expectedAvailability | expectedPrimaryReason |
+|--------|--------------------------------------------------------|----------------------|----------------------|
+| `resolved` | one valid governed primary; status `resolved`; one `primaryEvidenceRef` | `available` | `null` |
+| `resolved_with_supporting` | same primary as `resolved` + one additional valid supporting observation (same numeric value; different `sourceEventId`; role=supporting); `primaryEvidenceRef` remains governed primary | `available` | `null` |
+| `policy_not_frozen` | status `policy_not_frozen`; do not repair downstream | `unavailable` | `policy_not_frozen` |
+| `insufficient` | status `insufficient`; no governed numeric scoring channel | `unavailable` | `unresolved_construct` |
+| `undated_only` | value present; required `measuredAt` absent; status `undated_only` | `unavailable` | `invalid_provenance` |
+| `unsupported` | status `unsupported`; method = frozen unsupported (`consumer_bia` for DXA constructs; `unknown_waist_protocol` for H1) | `unavailable` | `unsupported_method` |
+
+##### 23.17.4.5 Other missingness fixture shapes (non-choice)
+
+| Mutation | Action | expectedPrimaryReason |
+|----------|--------|----------------------|
+| `MISSING_VALUE` | remove numeric value only; channel otherwise present | `invalid_provenance` |
+| `MISSING_MEASURED_AT` | retain numeric value; remove `measuredAt` | `invalid_provenance` |
+| `MISSING_REQUIRED_METHOD` | retain value/date; replace governed method with frozen unsupported method (`consumer_bia` / `unknown_waist_protocol` as above) | `unsupported_method` |
+
+Only **one** missingness dimension may be mutated per single-factor fixture. Multi-factor combinations, if executed, compose only these frozen mutations and apply the Mathematical Truth Freeze precedence matrix — no new mutation types.
+
+##### 23.17.4.6 Result contract fields (required every fixture row)
+
+`fixtureId`, `baselinePersonaId`, `engine`, `targetConstruct`, `targetChannel`, `resolverStatus`, `missingnessMutation`, `demographicMutation`, `candidateCount`, `candidateRelationship`, `expectedAvailability`, `expectedPrimaryReason`, `observedAvailability`, `observedPrimaryReason`.
+
+Use `null` for fields that do not apply to that row (e.g. `demographicMutation` on pure Resolver-status rows). Field names are frozen.
+
+##### 23.17.4.7 Channel / baselineValue map
+
+| targetConstruct | targetChannel | engine | baselineValue source |
+|-----------------|---------------|--------|----------------------|
+| H1 | `whtr_v1` | Health | persona WHtR |
+| H2 | `fmi_v1` | Health | persona FMI |
+| H3 | `almi_v1` | Health | persona ALMI |
+| H3 | `ffmi_v1` | Health | persona FFMI |
+| P1 | `ffmi_v1` | Performance | persona FFMI |
+| P3 | `fmi_v1` | Performance | persona FMI |
+
+##### 23.17.4.8 Complete BCV-015 executable fixture matrix
+
+Instantiate each row for `baselinePersonaId ∈ {P-01, P-11}`. Fixture IDs are Wave-1 artifact identity and must be emitted unchanged.
+
+| fixtureId | baselinePersonaId | engine | targetConstruct | targetChannel | resolverStatus | mutationType | demographicMutation | candidateCount | candidateRelationship | measuredAtState | methodState | expectedAvailability | expectedPrimaryReason | notes |
+|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|-----------|
+| H1_RESOLVED | P-01+P-11 | Health | H1 | whtr_v1 | resolved | none | none | 1 | single_governed_primary | valid | governed | available | null | primaryEvidenceRef required |
+| H1_RESOLVED_WITH_SUPPORTING | P-01+P-11 | Health | H1 | whtr_v1 | resolved_with_supporting | none | none | 2 | primary_plus_supporting_same_value | valid | governed | available | null | supporting distinct sourceEventId |
+| H1_MULTIPLE_VALID_NO_GOVERNED_WHTR | P-01+P-11 | Health | H1 | whtr_v1 | multiple_valid | none | none | 2 | two_non_whtr_valid_candidates | valid | dxa_vat_non_scoring | unavailable | multiple_valid_unfrozen | general fail-closed; no governed whtr_v1 |
+| H1_MULTIPLE_VALID_GOVERNED_WHTR | P-01+P-11 | Health | H1 | whtr_v1 | multiple_valid | none | none | 2 | governed_whtr_plus_vat_mass_non_scoring | valid | whtr_v1_plus_vat | available | null | Mathematical Truth Freeze §10.2 exception |
+| H1_POLICY_NOT_FROZEN | P-01+P-11 | Health | H1 | whtr_v1 | policy_not_frozen | none | none | 0 | status_only | n/a | n/a | unavailable | policy_not_frozen | do not repair downstream |
+| H1_CONFLICT_VALUE_DISAGREEMENT | P-01+P-11 | Health | H1 | whtr_v1 | conflict | none | none | 2 | value_disagreement_same_channel | valid_same | governed_same | unavailable | conflict_unresolved | values=baseline±conflictDelta |
+| H1_INSUFFICIENT | P-01+P-11 | Health | H1 | whtr_v1 | insufficient | none | none | 0 | no_governed_numeric_channel | n/a | n/a | unavailable | unresolved_construct |  |
+| H1_UNDATED_ONLY | P-01+P-11 | Health | H1 | whtr_v1 | undated_only | none | none | 1 | value_present_measuredAt_absent | absent | governed | unavailable | invalid_provenance |  |
+| H1_UNSUPPORTED | P-01+P-11 | Health | H1 | whtr_v1 | unsupported | none | none | 1 | unsupported_method_observation | valid | unknown_waist_protocol | unavailable | unsupported_method | unknown_waist_protocol |
+| H2_RESOLVED | P-01+P-11 | Health | H2 | fmi_v1 | resolved | none | none | 1 | single_governed_primary | valid | governed | available | null | primaryEvidenceRef required |
+| H2_RESOLVED_WITH_SUPPORTING | P-01+P-11 | Health | H2 | fmi_v1 | resolved_with_supporting | none | none | 2 | primary_plus_supporting_same_value | valid | governed | available | null | supporting distinct sourceEventId |
+| H2_MULTIPLE_VALID | P-01+P-11 | Health | H2 | fmi_v1 | multiple_valid | none | none | 2 | two_same_value_different_sourceEventId | valid | governed | unavailable | multiple_valid_unfrozen | no score-layer winner |
+| H2_POLICY_NOT_FROZEN | P-01+P-11 | Health | H2 | fmi_v1 | policy_not_frozen | none | none | 0 | status_only | n/a | n/a | unavailable | policy_not_frozen | do not repair downstream |
+| H2_CONFLICT_VALUE_DISAGREEMENT | P-01+P-11 | Health | H2 | fmi_v1 | conflict | none | none | 2 | value_disagreement_same_channel | valid_same | governed_same | unavailable | conflict_unresolved | values=baseline±conflictDelta |
+| H2_INSUFFICIENT | P-01+P-11 | Health | H2 | fmi_v1 | insufficient | none | none | 0 | no_governed_numeric_channel | n/a | n/a | unavailable | unresolved_construct |  |
+| H2_UNDATED_ONLY | P-01+P-11 | Health | H2 | fmi_v1 | undated_only | none | none | 1 | value_present_measuredAt_absent | absent | governed | unavailable | invalid_provenance |  |
+| H2_UNSUPPORTED | P-01+P-11 | Health | H2 | fmi_v1 | unsupported | none | none | 1 | unsupported_method_observation | valid | consumer_bia | unavailable | unsupported_method | consumer_bia |
+| H3_ALMI_RESOLVED | P-01+P-11 | Health | H3 | almi_v1 | resolved | none | none | 1 | single_governed_primary | valid | governed | available | null | primaryEvidenceRef required |
+| H3_ALMI_RESOLVED_WITH_SUPPORTING | P-01+P-11 | Health | H3 | almi_v1 | resolved_with_supporting | none | none | 2 | primary_plus_supporting_same_value | valid | governed | available | null | supporting distinct sourceEventId |
+| H3_ALMI_MULTIPLE_VALID | P-01+P-11 | Health | H3 | almi_v1 | multiple_valid | none | none | 2 | two_same_value_different_sourceEventId | valid | governed | unavailable | multiple_valid_unfrozen | no score-layer winner |
+| H3_ALMI_POLICY_NOT_FROZEN | P-01+P-11 | Health | H3 | almi_v1 | policy_not_frozen | none | none | 0 | status_only | n/a | n/a | unavailable | policy_not_frozen | do not repair downstream |
+| H3_ALMI_CONFLICT_VALUE_DISAGREEMENT | P-01+P-11 | Health | H3 | almi_v1 | conflict | none | none | 2 | value_disagreement_same_channel | valid_same | governed_same | unavailable | conflict_unresolved | values=baseline±conflictDelta |
+| H3_ALMI_INSUFFICIENT | P-01+P-11 | Health | H3 | almi_v1 | insufficient | none | none | 0 | no_governed_numeric_channel | n/a | n/a | unavailable | unresolved_construct |  |
+| H3_ALMI_UNDATED_ONLY | P-01+P-11 | Health | H3 | almi_v1 | undated_only | none | none | 1 | value_present_measuredAt_absent | absent | governed | unavailable | invalid_provenance |  |
+| H3_ALMI_UNSUPPORTED | P-01+P-11 | Health | H3 | almi_v1 | unsupported | none | none | 1 | unsupported_method_observation | valid | consumer_bia | unavailable | unsupported_method | consumer_bia |
+| H3_FFMI_RESOLVED | P-01+P-11 | Health | H3 | ffmi_v1 | resolved | none | none | 1 | single_governed_primary | valid | governed | available | null | primaryEvidenceRef required |
+| H3_FFMI_RESOLVED_WITH_SUPPORTING | P-01+P-11 | Health | H3 | ffmi_v1 | resolved_with_supporting | none | none | 2 | primary_plus_supporting_same_value | valid | governed | available | null | supporting distinct sourceEventId |
+| H3_FFMI_MULTIPLE_VALID | P-01+P-11 | Health | H3 | ffmi_v1 | multiple_valid | none | none | 2 | two_same_value_different_sourceEventId | valid | governed | unavailable | multiple_valid_unfrozen | no score-layer winner |
+| H3_FFMI_POLICY_NOT_FROZEN | P-01+P-11 | Health | H3 | ffmi_v1 | policy_not_frozen | none | none | 0 | status_only | n/a | n/a | unavailable | policy_not_frozen | do not repair downstream |
+| H3_FFMI_CONFLICT_VALUE_DISAGREEMENT | P-01+P-11 | Health | H3 | ffmi_v1 | conflict | none | none | 2 | value_disagreement_same_channel | valid_same | governed_same | unavailable | conflict_unresolved | values=baseline±conflictDelta |
+| H3_FFMI_INSUFFICIENT | P-01+P-11 | Health | H3 | ffmi_v1 | insufficient | none | none | 0 | no_governed_numeric_channel | n/a | n/a | unavailable | unresolved_construct |  |
+| H3_FFMI_UNDATED_ONLY | P-01+P-11 | Health | H3 | ffmi_v1 | undated_only | none | none | 1 | value_present_measuredAt_absent | absent | governed | unavailable | invalid_provenance |  |
+| H3_FFMI_UNSUPPORTED | P-01+P-11 | Health | H3 | ffmi_v1 | unsupported | none | none | 1 | unsupported_method_observation | valid | consumer_bia | unavailable | unsupported_method | consumer_bia |
+| P1_RESOLVED | P-01+P-11 | Performance | P1 | ffmi_v1 | resolved | none | none | 1 | single_governed_primary | valid | governed | available | null | primaryEvidenceRef required |
+| P1_RESOLVED_WITH_SUPPORTING | P-01+P-11 | Performance | P1 | ffmi_v1 | resolved_with_supporting | none | none | 2 | primary_plus_supporting_same_value | valid | governed | available | null | supporting distinct sourceEventId |
+| P1_MULTIPLE_VALID | P-01+P-11 | Performance | P1 | ffmi_v1 | multiple_valid | none | none | 2 | two_same_value_different_sourceEventId | valid | governed | unavailable | multiple_valid_unfrozen | no score-layer winner |
+| P1_POLICY_NOT_FROZEN | P-01+P-11 | Performance | P1 | ffmi_v1 | policy_not_frozen | none | none | 0 | status_only | n/a | n/a | unavailable | policy_not_frozen | do not repair downstream |
+| P1_CONFLICT_VALUE_DISAGREEMENT | P-01+P-11 | Performance | P1 | ffmi_v1 | conflict | none | none | 2 | value_disagreement_same_channel | valid_same | governed_same | unavailable | conflict_unresolved | values=baseline±conflictDelta |
+| P1_INSUFFICIENT | P-01+P-11 | Performance | P1 | ffmi_v1 | insufficient | none | none | 0 | no_governed_numeric_channel | n/a | n/a | unavailable | unresolved_construct |  |
+| P1_UNDATED_ONLY | P-01+P-11 | Performance | P1 | ffmi_v1 | undated_only | none | none | 1 | value_present_measuredAt_absent | absent | governed | unavailable | invalid_provenance |  |
+| P1_UNSUPPORTED | P-01+P-11 | Performance | P1 | ffmi_v1 | unsupported | none | none | 1 | unsupported_method_observation | valid | consumer_bia | unavailable | unsupported_method | consumer_bia |
+| P3_RESOLVED | P-01+P-11 | Performance | P3 | fmi_v1 | resolved | none | none | 1 | single_governed_primary | valid | governed | available | null | primaryEvidenceRef required |
+| P3_RESOLVED_WITH_SUPPORTING | P-01+P-11 | Performance | P3 | fmi_v1 | resolved_with_supporting | none | none | 2 | primary_plus_supporting_same_value | valid | governed | available | null | supporting distinct sourceEventId |
+| P3_MULTIPLE_VALID | P-01+P-11 | Performance | P3 | fmi_v1 | multiple_valid | none | none | 2 | two_same_value_different_sourceEventId | valid | governed | unavailable | multiple_valid_unfrozen | no score-layer winner |
+| P3_POLICY_NOT_FROZEN | P-01+P-11 | Performance | P3 | fmi_v1 | policy_not_frozen | none | none | 0 | status_only | n/a | n/a | unavailable | policy_not_frozen | do not repair downstream |
+| P3_CONFLICT_VALUE_DISAGREEMENT | P-01+P-11 | Performance | P3 | fmi_v1 | conflict | none | none | 2 | value_disagreement_same_channel | valid_same | governed_same | unavailable | conflict_unresolved | values=baseline±conflictDelta |
+| P3_INSUFFICIENT | P-01+P-11 | Performance | P3 | fmi_v1 | insufficient | none | none | 0 | no_governed_numeric_channel | n/a | n/a | unavailable | unresolved_construct |  |
+| P3_UNDATED_ONLY | P-01+P-11 | Performance | P3 | fmi_v1 | undated_only | none | none | 1 | value_present_measuredAt_absent | absent | governed | unavailable | invalid_provenance |  |
+| P3_UNSUPPORTED | P-01+P-11 | Performance | P3 | fmi_v1 | unsupported | none | none | 1 | unsupported_method_observation | valid | consumer_bia | unavailable | unsupported_method | consumer_bia |
+| H1_MISSING_VALUE | P-01+P-11 | Health | H1 | whtr_v1 | resolved | MISSING_VALUE | none | 1 | single_governed_primary | valid | governed | unavailable | invalid_provenance | numeric removed only |
+| H1_MISSING_MEASURED_AT | P-01+P-11 | Health | H1 | whtr_v1 | resolved | MISSING_MEASURED_AT | none | 1 | single_governed_primary | absent | governed | unavailable | invalid_provenance | value retained |
+| H1_MISSING_REQUIRED_METHOD | P-01+P-11 | Health | H1 | whtr_v1 | resolved | MISSING_REQUIRED_METHOD | none | 1 | single_governed_primary | valid | unknown_waist_protocol | unavailable | unsupported_method | unknown_waist_protocol |
+| H1_MISSING_HEIGHT | P-01+P-11 | Health | H1 | whtr_v1 | resolved | none | MISSING_HEIGHT | 1 | single_governed_primary | valid | governed | unavailable | required_height_missing | Height required for WHtR/FMI/FFMI/ALMI |
+| H2_MISSING_VALUE | P-01+P-11 | Health | H2 | fmi_v1 | resolved | MISSING_VALUE | none | 1 | single_governed_primary | valid | governed | unavailable | invalid_provenance | numeric removed only |
+| H2_MISSING_MEASURED_AT | P-01+P-11 | Health | H2 | fmi_v1 | resolved | MISSING_MEASURED_AT | none | 1 | single_governed_primary | absent | governed | unavailable | invalid_provenance | value retained |
+| H2_MISSING_REQUIRED_METHOD | P-01+P-11 | Health | H2 | fmi_v1 | resolved | MISSING_REQUIRED_METHOD | none | 1 | single_governed_primary | valid | consumer_bia | unavailable | unsupported_method | consumer_bia |
+| H2_MISSING_HEIGHT | P-01+P-11 | Health | H2 | fmi_v1 | resolved | none | MISSING_HEIGHT | 1 | single_governed_primary | valid | governed | unavailable | required_height_missing | Height required for WHtR/FMI/FFMI/ALMI |
+| H2_MISSING_SEX | P-01+P-11 | Health | H2 | fmi_v1 | resolved | none | MISSING_SEX | 1 | single_governed_primary | valid | governed | unavailable | required_sex_missing | H1 excluded |
+| H3_ALMI_MISSING_VALUE | P-01+P-11 | Health | H3 | almi_v1 | resolved | MISSING_VALUE | none | 1 | single_governed_primary | valid | governed | unavailable | invalid_provenance | numeric removed only |
+| H3_ALMI_MISSING_MEASURED_AT | P-01+P-11 | Health | H3 | almi_v1 | resolved | MISSING_MEASURED_AT | none | 1 | single_governed_primary | absent | governed | unavailable | invalid_provenance | value retained |
+| H3_ALMI_MISSING_REQUIRED_METHOD | P-01+P-11 | Health | H3 | almi_v1 | resolved | MISSING_REQUIRED_METHOD | none | 1 | single_governed_primary | valid | consumer_bia | unavailable | unsupported_method | consumer_bia |
+| H3_ALMI_MISSING_HEIGHT | P-01+P-11 | Health | H3 | almi_v1 | resolved | none | MISSING_HEIGHT | 1 | single_governed_primary | valid | governed | unavailable | required_height_missing | Height required for WHtR/FMI/FFMI/ALMI |
+| H3_ALMI_MISSING_SEX | P-01+P-11 | Health | H3 | almi_v1 | resolved | none | MISSING_SEX | 1 | single_governed_primary | valid | governed | unavailable | required_sex_missing | H1 excluded |
+| H3_FFMI_MISSING_VALUE | P-01+P-11 | Health | H3 | ffmi_v1 | resolved | MISSING_VALUE | none | 1 | single_governed_primary | valid | governed | unavailable | invalid_provenance | numeric removed only |
+| H3_FFMI_MISSING_MEASURED_AT | P-01+P-11 | Health | H3 | ffmi_v1 | resolved | MISSING_MEASURED_AT | none | 1 | single_governed_primary | absent | governed | unavailable | invalid_provenance | value retained |
+| H3_FFMI_MISSING_REQUIRED_METHOD | P-01+P-11 | Health | H3 | ffmi_v1 | resolved | MISSING_REQUIRED_METHOD | none | 1 | single_governed_primary | valid | consumer_bia | unavailable | unsupported_method | consumer_bia |
+| H3_FFMI_MISSING_HEIGHT | P-01+P-11 | Health | H3 | ffmi_v1 | resolved | none | MISSING_HEIGHT | 1 | single_governed_primary | valid | governed | unavailable | required_height_missing | Height required for WHtR/FMI/FFMI/ALMI |
+| H3_FFMI_MISSING_SEX | P-01+P-11 | Health | H3 | ffmi_v1 | resolved | none | MISSING_SEX | 1 | single_governed_primary | valid | governed | unavailable | required_sex_missing | H1 excluded |
+| P1_MISSING_VALUE | P-01+P-11 | Performance | P1 | ffmi_v1 | resolved | MISSING_VALUE | none | 1 | single_governed_primary | valid | governed | unavailable | invalid_provenance | numeric removed only |
+| P1_MISSING_MEASURED_AT | P-01+P-11 | Performance | P1 | ffmi_v1 | resolved | MISSING_MEASURED_AT | none | 1 | single_governed_primary | absent | governed | unavailable | invalid_provenance | value retained |
+| P1_MISSING_REQUIRED_METHOD | P-01+P-11 | Performance | P1 | ffmi_v1 | resolved | MISSING_REQUIRED_METHOD | none | 1 | single_governed_primary | valid | consumer_bia | unavailable | unsupported_method | consumer_bia |
+| P1_MISSING_HEIGHT | P-01+P-11 | Performance | P1 | ffmi_v1 | resolved | none | MISSING_HEIGHT | 1 | single_governed_primary | valid | governed | unavailable | required_height_missing | Height required for WHtR/FMI/FFMI/ALMI |
+| P1_MISSING_SEX | P-01+P-11 | Performance | P1 | ffmi_v1 | resolved | none | MISSING_SEX | 1 | single_governed_primary | valid | governed | unavailable | required_sex_missing | H1 excluded |
+| P3_MISSING_VALUE | P-01+P-11 | Performance | P3 | fmi_v1 | resolved | MISSING_VALUE | none | 1 | single_governed_primary | valid | governed | unavailable | invalid_provenance | numeric removed only |
+| P3_MISSING_MEASURED_AT | P-01+P-11 | Performance | P3 | fmi_v1 | resolved | MISSING_MEASURED_AT | none | 1 | single_governed_primary | absent | governed | unavailable | invalid_provenance | value retained |
+| P3_MISSING_REQUIRED_METHOD | P-01+P-11 | Performance | P3 | fmi_v1 | resolved | MISSING_REQUIRED_METHOD | none | 1 | single_governed_primary | valid | consumer_bia | unavailable | unsupported_method | consumer_bia |
+| P3_MISSING_HEIGHT | P-01+P-11 | Performance | P3 | fmi_v1 | resolved | none | MISSING_HEIGHT | 1 | single_governed_primary | valid | governed | unavailable | required_height_missing | Height required for WHtR/FMI/FFMI/ALMI |
+| P3_MISSING_SEX | P-01+P-11 | Performance | P3 | fmi_v1 | resolved | none | MISSING_SEX | 1 | single_governed_primary | valid | governed | unavailable | required_sex_missing | H1 excluded |
+| H1_MISSING_SEX | P-01+P-11 | Health | H1 | whtr_v1 | not_applicable | none | MISSING_SEX | 0 | not_applicable | n/a | n/a | not_applicable | not_applicable | MUST NOT execute — H1 sex-independent |
+| HEALTH_MISSING_DOB | P-01+P-11 | Health | AGGREGATE | n/a | resolved | none | MISSING_DOB | n/a | engine_dob_removed | valid | governed | unavailable | required_age_missing | construct inputs otherwise valid |
+| PERF_MISSING_DOB | P-01+P-11 | Performance | AGGREGATE | n/a | resolved | none | MISSING_DOB | n/a | engine_dob_removed | valid | governed | unavailable | required_age_missing | construct inputs otherwise valid |
+
+**Matrix row count (fixture families):** 81
+**Instantiations:** each family × 2 baselines (`P-01`, `P-11`) = **162** executable fixture instances (except `H1_MISSING_SEX` which is `not_applicable` and MUST NOT execute — still listed for zero-choice closure).
+
+**`not_applicable` handling:** if a status/mutation is not meaningful for a construct/channel, the matrix freezes `not_applicable` explicitly. The executor must not decide membership.
+
+##### 23.17.4.9 BCV-015 zero-choice audit
+
+| Choice | Remaining? |
+|--------|------------|
+| H1 multiple_valid branch (general vs §10.2 exception) | **NO** — §23.17.4.1 |
+| H1 exception governed WHtR / second candidate shape | **NO** — §23.17.4.1 |
+| Demographic fixture types / applicability | **NO** — §23.17.4.2 |
+| DOB level (engine vs construct) | **NO** — §23.17.4.2 |
+| Conflict type / numeric construction / conflictDelta | **NO** — §23.17.4.3 |
+| H3 conflict channel separation | **NO** — §23.17.4.3 |
+| Candidate count / expected reason / fixture IDs / matrix membership | **NO** — §23.17.4.8 |
+
+**TOTAL MATERIAL BCV-015 CHOICES: 0.**
 
 #### 23.17.5 BCV-001 2D surface axis grid
 
@@ -2381,21 +2578,23 @@ No path auto-authorizes consumer integration or public scores. Synthetic alone c
 
 ---
 
-## 28. End-state of this Wave 1 execution-semantics closure
+## 28. End-state of this BCV-015 fixture-semantics closure
 
 | Item | Status |
 |------|--------|
-| Private validation plan | **COMPLETE / PENDING INDEPENDENT EXECUTION-SEMANTICS RE-GATE** |
-| Wave 1 execution semantics (docs) | **CLOSED** (pending independent confirmation) |
-| Wave 1 execution | **BLOCKED pending re-gate** |
+| Private validation plan | **COMPLETE / PENDING FINAL BCV-015 RE-GATE** |
+| Wave 1 execution semantics (non-BCV-015) | **CLOSED** |
+| BCV-015 fixture semantics (docs) | **CLOSED** (pending independent confirmation) |
+| Wave 1 execution | **BLOCKED** |
 | Tier B | **NOT AUTHORIZED** |
 | Validation execution | **NOT STARTED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
 | Public Health / Performance-Supporting | **NO-GO** |
 
-**Next action:** open a **new independent reviewer** against the new SHA inspecting **only**: the eight execution semantics (§23.17); contradiction search; zero material executor choices; docs-only integrity; status consistency. Only if that review returns **PASS** and **WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED** may the Wave 1 execution agent be reopened.
+**Next action:** open a **new independent reviewer** against the new SHA inspecting **only**: H1 `multiple_valid` general vs §10.2 exception; exact demographic fixture enumeration; exact conflict construction; complete BCV-015 fixture matrix; zero remaining BCV-015 executor choices; docs-only/status integrity. Only if that review returns **PASS** and **WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED** may the Wave 1 execution agent be reopened.
 
 ---
 
-END OF PRIVATE / INTERNAL VALIDATION PLAN V1 (WAVE 1 EXECUTION-SEMANTICS CLOSURE)
+END OF PRIVATE / INTERNAL VALIDATION PLAN V1 (BCV-015 FIXTURE-SEMANTICS CLOSURE)
+

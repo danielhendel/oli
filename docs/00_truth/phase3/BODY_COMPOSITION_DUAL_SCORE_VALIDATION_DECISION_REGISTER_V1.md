@@ -4,14 +4,14 @@
 **Date:** 2026-10-04
 **Branch:** `feat/body-composition-stage3e-body-scans-v1`
 **Kind:** Documentation only. Records validation-gate state. **Does not** authorize consumer release, change score math, or start validation execution.
-**Wave 1 execution-semantics closure:** closes eight residual execution-semantic ambiguities against SHA `1201b57f20bbca0ebe2ec366632d0cde5423fdab`.
+**BCV-015 fixture-semantics closure:** closes three residual BCV-015 executor choices against SHA `cce4e201e8465283de391d37c700c880ff86a099`.
 
 | Identity | Value |
 |----------|-------|
 | Implementation truth-freeze SHA | `3bed6aa6012690737bb5f7455a4397ca6a3bfe64` |
 | Approved runtime implementation SHA | `d940b1616b341e98b19e82f2cd6a6242dfe41691` |
 | Mathematical truth-freeze SHA | `e258267d109d1d05e20270f205e5fdb29ae2aca6` |
-| Prior computational-determinism closure SHA | `1201b57f20bbca0ebe2ec366632d0cde5423fdab` |
+| Prior execution-semantics closure SHA | `cce4e201e8465283de391d37c700c880ff86a099` |
 | Validation plan | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_PRIVATE_VALIDATION_PLAN_V1.md` |
 | Health version | `body_composition_health_score_draft_v1` |
 | Performance-Supporting version | `body_composition_performance_supporting_score_draft_v1` |
@@ -28,9 +28,10 @@
 | Internal engine (Performance-Supporting) | **PASS** |
 | Implementation truth freeze | **PASS** @ `3bed6aa…` |
 | Independent docs re-gate | **PASS** |
-| Validation plan | **COMPLETE / PENDING INDEPENDENT EXECUTION-SEMANTICS RE-GATE** |
-| Wave 1 execution semantics (docs) | **CLOSED** (pending independent confirmation) |
-| Wave 1 synthetic validation | **BLOCKED pending re-gate** |
+| Validation plan | **COMPLETE / PENDING FINAL BCV-015 RE-GATE** |
+| Wave 1 execution semantics (non-BCV-015) | **CLOSED** |
+| BCV-015 fixture semantics (docs) | **CLOSED** (pending independent confirmation) |
+| Wave 1 synthetic validation | **BLOCKED** |
 | Wave 1 execution | **NOT STARTED** |
 | Tier B de-identified / real-user validation | **NOT AUTHORIZED** |
 | Validation execution | **NOT STARTED** |
@@ -53,18 +54,14 @@
 
 ---
 
-## 3. Execution semantics closed in this pass
+## 3. BCV-015 residuals closed in this pass
 
 | Residual | Freeze |
 |----------|--------|
-| Contribution metrics | `absoluteContribution`, `marginalContributionPerConstructPoint`, `weightedDeficit`, `dominantAdverseConstruct`, `changeContribution` |
-| Directional-reversal probability | two-replicate noise test; zero-delta ⇒ no reversal |
-| Construct uncertainty share | covariance-aware `varianceContribution` / signed share |
-| False-improvement predicate | scenario − BASE > `EPS_NUM`; unavailable ⇒ null |
-| BCV-015 fixtures | P-01 / P-11 baselines; Resolver + missingness factories |
-| BCV-001 2D axes | `canonicalAxisGrid` Cartesian product only |
-| BCV-032A SDC/MDC | `SEM_diff`, `SDC95_individual`; `MDC95` alias; no clinical/user formulas |
-| BCV-017 rubric | directional `higher`/`lower`/`equal`/`not_applicable` vs §23.5.4 |
+| H1 `multiple_valid` | Distinct `H1_MULTIPLE_VALID_NO_GOVERNED_WHTR` vs `H1_MULTIPLE_VALID_GOVERNED_WHTR` (§10.2 exception) |
+| Demographics | Exact `MISSING_SEX` / `MISSING_HEIGHT` / `MISSING_DOB` — soft `MISSING_REQUIRED_DEMOGRAPHIC` non-executable |
+| Conflict | Same-channel value disagreement; `conflictDelta = max(EPS_SURF, 0.10*|baseline|)` |
+| Matrix | Complete §23.17.4.8 executable fixture table; `not_applicable` explicit |
 
 ---
 
@@ -82,7 +79,7 @@
 
 | Wave | Authorization |
 |------|---------------|
-| Wave 1 synthetic | **BLOCKED pending re-gate** — requires independent **execution-semantics** re-gate **PASS** + explicit **WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED** |
+| Wave 1 synthetic | **BLOCKED** — requires independent **FINAL BCV-015** re-gate **PASS** + explicit **WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED** |
 | Tier B | **NOT AUTHORIZED** |
 | Consumer pilot | **NOT AUTHORIZED** |
 | Public scores | **NO-GO** |
@@ -94,9 +91,9 @@ This register does **not** self-authorize Wave 1.
 ## 6. Next gate
 
 ```text
-WAVE 1 EXECUTION-SEMANTICS CLOSURE (this phase)
+BCV-015 FIXTURE-SEMANTICS CLOSURE (this phase)
         ↓
-independent execution-semantics re-gate (narrow)
+independent FINAL BCV-015 re-gate (narrow)
         ↓
 PASS
         ↓
