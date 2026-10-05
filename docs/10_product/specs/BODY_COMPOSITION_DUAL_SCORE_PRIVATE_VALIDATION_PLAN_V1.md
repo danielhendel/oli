@@ -2597,4 +2597,3 @@ No path auto-authorizes consumer integration or public scores. Synthetic alone c
 ---
 
 END OF PRIVATE / INTERNAL VALIDATION PLAN V1 (BCV-015 FIXTURE-SEMANTICS CLOSURE)
-
