@@ -28,13 +28,13 @@
 | Internal engine (Performance-Supporting) | **PASS** |
 | Implementation truth freeze | **PASS** @ `3bed6aa…` |
 | Independent docs re-gate | **PASS** |
-| Validation plan | **COMPLETE / PENDING FINAL BCV-015 RE-GATE** |
+| Validation plan | **COMPLETE** @ `4900f6e…` |
 | Wave 1 execution semantics (non-BCV-015) | **CLOSED** |
-| BCV-015 fixture semantics (docs) | **CLOSED** (pending independent confirmation) |
-| Wave 1 synthetic validation | **BLOCKED** |
-| Wave 1 execution | **NOT STARTED** |
+| BCV-015 fixture semantics (docs) | **CLOSED** · FINAL BCV-015 RE-GATE **PASS** |
+| Wave 1 synthetic validation | **COMPLETE / PENDING INDEPENDENT VALIDATION RE-GATE** |
+| Wave 1 execution | **COMPLETE** (artifacts under `validation/body-composition/dual-score/wave1/`; report `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_WAVE1_SYNTHETIC_VALIDATION_REPORT_V1.md`; decision `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_WAVE1_VALIDATION_DECISION_V1.md`) |
 | Tier B de-identified / real-user validation | **NOT AUTHORIZED** |
-| Validation execution | **NOT STARTED** |
+| Validation execution | **Wave 1 COMPLETE / PENDING INDEPENDENT VALIDATION RE-GATE** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer validity | **NOT ESTABLISHED** |
 | Public Health score | **NO-GO** |
@@ -79,27 +79,25 @@
 
 | Wave | Authorization |
 |------|---------------|
-| Wave 1 synthetic | **BLOCKED** — requires independent **FINAL BCV-015** re-gate **PASS** + explicit **WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED** |
+| Wave 1 synthetic | **EXECUTED** — FINAL BCV-015 RE-GATE **PASS** + WAVE 1 AUTHORIZED + execution **COMPLETE / PENDING INDEPENDENT VALIDATION RE-GATE** |
 | Tier B | **NOT AUTHORIZED** |
 | Consumer pilot | **NOT AUTHORIZED** |
 | Public scores | **NO-GO** |
 
-This register does **not** self-authorize Wave 1.
+This register does **not** authorize Tier B, consumer integration, or public scores.
 
 ---
 
 ## 6. Next gate
 
 ```text
-BCV-015 FIXTURE-SEMANTICS CLOSURE (this phase)
+WAVE 1 SYNTHETIC VALIDATION EXECUTION COMPLETE
         ↓
-independent FINAL BCV-015 re-gate (narrow)
+independent validation-RESULTS reviewer (new)
         ↓
-PASS
+PASS / FAIL / BLOCKED
         ↓
-WAVE 1 SYNTHETIC VALIDATION EXECUTION: AUTHORIZED
-        ↓
-only then may the execution agent reopen
+only an explicit later authorization may open Tier B
 ```
 
 **Public Health / Public Performance-Supporting remain NO-GO.**
