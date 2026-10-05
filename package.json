@@ -26,6 +26,8 @@
     "test": "node scripts/test/run-jest-with-firestore-emulator.mjs",
     "admin:repair-apple-health-mass": "node scripts/admin/repair-apple-health-mass-unit.mjs",
     "export:bundled-exercise-usage": "tsx --tsconfig scripts/tsconfig.json scripts/workouts/exportBundledExerciseUsage.cli.ts",
+    "validate:body-composition:wave1": "tsx --tsconfig validation/body-composition/dual-score/wave1/tsconfig.json validation/body-composition/dual-score/wave1/src/runAll.ts",
+    "validate:body-composition:wave1:dry-run": "tsx --tsconfig validation/body-composition/dual-score/wave1/tsconfig.json validation/body-composition/dual-score/wave1/src/runAll.ts --dry-run",
     "check:invariants": "node scripts/ci/check-invariants.mjs",
     "check:workout-summary-rebuild-bundle": "npm run -w api verify:workout-summary-rebuild-bundle",
     "check:workout-summary-rebuild-bundle:canonical": "npm run -w api verify:workout-summary-rebuild-bundle:canonical",
