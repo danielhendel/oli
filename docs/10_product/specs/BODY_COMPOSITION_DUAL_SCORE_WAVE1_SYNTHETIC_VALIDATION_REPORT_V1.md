@@ -91,7 +91,7 @@ Noise σ/ρ use frozen **synthetic_fallback** magnitudes (`exploratory_normalize
 ### BCV-001 — Mathematical surface stress
 - **Status:** executed  
 - **Structural:** 1D knot neighborhoods continuous at `EPS_NUM` (discontinuity ≤ 1e-6); NaN/OOR = 0; six required 2D Surface IDs present via `canonicalAxisGrid` Cartesian products.  
-- **Exploratory:** steep H1 slopes near knots (normalized sensitivity up to 300 on WHtR domain); floor/ceiling occupancy on 1D H1; aggregates never exact floor in 2D cells sampled.
+- **Exploratory:** steep H1 slopes near knots, with maximum raw absolute local slope ≈300; H1 maximum normalized sensitivity is ≈195; floor/ceiling occupancy on 1D H1; aggregates never exact floor in 2D cells sampled.
 
 ### BCV-002 — Measurement perturbation
 - **Status:** executed (384 configs; Models A+B × σ grid × personas)  
