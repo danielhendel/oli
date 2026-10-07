@@ -108,7 +108,7 @@ Noise σ/ρ use frozen **synthetic_fallback** magnitudes (`exploratory_normalize
 
 ### BCV-012 — Sensitivity map
 - **Status:** executed  
-- **Findings:** OAT + joint (±,±) FD; max normalized sensitivity 600 (H1 × DOMAIN_RANGE). Contribution fields use §23.17.1 only.
+- **Findings:** OAT + joint (±,±) FD. Maximum **normalized** sensitivity ≈ 600 comes from female `H3_FFMI` at x=14.3 (localSlope ≈ 66.67 × DOMAIN_RANGE 9). H1 remains steepest by **raw** local slope (≈ 300); H1 maximum normalized sensitivity ≈ 195. Raw local slope and normalized sensitivity (`|dScore/dx| * DOMAIN_RANGE`) are distinct metrics — do not collapse them. Contribution fields use §23.17.1 only. Synthetic structural/exploratory evidence only; not clinical instability, disease risk, consumer severity, or a release blocker.
 
 ### BCV-013 — Knot / plateau
 - **Status:** executed  
@@ -176,7 +176,7 @@ Noise σ/ρ use frozen **synthetic_fallback** magnitudes (`exploratory_normalize
 
 ## 7. Exploratory / evidence-dependent highlights
 
-1. H1 is the steepest construct (normalized sensitivity / floor-ceiling occupancy).  
+1. Sensitivity metrics differ: **raw** local slope is highest for H1 (≈ 300); **normalized** sensitivity is highest for female H3_FFMI at x=14.3 (≈ 600). H1 also shows notable floor/ceiling occupancy.
 2. Adverse-hide is possible under frozen weights when H3 (or lean) is adverse while companions are favorable.  
 3. Acute-state synthetic perturbations frequently produce apparent score improvements (especially Performance).  
 4. Under exploratory noise, two-replicate directional-reversal probability concentrates near 0.5.  
