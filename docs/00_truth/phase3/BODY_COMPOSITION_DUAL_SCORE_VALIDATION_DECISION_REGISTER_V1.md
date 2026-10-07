@@ -31,10 +31,12 @@
 | Validation plan | **COMPLETE** @ `4900f6e…` |
 | Wave 1 execution semantics (non-BCV-015) | **CLOSED** |
 | BCV-015 fixture semantics (docs) | **CLOSED** · FINAL BCV-015 RE-GATE **PASS** |
-| Wave 1 synthetic validation | **COMPLETE / PENDING INDEPENDENT VALIDATION RE-GATE** |
+| Wave 1 synthetic validation | **COMPLETE** · independent results re-gate **PASS** · synthetic robustness **ACCEPTED** |
 | Wave 1 execution | **COMPLETE** (artifacts under `validation/body-composition/dual-score/wave1/`; report `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_WAVE1_SYNTHETIC_VALIDATION_REPORT_V1.md`; decision `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_WAVE1_VALIDATION_DECISION_V1.md`) |
-| Tier B de-identified / real-user validation | **NOT AUTHORIZED** |
-| Validation execution | **Wave 1 COMPLETE / PENDING INDEPENDENT VALIDATION RE-GATE** |
+| Wave 1 validation truth freeze | **CURRENT / PENDING INDEPENDENT DOCS RE-GATE** (`docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_WAVE1_VALIDATION_TRUTH_FREEZE_V1.md`) |
+| Tier B validation planning | **AUTHORIZED** (after truth-freeze docs re-gate) |
+| Tier B de-identified / real-user validation execution | **NOT AUTHORIZED** |
+| Validation execution | **Wave 1 COMPLETE** · results re-gate **PASS** · truth freeze pending docs re-gate |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer validity | **NOT ESTABLISHED** |
 | Public Health score | **NO-GO** |
@@ -79,12 +81,13 @@
 
 | Wave | Authorization |
 |------|---------------|
-| Wave 1 synthetic | **EXECUTED** — FINAL BCV-015 RE-GATE **PASS** + WAVE 1 AUTHORIZED + execution **COMPLETE / PENDING INDEPENDENT VALIDATION RE-GATE** |
-| Tier B | **NOT AUTHORIZED** |
+| Wave 1 synthetic | **EXECUTED** — FINAL BCV-015 RE-GATE **PASS** + WAVE 1 AUTHORIZED + execution **COMPLETE** + results re-gate **PASS** + synthetic robustness **ACCEPTED** |
+| Tier B planning | **AUTHORIZED** (after Wave 1 truth-freeze docs re-gate) |
+| Tier B execution | **NOT AUTHORIZED** |
 | Consumer pilot | **NOT AUTHORIZED** |
 | Public scores | **NO-GO** |
 
-This register does **not** authorize Tier B, consumer integration, or public scores.
+This register authorizes Tier B **planning** only after the Wave 1 truth-freeze docs re-gate. It does **not** authorize Tier B execution, consumer integration, or public scores.
 
 ---
 
@@ -93,11 +96,15 @@ This register does **not** authorize Tier B, consumer integration, or public sco
 ```text
 WAVE 1 SYNTHETIC VALIDATION EXECUTION COMPLETE
         ↓
-independent validation-RESULTS reviewer (new)
+independent validation-RESULTS re-gate PASS
         ↓
-PASS / FAIL / BLOCKED
+Wave 1 validation truth freeze (CURRENT)
         ↓
-only an explicit later authorization may open Tier B
+independent truth-freeze DOCS re-gate
+        ↓
+Tier B empirical-validation PLANNING
+        ↓
+future explicit gate required for Tier B EXECUTION
 ```
 
 **Public Health / Public Performance-Supporting remain NO-GO.**

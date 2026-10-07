@@ -18,15 +18,19 @@
 
 ## Status banner (non-negotiable)
 
-**SYNTHETIC VALIDATION ONLY.**  
-**CLINICAL VALIDATION NOT ESTABLISHED.**  
-**Wave 1 execution: COMPLETE / PENDING INDEPENDENT VALIDATION RE-GATE.**  
-**Tier B: NOT AUTHORIZED.**  
-**Consumer integration: NOT AUTHORIZED.**  
-**Public Health score: NO-GO.**  
+**SYNTHETIC VALIDATION ONLY.**
+**CLINICAL VALIDATION NOT ESTABLISHED.**
+**Wave 1 execution: COMPLETE.**
+**Independent results re-gate: PASS.**
+**Synthetic robustness evidence: ACCEPTED.**
+**Wave 1 truth freeze: CURRENT / PENDING INDEPENDENT DOCS RE-GATE** (`docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_WAVE1_VALIDATION_TRUTH_FREEZE_V1.md`).
+**Tier B planning: AUTHORIZED.**
+**Tier B execution: NOT AUTHORIZED.**
+**Consumer integration: NOT AUTHORIZED.**
+**Public Health score: NO-GO.**
 **Public Performance-Supporting score: NO-GO.**
 
-Synthetic findings alone **cannot** advance claim level beyond Level 0.
+Synthetic findings alone **cannot** advance claim level beyond Level 0. Accepted = independently verified synthetic robustness — not clinical, consumer, predictive, or release readiness.
 
 ---
 
@@ -214,9 +218,11 @@ Noise σ/ρ use frozen **synthetic_fallback** magnitudes (`exploratory_normalize
 
 ## 10. Next scientific action
 
-Open a **new independent validation-results reviewer** to inspect harness correctness, reproducibility, all 16 protocol outputs, structural PASS/FAIL, MC convergence, manifests/provenance, engine immutability, PHI absence, and claim inflation.
+Wave 1 results re-gate is **PASS**. Canonical state: `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_WAVE1_VALIDATION_TRUTH_FREEZE_V1.md` (**CURRENT / PENDING INDEPENDENT DOCS RE-GATE**).
 
-**Do not start Tier B. Do not expose scores publicly. Do not open a PR for consumer release.**
+Open a **new independent truth-freeze docs re-gate** against the freeze SHA. Only after PASS should Tier B empirical-validation **planning** begin. Tier B **execution** remains blocked.
+
+**Do not start Tier B execution. Do not expose scores publicly. Do not open a PR for consumer release.**
 
 ---
 
