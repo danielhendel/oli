@@ -20,7 +20,7 @@
 | Parent private validation plan | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_PRIVATE_VALIDATION_PLAN_V1.md` |
 | Methodology re-gate @ `9c5dd88d…` | **FAIL** (18 blockers) |
 | This correction | **Methodology Correction Pass V1** |
-| Plan status | **CORRECTED / PENDING INDEPENDENT METHODOLOGY RE-GATE** |
+| Plan status | **CORRECTED / PENDING INDEPENDENT METHODOLOGY RE-GATE V3** |
 | Evidence-review workstream | **BLOCKED** pending methodology re-gate |
 | Governance/legal protocol planning | **BLOCKED** pending methodology re-gate |
 
@@ -93,7 +93,7 @@ Frozen score policy is **not** open for reinterpretation in this plan.
 |------|--------|
 | Wave 1 synthetic robustness | **ACCEPTED** |
 | Tier B validation planning | **CURRENT** |
-| Tier B plan methodology | **CORRECTED / PENDING INDEPENDENT METHODOLOGY RE-GATE** |
+| Tier B plan methodology | **CORRECTED / PENDING INDEPENDENT METHODOLOGY RE-GATE V3** |
 | Evidence-review workstream | **BLOCKED** |
 | Governance/legal protocol planning | **BLOCKED** |
 | Tier B protocol freeze | **BLOCKED** |
@@ -721,6 +721,23 @@ Shared primary outputs: construct/aggregate Δ; false-improvement-style indicato
 3. Model baseline value appropriately in confirmatory models.
 4. Distinguish spontaneous return toward mean from true intervention change.
 5. Pre-specify analysis of extreme baseline strata (confirmatory vs exploratory labeled).
+
+**Enrollment freeze requirement (closes RTM enrollment gap):**
+
+Participant enrollment must **not** be based solely on an extreme baseline Health Composition or Performance-Supporting Composition score.
+
+Additional protocol-freeze requirements:
+
+| Rule | Requirement |
+|------|-------------|
+| Extreme-score study | Extreme baseline scores may be studied only under a **pre-specified, scientifically justified** sampling design |
+| No enrichment for appearance | Enrichment based on extreme scores must **not** be introduced merely to increase apparent longitudinal improvement or separation |
+| Pre-declaration | If extreme-score strata are intentionally sampled, that design must be **declared before outcome review** |
+| Repeated baseline | Repeated baseline measurement should be used where feasible to help distinguish regression to the mean from stable extreme phenotype |
+| Analysis accounting | Any extreme-score enrichment must be accounted for in the analysis and interpretation |
+| Freeze before outcomes | Enrollment criteria, arm assignment, and subgroup definitions must all be **frozen before viewing longitudinal outcomes** |
+
+Arm-assignment control (item 1 above) and enrollment control (this subsection) are **both** mandatory. Closing one does not satisfy the other.
 
 ---
 
@@ -1608,9 +1625,9 @@ Until methodology re-gate **PASS**:
 ```text
 Wave 1 COMPLETE / TRUTH-FROZEN (synthetic ACCEPTED)
         ↓
-Tier B empirical-validation PLAN — CORRECTED / PENDING METHODOLOGY RE-GATE
+Tier B empirical-validation PLAN — CORRECTED / PENDING METHODOLOGY RE-GATE V3
         ↓
-independent methodology re-gate PASS
+independent methodology re-gate V3 PASS
         ↓
 evidence reviews (ER-BC-*) + governance/legal/ethics closure
         ↓
@@ -1676,16 +1693,16 @@ This plan **does not**:
 
 | Item | Status |
 |------|--------|
-| Tier B master plan | **CORRECTED / PENDING INDEPENDENT METHODOLOGY RE-GATE** |
+| Tier B master plan | **CORRECTED / PENDING INDEPENDENT METHODOLOGY RE-GATE V3** |
 | Tier B planning | **CURRENT** |
-| Evidence-review workstream | **BLOCKED** pending methodology re-gate |
-| Governance/legal protocol planning | **BLOCKED** pending methodology re-gate |
-| Tier B protocol freeze | **BLOCKED** |
+| Evidence-review workstream | **BLOCKED** |
+| Governance/legal protocol planning | **BLOCKED** |
+| Tier B protocol-freeze work | **BLOCKED** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
 | Public Health / Performance-Supporting | **NO-GO** |
-| Next action | Open a **new independent Tier B methodology reviewer** against the new SHA; focus on the 18 previously identified blockers |
+| Next action | Open a **new independent Tier B methodology reviewer (V3)** against the new SHA; narrow focus on TB-06 RTM enrollment closure while confirming prior 17 blockers remain closed |
 
 ---
 
