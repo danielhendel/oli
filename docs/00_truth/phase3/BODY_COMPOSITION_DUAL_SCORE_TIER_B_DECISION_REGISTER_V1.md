@@ -14,7 +14,10 @@
 | Mathematical Truth Freeze SHA | `e258267d109d1d05e20270f205e5fdb29ae2aca6` |
 | Prior Tier B plan SHA (methodology FAIL) | `9c5dd88d1e6d3af87a339b608d4ab82351adce1a` |
 | Prior methodology re-gate V2 SHA | `942826fc4c2303d53a1a62ab9f8e98458ab86a19` (17/18 closed; TB-06 RTM enrollment remaining) |
+| Methodology PASS SHA | `d7714df53af661e4492c67074823902197ced0e7` |
 | Tier B master plan | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EMPIRICAL_VALIDATION_PLAN_V1.md` |
+| Evidence review master | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EVIDENCE_REVIEW_V1.md` |
+| Evidence decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EVIDENCE_DECISION_REGISTER_V1.md` |
 | Wave 1 truth freeze | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_WAVE1_VALIDATION_TRUTH_FREEZE_V1.md` |
 | Parent validation decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_VALIDATION_DECISION_REGISTER_V1.md` |
 
@@ -27,11 +30,11 @@
 | Wave 1 synthetic robustness evidence | **ACCEPTED** |
 | Wave 1 validation truth freeze | **CURRENT** |
 | Tier B planning | **CURRENT** |
-| Tier B plan methodology | **CORRECTED / PENDING INDEPENDENT METHODOLOGY RE-GATE V3** |
-| Evidence-review workstream | **BLOCKED** pending methodology re-gate |
-| Governance/legal protocol planning | **BLOCKED** pending methodology re-gate |
+| Tier B plan methodology | **PASS** @ `d7714df5…` |
+| Evidence-review workstream | **CURRENT** |
+| Governance/legal protocol planning | **AUTHORIZED separately / running separately** |
 | Tier B protocol | **NOT FROZEN** |
-| Tier B protocol freeze | **BLOCKED** |
+| Tier B protocol freeze | **DRAFTING / WAITING ON DEPENDENCIES** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
@@ -51,7 +54,7 @@
 |-----|---------|-------|
 | `9c5dd88d…` | **FAIL** | 18 bounded planning defects |
 | `942826fc…` | **FAIL** (narrow) | Re-Gate V2: 17/18 closed; remaining = TB-06 RTM enrollment |
-| This correction | Pending V3 | TB-06 RTM enrollment prohibition added; prior 17 remain closed |
+| `d7714df5…` | **PASS** | TB-06 RTM enrollment prohibition closed; methodology accepted; evidence-review authorized |
 
 ---
 
@@ -59,7 +62,7 @@
 
 | Deliverable | Status |
 |-------------|--------|
-| Tier B empirical validation master plan | **CORRECTED / PENDING RE-GATE V3** |
+| Tier B empirical validation master plan | **PASS** (methodology) |
 | Ethics / IRB decision path | **DEFINED / UNRESOLVED determination** |
 | Consent taxonomy A–J + withdrawal matrix | **DEFINED / LEGAL REVIEW REQUIRED** |
 | Score-specific stop/go (Health vs Performance) | **DEFINED (structure)** |
@@ -80,8 +83,10 @@
 | Dataset versioning contract | **DEFINED** |
 | Analysis-freeze checklist | **DEFINED** |
 | Sample-size methodology table | **DEFINED / numeric N NOT FROZEN** |
-| Independent methodology review | **PENDING** |
-| Evidence reviews ER-BC-01…18 closure | **BLOCKED** pending methodology re-gate |
+| Independent methodology review | **PASS** @ `d7714df5…` |
+| Evidence review master (ER-BC-01…18) | **COMPLETE / PENDING INDEPENDENT SCIENTIFIC RE-GATE** |
+| Evidence decision register | **CURRENT** |
+| Evidence reviews ER-BC-01…18 closure | **PACKAGE COMPLETE / PENDING SCIENTIFIC RE-GATE** |
 
 ---
 
@@ -101,7 +106,7 @@
 
 ## 5. Governance unresolved blockers (execution)
 
-All remain **UNRESOLVED** → execution **BLOCKED** (and governance/legal planning itself remains blocked until methodology re-gate PASS):
+All remain **UNRESOLVED** → execution **BLOCKED**. Governance/legal protocol planning is **authorized separately** and may proceed; it is not closed:
 
 - ethics determination (§3.0 fields)
 - legal basis
@@ -148,13 +153,12 @@ Wave 1: COMPLETE / TRUTH-FROZEN (synthetic ACCEPTED)
         ↓
 Tier B planning: CURRENT
         ↓
-methodology correction (TB-06 RTM enrollment) → PENDING INDEPENDENT RE-GATE V3
+Tier B methodology: PASS @ d7714df5…
         ↓
-independent methodology re-gate V3 PASS
+Evidence review: CURRENT (package complete; independent scientific re-gate PENDING)
+Governance/legal: running separately
         ↓
-evidence reviews / governance/legal/ethics closure
-        ↓
-Tier B protocol truth freeze
+Protocol freeze: DRAFTING / WAITING ON DEPENDENCIES
         ↓
 independent protocol re-gate
         ↓
@@ -165,20 +169,21 @@ only then: execution authorization
 |-----------|--------|
 | Wave 1 | **COMPLETE / TRUTH-FROZEN** |
 | Tier B planning | **CURRENT** |
-| Tier B plan methodology | **CORRECTED / PENDING RE-GATE V3** |
-| Evidence-review workstream | **BLOCKED** |
-| Governance/legal protocol planning | **BLOCKED** |
-| Tier B execution | **BLOCKED / NOT AUTHORIZED** |
+| Tier B plan methodology | **PASS** |
+| Evidence-review workstream | **CURRENT** |
+| Governance/legal protocol planning | **RUNNING SEPARATELY** |
+| Protocol freeze | **DRAFTING / WAITING ON DEPENDENCIES** |
+| Tier B execution | **NOT AUTHORIZED** |
 
 ---
 
 ## 8. Next gate
 
-Open a **new independent Tier B methodology reviewer (V3)** against the new SHA.
+Open an **independent scientific evidence re-gate** against the evidence-review package SHA.
 
-V3 may focus narrowly on the TB-06 RTM enrollment prohibition while confirming the prior **17** blockers remain closed.
+Governance/legal protocol planning continues separately.
 
-Only after **PASS** may evidence-review work and governance/legal protocol planning begin.
+Protocol freeze remains **DRAFTING / WAITING ON DEPENDENCIES**.
 
 **Do not execute Tier B.**
 **Do not collect human data.**

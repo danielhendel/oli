@@ -20,15 +20,15 @@
 | Parent private validation plan | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_PRIVATE_VALIDATION_PLAN_V1.md` |
 | Methodology re-gate @ `9c5dd88d…` | **FAIL** (18 blockers) |
 | This correction | **Methodology Correction Pass V1** |
-| Plan status | **CORRECTED / PENDING INDEPENDENT METHODOLOGY RE-GATE V3** |
-| Evidence-review workstream | **BLOCKED** pending methodology re-gate |
-| Governance/legal protocol planning | **BLOCKED** pending methodology re-gate |
+| Plan status | **METHODOLOGY PASS** @ `d7714df5…` |
+| Evidence-review workstream | **CURRENT** (`BODY_COMPOSITION_DUAL_SCORE_TIER_B_EVIDENCE_REVIEW_V1.md`) |
+| Governance/legal protocol planning | **AUTHORIZED separately / running separately** |
 
 > **This document is PLANNING AUTHORITY for future Tier B protocol freeze.**
 > It is **NOT** Tier B execution authorization.
 > It is **NOT** clinical validation.
 > It is **NOT** consumer or public-score authorization.
-> Evidence-review and governance/legal protocol planning remain **BLOCKED** until independent methodology re-gate **PASS**.
+> Methodology **PASS**. Evidence review **CURRENT**. Governance/legal runs separately. Protocol freeze **DRAFTING / WAITING ON DEPENDENCIES**. Execution **NOT AUTHORIZED**.
 
 ---
 
@@ -93,10 +93,10 @@ Frozen score policy is **not** open for reinterpretation in this plan.
 |------|--------|
 | Wave 1 synthetic robustness | **ACCEPTED** |
 | Tier B validation planning | **CURRENT** |
-| Tier B plan methodology | **CORRECTED / PENDING INDEPENDENT METHODOLOGY RE-GATE V3** |
-| Evidence-review workstream | **BLOCKED** |
-| Governance/legal protocol planning | **BLOCKED** |
-| Tier B protocol freeze | **BLOCKED** |
+| Tier B plan methodology | **PASS** @ `d7714df5…` |
+| Evidence-review workstream | **CURRENT** |
+| Governance/legal protocol planning | **RUNNING SEPARATELY** |
+| Tier B protocol freeze | **DRAFTING / WAITING ON DEPENDENCIES** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
@@ -187,7 +187,7 @@ These are **not** TB studies; they are hard gates:
 
 **If any remains unresolved: Tier B execution stays BLOCKED.**
 
-Evidence-review workstream and governance/legal protocol planning remain **BLOCKED** until methodology re-gate **PASS**.
+Evidence-review workstream is **CURRENT**. Governance/legal protocol planning runs separately. Execution remains **NOT AUTHORIZED** until all execution hard gates close.
 
 ---
 
@@ -1518,7 +1518,7 @@ Preserve **ER-BC-01 … ER-BC-18**. No new ER invented in this correction unless
 
 All ER-BC-01 … ER-BC-18 remain **literature/methods reviews to complete** before numeric thresholds or final candidate lists are frozen. This plan **does not fabricate literature findings**.
 
-**Evidence-review workstream remains BLOCKED** until independent methodology re-gate **PASS**.
+**Evidence-review workstream is CURRENT** (see evidence review master + evidence decision register).
 
 **Critical path after methodology PASS (then before protocol freeze):**
 
@@ -1693,17 +1693,17 @@ This plan **does not**:
 
 | Item | Status |
 |------|--------|
-| Tier B master plan | **CORRECTED / PENDING INDEPENDENT METHODOLOGY RE-GATE V3** |
+| Tier B master plan | **METHODOLOGY PASS** @ `d7714df5…` |
 | Tier B planning | **CURRENT** |
-| Evidence-review workstream | **BLOCKED** |
-| Governance/legal protocol planning | **BLOCKED** |
-| Tier B protocol-freeze work | **BLOCKED** |
+| Evidence-review workstream | **CURRENT** |
+| Governance/legal protocol planning | **RUNNING SEPARATELY** |
+| Tier B protocol-freeze work | **DRAFTING / WAITING ON DEPENDENCIES** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
 | Public Health / Performance-Supporting | **NO-GO** |
-| Next action | Open a **new independent Tier B methodology reviewer (V3)** against the new SHA; narrow focus on TB-06 RTM enrollment closure while confirming prior 17 blockers remain closed |
+| Next action | Independent scientific evidence re-gate on evidence-review package; continue governance/legal separately; do not execute Tier B |
 
 ---
 
-END OF TIER B EMPIRICAL VALIDATION PLAN V1 (METHODOLOGY CORRECTION PASS V1)
+END OF TIER B EMPIRICAL VALIDATION PLAN V1 (METHODOLOGY PASS + EVIDENCE REVIEW CURRENT)
