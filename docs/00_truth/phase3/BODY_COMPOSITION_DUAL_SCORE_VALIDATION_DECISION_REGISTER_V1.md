@@ -34,7 +34,7 @@
 | Wave 1 synthetic validation | **COMPLETE** · independent results re-gate **PASS** · synthetic robustness **ACCEPTED** |
 | Wave 1 execution | **COMPLETE** (artifacts under `validation/body-composition/dual-score/wave1/`; report `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_WAVE1_SYNTHETIC_VALIDATION_REPORT_V1.md`; decision `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_WAVE1_VALIDATION_DECISION_V1.md`) |
 | Wave 1 validation truth freeze | **CURRENT / PENDING INDEPENDENT DOCS RE-GATE** (`docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_WAVE1_VALIDATION_TRUTH_FREEZE_V1.md`) |
-| Tier B validation planning | **CURRENT** (`docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EMPIRICAL_VALIDATION_PLAN_V1.md` · `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_TIER_B_DECISION_REGISTER_V1.md`) |
+| Tier B validation planning | **CURRENT** · methodology **CORRECTED / PENDING INDEPENDENT METHODOLOGY RE-GATE** (`docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EMPIRICAL_VALIDATION_PLAN_V1.md` · `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_TIER_B_DECISION_REGISTER_V1.md`) |
 | Tier B de-identified / real-user validation execution | **NOT AUTHORIZED** |
 | Validation execution | **Wave 1 COMPLETE** · results re-gate **PASS** · truth freeze pending docs re-gate |
 | Clinical validation | **NOT ESTABLISHED** |
@@ -82,7 +82,7 @@
 | Wave | Authorization |
 |------|---------------|
 | Wave 1 synthetic | **EXECUTED** — FINAL BCV-015 RE-GATE **PASS** + WAVE 1 AUTHORIZED + execution **COMPLETE** + results re-gate **PASS** + synthetic robustness **ACCEPTED** |
-| Tier B planning | **CURRENT** |
+| Tier B planning | **CURRENT** · methodology **CORRECTED / PENDING RE-GATE** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Consumer pilot | **NOT AUTHORIZED** |
 | Public scores | **NO-GO** |
@@ -100,11 +100,11 @@ independent validation-RESULTS re-gate PASS
         ↓
 Wave 1 validation truth freeze (CURRENT)
         ↓
-Tier B empirical-validation PLANNING (CURRENT)
+Tier B empirical-validation PLANNING (CURRENT · methodology CORRECTED / PENDING RE-GATE)
         ↓
-independent Tier B methodology review
+independent Tier B methodology re-gate
         ↓
-evidence reviews / governance closure
+evidence reviews / governance-legal (BLOCKED until methodology PASS)
         ↓
 Tier B protocol truth freeze
         ↓
