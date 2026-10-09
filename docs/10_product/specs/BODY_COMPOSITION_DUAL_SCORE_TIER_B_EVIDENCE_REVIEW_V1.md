@@ -27,8 +27,8 @@
 |------|--------|
 | Tier B methodology | **PASS** @ `d7714df5…` |
 | Evidence-review workstream | **CURRENT** (this document) |
-| Governance/legal planning | **AUTHORIZED separately / running separately** |
-| Protocol freeze | **DRAFTING / WAITING ON DEPENDENCIES** |
+| Governance/legal/privacy planning | **CURRENT** (closure **NOT COMPLETE**) |
+| Protocol freeze | **DRAFTING ONLY / WAITING ON DEPENDENCIES** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
@@ -790,8 +790,8 @@ If literature conflicts with current score design, record as **SCIENTIFIC REVIEW
 ```text
 Tier B methodology:     PASS @ d7714df5…
 Evidence review:         CURRENT (this document; pending independent scientific re-gate)
-Governance/legal:        running separately
-Protocol freeze:         DRAFTING / WAITING ON DEPENDENCIES
+Governance/legal/privacy: CURRENT (closure NOT COMPLETE)
+Protocol freeze:         DRAFTING ONLY / WAITING ON DEPENDENCIES
 Execution:               NOT AUTHORIZED
 ```
 

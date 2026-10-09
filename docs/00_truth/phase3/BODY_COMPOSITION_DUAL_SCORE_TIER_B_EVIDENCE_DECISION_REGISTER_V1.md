@@ -26,8 +26,8 @@
 | Evidence-review workstream | **CURRENT** |
 | Evidence review master V1 | **COMPLETE (docs)** |
 | Independent scientific evidence re-gate | **PENDING** |
-| Governance/legal planning | **AUTHORIZED separately / running separately** |
-| Protocol freeze | **DRAFTING / WAITING ON DEPENDENCIES** |
+| Governance/legal/privacy planning | **CURRENT** (closure **NOT COMPLETE**) |
+| Protocol freeze | **DRAFTING ONLY / WAITING ON DEPENDENCIES** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
