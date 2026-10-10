@@ -243,22 +243,27 @@ Document whether:
 | Secondary use | Forbidden unless separately consented and registered (taxonomy F) | **UNRESOLVED** |
 | Clinic / site agreements | DUA / BAAs / research agreements as applicable — planning only; no outreach in this phase | **UNRESOLVED** |
 
-### 3.1A Consent taxonomy (explicit separation)
+### 3.1A Consent taxonomy (explicit separation) — canonical A–J
 
 Do not collapse these. Exact retention/revocation outcomes: **LEGAL REVIEW REQUIRED**.
+This A–J letter mapping is **canonical** across the methodology plan, governance protocol, and decision registers. **Do not use a competing A–K taxonomy.**
 
-| ID | Consent / notice class | Planning notes |
-|----|------------------------|----------------|
-| **A** | Measurement / data-collection consent | Permission to obtain Waist/DXA/labs/function measures |
-| **B** | Research / validation-use consent | Permission to use data for dual-score Tier B validation analyses |
-| **C** | Privacy notice acknowledgment | Notice of processing / rights — distinct from A/B |
-| **D** | Withdrawal from future participation | Stops future contact / future measures |
-| **E** | Consent revocation | Revokes processing permissions; recording required |
-| **F** | Secondary-use consent / restriction | Any use beyond Tier B validation purpose |
-| **G** | Publication / sharing consent | Where applicable for external reporting |
-| **H** | External-dataset license / use basis | For Tier C-style datasets (not participant consent) |
-| **I** | Correction / amendment requests | How subjects request correction of held data |
-| **J** | Destruction / deletion after withdrawal | How deletion interacts with D/E |
+| ID | canonicalName | Planning notes |
+|----|---------------|----------------|
+| **A** | `MEASUREMENT_AND_DATA_COLLECTION_CONSENT` | Permission to perform and record the governed measurements required by the approved study protocol |
+| **B** | `VALIDATION_AND_RESEARCH_USE_CONSENT` | Permission to use collected data for the specifically approved validation/research purpose |
+| **C** | `PRIVACY_NOTICE_ACKNOWLEDGMENT` | Acknowledgment of privacy notice / disclosures — distinct from A/B; not alone affirmative consent where that is required |
+| **D** | `WITHDRAWAL_FROM_FUTURE_PARTICIPATION` | Stops future participation/collection per approved withdrawal rules |
+| **E** | `CONSENT_REVOCATION` | Revokes previously granted permissions; recording required; retention of collected/analyzed data per legal/ethics determination |
+| **F** | `SECONDARY_USE_PERMISSION_OR_RESTRICTION` | Separate authorization or prohibition for uses beyond the original approved purpose |
+| **G** | `PUBLICATION_AND_DATA_SHARING_PERMISSION` | Publication, aggregate reporting, collaborator sharing, or other governed disclosure |
+| **H** | `EXTERNAL_DATASET_LICENSE_AND_USE_BASIS` | Lawful/license basis for data not collected directly from the participant (may be NOT_APPLICABLE) |
+| **I** | `DATA_CORRECTION_AND_AMENDMENT_REQUEST` | Requests to correct identity, provenance, factual measurement, or other amendable records while preserving lineage |
+| **J** | `DELETION_AND_DESTRUCTION_HANDLING` | Deletion, destruction, backup expiration, linkage destruction, certification, and legally required retention exceptions |
+
+#### 3.1A.0 Optional future contact (outside A–J)
+
+`optionalFutureContactPermission` is a **separate non-lettered** permission. It is optional, purpose-limited, separately revocable where required, and **not** required for core validation participation unless independently justified and approved. It is **not** consent class K and must not shift A–J letters.
 
 #### 3.1A.1 Withdrawal / revocation planning questions (must answer at legal freeze)
 

@@ -35,9 +35,11 @@
 | Tier B plan methodology | **PASS** @ `d7714df5…` |
 | Evidence-review workstream | **CURRENT** (separate authorized workstream) |
 | Governance/legal/privacy planning | **CURRENT** |
+| Governance protocol | **CORRECTED / PENDING INDEPENDENT GOVERNANCE RE-GATE V2** |
+| Governance/legal/privacy closure work | **BLOCKED pending re-gate** |
 | Governance closure | **NOT COMPLETE** |
 | Tier B protocol | **NOT FROZEN** |
-| Tier B protocol freeze | **DRAFTING ONLY / WAITING ON DEPENDENCIES** |
+| Tier B protocol freeze | **NOT COMPLETE / DRAFTING ONLY** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
@@ -67,7 +69,8 @@
 |-------------|--------|
 | Tier B empirical validation master plan | **PASS** (methodology) |
 | Ethics / IRB decision path | **DEFINED / UNRESOLVED determination** |
-| Consent taxonomy A–J + withdrawal matrix | **DEFINED / LEGAL REVIEW REQUIRED** |
+| Canonical consent taxonomy A–J + withdrawal matrix | **DEFINED / LEGAL REVIEW REQUIRED** |
+| Optional future contact | **`optionalFutureContactPermission` (non-lettered; outside A–J)** |
 | Score-specific stop/go (Health vs Performance) | **DEFINED (structure)** |
 | Construct-specific stop/go (H1/H2/H3/P1/P3) | **DEFINED (structure)** |
 | Change-control path | **FROZEN** |
@@ -90,8 +93,9 @@
 | Evidence review master (ER-BC-01…18) | **COMPLETE / PENDING INDEPENDENT SCIENTIFIC RE-GATE** |
 | Evidence decision register | **CURRENT** |
 | Evidence reviews ER-BC-01…18 closure | **PACKAGE COMPLETE / PENDING SCIENTIFIC RE-GATE** |
-| Governance / privacy / ethics protocol | **CURRENT (PLANNING)** |
+| Governance / privacy / ethics protocol | **CORRECTED / PENDING INDEPENDENT GOVERNANCE RE-GATE V2** |
 | Governance decision register | **CURRENT** |
+| Governance/legal/privacy closure work | **BLOCKED pending re-gate** |
 | Governance closure | **NOT COMPLETE** |
 
 ---
@@ -114,9 +118,9 @@
 
 Governance/legal/privacy **planning is CURRENT** (`BODY_COMPOSITION_TIER_B_GOVERNANCE_PRIVACY_ETHICS_PROTOCOL_V1.md`). **Governance closure is NOT COMPLETE.** All execution items below remain **UNRESOLVED** → execution **BLOCKED**:
 
-- ethics determination (§3.0 fields) — EC register open
-- legal basis — LC register open · **COUNSEL DETERMINATION REQUIRED**
-- consent taxonomy A–K freeze
+- ethics determination (Tier B plan §3.0 fields) — EC-01…EC-09 open
+- legal basis — LC-01…LC-13 open · **COUNSEL DETERMINATION REQUIRED**
+- canonical consent taxonomy A–J freeze (+ separate `optionalFutureContactPermission`)
 - withdrawal / revocation model (legal/ethics review)
 - data-use purpose freeze
 - minimum necessary data field freeze
@@ -165,9 +169,11 @@ Tier B methodology: PASS @ d7714df5…
         ↓
 Evidence review: separate authorized workstream (CURRENT; independent scientific re-gate PENDING)
 Governance/legal/privacy planning: CURRENT
+Governance protocol: CORRECTED / PENDING INDEPENDENT GOVERNANCE RE-GATE V2
+Governance/legal/privacy closure work: BLOCKED pending re-gate
 Governance closure: NOT COMPLETE
         ↓
-Protocol freeze: DRAFTING ONLY / WAITING ON DEPENDENCIES
+Protocol freeze: NOT COMPLETE / DRAFTING ONLY
         ↓
 independent protocol re-gate
         ↓
@@ -181,8 +187,10 @@ only then: execution authorization
 | Tier B plan methodology | **PASS** |
 | Evidence-review workstream | **CURRENT** (separate) |
 | Governance/legal/privacy planning | **CURRENT** |
+| Governance protocol | **CORRECTED / PENDING INDEPENDENT GOVERNANCE RE-GATE V2** |
+| Governance/legal/privacy closure work | **BLOCKED pending re-gate** |
 | Governance closure | **NOT COMPLETE** |
-| Protocol freeze | **DRAFTING ONLY / WAITING ON DEPENDENCIES** |
+| Protocol freeze | **NOT COMPLETE / DRAFTING ONLY** |
 | Tier B execution | **NOT AUTHORIZED** |
 
 ---
@@ -190,8 +198,9 @@ only then: execution authorization
 ## 8. Next gate
 
 1. Independent scientific evidence re-gate against the evidence-review package SHA (evidence track).
-2. Independent governance re-gate + counsel/ethics determinations against governance protocol (governance track).
-3. Protocol freeze remains **DRAFTING ONLY** until dependencies close.
+2. Open a **new** independent governance Re-Gate V2 against the taxonomy-correction SHA (governance track).
+3. Do not engage counsel against a conflicting schema; counsel/ethics after Re-Gate V2 PASS.
+4. Protocol freeze remains **NOT COMPLETE / DRAFTING ONLY** until dependencies close.
 
 **Do not execute Tier B.**
 **Do not collect human data.**

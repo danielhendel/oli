@@ -18,8 +18,9 @@
 | Consumer consent RFC | `docs/80_rfc/RFC-consumer-consent-persistence-v1.md` |
 | Account deletion ADR | `docs/70_adrs/ADR-account-deletion-lifecycle-v1.md` |
 | Body Scans product/data | `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md` |
-| Plan status | **PLANNING** |
+| Plan status | **CORRECTED / PENDING INDEPENDENT GOVERNANCE RE-GATE V2** |
 | Governance planning | **CURRENT** |
+| Governance/legal/privacy closure work | **BLOCKED pending re-gate** |
 | Governance closure | **NOT COMPLETE** |
 | Execution | **NOT AUTHORIZED** |
 
@@ -68,7 +69,7 @@ Consumer product security boundaries (Document OS Model A private storage, owner
 
 ### 0.4 Fail-closed rule
 
-Future Tier B human-data execution **must fail closed** if any hard NO-GO in §28 is unresolved. Ambiguous “TBD” is **not** an acceptable protocol-freeze state for execution-blocking items.
+Future Tier B human-data execution **must fail closed** if any hard NO-GO in §25 is unresolved. Ambiguous “TBD” is **not** an acceptable protocol-freeze state for execution-blocking items.
 
 ---
 
@@ -105,7 +106,7 @@ E → C / E → D                (aggregates do not rehydrate row-level data)
 |------|--------|
 | Tier B validation stores are **outside** consumer production Firestore/Storage product paths | **REQUIRED** (future implementation) |
 | Production consumer data may not be reused without separate lawful basis + register row | **HARD** |
-| No PHI / participant data / real DXA PDFs / exported datasets in git | **HARD** (§32) |
+| No PHI / participant data / linkage tables / exported datasets in git | **HARD** (§29) |
 
 ---
 
@@ -129,7 +130,7 @@ E → C / E → D                (aggregates do not rehydrate row-level data)
 | Separation | Separate system/project/collection from Zones C–E |
 | Access | Restricted to named roles; no analyst standing access |
 | Audit | Every view/export/join attempt logged |
-| Dual control | Break-glass / bulk linkage access requires dual approval (§15) |
+| Dual control | Break-glass / bulk linkage access requires dual approval (§12) |
 
 ---
 
@@ -163,7 +164,7 @@ E → C / E → D                (aggregates do not rehydrate row-level data)
 | Menopause status | CONDITIONALLY_REQUIRED / EXPLORATORY | Ethics + necessity review |
 | Access pathway / scorability meta | CONDITIONALLY_REQUIRED (TB-15) | Minimize free text |
 | Exact measurement timestamps | Prefer study-day / time-of-day category | Full timestamps only if scientifically required |
-| Exact calendar dates of visits | Prefer study-day offsets | Date minimization (§19) |
+| Exact calendar dates of visits | Prefer study-day offsets | Date minimization (§16) |
 | ZIP / postal code | **PROHIBITED** in Zone D; Zone A only if logistics require | Prefer region band if any geography needed |
 | Street address | **PROHIBITED** in Zones C–E; Zone A logistics only | Delete when logistics complete if lawful |
 | Free-text medical notes | **PROHIBITED** by default | Structured codes only |
@@ -292,21 +293,42 @@ Align with consumer consent ADR/RFC event model (append-only, versioned, non-bun
 
 **No bundled consent merely for convenience** if separate choice is legally or ethically required.
 
-### 7.2 Consent / notice classes (extend Tier B plan A–J)
+### 7.2 Canonical consent taxonomy A–J
 
-| Class | Name | Must remain separable |
-|-------|------|------------------------|
-| **A** | Measurement / data-collection consent | Waist/DXA/labs/function measures |
-| **B** | Validation / research-use consent | Dual-score Tier B analyses |
-| **C** | Privacy notice acknowledgment | Notice of processing / rights |
-| **D** | Optional future contact | Re-contact / future studies — opt-in |
-| **E** | Secondary use | Any use beyond Tier B validation purpose |
-| **F** | Publication / sharing | External reporting / dataset sharing |
-| **G** | Withdrawal from future participation | Stops future contact/measures |
-| **H** | Revocation of processing permissions | Distinct recording from G |
-| **I** | Correction / amendment requests | How subjects request correction |
-| **J** | Destruction / deletion after withdrawal | Interaction with G/H |
-| **K** | External-dataset license / use basis | Non-participant; Tier C-style |
+**Authoritative letter mapping** is the methodology-PASS plan (`d7714df5…`) §3.1A. This protocol uses the same A–J letters. **Do not use a competing A–K taxonomy.**
+
+| classId | canonicalName | purpose |
+|---------|---------------|---------|
+| **A** | `MEASUREMENT_AND_DATA_COLLECTION_CONSENT` | Permission to perform and record the governed measurements required by the approved study protocol |
+| **B** | `VALIDATION_AND_RESEARCH_USE_CONSENT` | Permission to use collected data for the specifically approved validation/research purpose |
+| **C** | `PRIVACY_NOTICE_ACKNOWLEDGMENT` | Acknowledgment of the governing privacy notice and data-handling disclosures. Do **not** describe acknowledgment alone as consent where affirmative consent is legally or ethically required |
+| **D** | `WITHDRAWAL_FROM_FUTURE_PARTICIPATION` | Stops future participation/collection according to the legally and ethically approved withdrawal rules |
+| **E** | `CONSENT_REVOCATION` | Revocation of a previously granted permission, subject to the approved legal/ethics determination regarding already collected or analyzed data |
+| **F** | `SECONDARY_USE_PERMISSION_OR_RESTRICTION` | Separate authorization or prohibition for uses beyond the original approved purpose |
+| **G** | `PUBLICATION_AND_DATA_SHARING_PERMISSION` | Permission rules for publication, aggregate reporting, collaborator sharing, or any other governed disclosure |
+| **H** | `EXTERNAL_DATASET_LICENSE_AND_USE_BASIS` | Lawful/license basis for data Oli did not collect directly from the participant. May be **NOT_APPLICABLE** for directly collected studies |
+| **I** | `DATA_CORRECTION_AND_AMENDMENT_REQUEST` | Requests to correct identity, provenance, factual measurement, or other amendable records while preserving research lineage |
+| **J** | `DELETION_AND_DESTRUCTION_HANDLING` | Governs deletion, destruction, backup expiration, linkage destruction, certification, and any legally required retention exceptions |
+
+### 7.3 Optional future contact (outside A–J)
+
+Future contact is **not** a consent-class letter.
+
+| Field | Rule |
+|-------|------|
+| Name | `optionalFutureContactPermission` |
+| Letter | **None** — outside canonical A–J |
+| Required for core validation participation | **No**, unless independently justified and approved |
+| Optional | **Yes** |
+| Separately revocable | Where legally/ethically required |
+| Purpose-limited | **Yes** |
+| Recording | Own permission state/version when eventually implemented |
+
+### 7.4 Taxonomy reconciliation / migration note
+
+This correction is a **docs-only taxonomy reconciliation before execution**. No human data, consent records, or live consent implementation exist → **no data migration is required**.
+
+If an implementation later exists: any future taxonomy revision must be **versioned and migrated explicitly**. **Silent consent-class remapping is forbidden.**
 
 Consumer product research category in RFC (`research`) must never be implied by Terms/Privacy alone — same principle applies here.
 
@@ -325,6 +347,8 @@ Every future consent event must support:
 | `restrictions` | Explicit limits |
 | `withdrawalStatus` | Current withdrawal/revocation projection |
 | `supersededVersion` / prior event link | Supersession without silent overwrite |
+
+When implemented, `optionalFutureContactPermission` events use the same versioning pattern but are **not** an A–J classId.
 
 Events are append-oriented. **Do not** silently overwrite research provenance or consent history. No persistence implementation in this phase.
 
@@ -408,7 +432,7 @@ view · export · download · linkage access · privilege change · consent chan
 | Log actor, action, object id, timestamp, purpose | Yes |
 | Avoid logging sensitive measurement contents | Yes — log identifiers/hashes, not FM/waist values by default |
 | Tamper-evident / append-oriented storage | Preferred |
-| Retention of audit records | Separate retention decision (§17) |
+| Retention of audit records | Separate retention decision (§14) |
 
 ---
 
@@ -469,7 +493,7 @@ Completes ER-BC-15 scientific checklist as governance sign-off input. Residual r
 
 ## 17. Small-cell policy
 
-A numeric threshold **MUST** be frozen before reporting subgroup aggregates.
+A numeric threshold **and** suppression design **MUST** be frozen before reporting subgroup aggregates.
 
 | Rule | Status |
 |------|--------|
@@ -477,6 +501,20 @@ A numeric threshold **MUST** be frozen before reporting subgroup aggregates.
 | Final N | **NOT INVENTED HERE** — set by privacy/legal review + scientific practicality at freeze |
 | Sparse cells | Flag **insufficient sample**; do not publish false precision |
 | Intersectional cells | Same floor unless stricter |
+
+### 17.1 Suppression design (must consider before subgroup reporting)
+
+| Element | Planning requirement |
+|---------|----------------------|
+| Primary suppression | Suppress cells below the frozen minimum-cell threshold |
+| Complementary suppression | Suppress additional cells where another published value could reveal a suppressed value by subtraction |
+| Category aggregation / broadening | Broaden rare categories rather than publish sparse cells |
+| Minimum-cell thresholds | Freeze threshold(s) before any subgroup aggregate release |
+| Repeated-release differencing risk | Assess whether successive releases could disclose suppressed cells |
+| Longitudinal rare-trajectory disclosure | Assess trajectory uniqueness across repeated measures |
+| Reviewer approval for exceptions | Named approver required for any exception to the frozen policy |
+
+**Threshold and suppression design must be frozen before subgroup reporting.** Do not invent a final cell-size threshold in this planning document.
 
 ---
 
@@ -500,7 +538,7 @@ Before any clinic / DXA center / university / contractor participates, require r
 
 DUA · BAA where applicable · services agreement · confidentiality · security requirements · permitted use · deletion · incident notification · subprocessors
 
-**No partner outreach in this planning phase.** Missing required agreement ⇒ hard NO-GO (§28).
+**No partner outreach in this planning phase.** Missing required agreement ⇒ hard NO-GO (§25).
 
 ---
 
@@ -518,7 +556,7 @@ Suspected unauthorized access · lost device · accidental export · misdirected
 4. **Legal/compliance determination** — COUNSEL DETERMINATION REQUIRED for notification duties
 5. **Notification assessment** — document go/no-go and recipients if required
 
-Tabletop exercise required before execution (§31).
+Tabletop exercise required before execution (§28).
 
 ---
 
@@ -575,7 +613,7 @@ Missing any item ⇒ **do not release**.
 
 Freeze required fields (extends Tier B plan §15):
 
-`datasetId` · `purpose` · `controller` · `steward` · `processor` · `subprocessors` · `legalBasis` · `consentVersion` · `ethicsDeterminationType` · `ethicsDeterminationReference` · `source` · `storage` · `encryption` · `roles` / `users` · `audit` · `retention` · `deletion` · `destructionCertification` · `withdrawalRule` · `secondaryUseRule` · `sharingRestrictions` · `exportRestrictions` · `reidentificationRiskStatus` · `smallCellPolicy` · `lineageVersion` · `protocolVersion` · `analysisVersion` · `approvedAnalyses` · `status`
+`datasetId` · `purpose` · `controller` · `steward` · `processor` · `subprocessors` · `legalBasis` · `consentVersion` · canonical **A–J** consent-class coverage · `optionalFutureContactPermission` (state/version or `n/a`) · `ethicsDeterminationType` · `ethicsDeterminationReference` · `source` · `storage` · `encryption` · `roles` / `users` · `audit` · `retention` · `deletion` · `destructionCertification` · `withdrawalRule` · `secondaryUseRule` · `sharingRestrictions` · `exportRestrictions` · `reidentificationRiskStatus` · `smallCellPolicy` (incl. complementary-suppression status) · `lineageVersion` · `protocolVersion` · `analysisVersion` · `approvedAnalyses` · `status` · counsel register coverage **LC-01…LC-13** · ethics register coverage **EC-01…EC-09** · no-linkage-table-in-Git attestation
 
 No register **rows** are created in this planning phase (no data).
 
@@ -588,7 +626,7 @@ Future Tier B execution remains **BLOCKED** if **ANY** required item is:
 | NO-GO condition |
 |-----------------|
 | Unresolved legal basis |
-| Missing consent (taxonomy incomplete or not obtained when required) |
+| Missing consent (canonical A–J taxonomy incomplete or not obtained when required) |
 | Missing ethics determination |
 | Unapproved storage |
 | Unapproved access / RBAC |
@@ -608,17 +646,20 @@ Systemic privacy/governance failure ⇒ **both scores** remain public **NO-GO** 
 | ID | Question | Facts needed | Jurisdiction | Decision owner | Blocking | Documentation required |
 |----|----------|--------------|--------------|----------------|----------|------------------------|
 | LC-01 | Is Tier B HSR / product research / QI / exempt / non-exempt for the contemplated design? | Protocol synopsis, interaction/intervention, identifiers | Primary ops + participant residences | Qualified counsel + ethics authority as applicable | **YES** | Written determination |
-| LC-02 | What is the lawful basis for each processing purpose? | Purpose list A–K, data types | Same | Counsel | **YES** | `legalBasis` freeze |
+| LC-02 | What is the lawful basis for each processing purpose? | Purpose list A–J + `optionalFutureContactPermission`, data types | Same | Counsel | **YES** | `legalBasis` freeze |
 | LC-03 | HIPAA CE/BA/hybrid applicability for each data flow | Parties, PHI touchpoints, contracts | US HIPAA | Counsel | **YES** if US clinical sites/PHI | Role memo |
 | LC-04 | Which state consumer-health-data laws apply? | Residences, ops nexus, sharing | Candidate US states | Counsel | **YES** if US consumer/participants | Jurisdiction matrix |
 | LC-05 | Are BAAs required with sites/vendors? | Services + PHI | US HIPAA | Counsel | Conditional | BAA decision |
-| LC-06 | Consent taxonomy: which classes must be separate opt-ins? | Taxonomy A–K, UX | Applicable | Counsel + ethics | **YES** | Consent package |
+| LC-06 | Consent taxonomy: which classes must be separate opt-ins? | Canonical A–J + separate `optionalFutureContactPermission`, UX | Applicable | Counsel + ethics | **YES** | Consent package |
 | LC-07 | Withdrawal/revocation retention outcomes by timing cell | Matrix §9 | Applicable | Counsel + ethics | **YES** | Withdrawal rule version |
 | LC-08 | Secondary use / publication / external dataset sharing limits | Sharing categories | Applicable | Counsel | **YES** before share | Sharing restrictions |
 | LC-09 | Cross-border transfer constraints if any | Subprocessors, storage regions | Intl as applicable | Counsel | Conditional | Transfer addendum |
 | LC-10 | Incident notification duties | Incident classes | Applicable | Counsel | **YES** before execution | IR notification playbook |
 | LC-11 | Compensation / inducement legality if contemplated | Amounts, populations | Applicable | Counsel | Conditional | Compensation memo |
 | LC-12 | Whether consumer production data/UID may ever be linked | Proposed linkage | Applicable | Counsel | **YES** if proposed | Explicit forbid or controlled basis |
+| LC-13 | `DATA_SUBJECT_ACCESS_PORTABILITY_AND_RECORD_RIGHTS` — What access, copy, portability, correction, appeal, or response obligations apply to Tier B data and records under the governing role/jurisdiction? | Oli legal role; participant residence; data category; whether records are research / consumer-health / covered records; applicable consent/privacy commitments; partner/site responsibilities | Applicable | Counsel | **YES** | Written counsel determination covering access, copy, portability, correction, response deadlines, identity verification, exceptions, allocation of responsibility |
+
+Counsel question range: **LC-01 through LC-13**. Final outcomes: **COUNSEL DETERMINATION REQUIRED** — not invented here.
 
 ---
 
@@ -634,6 +675,17 @@ Systemic privacy/governance failure ⇒ **both scores** remain public **NO-GO** 
 | EC-06 | Compensation if contemplated | Amounts, coercion risk | Ethics | Conditional | Compensation ethics note |
 | EC-07 | Withdrawal without penalty clarity | Consent language | Ethics | **YES** | Consent + withdrawal SOP |
 | EC-08 | Comprehension materials risk (TB-17) | Stimuli without consumer UI claims | Ethics / scientific | Conditional | Materials review |
+| EC-09 | `ACUTE_STATE_CHALLENGE_ETHICS_AND_SAFETY` — What ethics/safety determination is required for each TB-04 acute-state subprotocol? | TB-04A hydration; TB-04B recent exercise; TB-04C meal/fasting; TB-04D time of day; TB-04E menstrual-phase context; TB-04F illness/inflammation/edema observation; burden; contraindications; stop rules; washout/carryover/monitoring; observational vs controlled challenge | Ethics + site safety as applicable | **YES** for TB-04 modules | Written ethics/safety determination per subprotocol |
+
+Ethics question range: **EC-01 through EC-09**. Status for EC-09: **ETHICS DETERMINATION REQUIRED**.
+
+**EC-09 planning rules (freeze; do not invent outcomes):**
+
+- intentional induction of unsafe illness/inflammation is **prohibited** absent a separately approved ethics/safety protocol;
+- participant burden must be assessed;
+- contraindications and stop rules must be established;
+- washout / carryover / safety monitoring must be protocol-specific;
+- observational collection must be distinguished from controlled challenge.
 
 ---
 
@@ -656,15 +708,19 @@ Before execution require:
 
 ## 29. No PHI in git (permanent)
 
-**Permanent rule — never waive in ordinary workflow:**
+**Permanent rule — never waive in ordinary workflow.** The following must **not** be committed to git:
 
-- no participant data
-- no real DXA PDFs
-- no consent forms containing subject data
-- no identifiers
-- no exported datasets
+- participant identifiers
+- real DXA PDFs
+- signed / participant-populated consent forms
+- exported validation datasets
+- linkage tables
+- re-identification keys
+- identity-to-`studySubjectId` maps
+- real access-control exports
+- any participant-level raw or derived measurements
 
-committed to git.
+Templates and synthetic examples are allowed **only** when they contain **no** real participant data.
 
 Synthetic Wave 1 artifacts remain synthetic-only.
 
@@ -676,11 +732,12 @@ At future Tier B Protocol Truth Freeze, each item below must be recorded as **RE
 
 | ID | Item |
 |----|------|
-| GF-01 | Ethics determination (§4 / EC-*) |
+| GF-01 | Ethics determination (§4 / **EC-01…EC-09**) — each **RESOLVED** / **NOT_APPLICABLE** / **BLOCKED** |
 | GF-02 | Legal basis (LC-02) |
 | GF-03 | HIPAA/role determination (LC-03) or N/A |
 | GF-04 | State consumer-health matrix (LC-04) |
-| GF-05 | Consent taxonomy freeze + artifacts |
+| GF-05 | Consent taxonomy A–J freeze + artifacts — **RESOLVED** / **NOT_APPLICABLE** / **BLOCKED** |
+| GF-05A | `optionalFutureContactPermission` — **RESOLVED** / **NOT_APPLICABLE** / **BLOCKED** |
 | GF-06 | Consent versioning schema acceptance |
 | GF-07 | Withdrawal/revocation matrix outcomes |
 | GF-08 | Data-use purpose limitation |
@@ -689,12 +746,12 @@ At future Tier B Protocol Truth Freeze, each item below must be recorded as **RE
 | GF-11 | Approved storage boundary |
 | GF-12 | Encryption class (transit/rest/keys) |
 | GF-13 | RBAC role bindings |
-| GF-14 | Dual-control policy |
+| GF-14 | Dual-control policy (§12) |
 | GF-15 | Audit logging policy |
-| GF-16 | Retention policy per zone |
+| GF-16 | Retention policy per zone (§14) |
 | GF-17 | Deletion + destruction certification SOP |
 | GF-18 | Re-identification risk sign-off (ER-BC-15) |
-| GF-19 | Small-cell threshold policy version |
+| GF-19 | Small-cell + complementary-suppression policy — **RESOLVED** / **BLOCKED** (threshold not invented here) |
 | GF-20 | Sharing / export restrictions |
 | GF-21 | Partner agreements (or N/A if none) |
 | GF-22 | Incident-response ownership + tabletop |
@@ -703,7 +760,8 @@ At future Tier B Protocol Truth Freeze, each item below must be recorded as **RE
 | GF-25 | Security review gate (§28) |
 | GF-26 | Lineage version contract |
 | GF-27 | Secondary-use default forbid + exception path |
-| GF-28 | No-PHI-in-git attestation |
+| GF-28 | No-PHI / no-linkage-table-in-Git verification (§29) — **PASS** / **BLOCKED** |
+| GF-29 | Counsel determinations **LC-01…LC-13** — each **RESOLVED** / **NOT_APPLICABLE** / **BLOCKED** |
 
 ---
 
@@ -737,17 +795,23 @@ This protocol **does not**:
 
 | Item | Status |
 |------|--------|
-| Governance / privacy / ethics protocol | **CURRENT (PLANNING)** |
+| Governance / privacy / ethics protocol | **CORRECTED / PENDING INDEPENDENT GOVERNANCE RE-GATE V2** |
+| Governance/legal/privacy closure work | **BLOCKED pending re-gate** |
 | Governance closure | **NOT COMPLETE** |
-| Counsel determinations | **PENDING** |
-| Ethics determinations | **PENDING** |
+| Counsel determinations | **PENDING** (LC-01…LC-13) |
+| Ethics determinations | **PENDING** (EC-01…EC-09) |
 | Security controls implementation | **NOT STARTED** |
-| Protocol freeze | **DRAFTING ONLY / WAITING ON DEPENDENCIES** |
+| Protocol freeze | **NOT COMPLETE / DRAFTING ONLY** |
 | Tier B methodology | **PASS** |
 | Evidence review | **Separate authorized workstream** |
 | Tier B execution | **NOT AUTHORIZED** |
+| Clinical validation | **NOT ESTABLISHED** |
+| Consumer integration | **NOT AUTHORIZED** |
+| Public scores | **NO-GO** |
 | Human data | **NONE** |
 | Runtime | **UNCHANGED** |
+
+**Next action:** Open a **new** independent governance reviewer against the correction SHA (Re-Gate V2). Do not engage counsel against a conflicting schema. Do not execute Tier B.
 
 ---
 
