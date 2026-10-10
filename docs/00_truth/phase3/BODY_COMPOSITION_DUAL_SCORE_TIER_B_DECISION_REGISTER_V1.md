@@ -34,7 +34,7 @@
 | Tier B planning | **CURRENT** |
 | Tier B plan methodology | **PASS** @ `d7714df5…` |
 | Evidence-review workstream | **CURRENT** (separate authorized workstream) |
-| Evidence package | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2** |
+| Evidence package | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
 | Scientific evidence accepted | **NO — pending re-gate** |
 | Governance/legal/privacy planning | **CURRENT** |
 | Governance protocol | **PASS** |
@@ -92,9 +92,9 @@
 | Analysis-freeze checklist | **DEFINED** |
 | Sample-size methodology table | **DEFINED / numeric N NOT FROZEN** |
 | Independent methodology review | **PASS** @ `d7714df5…` |
-| Evidence review master (ER-BC-01…18) | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2** |
+| Evidence review master (ER-BC-01…18) | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
 | Evidence decision register | **CURRENT** |
-| Evidence reviews ER-BC-01…18 closure | **CORRECTED / PENDING SCIENTIFIC RE-GATE V2** |
+| Evidence reviews ER-BC-01…18 closure | **CORRECTED / PENDING SCIENTIFIC RE-GATE V3** |
 | Prior independent scientific evidence re-gate | **FAIL** @ `754bfd5d…` (4 bounded defects) |
 | Scientific evidence accepted | **NO — pending re-gate** |
 | Governance / privacy / ethics protocol | **PASS** |
@@ -171,7 +171,7 @@ Tier B planning: CURRENT
         ↓
 Tier B methodology: PASS @ d7714df5…
         ↓
-Evidence review: CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2
+Evidence review: CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3
 Prior scientific evidence re-gate: FAIL @ 754bfd5d…
 Scientific evidence accepted: NO — pending re-gate
 Governance/legal/privacy planning: CURRENT
@@ -191,7 +191,7 @@ only then: execution authorization
 | Tier B planning | **CURRENT** |
 | Tier B plan methodology | **PASS** |
 | Evidence-review workstream | **CURRENT** (separate) |
-| Evidence package | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2** |
+| Evidence package | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
 | Scientific evidence accepted | **NO — pending re-gate** |
 | Governance/legal/privacy planning | **CURRENT** |
 | Governance protocol | **PASS** |
@@ -203,9 +203,9 @@ only then: execution authorization
 
 ## 8. Next gate
 
-1. Open a **new independent scientific evidence re-gate V2** against the corrected evidence-package SHA (evidence track).
+1. Open a **new independent scientific evidence re-gate V3** against the corrected evidence-package SHA (evidence track).
 2. Governance protocol remains **PASS**; governance **closure** remains **NOT COMPLETE** (LC/EC determinations still open).
-3. Protocol freeze remains **NOT COMPLETE / DRAFTING ONLY** until evidence re-gate V2 PASS and governance/legal dependencies close.
+3. Protocol freeze remains **NOT COMPLETE / DRAFTING ONLY** until evidence re-gate V3 PASS and governance/legal dependencies close.
 
 **Do not execute Tier B.**
 **Do not collect human data.**

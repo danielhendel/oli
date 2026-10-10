@@ -1621,7 +1621,7 @@ Tier B execution remains **BLOCKED** until independent **PASS** of:
 
 Methodology re-gate is **PASS** @ `d7714df5…`. Remaining hard gates before execution:
 
-- Evidence-review package: **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2** (prior re-gate **FAIL** @ `754bfd5d…`)
+- Evidence-review package: **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** (V2 **FAIL** confidence-only @ `d342c776…`; prior **FAIL** @ `754bfd5d…`)
 - Governance/legal/privacy closure: **NOT COMPLETE**
 - Tier B protocol freeze: **DRAFTING ONLY / BLOCKED for execution**
 
@@ -1634,7 +1634,7 @@ Wave 1 COMPLETE / TRUTH-FROZEN (synthetic ACCEPTED)
         ↓
 Tier B empirical-validation PLAN — METHODOLOGY PASS @ d7714df5…
         ↓
-evidence reviews (ER-BC-*) — CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2
+evidence reviews (ER-BC-*) — CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3
 governance/legal/privacy planning — CURRENT / closure NOT COMPLETE
         ↓
 Tier B protocol truth freeze (drafting only until dependencies close)

@@ -803,7 +803,7 @@ This protocol **does not**:
 | Security controls implementation | **NOT STARTED** |
 | Protocol freeze | **NOT COMPLETE / DRAFTING ONLY** |
 | Tier B methodology | **PASS** |
-| Evidence review | **Separate; CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2** |
+| Evidence review | **Separate; CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |

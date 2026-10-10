@@ -13,7 +13,7 @@
 | Authoritative ER catalog | Private Validation Plan §25 (ER-BC-01 … ER-BC-18) |
 | Tier B empirical plan | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EMPIRICAL_VALIDATION_PLAN_V1.md` |
 | Companion decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EVIDENCE_DECISION_REGISTER_V1.md` |
-| Evidence status | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2** |
+| Evidence status | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
 | Scientific evidence accepted | **NO — pending re-gate** |
 | Governance protocol | **PASS** |
 | Governance closure | **NOT COMPLETE** |
@@ -31,7 +31,8 @@
 |------|--------|
 | Tier B methodology | **PASS** @ `d7714df5…` |
 | Prior independent scientific evidence re-gate | **FAIL** @ historical package `754bfd5d…` (4 bounded defects) |
-| Evidence package | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2** |
+| Independent scientific evidence re-gate V2 | **FAIL** (evidence-confidence taxonomy only; source/WHO/readiness **PASS**) |
+| Evidence package | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
 | Scientific evidence accepted | **NO — pending re-gate** |
 | Evidence-review workstream | **CURRENT** (this document) |
 | Governance protocol | **PASS** |
@@ -88,14 +89,20 @@ DOI / PMID / stable IDs recorded where available.
 
 **Not** Oli Assessment Confidence.
 
+Every ER-BC item has exactly one **primaryEvidenceConfidence** chosen from **HIGH / MODERATE / LOW / INSUFFICIENT**. That primary field alone drives row reconstruction, summary counts, and decision-register counts. Component-level findings may have different strengths and must be labeled separately — they must not silently replace or double-count the primary label.
+
 | Level | Criteria |
 |-------|----------|
 | **HIGH** | Standards/consensus + consistent primary quantitative studies; clear protocol implication; residual uncertainty mainly Oli-site specific |
 | **MODERATE** | Multiple independent studies or one strong consensus + supportive primary data; magnitudes transferable as planning envelopes only |
 | **LOW** | Sparse, heterogeneous, population-mismatched, or methodologically weak quantitative evidence |
-| **INSUFFICIENT** | No credible quantitative basis for Oli protocol parameters; Tier B must generate evidence or defer freeze |
+| **INSUFFICIENT** | No credible quantitative basis for the scoped Oli empirical parameter; Tier B must generate evidence or defer freeze |
 
-A **HIGH**-confidence conclusion can show with high certainty that an Oli-specific parameter remains unknown; therefore HIGH confidence does **not** automatically mean sufficient for protocol freeze. An **INSUFFICIENT** evidence conclusion may still support a fail-closed protocol decision, but not a positive empirical estimate. Confidence counts and readiness counts need not match.
+**Evidence confidence** answers: how strong is the evidence supporting the scoped scientific conclusion?
+**Protocol readiness** answers: is enough of the question resolved to freeze a protocol method or constraint?
+They are not interchangeable.
+
+A **HIGH**-confidence conclusion can show with high certainty that an Oli-specific parameter remains unknown; therefore HIGH confidence does **not** automatically mean sufficient for protocol freeze. An **INSUFFICIENT** primary evidence conclusion may still support a fail-closed protocol decision (PARTIALLY_SUFFICIENT readiness), but not a positive empirical estimate. Confidence counts and readiness counts need not match.
 
 ### 3.2 Protocol readiness (canonical — authoritative for freeze drafting)
 
@@ -146,7 +153,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Literature supports **facility-specific** precision assessment and separated same-session / reposition / day-to-day variance. Import ISCD *methods*, not manufacturer σ. |
 | **Protocol implication** | Freeze TB-02A/B/C designs to ISCD-style RMS-SD/LSC methods; require consecutive-day subset (TB-02C) before longitudinal SDC claims; soft-tissue LSC ≠ BMD LSC |
 | **Unresolved** | Oli-site σ for FM/FFM/ALM/indices/scores; operator share (TB-03) |
-| **Confidence** | **HIGH** (methods); **MODERATE** (typical magnitudes); Oli σ **INSUFFICIENT** until TB |
+| **primaryEvidenceConfidence** | **HIGH** |
+| **Component finding** | MODERATE typical magnitude envelopes; Oli σ INSUFFICIENT until TB |
 | **Protocol readiness** | **PARTIALLY_SUFFICIENT** (methods freezable; Oli σ pending TB-02/03) |
 
 ---
@@ -171,7 +179,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Governed WHO-midpoint landmark remains the correct standardization target (**SOURCE_PROTOCOL_DERIVED** from both cited WHO documents for landmark). Duplicate ≤1 cm QC is **SOURCE_PROTOCOL_DERIVED** from SRC-WHO-WC-WHR-2011 only. Trained measurers + protocol logging are **OLI_PRODUCT_POLICY_CANDIDATE** quality controls. Not a landmark-protocol switch. |
 | **Protocol implication** | Freeze TB-01 landmark to governed WHO midpoint (`who_midpoint_v1`); certify measurers; record clothing/posture/expiration/tape tension; apply expert-consultation duplicate/repeat ≤1 cm QC as the Tier B quality-control candidate; estimate σ_waist empirically. Do **not** attribute the ≤1 cm rule to SRC-WHO-STEPS-2017. |
 | **Unresolved** | Oli σ_waist by sex/size; heteroscedasticity near steep H1 regions |
-| **Confidence** | **HIGH** (landmark + expert-consultation duplicate QC attribution); **MODERATE** (ICC); **LOW–INSUFFICIENT** (absolute Oli σ) |
+| **primaryEvidenceConfidence** | **HIGH** |
+| **Component finding** | MODERATE ICC transferability; LOW–INSUFFICIENT absolute Oli σ |
 | **Protocol readiness** | **PARTIALLY_SUFFICIENT** (protocol elements freezable; Oli σ pending TB-01) |
 
 ---
@@ -196,7 +205,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Enough to justify **candidate** Health externals for TB-10; not enough to freeze primary endpoints or predictive claims. |
 | **Protocol implication** | Pre-register independence from score inputs; prefer BP / HbA1c / fasting glucose / lipids / hs-CRP / MetS components **without** using WHtR/WC as the only MetS criterion when validating H1; ALMI↔function may be secondary |
 | **Unresolved** | Confirmatory primary external list; longitudinal vs cross-sectional priority |
-| **Confidence** | **MODERATE** (association direction); **LOW** (endpoint freeze) |
+| **primaryEvidenceConfidence** | **MODERATE** |
+| **Component finding** | Component LOW for endpoint freeze |
 
 **Candidate Health externals (not frozen):**
 
@@ -232,7 +242,7 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Prefer grip + chair-stand / gait as candidate performance externals; avoid circular DXA↔DXA validation; do not claim sport prediction. |
 | **Protocol implication** | TB-11 candidate primary: grip strength (sex-stratified); secondary: 5×STS or SPPB; exploratory: relative strength, power, VO2 if logistics allow |
 | **Unresolved** | Final primary endpoint; athletic-status strata power |
-| **Confidence** | **MODERATE** |
+| **primaryEvidenceConfidence** | **MODERATE** |
 
 ---
 
@@ -256,7 +266,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Do **not** assume interchangeability. Protocol must either restrict vendor or treat cross-vendor as separate strata with BA + bridging — never correlation-only. |
 | **Protocol implication** | TB-07 same-vendor first; TB-08 cross-vendor with order/delay controls; pre-declare non-pooling default; score provenance must retain vendor/software |
 | **Unresolved** | Oli machine LoA; software-version matrix |
-| **Confidence** | **HIGH** (non-interchangeability); **MODERATE** (design); magnitudes Oli-specific |
+| **primaryEvidenceConfidence** | **HIGH** |
+| **Component finding** | Component MODERATE for design transfer; magnitudes Oli-specific |
 
 ---
 
@@ -277,10 +288,12 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Limitations** | Biological correlations ≠ error correlations |
 | **Generalizability** | Methods HIGH |
 | **Contradictions** | None material |
-| **Conclusion** | Protocol must estimate joint error covariance prospectively (TB-05). Do not treat indices as independent noise. |
-| **Protocol implication** | Shared Height in all recomputes; estimate Σ_error for (FM, FFM, ALM, Waist, Height); report propagated index σ |
-| **Unresolved** | Empirical Σ_error |
-| **Confidence** | **HIGH** (methods); **INSUFFICIENT** (magnitudes) |
+| **Conclusion** | Protocol must estimate joint error covariance prospectively (TB-05). Do not treat indices as independent noise. Do not substitute biological between-person covariance for within-person measurement-error covariance Σ_ε. |
+| **Protocol implication** | Shared Height in all recomputes; prospectively estimate Σ_ε for (FM, FFM, ALM, Waist, Height); report propagated index σ; forbid unsupported imported covariance magnitudes |
+| **Unresolved** | Empirical Σ_ε magnitude/structure (scoped empirical parameter) |
+| **primaryEvidenceConfidence** | **INSUFFICIENT** — published evidence does not adequately supply the Oli-relevant within-person measurement-error covariance Σ_ε |
+| **Component finding** | **HIGH** confidence in the methodological conclusion that published biological covariance cannot substitute for Oli-specific measurement-error covariance, and that Tier B must estimate Σ_ε prospectively |
+| **Protocol readiness** | **PARTIALLY_SUFFICIENT** — fail-closed prospective-estimation method and shared-Height constraint are freezable; numeric Σ_ε remains deferred to TB-05 |
 
 ---
 
@@ -304,7 +317,7 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | **INSUFFICIENT** to freeze Oli CMC. Keep triad separate; Tier B may estimate SDC only. |
 | **Protocol implication** | TB-16 outputs SDC candidates only; CMC deferred; any CMC claim = SCIENTIFIC REVIEW ISSUE |
 | **Unresolved** | All Oli CMC anchors |
-| **Confidence** | **INSUFFICIENT** |
+| **primaryEvidenceConfidence** | **INSUFFICIENT** |
 
 ---
 
@@ -328,7 +341,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | H3 ALMI-primary aligns with sarcopenia *quantity* domain; must not claim diagnosis. FFMI fallback is related but not identical to ALMI. |
 | **Protocol implication** | TB-09 groups may use strength+ALMI strata as known-groups — label as construct separation, not diagnosis; vendor-stratify ALMI |
 | **Unresolved** | Whether FFMI fallback preserves external meaning vs ALMI (empirical/SP track — **outside** the scoped construct-map freeze) |
-| **Confidence** | **HIGH** (mapping); cutoffs as product claims **INSUFFICIENT**/forbidden |
+| **primaryEvidenceConfidence** | **HIGH** |
+| **Component finding** | Cutoffs as product claims INSUFFICIENT/forbidden |
 | **Protocol readiness** | **SUFFICIENT_FOR_PROTOCOL_FREEZE** for the scoped construct map and no-diagnosis claim control. Remaining FFMI-fallback external-meaning question does **not** leave the scoped map partial. |
 
 ---
@@ -353,7 +367,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Supports association studies; **forbids** predictive product claims now (ER-BC-14). |
 | **Protocol implication** | TB-10 confirmatory = cross-sectional/short-term association; prospective risk = P3 / separate predictive study |
 | **Unresolved** | Any future calibration study design |
-| **Confidence** | **MODERATE** (association); **HIGH** that prediction ≠ established |
+| **primaryEvidenceConfidence** | **MODERATE** |
+| **Component finding** | Component HIGH that prediction ≠ established |
 
 ---
 
@@ -377,7 +392,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Document as fairness empirical question. Do **not** add age corrections here. If TB-12B shows material external-meaning inequity → SCIENTIFIC REVIEW ISSUE. |
 | **Protocol implication** | TB-12A: distribution/reliability/scorability by age band; TB-12B after externals: test whether equal index → equal external association by age |
 | **Unresolved** | Age-band cutpoints for analysis (protocol freeze); whether inequity warrants redesign |
-| **Confidence** | **MODERATE** (problem); age-adjust decision **not authorized** |
+| **primaryEvidenceConfidence** | **MODERATE** |
+| **Component finding** | Age-adjust decision not authorized |
 
 ---
 
@@ -401,7 +417,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Sex-specific knots are defensible as distributional policy, **not** as fairness certification. |
 | **Protocol implication** | TB-13A reliability/scorability by sex; TB-13B external-meaning equality tests; no silent knot retune |
 | **Unresolved** | Material unfairness thresholds |
-| **Confidence** | **HIGH** (sex differences exist); **LOW** (fairness established) |
+| **primaryEvidenceConfidence** | **LOW** |
+| **Component finding** | Component HIGH that sex distributional differences exist; fairness not established |
 
 ---
 
@@ -425,7 +442,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Keep ethnicity analyses optional, legally gated, exploratory unless powered. Separate access bias (TB-15) from biology. |
 | **Protocol implication** | Core intersectional: age×sex, sex×body-size, sex×vendor; ethnicity only with ER-BC-12 legal/ethics PASS |
 | **Unresolved** | Whether any ethnicity stratum is confirmatory |
-| **Confidence** | **LOW** for biologic universal claims; **MODERATE** that omission is a fairness risk to test |
+| **primaryEvidenceConfidence** | **LOW** |
+| **Component finding** | Component MODERATE that omission is a fairness risk to test |
 
 ---
 
@@ -449,7 +467,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Freeze triad separation. Use design-matched SEM/SDC. Never equate SDC with CMC or user meaning. |
 | **Protocol implication** | TB-02A → instrument SEM; TB-02C/TB-06 → longitudinal SDC; report method; SP-02 may present SDC language only after freeze |
 | **Unresolved** | Numeric Oli SDC per construct/score (empirical TB-16 — **outside** method-selection freeze). Clinically meaningful change remains ER-BC-07 (**not** this ER). |
-| **Confidence** | **HIGH** (methods); magnitudes pending TB |
+| **primaryEvidenceConfidence** | **HIGH** |
+| **Component finding** | Magnitudes pending TB; CMC ≠ this ER |
 | **Protocol readiness** | **SUFFICIENT_FOR_PROTOCOL_FREEZE** for **METHOD SELECTION** and triad separation only. **Not** sufficient for a clinical meaningful-change threshold (ER-BC-07) or for numeric Oli SDC values. |
 
 ---
@@ -474,7 +493,7 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | TB-10/11 must be labeled association/construct validity, not prediction. |
 | **Protocol implication** | Analysis / claim-control freeze: forbid AUC-as-product-risk; no individual event prediction endpoints as confirmatory for release; Level 0 claim boundary preserved |
 | **Unresolved** | Future dedicated predictive study (out of scope) |
-| **Confidence** | **HIGH** |
+| **primaryEvidenceConfidence** | **HIGH** |
 | **Protocol readiness** | **SUFFICIENT_FOR_PROTOCOL_FREEZE** for the named **claim-control / analysis-control** checklist only. Does **not** establish predictive validity, clinical validity, consumer validity, or public release readiness. |
 
 ---
@@ -499,7 +518,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Evidence supports mandatory structured re-id review + small-cell policy before execution. **Governance/legal workstream owns closure**; this ER provides scientific checklist only. |
 | **Protocol implication** | Checklist: identity separation; no PHI in analysis; date coarsening; rare-phenotype rules; longitudinal link risk; destruction; access audit. TB-15 measures access/selection separately from biology. |
 | **Unresolved** | Oli legal determination; completed risk sign-off |
-| **Confidence** | **MODERATE** (principles); Oli sign-off **INSUFFICIENT** until governance completes |
+| **primaryEvidenceConfidence** | **MODERATE** |
+| **Component finding** | Oli sign-off INSUFFICIENT until governance completes |
 
 **ER-BC-15 scientific checklist (inputs to governance):**
 
@@ -533,7 +553,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Prioritize TB-04A–D (hydration, exercise, meal, TOD). Menstrual/edema P2. Do not manufacture deltas where weak. |
 | **Protocol implication** | Evidence-backed controls: overnight fast water-only; no strenuous exercise ≥24 h; consistent TOD; void bladder; log menstrual phase if collected; log edema/illness as exclusion/observational. Plausible-but-weak: creatine loading, menstrual as hard exclusion. |
 | **Unresolved** | Oli-specific acute deltas for scores |
-| **Confidence** | Hydration/exercise/glycogen **HIGH**; meal **MODERATE**; TOD **MODERATE**; menstrual **LOW**; edema **INSUFFICIENT** |
+| **primaryEvidenceConfidence** | **MODERATE** |
+| **Component finding** | Factor nuance: hydration/exercise/glycogen HIGH; meal/TOD MODERATE; menstrual LOW; edema INSUFFICIENT |
 
 ---
 
@@ -557,7 +578,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | **INSUFFICIENT.** Tier B **must** estimate error covariance prospectively (TB-05). |
 | **Protocol implication** | Design TB-05 for multivariate repeats; report biological vs error ρ separately |
 | **Unresolved** | All empirical error ρ |
-| **Confidence** | **INSUFFICIENT** (magnitudes); **HIGH** that independent-noise is inadequate as final model |
+| **primaryEvidenceConfidence** | **INSUFFICIENT** |
+| **Component finding** | Component HIGH that independent-noise is inadequate as final model |
 
 ---
 
@@ -581,7 +603,8 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Conclusion** | Probe battery should test: false precision; sub-SDC change as improvement; H vs Perf confusion; contribution bars as causal levers; uncertainty interval misuse. |
 | **Protocol implication** | TB-17 pre-register probes; SP-02 may recommend rounding/uncertainty/warning language **policy** only — no UI implementation here |
 | **Unresolved** | Acceptable misconception rate thresholds |
-| **Confidence** | **MODERATE** (risk types); rate thresholds **INSUFFICIENT** |
+| **primaryEvidenceConfidence** | **MODERATE** |
+| **Component finding** | Rate thresholds INSUFFICIENT |
 
 ---
 
@@ -607,7 +630,7 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | Repositioning | Material add to PE | HIGH |
 | Operator / analysis | Can rival instrument PE | MODERATE |
 | Day-to-day biological | Often ≫ same-day PE (esp. lean) | HIGH |
-| FMI/FFMI/ALMI | Propagate mass + height error | HIGH methods / INSUFFICIENT ρ |
+| FMI/FFMI/ALMI | Propagate mass + height error | Methods clear; published error-ρ INSUFFICIENT (see ER-BC-06 primary) |
 
 ---
 
@@ -766,30 +789,30 @@ Do **not** build consumer UI.
 
 ## 17. Protocol-input / readiness table (canonical)
 
-Canonical protocol-readiness vocabulary only. Evidence-confidence column remains the separate §3.1 taxonomy.
+Canonical protocol-readiness vocabulary and exactly one **primaryEvidenceConfidence** per ER. Component notes are non-counting.
 
-| ER-BC | Evidence conclusion | Evidence confidence | TB affected | Scoped protocol decision ready | Still unresolved (outside or deferred) | Protocol readiness |
-|-------|---------------------|---------------------|-------------|--------------------------------|----------------------------------------|--------------------|
-| 01 | Use ISCD BC precision methods; separate session/reposition/day | HIGH methods / MODERATE magnitudes | 02/03/16 | Design + analysis class | Oli σ | **PARTIALLY_SUFFICIENT** |
-| 02 | WHO midpoint + expert-consultation duplicate QC; STEPS documented separately | HIGH protocol / LOW–INSUFFICIENT σ | 01 | Landmark + QC elements | Oli σ_waist | **PARTIALLY_SUFFICIENT** |
-| 03 | Candidate Health externals exist; don’t freeze endpoints | MODERATE | 10/12B/13B | Candidate families | Primary endpoint | **PARTIALLY_SUFFICIENT** |
-| 04 | Grip + function candidates; no sport prediction | MODERATE | 11 | Candidate families | Primary endpoint | **PARTIALLY_SUFFICIENT** |
-| 05 | Non-interchangeable vendors; BA required | HIGH non-interchangeability | 07/08 | Non-pooling default + BA design | Local LoA | **PARTIALLY_SUFFICIENT** |
-| 06 | Shared Height propagation mandatory | HIGH methods / INSUFFICIENT Σ | 05 | Shared Height rule | Σ_error | **PARTIALLY_SUFFICIENT** |
-| 07 | No transferable CMC | INSUFFICIENT | 16 / later | Triad separation preserved as negative finding | All CMC | **INSUFFICIENT** |
-| 08 | ALMI maps to sarcopenia quantity domain; no diagnosis | HIGH mapping | 09 | Construct map + no-diagnosis control | FFMI fallback external meaning (empirical/SP) | **SUFFICIENT_FOR_PROTOCOL_FREEZE** |
-| 09 | Longer-term associations exist; not prediction | MODERATE | 10 | Claim boundary | Calibration | **PARTIALLY_SUFFICIENT** |
-| 10 | Age trends exist; no auto age-correct | MODERATE | 12A/B | Empirical test plan | Inequity action (may escalate later) | **PARTIALLY_SUFFICIENT** |
-| 11 | Sex differences ≠ fairness proof | HIGH diffs / LOW fairness proof | 13A/B | Empirical test plan | Fairness thresholds | **PARTIALLY_SUFFICIENT** |
-| 12 | Ethnicity claims limited; legal gate | LOW biologic universals | 14 | Core intersections | Ethnicity confirmatory? | **PARTIALLY_SUFFICIENT** |
-| 13 | SEM/SDC methods clear; ≠ CMC / ≠ user meaning | HIGH methods | 16/02/06 | Method + triad separation freeze | Numeric SDC (TB-16); CMC (ER-BC-07) | **SUFFICIENT_FOR_PROTOCOL_FREEZE** |
-| 14 | Association ≠ prediction checklist | HIGH | 10/11 | Claim / analysis controls | Future predictive study | **SUFFICIENT_FOR_PROTOCOL_FREEZE** |
-| 15 | Re-id principles clear; Oli sign-off pending governance | MODERATE principles | all | Scientific checklist | Legal/governance sign-off | **PARTIALLY_SUFFICIENT** |
-| 16 | Lean acute artifacts real; prioritize A–D | HIGH–LOW by factor | 04 | Control set A–D | Oli deltas | **PARTIALLY_SUFFICIENT** |
-| 17 | Error covariance must be prospective | INSUFFICIENT magnitudes | 05 | Need TB-05 (fail-closed) | All ρ_error | **INSUFFICIENT** |
-| 18 | Misconception classes clear; rates unknown | MODERATE | 17 / SP-02 | Probe classes | Rate thresholds | **PARTIALLY_SUFFICIENT** |
+| ER-BC | Evidence conclusion | primaryEvidenceConfidence | TB affected | Scoped protocol decision ready | Still unresolved (outside or deferred) | Protocol readiness |
+|-------|---------------------|---------------------------|-------------|--------------------------------|----------------------------------------|--------------------|
+| 01 | Use ISCD BC precision methods; separate session/reposition/day | **HIGH** | 02/03/16 | Design + analysis class | Oli σ | **PARTIALLY_SUFFICIENT** |
+| 02 | WHO midpoint + expert-consultation duplicate QC; STEPS documented separately | **HIGH** | 01 | Landmark + QC elements | Oli σ_waist | **PARTIALLY_SUFFICIENT** |
+| 03 | Candidate Health externals exist; don’t freeze endpoints | **MODERATE** | 10/12B/13B | Candidate families | Primary endpoint | **PARTIALLY_SUFFICIENT** |
+| 04 | Grip + function candidates; no sport prediction | **MODERATE** | 11 | Candidate families | Primary endpoint | **PARTIALLY_SUFFICIENT** |
+| 05 | Non-interchangeable vendors; BA required | **HIGH** | 07/08 | Non-pooling default + BA design | Local LoA | **PARTIALLY_SUFFICIENT** |
+| 06 | Shared Height + prospective Σ_ε; biological ρ ≠ error ρ | **INSUFFICIENT** | 05 | Shared Height + fail-closed estimate rule | Empirical Σ_ε | **PARTIALLY_SUFFICIENT** |
+| 07 | No transferable CMC | **INSUFFICIENT** | 16 / later | Triad separation preserved as negative finding | All CMC | **INSUFFICIENT** |
+| 08 | ALMI maps to sarcopenia quantity domain; no diagnosis | **HIGH** | 09 | Construct map + no-diagnosis control | FFMI fallback external meaning (empirical/SP) | **SUFFICIENT_FOR_PROTOCOL_FREEZE** |
+| 09 | Longer-term associations exist; not prediction | **MODERATE** | 10 | Claim boundary | Calibration | **PARTIALLY_SUFFICIENT** |
+| 10 | Age trends exist; no auto age-correct | **MODERATE** | 12A/B | Empirical test plan | Inequity action (may escalate later) | **PARTIALLY_SUFFICIENT** |
+| 11 | Sex differences ≠ fairness proof | **LOW** | 13A/B | Empirical test plan | Fairness thresholds | **PARTIALLY_SUFFICIENT** |
+| 12 | Ethnicity claims limited; legal gate | **LOW** | 14 | Core intersections | Ethnicity confirmatory? | **PARTIALLY_SUFFICIENT** |
+| 13 | SEM/SDC methods clear; ≠ CMC / ≠ user meaning | **HIGH** | 16/02/06 | Method + triad separation freeze | Numeric SDC (TB-16); CMC (ER-BC-07) | **SUFFICIENT_FOR_PROTOCOL_FREEZE** |
+| 14 | Association ≠ prediction checklist | **HIGH** | 10/11 | Claim / analysis controls | Future predictive study | **SUFFICIENT_FOR_PROTOCOL_FREEZE** |
+| 15 | Re-id principles clear; Oli sign-off pending governance | **MODERATE** | all | Scientific checklist | Legal/governance sign-off | **PARTIALLY_SUFFICIENT** |
+| 16 | Lean acute artifacts real; prioritize A–D | **MODERATE** | 04 | Control set A–D | Oli deltas | **PARTIALLY_SUFFICIENT** |
+| 17 | Error covariance must be prospective | **INSUFFICIENT** | 05 | Need TB-05 (fail-closed) | All ρ_error | **INSUFFICIENT** |
+| 18 | Misconception classes clear; rates unknown | **MODERATE** | 17 / SP-02 | Probe classes | Rate thresholds | **PARTIALLY_SUFFICIENT** |
 
-### 17.1 Readiness counts (must equal 18)
+### 17.1 Readiness counts (must equal 18; unchanged)
 
 | Protocol readiness | N | ER IDs |
 |--------------------|--:|--------|
@@ -799,9 +822,29 @@ Canonical protocol-readiness vocabulary only. Evidence-confidence column remains
 | SCIENTIFIC_REVIEW_REQUIRED | **0** | — (ER-BC-10 may escalate after TB-12B; not a present-state status) |
 | **TOTAL** | **18** | ER-BC-01…18 |
 
-### 17.2 Evidence-confidence summary (separate; preserved)
+### 17.2 Primary evidence-confidence reconstruction (canonical; total 18)
 
-Primary confidence label per ER (methods/mapping where dual-labeled): HIGH methods/mapping for 01, 02, 05, 06, 08, 13, 14; MODERATE for 03, 04, 09, 10, 15, 18; factor-varying HIGH–LOW for 16; INSUFFICIENT for 07, 17; LOW biologic universals for 12 with MODERATE omission-risk note. Source corrections (Zemski attribution; Thamnirat DOI/authors; WHO separation) **do not** change these confidence classifications.
+Every ER appears exactly once. Component notes do not count.
+
+| primaryEvidenceConfidence | N | ER IDs |
+|---------------------------|--:|--------|
+| **HIGH** | **6** | 01, 02, 05, 08, 13, 14 |
+| **MODERATE** | **7** | 03, 04, 09, 10, 15, 16, 18 |
+| **LOW** | **2** | 11, 12 |
+| **INSUFFICIENT** | **3** | 06, 07, 17 |
+| **TOTAL** | **18** | ER-BC-01…18 |
+
+**Component notes (non-counting):**
+- ER-BC-01: component MODERATE for typical magnitude envelopes; Oli σ still pending TB.
+- ER-BC-02: component LOW–INSUFFICIENT for absolute Oli σ_waist.
+- ER-BC-06: component **HIGH** methodological conclusion that biological covariance ≠ measurement-error covariance and Σ_ε must be estimated prospectively — **does not** make primary confidence HIGH.
+- ER-BC-11: component HIGH that sex distributional differences exist; primary remains LOW for fairness proof.
+- ER-BC-13: HIGH primary for SEM/SDC/MDC method framework; numeric SDC and CMC unresolved elsewhere.
+- ER-BC-16: factor-level nuance (hydration/exercise HIGH; menstrual LOW; edema INSUFFICIENT) under primary **MODERATE**.
+
+**Taxonomy examples:**
+- ER-BC-06 = primary evidence confidence **INSUFFICIENT** for Σ_ε magnitude, while protocol readiness is **PARTIALLY_SUFFICIENT** for a fail-closed prospective-estimation method.
+- ER-BC-13 = primary evidence confidence **HIGH** and readiness **SUFFICIENT_FOR_PROTOCOL_FREEZE** for method selection, while numeric SDC and CMC remain unresolved elsewhere.
 
 ---
 
@@ -845,7 +888,8 @@ If literature conflicts with current score design, record as **SCIENTIFIC REVIEW
 ```text
 Tier B methodology:              PASS @ d7714df5…
 Prior scientific evidence re-gate: FAIL @ 754bfd5d… (4 bounded defects)
-Evidence package:                CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2
+Independent evidence re-gate V2: FAIL (confidence taxonomy only; source/WHO/readiness PASS)
+Evidence package:                CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3
 Scientific evidence accepted:    NO — pending re-gate
 Governance protocol:             PASS
 Governance closure:              NOT COMPLETE
