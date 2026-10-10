@@ -801,9 +801,10 @@ This protocol **does not**:
 | Counsel determinations | **PENDING** (LC-01…LC-13) |
 | Ethics determinations | **PENDING** (EC-01…EC-09) |
 | Security controls implementation | **NOT STARTED** |
-| Protocol freeze | **NOT COMPLETE / DRAFTING ONLY** |
+| Protocol draft | **CREATED** (integration draft) |
+| Protocol freeze | **NOT COMPLETE** |
 | Tier B methodology | **PASS** |
-| Evidence review | **Separate; CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
+| Evidence review | **ACCEPTED** @ `374e3bff…` |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |

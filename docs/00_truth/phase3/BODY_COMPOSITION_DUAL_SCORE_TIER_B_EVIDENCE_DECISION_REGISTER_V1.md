@@ -16,10 +16,12 @@
 | Parent Tier B decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_TIER_B_DECISION_REGISTER_V1.md` |
 | Prior independent scientific evidence re-gate | **FAIL** @ `754bfd5d…` (4 bounded defects) |
 | Independent scientific evidence re-gate V2 | **FAIL** (evidence-confidence taxonomy only; source / WHO / readiness **PASS**) |
-| Evidence package status | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
-| Scientific evidence accepted | **NO — pending re-gate** |
+| Evidence package status | **ACCEPTED** @ `374e3bff2cbb6ff9cf2703ef4c978c82db49cd82` |
+| Scientific evidence accepted | **YES — ACCEPTED** |
 | Governance protocol | **PASS** |
 | Governance closure | **NOT COMPLETE** |
+| Protocol draft | **CREATED** (see protocol draft + blocker register) |
+| Protocol truth freeze | **NOT COMPLETE** |
 | Tier B execution | **NOT AUTHORIZED** |
 
 ---
@@ -34,12 +36,13 @@
 | Independent scientific evidence re-gate V2 | **FAIL** (confidence taxonomy only) |
 | Source integrity / WHO attribution / readiness taxonomy | **PASS** (V2) |
 | ER-BC-06 primary-confidence reconciliation | **COMPLETE** (this package) |
-| Evidence package | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
-| Scientific evidence accepted | **NO — pending re-gate** |
-| Independent scientific evidence re-gate V3 | **PENDING** |
+| Evidence package | **ACCEPTED** @ `374e3bff…` |
+| Scientific evidence accepted | **YES — ACCEPTED** |
+| Independent scientific evidence re-gate V3 | **SUPERSEDED by ACCEPTED status at `374e3bff…`** |
 | Governance protocol | **PASS** |
 | Governance/legal/privacy planning | **CURRENT** (closure **NOT COMPLETE**) |
-| Protocol freeze | **NOT COMPLETE / DRAFTING ONLY** |
+| Protocol draft | **CREATED** |
+| Protocol freeze | **NOT COMPLETE** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
@@ -130,7 +133,7 @@ They are not interchangeable. Confidence counts and readiness counts need not ma
 | Partially sufficient — drafting possible with deferred empirics | 01, 02, 03, 04, 05, 06, 09, 10, 11, 12, 15, 16, 18 |
 | Insufficient — must wait on Tier B or later science | 07 (CMC), 17 (error Σ) |
 
-**Protocol freeze overall:** **NOT COMPLETE / DRAFTING ONLY** (governance closure incomplete + remaining partials + independent evidence re-gate V3 required).
+**Protocol freeze overall:** **NOT COMPLETE** (governance closure incomplete + remaining partials/empirics + study-specific analysis freezes required). Scientific evidence package is **ACCEPTED** for integrated protocol drafting.
 
 ---
 
@@ -175,7 +178,7 @@ They are not interchangeable. Confidence counts and readiness counts need not ma
 | Predictive validity | **NOT ESTABLISHED** / forbidden as product claim now |
 | Consumer integration | **NOT AUTHORIZED** |
 | Public scores | **NO-GO** |
-| Scientific evidence accepted for protocol-freeze drafting | **NO — pending re-gate V3** |
+| Scientific evidence accepted for protocol-freeze drafting | **YES — ACCEPTED** (drafting authorized; Protocol Truth Freeze still **NOT COMPLETE**) |
 
 ---
 
@@ -185,11 +188,12 @@ They are not interchangeable. Confidence counts and readiness counts need not ma
 Tier B methodology:              PASS
 Prior scientific evidence re-gate: FAIL @ 754bfd5d…
 Independent evidence re-gate V2: FAIL (confidence taxonomy only; source/WHO/readiness PASS)
-Evidence package:                CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3
-Scientific evidence accepted:    NO — pending re-gate
+Evidence package:                ACCEPTED @ 374e3bff…
+Scientific evidence accepted:    YES — ACCEPTED
 Governance protocol:             PASS
 Governance closure:              NOT COMPLETE
-Protocol freeze:                 NOT COMPLETE / DRAFTING ONLY
+Protocol draft:                  CREATED
+Protocol freeze:                 NOT COMPLETE
 Execution:                       NOT AUTHORIZED
 ```
 
@@ -197,11 +201,9 @@ Execution:                       NOT AUTHORIZED
 
 ## 10. Next gate
 
-Open a **new independent scientific evidence re-gate V3** against the corrected package SHA.
+Scientific evidence is **ACCEPTED** @ `374e3bff…` for integrated protocol drafting.
 
-V3 may focus narrowly on: ER-BC-06 primary INSUFFICIENT; component HIGH methodological conclusion separated from primary; explicit 6 / 7 / 2 / 3 reconstruction; master/register/count consistency; readiness 3 / 13 / 2 / 0 preserved; source and WHO corrections preserved; governance preserved; no claim inflation.
-
-Only after evidence re-gate V3 **PASS** *and* governance/legal dependencies close may protocol parameters be truth-frozen.
+Next: independent **integration review** of the Tier B protocol draft / blocker register / integration matrix; then actual counsel/ethics/security determinations and study-specific analysis freezes. Protocol Truth Freeze remains **NOT COMPLETE** until those dependencies close or are explicitly BLOCKED.
 
 **Do not execute Tier B.**
 **Do not collect human data.**

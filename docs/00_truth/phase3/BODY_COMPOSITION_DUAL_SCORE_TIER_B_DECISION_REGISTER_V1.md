@@ -1,7 +1,7 @@
 # Body Composition Dual Score — Tier B Decision Register V1
 
 **Document type:** Tier B validation decision register (docs only)
-**Date:** 2026-10-09
+**Date:** 2026-10-10
 **Branch:** `feat/body-composition-stage3e-body-scans-v1`
 **Kind:** Records Tier B planning-gate state. **Does not** authorize Tier B execution, clinical validity, consumer integration, or public scores.
 
@@ -15,11 +15,16 @@
 | Prior Tier B plan SHA (methodology FAIL) | `9c5dd88d1e6d3af87a339b608d4ab82351adce1a` |
 | Prior methodology re-gate V2 SHA | `942826fc4c2303d53a1a62ab9f8e98458ab86a19` (17/18 closed; TB-06 RTM enrollment remaining) |
 | Methodology PASS SHA | `d7714df53af661e4492c67074823902197ced0e7` |
+| Governance protocol PASS SHA | `302a81ef03fe21638586a497f53fbf5ae92a1361` |
+| Scientific evidence ACCEPTED SHA | `374e3bff2cbb6ff9cf2703ef4c978c82db49cd82` |
 | Tier B master plan | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EMPIRICAL_VALIDATION_PLAN_V1.md` |
 | Evidence review master | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EVIDENCE_REVIEW_V1.md` |
 | Evidence decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EVIDENCE_DECISION_REGISTER_V1.md` |
 | Governance protocol | `docs/10_product/specs/BODY_COMPOSITION_TIER_B_GOVERNANCE_PRIVACY_ETHICS_PROTOCOL_V1.md` |
 | Governance decision register | `docs/00_truth/phase3/BODY_COMPOSITION_TIER_B_GOVERNANCE_DECISION_REGISTER_V1.md` |
+| Integrated protocol draft | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_TIER_B_PROTOCOL_DRAFT_V1.md` |
+| Protocol blocker register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_TIER_B_PROTOCOL_BLOCKER_REGISTER_V1.md` |
+| Protocol integration matrix | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_TIER_B_PROTOCOL_INTEGRATION_MATRIX_V1.md` |
 | Wave 1 truth freeze | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_WAVE1_VALIDATION_TRUTH_FREEZE_V1.md` |
 | Parent validation decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_VALIDATION_DECISION_REGISTER_V1.md` |
 
@@ -33,15 +38,15 @@
 | Wave 1 validation truth freeze | **CURRENT** |
 | Tier B planning | **CURRENT** |
 | Tier B plan methodology | **PASS** @ `d7714df5…` |
-| Evidence-review workstream | **CURRENT** (separate authorized workstream) |
-| Evidence package | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
-| Scientific evidence accepted | **NO — pending re-gate** |
+| Scientific evidence | **ACCEPTED** @ `374e3bff…` |
+| Evidence-review workstream | **ACCEPTED** (package closed for drafting) |
 | Governance/legal/privacy planning | **CURRENT** |
-| Governance protocol | **PASS** |
+| Governance protocol | **PASS** @ `302a81ef…` |
 | Governance/legal/privacy closure work | **CURRENT** (determinations still open) |
 | Governance closure | **NOT COMPLETE** |
+| Tier B protocol draft | **CREATED** |
 | Tier B protocol | **NOT FROZEN** |
-| Tier B protocol freeze | **NOT COMPLETE / DRAFTING ONLY** |
+| Tier B protocol freeze | **NOT COMPLETE** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
@@ -92,15 +97,17 @@
 | Analysis-freeze checklist | **DEFINED** |
 | Sample-size methodology table | **DEFINED / numeric N NOT FROZEN** |
 | Independent methodology review | **PASS** @ `d7714df5…` |
-| Evidence review master (ER-BC-01…18) | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
+| Evidence review master (ER-BC-01…18) | **ACCEPTED** @ `374e3bff…` |
 | Evidence decision register | **CURRENT** |
-| Evidence reviews ER-BC-01…18 closure | **CORRECTED / PENDING SCIENTIFIC RE-GATE V3** |
-| Prior independent scientific evidence re-gate | **FAIL** @ `754bfd5d…` (4 bounded defects) |
-| Scientific evidence accepted | **NO — pending re-gate** |
+| Scientific evidence accepted | **YES — ACCEPTED** |
 | Governance / privacy / ethics protocol | **PASS** |
 | Governance decision register | **CURRENT** |
 | Governance/legal/privacy closure work | **CURRENT** (determinations still open) |
 | Governance closure | **NOT COMPLETE** |
+| Integrated protocol draft | **CREATED** |
+| Protocol blocker register | **CREATED** |
+| Protocol integration matrix | **CREATED** |
+| Protocol truth freeze | **NOT COMPLETE** |
 
 ---
 
@@ -143,6 +150,8 @@ Governance/legal/privacy **planning is CURRENT** (`BODY_COMPOSITION_TIER_B_GOVER
 - partner agreements (when partners contemplated)
 - security review gate PASS
 
+See also: `BODY_COMPOSITION_DUAL_SCORE_TIER_B_PROTOCOL_BLOCKER_REGISTER_V1.md`.
+
 ---
 
 ## 6. Explicit non-authorizations
@@ -159,6 +168,7 @@ This register **does not**:
 - freeze numeric acceptance thresholds or sample sizes
 - select Resolver winner policy (SP-01 forbids Tier B selection)
 - authorize silent formula / threshold / weight tuning
+- complete Protocol Truth Freeze
 
 ---
 
@@ -171,14 +181,19 @@ Tier B planning: CURRENT
         ↓
 Tier B methodology: PASS @ d7714df5…
         ↓
-Evidence review: CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3
-Prior scientific evidence re-gate: FAIL @ 754bfd5d…
-Scientific evidence accepted: NO — pending re-gate
-Governance/legal/privacy planning: CURRENT
-Governance protocol: PASS
+Scientific evidence: ACCEPTED @ 374e3bff…
+Governance protocol: PASS @ 302a81ef…
 Governance closure: NOT COMPLETE
         ↓
-Protocol freeze: NOT COMPLETE / DRAFTING ONLY
+Tier B protocol integration draft: CREATED / CURRENT
+        ↓
+Protocol truth freeze: NOT COMPLETE
+        ↓
+actual counsel/ethics/security determinations
+        ↓
+study-specific protocol details / analysis freezes
+        ↓
+Tier B Protocol Truth Freeze
         ↓
 independent protocol re-gate
         ↓
@@ -190,22 +205,22 @@ only then: execution authorization
 | Wave 1 | **COMPLETE / TRUTH-FROZEN** |
 | Tier B planning | **CURRENT** |
 | Tier B plan methodology | **PASS** |
-| Evidence-review workstream | **CURRENT** (separate) |
-| Evidence package | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
-| Scientific evidence accepted | **NO — pending re-gate** |
+| Scientific evidence | **ACCEPTED** |
 | Governance/legal/privacy planning | **CURRENT** |
 | Governance protocol | **PASS** |
 | Governance closure | **NOT COMPLETE** |
-| Protocol freeze | **NOT COMPLETE / DRAFTING ONLY** |
+| Protocol draft | **CREATED** |
+| Protocol freeze | **NOT COMPLETE** |
 | Tier B execution | **NOT AUTHORIZED** |
 
 ---
 
 ## 8. Next gate
 
-1. Open a **new independent scientific evidence re-gate V3** against the corrected evidence-package SHA (evidence track).
-2. Governance protocol remains **PASS**; governance **closure** remains **NOT COMPLETE** (LC/EC determinations still open).
-3. Protocol freeze remains **NOT COMPLETE / DRAFTING ONLY** until evidence re-gate V3 PASS and governance/legal dependencies close.
+1. Open a **new independent integration reviewer** against the protocol-draft SHA.
+2. After integration review PASS: begin actual counsel/ethics/security determination packets and close study-specific protocol details.
+3. Do **not** create the final Tier B Protocol Truth Freeze until those dependencies are resolved or explicitly BLOCKED.
+4. Governance protocol remains **PASS**; governance **closure** remains **NOT COMPLETE**.
 
 **Do not execute Tier B.**
 **Do not collect human data.**

@@ -13,7 +13,7 @@
 | Authoritative ER catalog | Private Validation Plan §25 (ER-BC-01 … ER-BC-18) |
 | Tier B empirical plan | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EMPIRICAL_VALIDATION_PLAN_V1.md` |
 | Companion decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EVIDENCE_DECISION_REGISTER_V1.md` |
-| Evidence status | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
+| Evidence status | **ACCEPTED** @ `374e3bff2cbb6ff9cf2703ef4c978c82db49cd82` |
 | Scientific evidence accepted | **NO — pending re-gate** |
 | Governance protocol | **PASS** |
 | Governance closure | **NOT COMPLETE** |
@@ -32,12 +32,13 @@
 | Tier B methodology | **PASS** @ `d7714df5…` |
 | Prior independent scientific evidence re-gate | **FAIL** @ historical package `754bfd5d…` (4 bounded defects) |
 | Independent scientific evidence re-gate V2 | **FAIL** (evidence-confidence taxonomy only; source/WHO/readiness **PASS**) |
-| Evidence package | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3** |
+| Evidence package | **ACCEPTED** @ `374e3bff2cbb6ff9cf2703ef4c978c82db49cd82` |
 | Scientific evidence accepted | **NO — pending re-gate** |
 | Evidence-review workstream | **CURRENT** (this document) |
 | Governance protocol | **PASS** |
 | Governance/legal/privacy planning | **CURRENT** (closure **NOT COMPLETE**) |
-| Protocol freeze | **NOT COMPLETE / DRAFTING ONLY** |
+| Protocol draft | **CREATED** |
+| Protocol freeze | **NOT COMPLETE** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
@@ -889,11 +890,12 @@ If literature conflicts with current score design, record as **SCIENTIFIC REVIEW
 Tier B methodology:              PASS @ d7714df5…
 Prior scientific evidence re-gate: FAIL @ 754bfd5d… (4 bounded defects)
 Independent evidence re-gate V2: FAIL (confidence taxonomy only; source/WHO/readiness PASS)
-Evidence package:                CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V3
-Scientific evidence accepted:    NO — pending re-gate
+Evidence package:                ACCEPTED @ 374e3bff…
+Scientific evidence accepted:    YES — ACCEPTED
 Governance protocol:             PASS
 Governance closure:              NOT COMPLETE
-Protocol freeze:                 NOT COMPLETE / DRAFTING ONLY
+Protocol draft:                  CREATED
+Protocol freeze:                 NOT COMPLETE
 Execution:                       NOT AUTHORIZED
 Clinical validation:             NOT ESTABLISHED
 Consumer integration:            NOT AUTHORIZED

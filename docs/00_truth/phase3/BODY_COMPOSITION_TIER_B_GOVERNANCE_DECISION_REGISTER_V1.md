@@ -31,8 +31,9 @@
 | Counsel determinations | **PENDING** (LC-01…LC-13) |
 | Ethics determinations | **PENDING** (EC-01…EC-09) |
 | Security review gate | **PENDING** (design only) |
-| Evidence-review workstream | **Separate / CURRENT** (pending independent scientific re-gate) |
-| Protocol freeze | **NOT COMPLETE / DRAFTING ONLY** |
+| Evidence-review workstream | **ACCEPTED** (scientific evidence package) |
+| Protocol draft | **CREATED** |
+| Protocol freeze | **NOT COMPLETE** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
@@ -190,13 +191,14 @@ Wave 1: COMPLETE / TRUTH-FROZEN (synthetic ACCEPTED)
         ↓
 Tier B methodology: PASS @ d7714df5…
         ↓
-Evidence review: separate authorized workstream
+Scientific evidence: ACCEPTED @ 374e3bff…
 Governance protocol: PASS
 Governance/legal/privacy closure work: CURRENT (LC/EC determinations still open)
         ↓
 Governance closure: NOT COMPLETE
         ↓
-Protocol freeze: NOT COMPLETE / DRAFTING ONLY
+Protocol draft: CREATED
+Protocol freeze: NOT COMPLETE
         ↓
 only then: execution authorization
 ```
@@ -204,10 +206,12 @@ only then: execution authorization
 | Milestone | Status |
 |-----------|--------|
 | Tier B methodology | **PASS** |
+| Scientific evidence | **ACCEPTED** |
 | Governance planning | **CURRENT** |
 | Governance protocol | **PASS** |
 | Closure work | **CURRENT** (LC/EC determinations still open) |
 | Governance closure | **NOT COMPLETE** |
+| Protocol draft | **CREATED** |
 | Protocol freeze | **NOT COMPLETE** |
 | Tier B execution | **NOT AUTHORIZED** |
 
@@ -217,14 +221,14 @@ only then: execution authorization
 
 Governance protocol is **PASS**. Governance **closure** remains **NOT COMPLETE**.
 
-Next closure work (not a protocol re-gate):
+Next closure work (after independent protocol-integration review PASS):
 
 - counsel determinations LC-01…LC-13
 - ethics determinations EC-01…EC-09
 - consent / optional-future-contact freezes
 - storage, encryption, retention, small-cell, re-id, security bindings
 
-Evidence track (separate): independent scientific evidence re-gate V2 against the corrected evidence package.
+Scientific evidence track: **ACCEPTED** @ `374e3bff…`.
 
 **Do not execute Tier B.**
 **Public Health / Public Performance-Supporting remain NO-GO.**
