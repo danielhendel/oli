@@ -18,9 +18,9 @@
 | Consumer consent RFC | `docs/80_rfc/RFC-consumer-consent-persistence-v1.md` |
 | Account deletion ADR | `docs/70_adrs/ADR-account-deletion-lifecycle-v1.md` |
 | Body Scans product/data | `docs/10_product/specs/BODY_SCANS_PRODUCT_AND_DATA_V1.md` |
-| Plan status | **CORRECTED / PENDING INDEPENDENT GOVERNANCE RE-GATE V2** |
+| Plan status | **PASS** |
 | Governance planning | **CURRENT** |
-| Governance/legal/privacy closure work | **BLOCKED pending re-gate** |
+| Governance/legal/privacy closure work | **CURRENT** (LC/EC determinations still open) |
 | Governance closure | **NOT COMPLETE** |
 | Execution | **NOT AUTHORIZED** |
 
@@ -795,15 +795,15 @@ This protocol **does not**:
 
 | Item | Status |
 |------|--------|
-| Governance / privacy / ethics protocol | **CORRECTED / PENDING INDEPENDENT GOVERNANCE RE-GATE V2** |
-| Governance/legal/privacy closure work | **BLOCKED pending re-gate** |
+| Governance / privacy / ethics protocol | **PASS** |
+| Governance/legal/privacy closure work | **CURRENT** (LC/EC determinations still open) |
 | Governance closure | **NOT COMPLETE** |
 | Counsel determinations | **PENDING** (LC-01…LC-13) |
 | Ethics determinations | **PENDING** (EC-01…EC-09) |
 | Security controls implementation | **NOT STARTED** |
 | Protocol freeze | **NOT COMPLETE / DRAFTING ONLY** |
 | Tier B methodology | **PASS** |
-| Evidence review | **Separate authorized workstream** |
+| Evidence review | **Separate; CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |

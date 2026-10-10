@@ -1,7 +1,7 @@
 # Body Composition Dual Score — Tier B Evidence Review V1
 
 **Document type:** Scientific evidence-review authority for Tier B protocol design (docs only)
-**Date:** 2026-10-09
+**Date:** 2026-10-10
 **Branch:** `feat/body-composition-stage3e-body-scans-v1`
 **Kind:** Documentation only. **Does not** authorize Tier B execution, recruit subjects, collect data, change score formulas/weights/knots, change Resolver/Confidence, expose public scores, or deploy.
 
@@ -9,10 +9,14 @@
 |----------|-------|
 | Methodology SHA (PASS) | `d7714df53af661e4492c67074823902197ced0e7` |
 | Wave 1 validation truth-freeze SHA | `74c6529b2ec0a8a91d1c8f246144e6cda07ee4b6` |
+| Historical evidence-package SHA (prior re-gate FAIL) | `754bfd5de80c21525f6ad1143f0e39eeb8448c24` |
 | Authoritative ER catalog | Private Validation Plan §25 (ER-BC-01 … ER-BC-18) |
 | Tier B empirical plan | `docs/10_product/specs/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EMPIRICAL_VALIDATION_PLAN_V1.md` |
 | Companion decision register | `docs/00_truth/phase3/BODY_COMPOSITION_DUAL_SCORE_TIER_B_EVIDENCE_DECISION_REGISTER_V1.md` |
-| Evidence status | **IN REVIEW → COMPLETED FOR INDEPENDENT SCIENTIFIC RE-GATE** |
+| Evidence status | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2** |
+| Scientific evidence accepted | **NO — pending re-gate** |
+| Governance protocol | **PASS** |
+| Governance closure | **NOT COMPLETE** |
 | Tier B execution | **NOT AUTHORIZED** |
 
 > **This review informs protocol design.**
@@ -26,9 +30,13 @@
 | Gate | Status |
 |------|--------|
 | Tier B methodology | **PASS** @ `d7714df5…` |
+| Prior independent scientific evidence re-gate | **FAIL** @ historical package `754bfd5d…` (4 bounded defects) |
+| Evidence package | **CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2** |
+| Scientific evidence accepted | **NO — pending re-gate** |
 | Evidence-review workstream | **CURRENT** (this document) |
+| Governance protocol | **PASS** |
 | Governance/legal/privacy planning | **CURRENT** (closure **NOT COMPLETE**) |
-| Protocol freeze | **DRAFTING ONLY / WAITING ON DEPENDENCIES** |
+| Protocol freeze | **NOT COMPLETE / DRAFTING ONLY** |
 | Tier B execution | **NOT AUTHORIZED** |
 | Clinical validation | **NOT ESTABLISHED** |
 | Consumer integration | **NOT AUTHORIZED** |
@@ -74,7 +82,9 @@ DOI / PMID / stable IDs recorded where available.
 
 ---
 
-## 3. Confidence taxonomy (evidence review only)
+## 3. Dual taxonomies (do not conflate)
+
+### 3.1 Evidence confidence (quality of literature conclusion)
 
 **Not** Oli Assessment Confidence.
 
@@ -85,11 +95,24 @@ DOI / PMID / stable IDs recorded where available.
 | **LOW** | Sparse, heterogeneous, population-mismatched, or methodologically weak quantitative evidence |
 | **INSUFFICIENT** | No credible quantitative basis for Oli protocol parameters; Tier B must generate evidence or defer freeze |
 
+A **HIGH**-confidence conclusion can show with high certainty that an Oli-specific parameter remains unknown; therefore HIGH confidence does **not** automatically mean sufficient for protocol freeze. An **INSUFFICIENT** evidence conclusion may still support a fail-closed protocol decision, but not a positive empirical estimate. Confidence counts and readiness counts need not match.
+
+### 3.2 Protocol readiness (canonical — authoritative for freeze drafting)
+
+| Code | Meaning |
+|------|---------|
+| **SUFFICIENT_FOR_PROTOCOL_FREEZE** | The scoped ER question is sufficiently resolved to freeze the corresponding protocol method, control, or constraint without inventing a material scientific choice. Does **not** imply all empirical numeric values are known. |
+| **PARTIALLY_SUFFICIENT** | The review supports part of the scoped protocol, but one or more material decisions still require additional evidence, an Oli empirical estimate, governance determination, or separate scientific-policy review. |
+| **INSUFFICIENT** | Published evidence does not adequately resolve the scoped protocol question. |
+| **SCIENTIFIC_REVIEW_REQUIRED** | Evidence exposes a model/policy conflict that protocol drafting cannot resolve without a separate governed scientific decision. |
+
+Present-state **Yes / Partial / No** are **not** independent taxonomy values. Display shorthand is permitted only when mapped explicitly to the canonical codes above.
+
 ---
 
 ## 4. Search strategy (shared)
 
-Databases / sources: PubMed/PMC, ISCD Official Positions, WHO STEPS / WHO WC–WHR report, Age & Ageing (EWGSOP2), peer-reviewed DXA methodology journals (*J Clin Densitom*, *MSSE*), meta-analyses of WHtR/FMI/ALMI associations, COSMIN/psychometric SEM–SDC methods, Bonett (2002) ICC sample-size methods.
+Databases / sources: PubMed/PMC, ISCD Official Positions, WHO STEPS Manual (field procedure; version pinned in source ledger), WHO *Waist Circumference and Waist–Hip Ratio* expert-consultation report (2011), Age & Ageing (EWGSOP2), peer-reviewed DXA methodology journals (*J Clin Densitom*, *MSSE*), meta-analyses of WHtR/FMI/ALMI associations, COSMIN/psychometric SEM–SDC methods, Bonett (2002) ICC sample-size methods.
 
 Query families (examples): `DXA body composition precision LSC`; `waist circumference WHO midpoint reliability`; `Hologic Lunar DXA body composition Bland-Altman`; `DXA hydration glycogen exercise meal`; `EWGSOP2 ALMI`; `Bonett ICC sample size`; `WHtR cardiometabolic meta-analysis`.
 
@@ -113,7 +136,7 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **TB studies** | TB-02A/B/C, TB-03, TB-16; secondary TB-04/06/07 |
 | **Search strategy** | ISCD body-composition positions; same-day vs consecutive-day precision; ALM LSC studies |
 | **Evidence hierarchy** | Consensus (ISCD) > methodology RCTs/precision studies > manufacturer |
-| **Strongest sources** | ISCD Official Positions (Adult, Body Composition) — min acceptable precision **3% FM, 2% lean, 2% %fat**; in-vivo precision via 15×3 or 30×2 with repositioning; LSC = 2.77 × RMS-SD; **do not use manufacturer precision alone**. Hind et al. 2018 *J Clin Densitom* (PMID 29754949) best-practice review. Buehring / athletic same-day vs consecutive-day: consecutive-day PE ≈2× FM and ≈3× lean vs same-day (e.g., FM PE 1261 g vs 660 g; lean 2083 g vs 617 g) — DOI 10.1016/j.jocd.2018.10.005. Thaweekul et al. elderly men: ALM CV ≈0.93%, LSC ≈501 g; ALMI LSC ≈0.19 kg/m² (DOI 10.1016/j.jocd.2020.01.001). |
+| **Strongest sources** | ISCD Official Positions (Adult, Body Composition) — min acceptable precision **3% FM, 2% lean, 2% %fat**; in-vivo precision via 15×3 or 30×2 with repositioning; LSC = 2.77 × RMS-SD; **do not use manufacturer precision alone**. Hind et al. 2018 *J Clin Densitom* (PMID 29754949) athlete DXA best-practice review (separate from the consecutive-day PE study). **Zemski et al. 2019** *J Clin Densitom* (DOI 10.1016/j.jocd.2018.10.005; PMID 30454952; authors Adam J. Zemski, Karen Hind, Shelley E. Keating, Elizabeth M. Broad, Damian J. Marsh, Gary J. Slater): resistance-trained athletes (n=21); same-day vs consecutive-day DXA precision error — consecutive-day PE almost twice as large for FM (**1261 g vs 660 g**) and over three times as large for lean (**2083 g vs 617 g**). **Historical note:** an earlier package draft misattributed these PE values to “Buehring”; that attribution is withdrawn — no Buehring paper is retained for these quantities. **Thamnirat et al. 2021** *J Clin Densitom* (DOI 10.1016/j.jocd.2020.04.001; PMID 32446653; first author Kanungnij Thamnirat et al.): nonobese elderly men (n=36); ALM CV **0.93%**, ALM LSC **501 g**; ALMI CV 0.94%, ALMI LSC **0.19**. **Historical note:** an earlier package draft and a prior re-gate note used the surname “Thaweekul” and wrong DOI 10.1016/j.jocd.2020.01.001 (Li et al. sex-steroids QUS paper — **not** used here); both are corrected. |
 | **Population** | Mixed clinic adults; resistance-trained athletes; older men — **not** Oli cohort |
 | **Equipment/protocol** | Whole-body DXA; vendor/software-specific; repositioning required for LSC |
 | **Quantitative findings** | Instrument CV often <2% lean / <3% FM when ISCD-compliant; day-to-day PE materially larger than same-session; regional VAT CV much worse than ALM |
@@ -124,6 +147,7 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Protocol implication** | Freeze TB-02A/B/C designs to ISCD-style RMS-SD/LSC methods; require consecutive-day subset (TB-02C) before longitudinal SDC claims; soft-tissue LSC ≠ BMD LSC |
 | **Unresolved** | Oli-site σ for FM/FFM/ALM/indices/scores; operator share (TB-03) |
 | **Confidence** | **HIGH** (methods); **MODERATE** (typical magnitudes); Oli σ **INSUFFICIENT** until TB |
+| **Protocol readiness** | **PARTIALLY_SUFFICIENT** (methods freezable; Oli σ pending TB-02/03) |
 
 ---
 
@@ -135,19 +159,20 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Question** | What is expected repeatability of WHO-midpoint waist under standardized protocol? |
 | **Why it matters** | H1 / WHtR noise; TB-01; BCV-002 empirical σ |
 | **TB studies** | TB-01; TB-05; Health scoring sensitivity |
-| **Search strategy** | WHO STEPS WC protocol; intra/inter-observer WC reliability; site-comparison studies; measurement-error reviews |
-| **Evidence hierarchy** | WHO standard > reliability studies > site-comparison |
-| **Strongest sources** | WHO *Waist Circumference and Waist–Hip Ratio* / STEPS: midpoint lower rib–iliac crest; end of normal expiration; tape snug not constricting; duplicate; if >1 cm apart, repeat and average. Chen et al. large cohort: WC ICC intra ≈0.987, inter ≈0.988 (narrowest-site variant — protocol differs from WHO). Wang et al. AJCN four-site comparison: ICC ≥0.996 all sites when expert observer. Verweij et al. systematic review (PMC10271771): absolute intra-observer error reported ~0.7–9.2 cm; inter ~1.4–15 cm across heterogeneous protocols — **training critical**. Korean reliability: WHO midpoint variation ≤ iliac-crest NIH site. |
+| **Search strategy** | WHO expert-consultation WC–WHR report; current WHO STEPS field manual waist section; intra/inter-observer WC reliability; site-comparison studies; measurement-error reviews |
+| **Evidence hierarchy** | Named WHO documents (separated) > reliability studies > site-comparison |
+| **Strongest sources** | **SRC-WHO-WC-WHR-2011** (expert consultation, Geneva 8–11 Dec 2008; published 2011; ISBN 9789241501491): §2.5 specifies midpoint between lower margin of last palpable rib and top of iliac crest; end of normal expiration; stretch-resistant tape; **each measurement repeated twice**; if within **1 cm**, average; if difference **exceeds 1 cm**, repeat both. **SRC-WHO-STEPS-2017** (WHO STEPS Manual Part 3 §5, waist at pages 3-5-10…; Last Updated 26 January 2017): same **midpoint** landmark; end of normal expiration; **“Measure only once and record”** — does **not** specify the ≤1 cm duplicate/repeat rule. Chen et al. large cohort: WC ICC intra ≈0.987, inter ≈0.988 (narrowest-site variant — protocol differs from WHO midpoint). Wang et al. AJCN four-site comparison: ICC ≥0.996 all sites when expert observer. Verweij et al. systematic review (PMC10271771): absolute intra-observer error reported ~0.7–9.2 cm; inter ~1.4–15 cm across heterogeneous protocols — **training critical**. |
 | **Population** | Adults; often clinic or survey; sex/BMI modify landmark difficulty |
-| **Equipment/protocol** | Non-stretch tape; standing; respiratory phase; clothing policy |
-| **Quantitative findings** | ICC often >0.98 under trained observers; absolute TE still cm-scale and protocol-dependent; WHO recommends 1 cm duplicate discrepancy rule |
-| **Limitations** | Many “high ICC” studies use non-WHO landmarks; ICC can be high while absolute error still matters near H1 knots |
-| **Generalizability** | Protocol standardization HIGH transferable; absolute σ must be Oli-estimated |
-| **Contradictions** | NIH iliac crest vs WHO midpoint produce different means; do **not** convert unknown→WHO |
-| **Conclusion** | Governed WHO midpoint remains correct standardization target. Literature supports training, duplicates, 1 cm rule, respiratory/posture/clothing logging — not a protocol switch. |
-| **Protocol implication** | Freeze TB-01 to WHO STEPS midpoint; certify measurers; record clothing/posture/expiration/tape tension; use duplicate/triplicate with discrepancy rule; estimate σ_waist empirically |
+| **Equipment/protocol** | Non-stretch / constant-tension tape; standing; respiratory phase; clothing policy |
+| **Quantitative findings** | ICC often >0.98 under trained observers; absolute TE still cm-scale and protocol-dependent; **≤1 cm duplicate rule is from the 2011 expert-consultation report, not from the cited 2017 STEPS field procedure** |
+| **Limitations** | Many “high ICC” studies use non-WHO landmarks; ICC can be high while absolute error still matters near H1 knots; WHO documents are not interchangeable for duplicate QC |
+| **Generalizability** | Landmark standardization HIGH transferable; absolute σ must be Oli-estimated |
+| **Contradictions** | NIH iliac crest vs WHO midpoint produce different means; do **not** convert unknown→WHO; expert-consultation duplicate QC ≠ current cited STEPS single-measure procedure |
+| **Conclusion** | Governed WHO-midpoint landmark remains the correct standardization target (**SOURCE_PROTOCOL_DERIVED** from both cited WHO documents for landmark). Duplicate ≤1 cm QC is **SOURCE_PROTOCOL_DERIVED** from SRC-WHO-WC-WHR-2011 only. Trained measurers + protocol logging are **OLI_PRODUCT_POLICY_CANDIDATE** quality controls. Not a landmark-protocol switch. |
+| **Protocol implication** | Freeze TB-01 landmark to governed WHO midpoint (`who_midpoint_v1`); certify measurers; record clothing/posture/expiration/tape tension; apply expert-consultation duplicate/repeat ≤1 cm QC as the Tier B quality-control candidate; estimate σ_waist empirically. Do **not** attribute the ≤1 cm rule to SRC-WHO-STEPS-2017. |
 | **Unresolved** | Oli σ_waist by sex/size; heteroscedasticity near steep H1 regions |
-| **Confidence** | **HIGH** (protocol elements); **MODERATE** (ICC); **LOW–INSUFFICIENT** (absolute Oli σ) |
+| **Confidence** | **HIGH** (landmark + expert-consultation duplicate QC attribution); **MODERATE** (ICC); **LOW–INSUFFICIENT** (absolute Oli σ) |
+| **Protocol readiness** | **PARTIALLY_SUFFICIENT** (protocol elements freezable; Oli σ pending TB-01) |
 
 ---
 
@@ -302,8 +327,9 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Contradictions** | Pre-correction EWGSOP2 women ALMI <6.0 vs corrected <5.5 |
 | **Conclusion** | H3 ALMI-primary aligns with sarcopenia *quantity* domain; must not claim diagnosis. FFMI fallback is related but not identical to ALMI. |
 | **Protocol implication** | TB-09 groups may use strength+ALMI strata as known-groups — label as construct separation, not diagnosis; vendor-stratify ALMI |
-| **Unresolved** | Whether FFMI fallback preserves external meaning vs ALMI |
+| **Unresolved** | Whether FFMI fallback preserves external meaning vs ALMI (empirical/SP track — **outside** the scoped construct-map freeze) |
 | **Confidence** | **HIGH** (mapping); cutoffs as product claims **INSUFFICIENT**/forbidden |
+| **Protocol readiness** | **SUFFICIENT_FOR_PROTOCOL_FREEZE** for the scoped construct map and no-diagnosis claim control. Remaining FFMI-fallback external-meaning question does **not** leave the scoped map partial. |
 
 ---
 
@@ -422,8 +448,9 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Contradictions** | Papers interchangeably label LSC as “clinically significant” |
 | **Conclusion** | Freeze triad separation. Use design-matched SEM/SDC. Never equate SDC with CMC or user meaning. |
 | **Protocol implication** | TB-02A → instrument SEM; TB-02C/TB-06 → longitudinal SDC; report method; SP-02 may present SDC language only after freeze |
-| **Unresolved** | Numeric Oli SDC per construct/score |
+| **Unresolved** | Numeric Oli SDC per construct/score (empirical TB-16 — **outside** method-selection freeze). Clinically meaningful change remains ER-BC-07 (**not** this ER). |
 | **Confidence** | **HIGH** (methods); magnitudes pending TB |
+| **Protocol readiness** | **SUFFICIENT_FOR_PROTOCOL_FREEZE** for **METHOD SELECTION** and triad separation only. **Not** sufficient for a clinical meaningful-change threshold (ER-BC-07) or for numeric Oli SDC values. |
 
 ---
 
@@ -445,9 +472,10 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **Generalizability** | HIGH |
 | **Contradictions** | None |
 | **Conclusion** | TB-10/11 must be labeled association/construct validity, not prediction. |
-| **Protocol implication** | Analysis freeze: forbid AUC-as-product-risk; no individual event prediction endpoints as confirmatory for release |
+| **Protocol implication** | Analysis / claim-control freeze: forbid AUC-as-product-risk; no individual event prediction endpoints as confirmatory for release; Level 0 claim boundary preserved |
 | **Unresolved** | Future dedicated predictive study (out of scope) |
 | **Confidence** | **HIGH** |
+| **Protocol readiness** | **SUFFICIENT_FOR_PROTOCOL_FREEZE** for the named **claim-control / analysis-control** checklist only. Does **not** establish predictive validity, clinical validity, consumer validity, or public release readiness. |
 
 ---
 
@@ -495,7 +523,7 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | **TB studies** | TB-04A–F; TB-02C controls |
 | **Search strategy** | Controlled DXA acute-state experiments |
 | **Evidence hierarchy** | Controlled experiments > observational |
-| **Strongest sources** | Hydration/exercise: ≈2.5% BM thermal dehydration → LTM ↓ ≈1.7 kg; glycogen supercompensation → LTM ↑ ≈2.5 kg class effects (Toomey/Nana literature family; PDF study “effect of hydration status…”). Bone et al. MSSE: glycogen ± creatine alter DXA lean % (glycogen loading lean +≈2–3%). Nana et al. MSSE 2012: daily activities / non-standardized prep inflate noise; standardize morning, fasted, rested, bladder voided. Meal: small meal effects often <LSC for ALM in elderly men (Thaweekul); larger mixed meals can shift lean/trunk. Menstrual follicular DXA variability generally small vs hydration/glycogen when prep controlled — evidence thinner. Edema/illness: plausible large lean artifact; poorly quantified for healthy Tier B. |
+| **Strongest sources** | Hydration/exercise: ≈2.5% BM thermal dehydration → LTM ↓ ≈1.7 kg; glycogen supercompensation → LTM ↑ ≈2.5 kg class effects (Toomey/Nana literature family; PDF study “effect of hydration status…”). Bone et al. MSSE: glycogen ± creatine alter DXA lean % (glycogen loading lean +≈2–3%). Nana et al. MSSE 2012: daily activities / non-standardized prep inflate noise; standardize morning, fasted, rested, bladder voided. Meal: small meal effects often <LSC for ALM in elderly men (Thamnirat et al. 2021, DOI 10.1016/j.jocd.2020.04.001); larger mixed meals can shift lean/trunk. Menstrual follicular DXA variability generally small vs hydration/glycogen when prep controlled — evidence thinner. Edema/illness: plausible large lean artifact; poorly quantified for healthy Tier B. |
 | **Population** | Mostly young active males; limited female menstrual data |
 | **Equipment/protocol** | Whole-body DXA |
 | **Quantitative findings** | Lean highly hydration/glycogen sensitive (kg-scale); FM less so but not immune; standardize time-of-day |
@@ -567,7 +595,9 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 | Inter-observer | Can match intra if trained; can be large if not | MODERATE |
 | Within-day | Dominated by landmark/tape/breathing | MODERATE |
 | Between-day | Adds biologic + clothing/state | LOW–MODERATE |
-| Protocol | WHO midpoint + duplicate ≤1 cm | HIGH |
+| Landmark | WHO midpoint (expert consultation §2.5 + STEPS 3-5-10) | HIGH |
+| Duplicate ≤1 cm QC | Expert consultation §2.5 only (not cited STEPS 2017) | HIGH |
+| STEPS field procedure (cited) | Single measure (“Measure only once and record”) | HIGH |
 
 ### 6.2 DXA (FM / FFM / ALM / indices)
 
@@ -585,9 +615,17 @@ Each ER uses the required fields. Quantitative values below are **literature ben
 
 ### 7.1 Waist (governed WHO midpoint — do not switch)
 
-**Evidence-backed controls:** landmark training; end-expiration; standing posture; tape parallel/snug; clothing logged/minimized; duplicates with 1 cm rule; measurer certification.
+Oli’s proposed Tier B Waist protocol uses the governed WHO-midpoint landmark and a duplicate-measure quality-control procedure supported by the cited WHO expert-consultation source. The current cited WHO STEPS field procedure is documented separately and is **not** represented as the source of the ≤1 cm duplicate rule.
 
-**Not authorized:** silent conversion of iliac-crest/umbilicus → WHO; changing Oli governed definition because another protocol exists.
+| Protocol element | Classification | Source |
+|------------------|----------------|--------|
+| Midpoint landmark (last palpable rib ↔ iliac crest) | **SOURCE_PROTOCOL_DERIVED** | SRC-WHO-WC-WHR-2011 §2.5; also SRC-WHO-STEPS-2017 3-5-10 |
+| End-expiration / standing / tape snug | **SOURCE_PROTOCOL_DERIVED** | Both cited WHO documents |
+| Duplicate measures; repeat if discrepancy >1 cm; average if ≤1 cm | **SOURCE_PROTOCOL_DERIVED** | SRC-WHO-WC-WHR-2011 §2.5 **only** |
+| Single-measure STEPS field procedure | Documented separately | SRC-WHO-STEPS-2017 (“Measure only once and record”) — **not** Oli Tier B QC source |
+| Measurer certification; clothing/posture/tape logging | **OLI_PRODUCT_POLICY_CANDIDATE** | Reliability literature + Oli QC policy |
+
+**Not authorized:** silent conversion of iliac-crest/umbilicus → WHO midpoint; changing Oli governed definition because another protocol exists; blending STEPS single-measure wording with expert-consultation duplicate QC.
 
 ### 7.2 DXA
 
@@ -717,7 +755,8 @@ Do **not** build consumer UI.
 |----------|----------|----------|---------------|---------------|--------|----------------------|
 | Same-day vs consecutive-day DXA LSC | ISCD same-day precision method | Athletic consecutive-day PE ≫ same-day | Biological variation omitted in same-day | Longitudinal claims | **Unresolved for Oli** | Require TB-02C before longitudinal SDC |
 | Small meal vs strict fast | Elderly ALM meal <LSC | Athletic Nana fasted protocol | Population/prep stringency | TB-04C | Open | Prefer fast; meal as sensitivity |
-| WC landmark reliability | WHO midpoint standard | NIH iliac crest / narrowest site high ICC | Different constructs | H1 | Open | Keep WHO; never convert |
+| WC landmark reliability | WHO midpoint (expert consultation + STEPS) | NIH iliac crest / narrowest site high ICC | Different constructs | H1 | Open | Keep WHO midpoint; never convert |
+| WC duplicate QC | Expert consultation ≤1 cm duplicate/repeat | Cited STEPS 2017 single measure | Different WHO documents | TB-01 QC | **Resolved in attribution** | Attribute ≤1 cm rule to SRC-WHO-WC-WHR-2011 only |
 | GE vs Hologic bias sign | Park Lunar ALM higher | Some OsteoLaus Horizon FM/LM higher patterns | Device pair/software/population | TB-08 | Open | Estimate locally; don’t import equations blindly |
 | WHtR vs BMI superior | Multiple metas favor WHtR | Some adjusted models prefer BMI/WC | Confounding/adjustment | H1 external | Open | Association ≠ formula change |
 | EWGSOP2 women ALMI cutoff | Early table <6.0 | Correction <5.5 | Erratum | TB-09 labels | Resolved in lit | Use corrected values if referenced; still not Oli diagnosis |
@@ -725,28 +764,44 @@ Do **not** build consumer UI.
 
 ---
 
-## 17. Protocol-input table
+## 17. Protocol-input / readiness table (canonical)
 
-| ER-BC | Evidence conclusion | Confidence | TB affected | Resolved for protocol design | Still unresolved | Ready to freeze? |
-|-------|---------------------|------------|-------------|--------------------------------|------------------|------------------|
-| 01 | Use ISCD BC precision methods; separate session/reposition/day | HIGH methods | 02/03/16 | Design + analysis class | Oli σ | **Partial** |
-| 02 | Standardize WHO midpoint; train; duplicate 1 cm | HIGH protocol | 01 | Protocol elements | Oli σ_waist | **Partial** |
-| 03 | Candidate Health externals exist; don’t freeze endpoints | MODERATE | 10/12B/13B | Candidate families | Primary endpoint | **Partial** |
-| 04 | Grip + function candidates; no sport prediction | MODERATE | 11 | Candidate families | Primary endpoint | **Partial** |
-| 05 | Non-interchangeable vendors; BA required | HIGH | 07/08 | Non-pooling default | Local LoA | **Partial** (design YES) |
-| 06 | Shared Height propagation mandatory | HIGH methods | 05 | Shared Height rule | Σ_error | **Partial** |
-| 07 | No transferable CMC | INSUFFICIENT | 16 / later | Triad separation | All CMC | **No** |
-| 08 | ALMI maps to sarcopenia quantity domain; no diagnosis | HIGH map | 09 | Construct map | FFMI fallback meaning | **Partial** |
-| 09 | Longer-term associations exist; not prediction | MODERATE | 10 | Claim boundary | Calibration | **Partial** |
-| 10 | Age trends exist; no auto age-correct | MODERATE | 12A/B | Empirical test plan | Inequity action | **Partial** |
-| 11 | Sex differences ≠ fairness proof | HIGH/LOW | 13A/B | Empirical test plan | Fairness thresholds | **Partial** |
-| 12 | Ethnicity claims limited; legal gate | LOW | 14 | Core intersections | Ethnicity confirmatory? | **Partial** |
-| 13 | SEM/SDC methods clear; ≠ CMC | HIGH | 16/02/06 | Method freeze possible | Numeric SDC | **Partial** |
-| 14 | Association ≠ prediction checklist | HIGH | 10/11 | Claim controls | — | **Yes** (controls) |
-| 15 | Re-id principles clear; Oli sign-off pending governance | MODERATE | all | Checklist | Legal sign-off | **Partial** |
-| 16 | Lean acute artifacts real; prioritize A–D | HIGH–LOW by factor | 04 | Control set | Oli deltas | **Partial** |
-| 17 | Error covariance must be prospective | INSUFFICIENT | 05 | Need TB-05 | All ρ_error | **No** (magnitudes) |
-| 18 | Misconception classes clear; rates unknown | MODERATE | 17 / SP-02 | Probe classes | Rate thresholds | **Partial** |
+Canonical protocol-readiness vocabulary only. Evidence-confidence column remains the separate §3.1 taxonomy.
+
+| ER-BC | Evidence conclusion | Evidence confidence | TB affected | Scoped protocol decision ready | Still unresolved (outside or deferred) | Protocol readiness |
+|-------|---------------------|---------------------|-------------|--------------------------------|----------------------------------------|--------------------|
+| 01 | Use ISCD BC precision methods; separate session/reposition/day | HIGH methods / MODERATE magnitudes | 02/03/16 | Design + analysis class | Oli σ | **PARTIALLY_SUFFICIENT** |
+| 02 | WHO midpoint + expert-consultation duplicate QC; STEPS documented separately | HIGH protocol / LOW–INSUFFICIENT σ | 01 | Landmark + QC elements | Oli σ_waist | **PARTIALLY_SUFFICIENT** |
+| 03 | Candidate Health externals exist; don’t freeze endpoints | MODERATE | 10/12B/13B | Candidate families | Primary endpoint | **PARTIALLY_SUFFICIENT** |
+| 04 | Grip + function candidates; no sport prediction | MODERATE | 11 | Candidate families | Primary endpoint | **PARTIALLY_SUFFICIENT** |
+| 05 | Non-interchangeable vendors; BA required | HIGH non-interchangeability | 07/08 | Non-pooling default + BA design | Local LoA | **PARTIALLY_SUFFICIENT** |
+| 06 | Shared Height propagation mandatory | HIGH methods / INSUFFICIENT Σ | 05 | Shared Height rule | Σ_error | **PARTIALLY_SUFFICIENT** |
+| 07 | No transferable CMC | INSUFFICIENT | 16 / later | Triad separation preserved as negative finding | All CMC | **INSUFFICIENT** |
+| 08 | ALMI maps to sarcopenia quantity domain; no diagnosis | HIGH mapping | 09 | Construct map + no-diagnosis control | FFMI fallback external meaning (empirical/SP) | **SUFFICIENT_FOR_PROTOCOL_FREEZE** |
+| 09 | Longer-term associations exist; not prediction | MODERATE | 10 | Claim boundary | Calibration | **PARTIALLY_SUFFICIENT** |
+| 10 | Age trends exist; no auto age-correct | MODERATE | 12A/B | Empirical test plan | Inequity action (may escalate later) | **PARTIALLY_SUFFICIENT** |
+| 11 | Sex differences ≠ fairness proof | HIGH diffs / LOW fairness proof | 13A/B | Empirical test plan | Fairness thresholds | **PARTIALLY_SUFFICIENT** |
+| 12 | Ethnicity claims limited; legal gate | LOW biologic universals | 14 | Core intersections | Ethnicity confirmatory? | **PARTIALLY_SUFFICIENT** |
+| 13 | SEM/SDC methods clear; ≠ CMC / ≠ user meaning | HIGH methods | 16/02/06 | Method + triad separation freeze | Numeric SDC (TB-16); CMC (ER-BC-07) | **SUFFICIENT_FOR_PROTOCOL_FREEZE** |
+| 14 | Association ≠ prediction checklist | HIGH | 10/11 | Claim / analysis controls | Future predictive study | **SUFFICIENT_FOR_PROTOCOL_FREEZE** |
+| 15 | Re-id principles clear; Oli sign-off pending governance | MODERATE principles | all | Scientific checklist | Legal/governance sign-off | **PARTIALLY_SUFFICIENT** |
+| 16 | Lean acute artifacts real; prioritize A–D | HIGH–LOW by factor | 04 | Control set A–D | Oli deltas | **PARTIALLY_SUFFICIENT** |
+| 17 | Error covariance must be prospective | INSUFFICIENT magnitudes | 05 | Need TB-05 (fail-closed) | All ρ_error | **INSUFFICIENT** |
+| 18 | Misconception classes clear; rates unknown | MODERATE | 17 / SP-02 | Probe classes | Rate thresholds | **PARTIALLY_SUFFICIENT** |
+
+### 17.1 Readiness counts (must equal 18)
+
+| Protocol readiness | N | ER IDs |
+|--------------------|--:|--------|
+| SUFFICIENT_FOR_PROTOCOL_FREEZE | **3** | 08, 13, 14 |
+| PARTIALLY_SUFFICIENT | **13** | 01, 02, 03, 04, 05, 06, 09, 10, 11, 12, 15, 16, 18 |
+| INSUFFICIENT | **2** | 07, 17 |
+| SCIENTIFIC_REVIEW_REQUIRED | **0** | — (ER-BC-10 may escalate after TB-12B; not a present-state status) |
+| **TOTAL** | **18** | ER-BC-01…18 |
+
+### 17.2 Evidence-confidence summary (separate; preserved)
+
+Primary confidence label per ER (methods/mapping where dual-labeled): HIGH methods/mapping for 01, 02, 05, 06, 08, 13, 14; MODERATE for 03, 04, 09, 10, 15, 18; factor-varying HIGH–LOW for 16; INSUFFICIENT for 07, 17; LOW biologic universals for 12 with MODERATE omission-risk note. Source corrections (Zemski attribution; Thamnirat DOI/authors; WHO separation) **do not** change these confidence classifications.
 
 ---
 
@@ -788,16 +843,37 @@ If literature conflicts with current score design, record as **SCIENTIFIC REVIEW
 ## 20. Progress / roadmap snapshot
 
 ```text
-Tier B methodology:     PASS @ d7714df5…
-Evidence review:         CURRENT (this document; pending independent scientific re-gate)
-Governance/legal/privacy: CURRENT (closure NOT COMPLETE)
-Protocol freeze:         DRAFTING ONLY / WAITING ON DEPENDENCIES
-Execution:               NOT AUTHORIZED
+Tier B methodology:              PASS @ d7714df5…
+Prior scientific evidence re-gate: FAIL @ 754bfd5d… (4 bounded defects)
+Evidence package:                CORRECTED / PENDING INDEPENDENT SCIENTIFIC RE-GATE V2
+Scientific evidence accepted:    NO — pending re-gate
+Governance protocol:             PASS
+Governance closure:              NOT COMPLETE
+Protocol freeze:                 NOT COMPLETE / DRAFTING ONLY
+Execution:                       NOT AUTHORIZED
+Clinical validation:             NOT ESTABLISHED
+Consumer integration:            NOT AUTHORIZED
+Public Health / Perf-Support:    NO-GO
 ```
 
 ---
 
-## 21. Explicit non-authorizations
+## 21. Source ledger (corrected — unique DOI/paper associations)
+
+| sourceId | fullTitle / issuing identity | authors / issuingBody | publicationYear / version | journalOrAuthority | doiOrStableId | studyDesign / document type | population | equipmentOrProtocol | quantitativeClaimSupported | limitations | erBcUses |
+|----------|------------------------------|-----------------------|---------------------------|--------------------|---------------|----------------------------|------------|---------------------|----------------------------|-------------|----------|
+| SRC-DXA-ZEMSKI-2019 | Same-Day Vs Consecutive-Day Precision Error of Dual-Energy X-Ray Absorptiometry for Interpreting Body Composition Change in Resistance-Trained Athletes | Adam J. Zemski; Karen Hind; Shelley E. Keating; Elizabeth M. Broad; Damian J. Marsh; Gary J. Slater | 2019 (epub 2018-10-29) | *J Clin Densitom* 22(1):104–114 | DOI 10.1016/j.jocd.2018.10.005; PMID 30454952 | Comparative precision study; same-day vs consecutive-day DXA | Resistance-trained athletes n=21 | Whole-body DXA; ISCD-style PE/LSC | Consecutive-day PE ≫ same-day: FM 1261 g vs 660 g; lean 2083 g vs 617 g | Athletic cohort; not Oli site σ | ER-BC-01 |
+| SRC-DXA-THAMNIRAT-2021 | Precision and Effects of a Small Meal on DXA-Derived Visceral Adipose Tissue, Appendicular Lean Mass, and Other Body Composition Estimates In Nonobese Elderly Men | Kanungnij Thamnirat; Pollawat Taweerat; Sompol Permpongkosol; Natechanok Kamolnate; Arpakorn Kositwattanarerk; Chirawat Utamakul; Wichana Chamroonrat; Chanika Sritara | 2021 (epub 2020-05-03) | *J Clin Densitom* 24(2):308–318 | DOI 10.1016/j.jocd.2020.04.001; PMID 32446653 | Precision + small-meal effect; repositioned repeats | Nonobese men ≥60 y, n=36 | Whole-body DXA; overnight fast then standardized meal | ALM CV 0.93%, LSC 501 g; ALMI CV 0.94%, LSC 0.19; small-meal Δ ALM/ALMI < LSC | Elderly male clinic cohort; not Oli σ | ER-BC-01; ER-BC-16 |
+| SRC-DXA-HIND-2018 | Interpretation of Dual-Energy X-Ray Absorptiometry-Derived Body Composition Change in Athletes: A Review and Recommendations for Best Practice | Hind et al. | 2018 | *J Clin Densitom* | PMID 29754949 | Best-practice review | Athletes (review) | DXA BC interpretation | LSC ≠ worthwhile/clinical change framing | Review, not Oli σ | ER-BC-01; ER-BC-07; ER-BC-18 |
+| SRC-WHO-WC-WHR-2011 | Waist circumference and waist–hip ratio: report of a WHO expert consultation, Geneva, 8–11 December 2008 | World Health Organization | 2011 | WHO | ISBN 9789241501491; https://www.who.int/publications/i/item/9789241501491 | Expert consultation report | Global guidance | §2.5 measurement protocol | Midpoint landmark; duplicate measures; average if ≤1 cm; repeat both if >1 cm | Not a field-survey ops manual; not STEPS single-measure procedure | ER-BC-02 |
+| SRC-WHO-STEPS-2017 | WHO STEPwise approach to NCD risk factor surveillance — STEPS Manual, Part 3 Section 5 (Physical Measurements), Measuring Waist Circumference | World Health Organization | Last Updated 26 January 2017 (cited package version) | WHO STEPS Manual | Official STEPS manuals portal / Part 3 §5 pages 3-5-10… | Field procedure manual | STEPS surveys | Midpoint landmark; constant-tension tape; end-expiration | Midpoint procedure; **measure only once and record** | Does **not** state ≤1 cm duplicate/repeat rule in this cited version | ER-BC-02 |
+| SRC-NOT-USED-LI-2020 | Associations of Sex Steroids With Changes in Calcaneal Quantitative Ultrasound Measurements: A Longitudinal Study in Chinese Male Adolescents | Li et al. | 2020 | *J Clin Densitom* | DOI 10.1016/j.jocd.2020.01.001 | Longitudinal QUS / sex-steroids | Chinese male adolescents | Calcaneal QUS | **Not used** for ALM/DXA precision claims | Wrong prior DOI attachment to Thamnirat ALM findings — retained only to document exclusion | — (excluded) |
+
+**Ledger integrity rules:** one sourceId ↔ one paper/document; one DOI ↔ one paper identity; Buehring is **not** a retained source for Zemski PE values; DOI 10.1016/j.jocd.2020.01.001 is **not** attached to ALM precision findings.
+
+---
+
+## 22. Explicit non-authorizations
 
 This evidence review does **not**:
 
@@ -809,6 +885,7 @@ This evidence review does **not**:
 - freeze numeric stop/go thresholds or sample sizes
 - authorize clinical or consumer claims
 - authorize public scores or deployment
+- claim that scientific evidence is accepted (re-gate V2 still required)
 
 ---
 

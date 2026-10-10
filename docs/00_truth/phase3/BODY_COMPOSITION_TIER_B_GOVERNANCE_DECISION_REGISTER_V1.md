@@ -25,8 +25,8 @@
 |--------|--------|
 | Tier B methodology | **PASS** @ `d7714df5…` |
 | Governance / legal / privacy / ethics planning | **CURRENT** |
-| Governance protocol V1 | **CORRECTED / PENDING INDEPENDENT GOVERNANCE RE-GATE V2** |
-| Governance/legal/privacy closure work | **BLOCKED pending re-gate** |
+| Governance protocol V1 | **PASS** |
+| Governance/legal/privacy closure work | **CURRENT** (LC/EC determinations still open) |
 | Governance closure | **NOT COMPLETE** |
 | Counsel determinations | **PENDING** (LC-01…LC-13) |
 | Ethics determinations | **PENDING** (EC-01…EC-09) |
@@ -191,8 +191,8 @@ Wave 1: COMPLETE / TRUTH-FROZEN (synthetic ACCEPTED)
 Tier B methodology: PASS @ d7714df5…
         ↓
 Evidence review: separate authorized workstream
-Governance protocol: CORRECTED / PENDING INDEPENDENT GOVERNANCE RE-GATE V2
-Governance/legal/privacy closure work: BLOCKED pending re-gate
+Governance protocol: PASS
+Governance/legal/privacy closure work: CURRENT (LC/EC determinations still open)
         ↓
 Governance closure: NOT COMPLETE
         ↓
@@ -205,8 +205,8 @@ only then: execution authorization
 |-----------|--------|
 | Tier B methodology | **PASS** |
 | Governance planning | **CURRENT** |
-| Governance protocol | **CORRECTED / PENDING INDEPENDENT GOVERNANCE RE-GATE V2** |
-| Closure work | **BLOCKED pending re-gate** |
+| Governance protocol | **PASS** |
+| Closure work | **CURRENT** (LC/EC determinations still open) |
 | Governance closure | **NOT COMPLETE** |
 | Protocol freeze | **NOT COMPLETE** |
 | Tier B execution | **NOT AUTHORIZED** |
@@ -215,23 +215,18 @@ only then: execution authorization
 
 ## 10. Next gate
 
-Open a **new** independent governance reviewer (Re-Gate V2) against the correction SHA.
+Governance protocol is **PASS**. Governance **closure** remains **NOT COMPLETE**.
 
-Re-Gate V2 focus:
+Next closure work (not a protocol re-gate):
 
-- canonical A–J consent taxonomy
-- optional future contact outside the taxonomy
-- A–J / A–K consistency (A–K must be absent from present-state wording)
-- corrected section references
-- LC-13
-- EC-09
-- complementary suppression
-- no linkage tables in Git
-- preserved governance architecture
-- no legal/ethics/security claim inflation
+- counsel determinations LC-01…LC-13
+- ethics determinations EC-01…EC-09
+- consent / optional-future-contact freezes
+- storage, encryption, retention, small-cell, re-id, security bindings
+
+Evidence track (separate): independent scientific evidence re-gate V2 against the corrected evidence package.
 
 **Do not execute Tier B.**
-**Do not engage counsel against a conflicting schema.**
 **Public Health / Public Performance-Supporting remain NO-GO.**
 
 ---
